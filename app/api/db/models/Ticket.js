@@ -4,7 +4,11 @@ export class Ticket {
   static async getAll() {
     const db = getPool();
     const [rows] = await db.execute('SELECT * FROM tickets');
-    return rows;
+    return rows.map(r => ({
+      ...r,
+      notes: r.resolutionRemarks,
+      employeeId: r.raisedBy
+    }));
   }
 
   static async saveAll(tickets) {
@@ -16,7 +20,22 @@ export class Ticket {
       for (const t of tickets) {
         await conn.execute(
           `INSERT INTO tickets (id, title, description, category, severity, status, systemId, systemNumber, raisedBy, raisedByName, createdAt, startedAt, resolvedAt, resolutionRemarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [t.id, t.title, t.description, t.category, t.severity, t.status, t.systemId, t.systemNumber, t.raisedBy, t.raisedByName, t.createdAt, t.startedAt || null, t.resolvedAt || null, t.resolutionRemarks || null]
+          [
+            t.id || null,
+            t.title || t.category || 'Support Request',
+            t.description || null,
+            t.category || null,
+            t.severity || null,
+            t.status || 'Open',
+            t.systemId || null,
+            t.systemNumber || null,
+            t.raisedBy || t.employeeId || null,
+            t.raisedByName || null,
+            t.createdAt || null,
+            t.startedAt || null,
+            t.resolvedAt || null,
+            t.resolutionRemarks || t.notes || null
+          ]
         );
       }
       await conn.commit();

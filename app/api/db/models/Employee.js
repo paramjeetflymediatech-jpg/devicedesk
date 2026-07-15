@@ -16,7 +16,15 @@ export class Employee {
       for (const e of employees) {
         await conn.execute(
           `INSERT INTO employees (id, name, email, password, role, department, ticketLimit) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [e.id, e.name, e.email, e.password, e.role, e.department, e.ticketLimit || 5]
+          [
+            e.id || null,
+            e.name || null,
+            e.email || null,
+            e.password || null,
+            e.role || null,
+            e.department || null,
+            e.ticketLimit || 5
+          ]
         );
       }
       await conn.commit();

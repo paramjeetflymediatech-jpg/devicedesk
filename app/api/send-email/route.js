@@ -12,7 +12,6 @@ export async function POST(request) {
     }
 
     // Determine SMTP configuration (use env variables if defined, otherwise Ethereal mock)
-    let transporter;
     const host = process.env.SMTP_HOST;
     const port = process.env.SMTP_PORT || 587;
     const user = process.env.SMTP_USER;
@@ -20,15 +19,30 @@ export async function POST(request) {
 
     let isEthereal = false;
     let testMessageUrl = null;
+    let transporter;
 
-    if (host && user && pass) {
-      transporter = nodemailer.createTransport({
-        host,
-        port: Number(port),
-        secure: Number(port) === 465,
-        auth: { user, pass }
-      });
-    } else {
+    const mailOptions = {
+      from: user || '"DeviceDesk Support" <noreply@devicedesk.com>',
+      to,
+      subject,
+      text: body
+    };
+
+    let info;
+    try {
+      if (host && user && pass) {
+        transporter = nodemailer.createTransport({
+          host,
+          port: Number(port),
+          secure: Number(port) === 465,
+          auth: { user, pass }
+        });
+        info = await transporter.sendMail(mailOptions);
+      } else {
+        throw new Error('No custom SMTP configured');
+      }
+    } catch (smtpError) {
+      console.warn('Custom SMTP dispatch failed, falling back to Ethereal mock email:', smtpError.message);
       isEthereal = true;
       // Auto-generate test SMTP service account from ethereal.email
       const testAccount = await nodemailer.createTestAccount();
@@ -41,16 +55,13 @@ export async function POST(request) {
           pass: testAccount.pass
         }
       });
+      info = await transporter.sendMail({
+        from: `"DeviceDesk Support" <${testAccount.user}>`,
+        to,
+        subject,
+        text: body
+      });
     }
-
-    const mailOptions = {
-      from: user || '"DeviceDesk Support" <noreply@devicedesk.com>',
-      to,
-      subject,
-      text: body
-    };
-
-    const info = await transporter.sendMail(mailOptions);
 
     if (isEthereal) {
       testMessageUrl = nodemailer.getTestMessageUrl(info);

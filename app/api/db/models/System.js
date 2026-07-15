@@ -15,8 +15,20 @@ export class System {
       await conn.execute('DELETE FROM systems');
       for (const s of systems) {
         await conn.execute(
-          `INSERT INTO systems (id, systemNumber, cpu, ram, storage, os, model, assignedTo, status, remarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [s.id, s.systemNumber, s.cpu, s.ram, s.storage, s.os, s.model, s.assignedTo || null, s.status, s.remarks || null]
+          `INSERT INTO systems (id, systemNumber, cpu, gpu, ram, storage, os, model, assignedTo, status, remarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            s.id || null,
+            s.systemNumber || null,
+            s.cpu || null,
+            s.gpu || null,
+            s.ram || null,
+            s.storage || null,
+            s.os || null,
+            s.model || null,
+            s.assignedTo || null,
+            s.status || 'Active',
+            s.remarks || null
+          ]
         );
       }
       await conn.commit();

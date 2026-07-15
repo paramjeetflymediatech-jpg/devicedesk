@@ -16,7 +16,15 @@ export class AssignmentHistory {
       for (const h of history) {
         await conn.execute(
           `INSERT INTO assignment_history (id, employeeId, systemId, systemNumber, action, timestamp, assignedBy) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [h.id, h.employeeId, h.systemId, h.systemNumber, h.action, h.timestamp, h.assignedBy || 'System']
+          [
+            h.id || null,
+            h.employeeId || null,
+            h.systemId || null,
+            h.systemNumber || null,
+            h.action || null,
+            h.timestamp || null,
+            h.assignedBy || 'System'
+          ]
         );
       }
       await conn.commit();

@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS systems (
   id VARCHAR(50) PRIMARY KEY,
   systemNumber VARCHAR(50) UNIQUE,
   cpu VARCHAR(100),
+  gpu VARCHAR(100),
   ram VARCHAR(50),
   storage VARCHAR(50),
   os VARCHAR(100),

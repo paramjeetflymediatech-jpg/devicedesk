@@ -12,7 +12,8 @@ import {
   addSystem,
   updateSystem,
   getTicketTimings,
-  getStats,
+  calculateDuration,
+  formatDuration,
   createTicket,
   startTicketWork,
   resolveTicket,
@@ -22,7 +23,8 @@ import {
   updateEmployee,
   getDepartments,
   addDepartment,
-  deleteDepartment
+  deleteDepartment,
+  getAssignmentHistory
 } from "./store.js";
 
 export default function Home() {
@@ -48,6 +50,9 @@ export default function Home() {
   const [employees, setEmployees] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedHistorySys, setSelectedHistorySys] = useState(null);
   
   // App Config States
   const [soundOn, setSoundOn] = useState(true);
@@ -59,6 +64,8 @@ export default function Home() {
   
   // Filter States
   const [sysSearch, setSysSearch] = useState("");
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
   const [sysFilterOS, setSysFilterOS] = useState("all");
   const [sysFilterStatus, setSysFilterStatus] = useState("all");
   
@@ -87,7 +94,7 @@ export default function Home() {
   
   // Modal Fields
   const [editingSys, setEditingSys] = useState({
-    id: "", systemNumber: "", cpu: "", ram: "", storage: "", os: "", model: "", assignedTo: "", remarks: "", status: "Active"
+    id: "", systemNumber: "", cpu: "", gpu: "", ram: "", storage: "", os: "", model: "", assignedTo: "", remarks: "", status: "Active"
   });
   const [showEditEmpModal, setShowEditEmpModal] = useState(false);
   const [editingEmp, setEditingEmp] = useState({
@@ -123,6 +130,7 @@ export default function Home() {
   
   // Audio Context Ref
   const audioCtxRef = useRef(null);
+  const prevTicketsRef = useRef([]);
 
   // Load Initial Database Data
   useEffect(() => {
@@ -130,6 +138,7 @@ export default function Home() {
       setSystems(getSystems());
       setEmployees(getEmployees());
       setTickets(getTickets());
+      setAssignmentHistory(getAssignmentHistory());
       const depts = getDepartments();
       setDepartments(depts);
       if (depts.length > 0) {
@@ -140,9 +149,15 @@ export default function Home() {
     loadData();
     setSoundOn(isSoundEnabled());
 
+    const enableAudio = () => {
+      initAudio();
+    };
+    window.addEventListener('click', enableAudio, { once: true });
+
     window.addEventListener('devicedesk_db_synced', loadData);
     return () => {
       window.removeEventListener('devicedesk_db_synced', loadData);
+      window.removeEventListener('click', enableAudio);
     };
   }, []);
 
@@ -189,13 +204,39 @@ export default function Home() {
   };
 
   const triggerNewTicketBeep = () => {
-    playBeep(880, 0.1, "sine");
-    setTimeout(() => playBeep(1100, 0.15, "sine"), 100);
+    if (!soundOn) return;
+    try {
+      const audio = new Audio("/work_alert.mp3");
+      audio.volume = 0.5;
+      audio.play().catch(e => {
+        console.warn("Audio playback of work_alert.mp3 failed:", e);
+        // Fallback to synth beep
+        playBeep(880, 0.1, "sine");
+        setTimeout(() => playBeep(1100, 0.15, "sine"), 100);
+      });
+    } catch (err) {
+      // Fallback to synth beep
+      playBeep(880, 0.1, "sine");
+      setTimeout(() => playBeep(1100, 0.15, "sine"), 100);
+    }
   };
 
   const triggerEscalationBeep = () => {
-    playBeep(440, 0.12, "sawtooth");
-    setTimeout(() => playBeep(440, 0.12, "sawtooth"), 180);
+    if (!soundOn) return;
+    try {
+      const audio = new Audio("/work_alert.mp3");
+      audio.volume = 0.5;
+      audio.play().catch(e => {
+        console.warn("Audio playback of escalation alert failed:", e);
+        // Fallback to synth beep
+        playBeep(440, 0.12, "sawtooth");
+        setTimeout(() => playBeep(440, 0.12, "sawtooth"), 180);
+      });
+    } catch (err) {
+      // Fallback to synth beep
+      playBeep(440, 0.12, "sawtooth");
+      setTimeout(() => playBeep(440, 0.12, "sawtooth"), 180);
+    }
   };
 
   // Background timer loop for ticket escalation sound notifications
@@ -230,6 +271,27 @@ export default function Home() {
     
     return () => clearInterval(checker);
   }, [tickets, userRole, fastTestMode, soundOn]);
+
+  // Watch for new tickets and trigger a beep sound for the admin
+  useEffect(() => {
+    if (userRole !== "admin") return;
+    
+    const currentTickets = tickets;
+    const prevTickets = prevTicketsRef.current;
+    
+    if (prevTickets.length > 0) {
+      // Find open tickets in current list that were not in the previous list
+      const newOpenTickets = currentTickets.filter(t => 
+        t.status === "Open" && !prevTickets.some(pt => pt.id === t.id)
+      );
+      
+      if (newOpenTickets.length > 0) {
+        triggerNewTicketBeep();
+      }
+    }
+    
+    prevTicketsRef.current = currentTickets;
+  }, [tickets, userRole]);
 
   // Audio initialize event listener on first click
   const handleBodyClick = () => {
@@ -372,10 +434,80 @@ export default function Home() {
     setPortalCategory("RAM/Speed");
   };
 
+  const handleExportTicketsToExcel = () => {
+    // Define CSV headers
+    const headers = ["Ticket ID", "Category", "Description", "Severity", "Status", "System ID", "System Number", "Raised By", "Employee Name", "Created At", "Started At", "Resolved At", "Resolution Remarks"];
+    
+    // Convert tickets to CSV rows
+    const csvRows = [
+      headers.join(","),
+      ...tickets.map(t => {
+        const row = [
+          t.id,
+          t.category,
+          t.description ? `"${t.description.replace(/"/g, '""')}"` : "",
+          t.severity,
+          t.status,
+          t.systemId,
+          t.systemNumber,
+          t.raisedBy || t.employeeId,
+          t.raisedByName || "",
+          t.createdAt ? new Date(t.createdAt).toLocaleString() : "",
+          t.startedAt ? new Date(t.startedAt).toLocaleString() : "",
+          t.resolvedAt ? new Date(t.resolvedAt).toLocaleString() : "",
+          t.resolutionRemarks || t.notes ? `"${(t.resolutionRemarks || t.notes).replace(/"/g, '""')}"` : ""
+        ];
+        return row.map(val => val === null || val === undefined ? "" : String(val)).join(",");
+      })
+    ];
+
+    // Create CSV download trigger
+    const csvString = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `devicedesk_ticket_reports_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportHistoryToExcel = () => {
+    const headers = ["Log ID", "Action", "System ID", "System Number", "Employee ID", "Employee Name", "Timestamp", "Assigned By"];
+    const csvRows = [
+      headers.join(","),
+      ...filteredHistory.map(log => {
+        const emp = employees.find(e => e.id === log.employeeId) || { name: "Unknown" };
+        const row = [
+          log.id,
+          log.action,
+          log.systemId,
+          log.systemNumber,
+          log.employeeId,
+          emp.name,
+          log.timestamp ? new Date(log.timestamp).toLocaleString() : "",
+          log.assignedBy || "System"
+        ];
+        return row.map(val => val === null || val === undefined ? "" : String(val)).join(",");
+      })
+    ];
+
+    const csvString = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `devicedesk_transfer_logs_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Systems inventory modal handlers
   const handleOpenAddSysModal = () => {
     setEditingSys({
-      id: "", systemNumber: "", cpu: "", ram: "", storage: "", os: "", model: "", assignedTo: "", remarks: "", status: "Active"
+      id: "", systemNumber: "", cpu: "", gpu: "", ram: "", storage: "", os: "", model: "", assignedTo: "", remarks: "", status: "Active"
     });
     setEmpSearchQuery("");
     setShowSysModal(true);
@@ -386,6 +518,54 @@ export default function Home() {
     const emp = employees.find(e => e.id === sys.assignedTo);
     setEmpSearchQuery(emp ? emp.name : "");
     setShowSysModal(true);
+  };
+
+  const handleOpenHistoryModal = (sys) => {
+    setSelectedHistorySys(sys);
+    setIsHistoryModalOpen(true);
+  };
+
+  const handleDownloadSystemReport = (sys) => {
+    const sysLogs = assignmentHistory.filter(h => h.systemId === sys.id);
+    const sysTickets = tickets.filter(t => t.systemId === sys.id);
+    const csvRows = [];
+    
+    csvRows.push("SYSTEM SPECIFICATION REPORT");
+    csvRows.push(`System Number,${sys.systemNumber}`);
+    csvRows.push(`Model,${sys.model || "N/A"}`);
+    csvRows.push(`Operating System,${sys.os || "N/A"}`);
+    csvRows.push(`CPU,${sys.cpu || "N/A"}`);
+    csvRows.push(`GPU,${sys.gpu || "Integrated"}`);
+    csvRows.push(`RAM,${sys.ram || "N/A"}`);
+    csvRows.push(`Storage,${sys.storage || "N/A"}`);
+    csvRows.push(`Current Status,${sys.status || "Active"}`);
+    csvRows.push("");
+    
+    csvRows.push("ASSIGNMENT HISTORY LOGS");
+    csvRows.push("Log ID,Action,Employee ID,Employee Name,Timestamp,Assigned By");
+    sysLogs.forEach(log => {
+      const emp = employees.find(e => e.id === log.employeeId) || { name: "Unknown" };
+      csvRows.push(`${log.id},${log.action},${log.employeeId},${emp.name},${new Date(log.timestamp).toLocaleString()},${log.assignedBy || "System"}`);
+    });
+    csvRows.push("");
+    
+    csvRows.push("ISSUES AND COMPLAINTS BOARD");
+    csvRows.push("Ticket ID,Category,Description,Severity,Status,Created At,Resolved At,Notes");
+    sysTickets.forEach(t => {
+      const descEscaped = t.description ? `"${t.description.replace(/"/g, '""')}"` : "";
+      const notesEscaped = t.resolutionRemarks || t.notes ? `"${(t.resolutionRemarks || t.notes).replace(/"/g, '""')}"` : "";
+      csvRows.push(`${t.id},${t.category},${descEscaped},${t.severity},${t.status},${t.createdAt ? new Date(t.createdAt).toLocaleString() : ""},${t.resolvedAt ? new Date(t.resolvedAt).toLocaleString() : ""},${notesEscaped}`);
+    });
+    
+    const csvString = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `devicedesk_report_${sys.systemNumber}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleSaveSystemSubmit = (e) => {
@@ -457,7 +637,33 @@ export default function Home() {
       return new Date(a.createdAt) - new Date(b.createdAt);
     });
 
-  const stats = getStats();
+  // Compute stats dynamically based on state to prevent hydration mismatches
+  const totalSystems = systems.length;
+  const activeAssignments = systems.filter(s => s.assignedTo).length;
+  const openTicketsCount = tickets.filter(t => t.status === 'Open').length;
+  const inProgressTicketsCount = tickets.filter(t => t.status === 'In Progress').length;
+  const pendingComplaints = openTicketsCount + inProgressTicketsCount;
+  
+  const resolvedTickets = tickets.filter(t => t.status === 'Resolved');
+  let totalWorkMs = 0;
+  resolvedTickets.forEach(t => {
+    if (t.startedAt && t.resolvedAt) {
+      totalWorkMs += calculateDuration(t.startedAt, t.resolvedAt);
+    }
+  });
+  const avgResolutionTimeStr = resolvedTickets.length > 0
+    ? formatDuration(totalWorkMs / resolvedTickets.length)
+    : 'N/A';
+
+  const stats = {
+    totalSystems,
+    activeAssignments,
+    pendingComplaints,
+    openTickets: openTicketsCount,
+    inProgressTickets: inProgressTicketsCount,
+    resolvedCount: resolvedTickets.length,
+    avgResolutionTimeStr
+  };
   
   // Charts calculator
   const ramDistribution = {};
@@ -472,6 +678,7 @@ export default function Home() {
   const filteredSystems = systems.filter(sys => {
     const matchesSearch = sys.systemNumber.toLowerCase().includes(sysSearch.toLowerCase()) || 
                           sys.cpu.toLowerCase().includes(sysSearch.toLowerCase()) ||
+                          (sys.gpu || "").toLowerCase().includes(sysSearch.toLowerCase()) ||
                           sys.ram.toLowerCase().includes(sysSearch.toLowerCase()) ||
                           sys.model.toLowerCase().includes(sysSearch.toLowerCase());
                           
@@ -525,6 +732,26 @@ export default function Home() {
   const currentEmployees = filteredEmployees.slice(indexOfFirstEmp, indexOfLastEmp);
   const totalEmpPages = Math.ceil(filteredEmployees.length / empPerPage);
 
+  // Filtered & Paginated History logs
+  const filteredHistory = assignmentHistory.filter(log => {
+    const emp = employees.find(e => e.id === log.employeeId);
+    const empName = emp ? emp.name : "unknown";
+    const query = historySearch.toLowerCase();
+    return (
+      log.systemNumber.toLowerCase().includes(query) ||
+      log.action.toLowerCase().includes(query) ||
+      (log.assignedBy || "").toLowerCase().includes(query) ||
+      empName.toLowerCase().includes(query) ||
+      new Date(log.timestamp).toLocaleString().toLowerCase().includes(query)
+    );
+  }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  const historyPerPage = 10;
+  const indexOfLastHistory = historyPage * historyPerPage;
+  const indexOfFirstHistory = indexOfLastHistory - historyPerPage;
+  const currentHistory = filteredHistory.slice(indexOfFirstHistory, indexOfLastHistory);
+  const totalHistoryPages = Math.ceil(filteredHistory.length / historyPerPage);
+
   return (
     <div onClick={handleBodyClick} style={{ display: "contents" }}>
       
@@ -556,6 +783,9 @@ export default function Home() {
                 </li>
                 <li className={`nav-item ${currentView === "departments" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("departments")}><span className="nav-icon">🏢</span> Departments</button>
+                </li>
+                <li className={`nav-item ${currentView === "history" ? "active" : ""}`}>
+                  <button onClick={() => setCurrentView("history")}><span className="nav-icon">📜</span> Transfer Logs</button>
                 </li>
               </>
             )}
@@ -621,6 +851,10 @@ export default function Home() {
               <button className={`mobile-drawer-item ${currentView === "departments" ? "active" : ""}`}
                 onClick={() => { setCurrentView("departments"); setMobileMenuOpen(false); }}>
                 <span>🏢</span> Departments
+              </button>
+              <button className={`mobile-drawer-item ${currentView === "history" ? "active" : ""}`}
+                onClick={() => { setCurrentView("history"); setMobileMenuOpen(false); }}>
+                <span>📜</span> Transfer Logs
               </button>
             </>
           )}
@@ -860,6 +1094,7 @@ export default function Home() {
                       <th>Status</th>
                       <th>Assigned To</th>
                       <th>CPU Spec</th>
+                      <th>GPU</th>
                       <th>RAM</th>
                       <th>Storage</th>
                       <th>OS</th>
@@ -868,7 +1103,7 @@ export default function Home() {
                   </thead>
                   <tbody>
                     {currentSystems.length === 0 ? (
-                      <tr><td colSpan="8" style={{ textAlign: "center", color: "var(--text-muted)" }}>No matching systems found.</td></tr>
+                      <tr><td colSpan="9" style={{ textAlign: "center", color: "var(--text-muted)" }}>No matching systems found.</td></tr>
                     ) : (
                       currentSystems.map(sys => {
                         const emp = employees.find(e => e.id === sys.assignedTo);
@@ -878,11 +1113,15 @@ export default function Home() {
                             <td><span className={`status-tag ${sys.status.toLowerCase().replace(" ", "")}`}>{sys.status}</span></td>
                             <td><strong>{emp ? emp.name : <span style={{ color: "var(--text-muted)" }}>Unassigned</span>}</strong></td>
                             <td>{sys.cpu}</td>
+                            <td><span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{sys.gpu || "—"}</span></td>
                             <td><span className="timer-badge">{sys.ram}</span></td>
                             <td>{sys.storage}</td>
                             <td>{sys.os}</td>
                             <td style={{ textAlign: "right" }}>
-                              <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenEditSysModal(sys)}>Edit</button>
+                               <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
+                                 <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenEditSysModal(sys)}>Edit</button>
+                                 <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenHistoryModal(sys)}>History</button>
+                               </div>
                             </td>
                           </tr>
                         );
@@ -907,11 +1146,13 @@ export default function Home() {
                         </div>
                         <div className="mobile-card-row"><span className="mobile-card-label">Assigned To</span><span className="mobile-card-value">{emp ? emp.name : <span style={{ color: "var(--text-muted)" }}>Unassigned</span>}</span></div>
                         <div className="mobile-card-row"><span className="mobile-card-label">CPU</span><span className="mobile-card-value">{sys.cpu || "—"}</span></div>
+                        <div className="mobile-card-row"><span className="mobile-card-label">GPU</span><span className="mobile-card-value">{sys.gpu || "—"}</span></div>
                         <div className="mobile-card-row"><span className="mobile-card-label">RAM</span><span className="mobile-card-value">{sys.ram || "—"}</span></div>
                         <div className="mobile-card-row"><span className="mobile-card-label">Storage</span><span className="mobile-card-value">{sys.storage || "—"}</span></div>
                         <div className="mobile-card-row"><span className="mobile-card-label">OS</span><span className="mobile-card-value">{sys.os || "—"}</span></div>
-                        <div className="mobile-card-actions">
+                        <div className="mobile-card-actions" style={{ display: "flex", gap: "8px" }}>
                           <button className="btn-action start" onClick={() => handleOpenEditSysModal(sys)}>✏️ Edit</button>
+                          <button className="btn-action resolve" onClick={() => handleOpenHistoryModal(sys)}>📜 History</button>
                         </div>
                       </div>
                     );
@@ -1073,8 +1314,15 @@ export default function Home() {
           {/* ================= VIEW: RAISE RECORDS ================= */}
           {currentView === "tickets" && userRole === "admin" && (
             <div className="page-section active">
-              <div className="section-header">
+              <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <h2 style={{ fontSize: "1.4rem", margin: 0 }}>Raise Records (All Tickets)</h2>
+                <button 
+                  onClick={handleExportTicketsToExcel} 
+                  className="btn-action start" 
+                  style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px" }}
+                >
+                  📥 Export Reports
+                </button>
               </div>
 
               {/* Filters & Search */}
@@ -1334,6 +1582,120 @@ export default function Home() {
             </div>
           )}
 
+          {/* ================= VIEW: SYSTEM HISTORY LOGS ================= */}
+          {currentView === "history" && userRole === "admin" && (
+            <div className="page-section active">
+              <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ fontSize: "1.4rem", margin: 0 }}>📜 System Transfer & Assignment Logs</h2>
+                <button 
+                  onClick={handleExportHistoryToExcel} 
+                  className="btn-action start" 
+                  style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px" }}
+                >
+                  📥 Export Transfer Logs
+                </button>
+              </div>
+
+              {/* Filters */}
+              <div className="filter-row">
+                <input 
+                  type="text" 
+                  className="form-control search-box" 
+                  placeholder="Search Employee, System Number, Action..." 
+                  style={{ flexGrow: 1 }}
+                  value={historySearch}
+                  onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
+                />
+              </div>
+
+              {/* Table — Desktop */}
+              <div className="table-wrapper desktop-only">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Log ID</th>
+                      <th>Action</th>
+                      <th>System Number</th>
+                      <th>Employee Name</th>
+                      <th>Timestamp</th>
+                      <th>Assigned By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentHistory.length === 0 ? (
+                      <tr><td colSpan="6" style={{ textAlign: "center", color: "var(--text-muted)" }}>No matching history logs found.</td></tr>
+                    ) : (
+                      currentHistory.map(log => {
+                        const emp = employees.find(e => e.id === log.employeeId);
+                        return (
+                          <tr key={log.id}>
+                            <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{log.id}</td>
+                            <td>
+                              <span className={`status-tag ${log.action.toLowerCase() === "assigned" ? "resolved" : "open"}`}>
+                                {log.action}
+                              </span>
+                            </td>
+                            <td style={{ fontWeight: 700, color: "var(--accent-cyan)" }}>{log.systemNumber}</td>
+                            <td><strong>{emp ? emp.name : "Unknown"}</strong></td>
+                            <td>{new Date(log.timestamp).toLocaleString()}</td>
+                            <td><span className="timer-badge">{log.assignedBy || "System"}</span></td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Cards — Mobile */}
+              <div className="mobile-card-list mobile-only">
+                {currentHistory.length === 0 ? (
+                  <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem 0" }}>No history logs found.</p>
+                ) : (
+                  currentHistory.map(log => {
+                    const emp = employees.find(e => e.id === log.employeeId);
+                    return (
+                      <div className="mobile-card" key={log.id}>
+                        <div className="mobile-card-header">
+                          <span className="mobile-card-title">🖥️ {log.systemNumber}</span>
+                          <span className={`status-tag ${log.action.toLowerCase() === "assigned" ? "resolved" : "open"}`}>{log.action}</span>
+                        </div>
+                        <div className="mobile-card-row"><span className="mobile-card-label">Employee</span><span className="mobile-card-value">{emp ? emp.name : "Unknown"}</span></div>
+                        <div className="mobile-card-row"><span className="mobile-card-label">Timestamp</span><span className="mobile-card-value">{new Date(log.timestamp).toLocaleString()}</span></div>
+                        <div className="mobile-card-row"><span className="mobile-card-label">Assigned By</span><span className="mobile-card-value">{log.assignedBy || "System"}</span></div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* History Pagination Controls */}
+              {totalHistoryPages > 1 && (
+                <div className="pagination-controls">
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setHistoryPage(prev => Math.max(prev - 1, 1))}
+                    disabled={historyPage === 1}
+                    style={{ padding: "6px 12px", opacity: historyPage === 1 ? 0.5 : 1, cursor: historyPage === 1 ? "not-allowed" : "pointer" }}
+                  >
+                    ← Previous
+                  </button>
+                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                    Page {historyPage} of {totalHistoryPages} (Total {filteredHistory.length} logs)
+                  </span>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setHistoryPage(prev => Math.min(prev + 1, totalHistoryPages))}
+                    disabled={historyPage === totalHistoryPages}
+                    style={{ padding: "6px 12px", opacity: historyPage === totalHistoryPages ? 0.5 : 1, cursor: historyPage === totalHistoryPages ? "not-allowed" : "pointer" }}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ================= VIEW: EMPLOYEE PORTAL ================= */}
           {currentView === "employee-portal" && userRole === "employee" && (
             <div className="page-section active">
@@ -1470,6 +1832,19 @@ export default function Home() {
                   required 
                 />
               </div>
+              <div className="form-group">
+                <label>Graphic Card (GPU)</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  value={editingSys.gpu || ""}
+                  onChange={(e) => setEditingSys({ ...editingSys, gpu: e.target.value })}
+                  placeholder="e.g. NVIDIA RTX 4060 / Integrated" 
+                />
+              </div>
+            </div>
+
+            <div className="modal-form-grid">
               <div className="form-group">
                 <label>RAM Installed</label>
                 <input 
@@ -1862,6 +2237,108 @@ export default function Home() {
           </form>
         </div>
       </div>
+
+      {/* ================= MODAL: SYSTEM HISTORY REPORT ================= */}
+      {isHistoryModalOpen && selectedHistorySys && (
+        <div className="modal-overlay active">
+          <div className="modal-card" style={{ maxWidth: "750px", width: "90%" }}>
+            <div className="modal-header">
+              <h3 className="modal-title">🖥️ System History: {selectedHistorySys.systemNumber}</h3>
+              <button className="modal-close" onClick={() => setIsHistoryModalOpen(false)}>&times;</button>
+            </div>
+            
+            <div className="modal-body" style={{ maxHeight: "65vh", overflowY: "auto", paddingRight: "6px" }}>
+              {/* Spec Overview */}
+              <div className="panel-card" style={{ marginBottom: "15px", background: "rgba(255,255,255,0.02)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <h4 style={{ margin: 0, color: "var(--accent-cyan)", fontSize: "1.1rem" }}>{selectedHistorySys.model || "Generic PC"}</h4>
+                    <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                      CPU: {selectedHistorySys.cpu} | GPU: {selectedHistorySys.gpu || "Integrated"} | RAM: {selectedHistorySys.ram} | Storage: {selectedHistorySys.storage} | OS: {selectedHistorySys.os}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => handleDownloadSystemReport(selectedHistorySys)}
+                    className="btn-action start"
+                    style={{ padding: "8px 14px", background: "var(--accent-cyan)", color: "#000" }}
+                  >
+                    📥 Download Report
+                  </button>
+                </div>
+              </div>
+
+              {/* Assignment logs section */}
+              <div style={{ marginBottom: "20px" }}>
+                <h4 style={{ borderBottom: "1px solid #30363d", paddingBottom: "6px", marginBottom: "10px" }}>Assignment History Logs</h4>
+                {assignmentHistory.filter(h => h.systemId === selectedHistorySys.id).length === 0 ? (
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No assignment logs recorded for this machine.</p>
+                ) : (
+                  <div className="table-wrapper" style={{ maxHeight: "180px", overflowY: "auto" }}>
+                    <table className="custom-table" style={{ fontSize: "0.85rem" }}>
+                      <thead>
+                        <tr>
+                          <th>Action</th>
+                          <th>Employee</th>
+                          <th>Timestamp</th>
+                          <th>Assigned By</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assignmentHistory.filter(h => h.systemId === selectedHistorySys.id).map(log => {
+                          const emp = employees.find(e => e.id === log.employeeId);
+                          return (
+                            <tr key={log.id}>
+                              <td><span className={`status-tag ${log.action.toLowerCase() === "assigned" ? "resolved" : "open"}`}>{log.action}</span></td>
+                              <td><strong>{emp ? emp.name : "Unknown"}</strong></td>
+                              <td>{new Date(log.timestamp).toLocaleString()}</td>
+                              <td>{log.assignedBy || "System"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Related Tickets section */}
+              <div>
+                <h4 style={{ borderBottom: "1px solid #30363d", paddingBottom: "6px", marginBottom: "10px" }}>Related IT Issues & Complaints</h4>
+                {tickets.filter(t => t.systemId === selectedHistorySys.id).length === 0 ? (
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No issues raised for this machine.</p>
+                ) : (
+                  <div className="table-wrapper" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                    <table className="custom-table" style={{ fontSize: "0.85rem" }}>
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Category</th>
+                          <th>Description</th>
+                          <th>Severity</th>
+                          <th>Status</th>
+                          <th>Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tickets.filter(t => t.systemId === selectedHistorySys.id).map(t => (
+                          <tr key={t.id}>
+                            <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{t.id}</td>
+                            <td>{t.category}</td>
+                            <td style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description}</td>
+                            <td><span className={`status-tag ${t.severity.toLowerCase()}`}>{t.severity}</span></td>
+                            <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
+                            <td>{new Date(t.createdAt).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

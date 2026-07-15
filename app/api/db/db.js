@@ -43,6 +43,7 @@ export async function getDbConnection() {
       id VARCHAR(50) PRIMARY KEY,
       systemNumber VARCHAR(50) UNIQUE,
       cpu VARCHAR(100),
+      gpu VARCHAR(100),
       ram VARCHAR(50),
       storage VARCHAR(50),
       os VARCHAR(100),
@@ -84,9 +85,15 @@ export async function getDbConnection() {
     )
   `);
 
-  // Alter assignment_history if column doesn't exist
+  // Alter tables if columns do not exist
   try {
     await db.execute(`ALTER TABLE assignment_history ADD COLUMN assignedBy VARCHAR(100) DEFAULT 'System'`);
+  } catch (err) {
+    // Column already exists, ignore error
+  }
+
+  try {
+    await db.execute(`ALTER TABLE systems ADD COLUMN gpu VARCHAR(100)`);
   } catch (err) {
     // Column already exists, ignore error
   }

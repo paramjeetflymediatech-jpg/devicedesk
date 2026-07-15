@@ -109,8 +109,11 @@ if (typeof window !== 'undefined') {
   dbCache.departments = JSON.parse(localStorage.getItem(DEPARTMENTS_KEY) || '[]');
   dbCache.sent_emails = JSON.parse(localStorage.getItem('devicedesk_sent_emails') || '[]');
 
-  // Launch server sync in background
+  // Launch server sync in background and start 5-second polling interval
   syncWithServer();
+  if (typeof window !== 'undefined') {
+    setInterval(syncWithServer, 5000);
+  }
 }
 
 export function initializeDB(forceReset = false) {
@@ -175,7 +178,8 @@ export function getEmployees() {
 
 export function getTickets() {
   if (typeof window === 'undefined') return initialTickets;
-  return dbCache.tickets || [];
+  const list = dbCache.tickets || [];
+  return [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export function getAssignmentHistory() {
@@ -276,6 +280,7 @@ export function addSystem(system) {
     id: 'sys_' + Date.now(),
     systemNumber: system.systemNumber || `SN${systems.length + 11}`,
     cpu: system.cpu || 'Unknown CPU',
+    gpu: system.gpu || 'Integrated Graphics',
     ram: system.ram || '8 GB',
     storage: system.storage || '256 GB SSD',
     os: system.os || 'Windows 11 Pro',
@@ -417,17 +422,28 @@ export function isAdminCredentials(username, password) {
 
 export function createTicket(employeeId, systemId, category, description, severity) {
   const tickets = getTickets();
+  const systems = getSystems();
+  const employees = getEmployees();
+
+  const system = systems.find(s => s.id === systemId);
+  const employee = employees.find(e => e.id === employeeId);
+
   const newTicket = {
     id: 't_' + Date.now(),
-    systemId,
-    employeeId,
-    category,
+    title: category + ' Request',
     description,
+    category,
     severity: severity || 'Medium', // Low, Medium, High, Critical
     status: 'Open', // Open, In Progress, Resolved
+    systemId,
+    systemNumber: system ? system.systemNumber : null,
+    raisedBy: employeeId,
+    employeeId, // Keep for legacy compatibility
+    raisedByName: employee ? employee.name : 'Unknown',
     createdAt: new Date().toISOString(),
     startedAt: null,
     resolvedAt: null,
+    resolutionRemarks: null,
     notes: ''
   };
   tickets.push(newTicket);

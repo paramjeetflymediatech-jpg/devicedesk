@@ -16,7 +16,13 @@ export class Email {
       for (const e of emails) {
         await conn.execute(
           `INSERT INTO sent_emails (id, to_address, subject, body, timestamp) VALUES (?, ?, ?, ?, ?)`,
-          [e.id, e.to, e.subject, e.body, e.timestamp]
+          [
+            e.id || null,
+            e.to || e.to_address || null,
+            e.subject || null,
+            e.body || null,
+            e.timestamp || null
+          ]
         );
       }
       await conn.commit();
