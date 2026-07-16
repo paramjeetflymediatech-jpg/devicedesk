@@ -18,6 +18,10 @@ export async function POST(request) {
     const existingEmails = new Set(existing.map(e => (e.email || '').trim().toLowerCase()));
     const existingNames  = new Set(existing.map(e => (e.name  || '').trim().toLowerCase()));
 
+    // Fetch existing departments
+    const [existingDeptsRows] = await db.execute('SELECT name FROM departments');
+    const existingDepts = new Set(existingDeptsRows.map(d => d.name.trim().toLowerCase()));
+
     const imported   = [];
     const duplicates = [];
     const errors     = [];
@@ -45,6 +49,17 @@ export async function POST(request) {
       const empRole  = (row.role     || row['Role']     || 'Team Member').toString().trim();
       const empDept  = (row.department || row['Department'] || row['Dept'] || 'General').toString().trim();
       const empLimit = Number(row.ticketLimit || row['Ticket Limit'] || row['ticketlimit'] || 5);
+
+      // Auto-create department if it does not exist
+      if (empDept && !existingDepts.has(empDept.toLowerCase())) {
+        const newDeptId = 'dept_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        await db.execute(
+          `INSERT IGNORE INTO departments (id, name) VALUES (?, ?)`,
+          [newDeptId, empDept]
+        ).catch(err => console.error('Failed to auto-create department:', err));
+        
+        existingDepts.add(empDept.toLowerCase());
+      }
 
       // Hash password with bcrypt and secret key
       const pepper = process.env.PASSWORD_PEPPER || 'devicedesk_secure_pepper_key_2026';
