@@ -77,6 +77,13 @@ export default function Home() {
   const [showAddEmpModal, setShowAddEmpModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
+  // Bulk Import States
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importParsed, setImportParsed] = useState([]);
+  const [importStatus, setImportStatus] = useState(null); // null | 'preview' | 'loading' | 'done'
+  const [importResult, setImportResult] = useState(null);
+  
   // Add Employee Form States
   const [newEmpName, setNewEmpName] = useState("");
   const [newEmpEmail, setNewEmpEmail] = useState("");
@@ -538,6 +545,83 @@ export default function Home() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  /* ---- Bulk Import Systems from Excel/CSV ---- */
+  const handleImportFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImportFile(file);
+    setImportStatus(null);
+    setImportParsed([]);
+    setImportResult(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        // Dynamically import xlsx from the installed package
+        import('xlsx').then(XLSX => {
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+          setImportParsed(jsonRows);
+          setImportStatus('preview');
+        });
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Parse Error', text: 'Could not read file: ' + err.message });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importParsed.length) return;
+    setImportStatus('loading');
+    try {
+      // Normalise column names — support both "System Number" header and camelCase
+      const normalised = importParsed.map(row => ({
+        systemNumber: row['System Number'] || row['systemNumber'] || row['system_number'] || '',
+        model:        row['Model']         || row['model']        || '',
+        os:           row['OS']            || row['os']           || '',
+        cpu:          row['CPU']           || row['cpu']          || '',
+        gpu:          row['GPU']           || row['gpu']          || '',
+        ram:          row['RAM']           || row['ram']          || '',
+        storage:      row['Storage']       || row['storage']      || '',
+        status:       row['Status']        || row['status']       || 'Active',
+        remarks:      row['Remarks']       || row['remarks']      || '',
+      }));
+
+      const res = await fetch('/api/import-systems', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ systems: normalised }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Import failed');
+
+      setImportResult(result);
+      setImportStatus('done');
+
+      // Refresh store
+      const { loadFromServer } = await import('./store.js');
+      if (typeof loadFromServer === 'function') loadFromServer();
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Import Failed', text: err.message });
+      setImportStatus('preview');
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = 'System Number,Model,OS,CPU,GPU,RAM,Storage,Status,Remarks';
+    const sample   = 'PC-001,Dell OptiPlex 7090,Windows 11 Pro,Intel Core i7-11700,Intel UHD 750,16 GB,512 GB SSD,Active,';
+    const csvStr   = '\uFEFF' + headers + '\n' + sample;
+    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'devicedesk_systems_import_template.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
   const handleExportEmployeesToExcel = () => {
@@ -1231,6 +1315,7 @@ export default function Home() {
                 <h2 style={{ fontSize: "1.4rem" }}>Hardware Directory</h2>
                 <div style={{ display: "flex", gap: "10px" }}>
                   <button className="btn-secondary" onClick={handleExportSystemsToExcel}>📥 Export Systems</button>
+                  <button className="btn-secondary" onClick={() => { setShowImportModal(true); setImportStatus(null); setImportFile(null); setImportParsed([]); setImportResult(null); }} style={{ background: 'linear-gradient(135deg,#1a6b3c,#22a05a)', color: '#fff', border: 'none' }}>📤 Import Excel</button>
                   <button className="btn-primary" onClick={handleOpenAddSysModal}>+ Add New System</button>
                 </div>
               </div>
@@ -2600,6 +2685,168 @@ export default function Home() {
           </div>
         </div>
       )}
+
+    {/* ====================== BULK IMPORT SYSTEMS MODAL ====================== */}
+    {showImportModal && (
+      <div style={{
+        position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 9999, padding: "20px"
+      }}>
+        <div style={{
+          background: "var(--bg-secondary)", border: "1px solid var(--glass-border)",
+          borderRadius: "16px", padding: "28px", width: "100%", maxWidth: "760px",
+          boxShadow: "0 24px 60px rgba(0,0,0,0.6)", maxHeight: "90vh", overflowY: "auto"
+        }}>
+          {/* Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            <div>
+              <h2 style={{ fontSize: "1.3rem", fontWeight: "700", color: "var(--text-primary)", margin: 0 }}>📤 Bulk Import Systems</h2>
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginTop: "4px" }}>Upload an Excel (.xlsx) or CSV file to add multiple systems at once</p>
+            </div>
+            <button onClick={() => setShowImportModal(false)}
+              style={{ background: "var(--bg-tertiary)", border: "1px solid var(--glass-border)", color: "var(--text-primary)", borderRadius: "8px", padding: "6px 14px", cursor: "pointer", fontSize: "0.9rem" }}>✕ Close</button>
+          </div>
+
+          {/* Template Download */}
+          <div style={{
+            background: "rgba(34,160,90,0.08)", border: "1px solid rgba(34,160,90,0.3)",
+            borderRadius: "10px", padding: "12px 16px", marginBottom: "18px",
+            display: "flex", alignItems: "center", gap: "12px"
+          }}>
+            <span style={{ fontSize: "1.4rem" }}>📋</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontWeight: "600", color: "var(--text-primary)", fontSize: "0.88rem" }}>Download Import Template</p>
+              <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.78rem" }}>Required columns: System Number, Model, OS, CPU, GPU, RAM, Storage, Status, Remarks</p>
+            </div>
+            <button onClick={handleDownloadTemplate}
+              style={{ background: "linear-gradient(135deg,#1a6b3c,#22a05a)", color: "#fff", border: "none", borderRadius: "8px", padding: "7px 16px", cursor: "pointer", fontWeight: "600", fontSize: "0.82rem", whiteSpace: "nowrap" }}>
+              ⬇ Get Template
+            </button>
+          </div>
+
+          {/* File picker */}
+          {importStatus !== 'done' && (
+            <div style={{
+              border: "2px dashed var(--glass-border)", borderRadius: "10px",
+              padding: "24px", textAlign: "center", marginBottom: "18px",
+              background: "var(--bg-tertiary)", cursor: "pointer"
+            }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "8px" }}>📁</div>
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "12px" }}>
+                {importFile ? `Selected: ${importFile.name}` : 'Choose your Excel (.xlsx) or CSV file'}
+              </p>
+              <label style={{ cursor: "pointer" }}>
+                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleImportFileChange}
+                  style={{ display: "none" }} />
+                <span style={{
+                  background: "var(--accent-cyan)", color: "#0d1117", fontWeight: "700",
+                  borderRadius: "8px", padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer"
+                }}>Browse File</span>
+              </label>
+            </div>
+          )}
+
+          {/* Preview table */}
+          {importStatus === 'preview' && importParsed.length > 0 && (
+            <div style={{ marginBottom: "18px" }}>
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginBottom: "8px" }}>
+                📊 Preview — <strong style={{ color: "var(--text-primary)" }}>{importParsed.length} rows</strong> detected. Review before importing.
+              </p>
+              <div style={{ overflowX: "auto", maxHeight: "220px", overflowY: "auto", borderRadius: "8px", border: "1px solid var(--glass-border)" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.76rem" }}>
+                  <thead>
+                    <tr style={{ background: "var(--bg-tertiary)", position: "sticky", top: 0 }}>
+                      {Object.keys(importParsed[0]).slice(0, 9).map(h => (
+                        <th key={h} style={{ padding: "6px 10px", textAlign: "left", color: "var(--accent-cyan)", borderBottom: "1px solid var(--glass-border)", whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importParsed.slice(0, 20).map((row, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        {Object.values(row).slice(0, 9).map((val, j) => (
+                          <td key={j} style={{ padding: "5px 10px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{String(val)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {importParsed.length > 20 && <p style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "6px" }}>...and {importParsed.length - 20} more rows</p>}
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
+                <button onClick={() => { setImportFile(null); setImportParsed([]); setImportStatus(null); }}
+                  style={{ padding: "9px 18px", borderRadius: "8px", border: "1px solid var(--glass-border)", background: "var(--bg-tertiary)", color: "var(--text-primary)", cursor: "pointer", fontWeight: "600", fontSize: "0.85rem" }}>
+                  ↩ Change File
+                </button>
+                <button onClick={handleConfirmImport}
+                  style={{ padding: "9px 20px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg,#1a6b3c,#22a05a)", color: "#fff", cursor: "pointer", fontWeight: "700", fontSize: "0.85rem" }}>
+                  ✅ Confirm & Import {importParsed.length} Systems
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Loading */}
+          {importStatus === 'loading' && (
+            <div style={{ textAlign: "center", padding: "30px" }}>
+              <div style={{ fontSize: "2rem", marginBottom: "10px" }}>⏳</div>
+              <p style={{ color: "var(--text-secondary)" }}>Importing systems, please wait...</p>
+            </div>
+          )}
+
+          {/* Result */}
+          {importStatus === 'done' && importResult && (
+            <div>
+              <div style={{
+                background: "rgba(34,160,90,0.1)", border: "1px solid rgba(34,160,90,0.4)",
+                borderRadius: "10px", padding: "16px", marginBottom: "14px"
+              }}>
+                <h3 style={{ color: "#22a05a", margin: "0 0 6px 0", fontSize: "1.05rem" }}>✅ Import Complete!</h3>
+                <p style={{ color: "var(--text-primary)", margin: 0, fontSize: "0.88rem" }}>
+                  <strong>{importResult.imported}</strong> systems imported successfully.
+                </p>
+              </div>
+
+              {importResult.duplicates?.length > 0 && (
+                <div style={{
+                  background: "rgba(255,168,0,0.08)", border: "1px solid rgba(255,168,0,0.35)",
+                  borderRadius: "10px", padding: "14px", marginBottom: "10px"
+                }}>
+                  <p style={{ color: "#ffa800", fontWeight: "700", margin: "0 0 6px 0", fontSize: "0.88rem" }}>
+                    ⚠️ {importResult.duplicates.length} Duplicate(s) Skipped
+                  </p>
+                  <p style={{ color: "var(--text-secondary)", fontSize: "0.8rem", margin: 0 }}>
+                    These System Numbers already exist: <em>{importResult.duplicates.join(', ')}</em>
+                  </p>
+                </div>
+              )}
+
+              {importResult.errors?.length > 0 && (
+                <div style={{
+                  background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)",
+                  borderRadius: "10px", padding: "14px", marginBottom: "10px"
+                }}>
+                  <p style={{ color: "#dc2626", fontWeight: "700", margin: "0 0 6px 0", fontSize: "0.88rem" }}>
+                    ❌ {importResult.errors.length} Row(s) Had Errors
+                  </p>
+                  <p style={{ color: "var(--text-secondary)", fontSize: "0.8rem", margin: 0 }}>
+                    Rows missing a System Number were skipped.
+                  </p>
+                </div>
+              )}
+
+              <button onClick={() => { setShowImportModal(false); window.location.reload(); }}
+                style={{ marginTop: "10px", padding: "9px 22px", borderRadius: "8px", border: "none", background: "var(--accent-cyan)", color: "#0d1117", fontWeight: "700", cursor: "pointer" }}>
+                Done — Refresh Page
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
 
     </div>
   );
