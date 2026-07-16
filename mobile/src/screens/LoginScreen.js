@@ -98,14 +98,53 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
     }
 
     setLoading(true);
-    // Sync with server first to make sure we have latest credentials
-    await syncWithServer();
-    setLoading(false);
 
     const cleanUsername = identifier.trim();
+    const baseUrl = getApiUrl();
 
-    // Check admin credentials
+    // 1. Attempt server-side login (to support bcrypt hashes)
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
+
+      const response = await fetch(`${baseUrl}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: cleanUsername, password }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        // Sync cache in background
+        syncWithServer().catch(() => {});
+        setLoading(false);
+
+        sweetAlert({
+          title: 'Success',
+          text: `Welcome back, ${data.user.name}!`,
+          type: 'success',
+          onConfirm: () => {
+            onLoginSuccess(data.user);
+          }
+        });
+        return;
+      } else if (response.status === 401 || response.status === 400) {
+        // Correct server response indicating wrong credentials
+        setLoading(false);
+        sweetAlert({ title: 'Error', text: data.message || 'Invalid credentials.', type: 'error' });
+        return;
+      }
+    } catch (err) {
+      console.log('Server login failed or timed out, trying offline fallback:', err.message);
+    }
+
+    // 2. Offline Fallback (if server is unreachable or offline)
+    // Check admin credentials offline
     if (isAdminCredentials(cleanUsername, password)) {
+      setLoading(false);
       const adminUser = {
         id: 'admin',
         name: 'Administrator',
@@ -114,7 +153,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
       };
       sweetAlert({
         title: 'Success',
-        text: 'Logged in successfully as Administrator.',
+        text: 'Logged in successfully as Administrator (Offline).',
         type: 'success',
         onConfirm: () => {
           onLoginSuccess(adminUser);
@@ -123,10 +162,11 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
       return;
     }
 
-    // Check employee credentials
+    // Check employee credentials offline
     const employee = findEmployeeByCredentials(cleanUsername, password);
+    setLoading(false);
+
     if (employee) {
-      // Check if employee is admin-like by role
       const isEmployeeAdmin = 
         employee.role === 'Admin' || 
         employee.role === 'Management' || 
@@ -142,7 +182,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
 
       sweetAlert({
         title: 'Success',
-        text: `Welcome back, ${employee.name}!`,
+        text: `Welcome back, ${employee.name}! (Offline)`,
         type: 'success',
         onConfirm: () => {
           onLoginSuccess(empUser);
