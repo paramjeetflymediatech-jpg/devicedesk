@@ -110,7 +110,7 @@ export default function ManageEmployees({ currentUser }) {
           }
 
           setParsedEmployees(list);
-          sweetAlert({ title: 'Parsed!', text: `Successfully loaded ${list.length} employees from "${res.name}".`, type: 'success' });
+          sweetAlert({ title: 'Parsed!', text: `Successfully loaded ${list.length} team members from "${res.name}".`, type: 'success' });
         } catch (parseErr) {
           sweetAlert({ title: 'Read Error', text: 'Failed to parse Excel file: ' + parseErr.message, type: 'error' });
         }
@@ -127,7 +127,7 @@ export default function ManageEmployees({ currentUser }) {
 
   const handleImportSubmit = async () => {
     if (parsedEmployees.length === 0) {
-      sweetAlert({ title: 'Error', text: 'No parsed employees to import.', type: 'error' });
+      sweetAlert({ title: 'Error', text: 'No parsed team members to import.', type: 'error' });
       return;
     }
     
@@ -144,7 +144,7 @@ export default function ManageEmployees({ currentUser }) {
       
       if (!res.ok) throw new Error(data.error || 'Import failed');
 
-      let msg = `Successfully imported ${data.imported || 0} employees.`;
+      let msg = `Successfully imported ${data.imported || 0} team members.`;
       if (data.duplicates && data.duplicates.length > 0) {
         msg += `\nSkipped ${data.duplicates.length} duplicates.`;
       }
@@ -210,9 +210,9 @@ export default function ManageEmployees({ currentUser }) {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to add employee');
+      if (!res.ok) throw new Error(data.error || 'Failed to add team member');
 
-      sweetAlert({ title: 'Success', text: `Employee "${name.trim()}" added successfully!`, type: 'success' });
+      sweetAlert({ title: 'Success', text: `Team Member "${name.trim()}" added successfully!`, type: 'success' });
       setModalVisible(false);
 
       // Re-sync store from server
@@ -231,7 +231,7 @@ export default function ManageEmployees({ currentUser }) {
       showCancel: true,
       onConfirm: () => {
         removeEmployee(id);
-        sweetAlert({ title: 'Success', text: 'Employee removed successfully!', type: 'success' });
+        sweetAlert({ title: 'Success', text: 'Team Member removed successfully!', type: 'success' });
       },
     });
   };
@@ -241,7 +241,7 @@ export default function ManageEmployees({ currentUser }) {
       const exportUrl = `${baseUrl}/api/export?type=employees`;
       await Linking.openURL(exportUrl);
     } catch (error) {
-      sweetAlert({ title: 'Error', text: 'Failed to export employees: ' + error.message, type: 'error' });
+      sweetAlert({ title: 'Error', text: 'Failed to export team members: ' + error.message, type: 'error' });
     }
   };
 
@@ -288,7 +288,7 @@ export default function ManageEmployees({ currentUser }) {
       {/* Employees List */}
       <ScrollView contentContainerStyle={styles.listContainer}>
         {filteredEmployees.length === 0 ? (
-          <Text style={styles.emptyText}>No employees found.</Text>
+          <Text style={styles.emptyText}>No team members found.</Text>
         ) : (
           filteredEmployees.map(e => {
             const assignedSys = systems.filter(s => s.assignedTo === e.id);
@@ -354,7 +354,7 @@ export default function ManageEmployees({ currentUser }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Employee</Text>
+              <Text style={styles.modalTitle}>Add New Team Member</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Text style={styles.closeBtnText}>✕</Text>
               </TouchableOpacity>
@@ -435,7 +435,7 @@ export default function ManageEmployees({ currentUser }) {
               />
 
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                <Text style={styles.saveBtnText}>Save Employee</Text>
+                <Text style={styles.saveBtnText}>Save Team Member</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -452,7 +452,7 @@ export default function ManageEmployees({ currentUser }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>📤 Bulk Import Employees</Text>
+              <Text style={styles.modalTitle}>📤 Bulk Import Team Members</Text>
               <TouchableOpacity onPress={() => setImportModalVisible(false)}>
                 <Text style={styles.closeIcon}>✕</Text>
               </TouchableOpacity>
@@ -461,7 +461,7 @@ export default function ManageEmployees({ currentUser }) {
             <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
               <View style={styles.infoCard}>
                 <Text style={styles.infoText}>
-                  📁 Choose an Excel (.xlsx, .xls) or CSV file containing your employee list.
+                  📁 Choose an Excel (.xlsx, .xls) or CSV file containing your team member list.
                 </Text>
                 <Text style={[styles.infoText, { fontWeight: 'bold', marginTop: 5, color: '#58a6ff' }]}>
                   Supported columns: Name*, Email, Password, Role, Department, Ticket Limit
@@ -496,7 +496,7 @@ export default function ManageEmployees({ currentUser }) {
 
                   <TouchableOpacity style={styles.saveBtn} onPress={handleImportSubmit} disabled={loading}>
                     <Text style={styles.saveBtnText}>
-                      {loading ? 'Importing...' : `Confirm Import (${parsedEmployees.length} Employees)`}
+                      {loading ? 'Importing...' : `Confirm Import (${parsedEmployees.length} Team Members)`}
                     </Text>
                   </TouchableOpacity>
                 </View>

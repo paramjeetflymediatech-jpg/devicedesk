@@ -248,7 +248,7 @@ export default function ManageSystems() {
     csvRows.push("");
     
     csvRows.push("ASSIGNMENT HISTORY LOGS");
-    csvRows.push("Log ID,Action,Employee ID,Employee Name,Timestamp,Assigned By");
+    csvRows.push("Log ID,Action,Team Member ID,Team Member Name,Timestamp,Assigned By");
     sysLogs.forEach(log => {
       const emp = employees.find(e => e.id === log.employeeId) || { name: "Unknown" };
       csvRows.push(`${log.id},${log.action},${log.employeeId},${emp.name},${new Date(log.timestamp).toLocaleString()},${log.assignedBy || "System"}`);
@@ -327,7 +327,7 @@ export default function ManageSystems() {
   const handleDelete = (id) => {
     sweetAlert({
       title: 'Confirm Delete',
-      text: 'Are you sure you want to delete this system? This will unassign any active employee.',
+      text: 'Are you sure you want to delete this system? This will unassign any active team member.',
       type: 'warning',
       showCancel: true,
       onConfirm: () => {
@@ -359,7 +359,7 @@ export default function ManageSystems() {
       <View style={styles.searchBarContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by SN, Model, OS or Employee..."
+          placeholder="Search by SN, Model, OS or Team Member..."
           placeholderTextColor="#8b949e"
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -539,7 +539,7 @@ export default function ManageSystems() {
                 ))}
               </View>
 
-              <Text style={styles.label}>Assign to Employee</Text>
+              <Text style={styles.label}>Assign to Team Member</Text>
               <View style={styles.pickerContainer}>
                 {/* Custom Picker simulation for stability */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingVertical: 5 }}>
@@ -647,7 +647,7 @@ export default function ManageSystems() {
                                 {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'N/A'}
                               </Text>
                             </View>
-                            <Text style={styles.miniText}>Employee: {emp.name}</Text>
+                            <Text style={styles.miniText}>Team Member: {emp.name}</Text>
                             <Text style={styles.miniText}>By: {log.assignedBy || 'System'}</Text>
                           </View>
                         );

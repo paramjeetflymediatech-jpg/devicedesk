@@ -86,7 +86,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Username / Employee Name</label>
+            <label>Username / Team Member Name</label>
             <input
               type="text"
               className="form-control"

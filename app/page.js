@@ -1131,7 +1131,7 @@ export default function Home() {
                   <button onClick={() => setCurrentView("systems")}><span className="nav-icon">🖥️</span> Systems Inventory</button>
                 </li>
                 <li className={`nav-item ${currentView === "employees" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("employees")}><span className="nav-icon">👥</span> Employee Directory</button>
+                  <button onClick={() => setCurrentView("employees")}><span className="nav-icon">👥</span> Team Member Directory</button>
                 </li>
                 <li className={`nav-item ${currentView === "tickets" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("tickets")}><span className="nav-icon">📋</span> Raise Records</button>
@@ -1212,7 +1212,7 @@ export default function Home() {
               </button>
               <button className={`mobile-drawer-item ${currentView === "employees" ? "active" : ""}`}
                 onClick={() => { setCurrentView("employees"); setMobileMenuOpen(false); }}>
-                <span>👥</span> Employees
+                <span>👥</span> Team Members
               </button>
               <button className={`mobile-drawer-item ${currentView === "tickets" ? "active" : ""}`}
                 onClick={() => { setCurrentView("tickets"); setMobileMenuOpen(false); }}>
@@ -1751,12 +1751,12 @@ export default function Home() {
           {currentView === "employees" && userRole === "admin" && (
             <div className="page-section active">
               <div className="section-header">
-                <h2 style={{ fontSize: "1.4rem", margin: 0 }}>Employee Assignments</h2>
+                <h2 style={{ fontSize: "1.4rem", margin: 0 }}>Team Member Assignments</h2>
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <button className="btn-secondary" onClick={handleExportEmployeesToExcel}>📥 Export Employees</button>
+                  <button className="btn-secondary" onClick={handleExportEmployeesToExcel}>📥 Export Team Members</button>
                   <button className="btn-secondary" onClick={() => { setShowEmpImportModal(true); setEmpImportStatus(null); setEmpImportFile(null); setEmpImportParsed([]); setEmpImportResult(null); }} style={{ background: 'linear-gradient(135deg,#1a3a6b,#2260d4)', color: '#fff', border: 'none' }}>📤 Import Excel</button>
                   <button className="btn-primary" onClick={() => setShowAddEmpModal(true)}>
-                    + Add Employee
+                    + Add Team Member
                   </button>
                 </div>
               </div>
@@ -1766,7 +1766,7 @@ export default function Home() {
                 <input 
                   type="text" 
                   className="form-control search-box" 
-                  placeholder="Search by Employee name, department, or role..." 
+                  placeholder="Search by Team Member name, department, or role..." 
                   value={empSearch}
                   onChange={(e) => { setEmpSearch(e.target.value); setEmpPage(1); }}
                   style={{ width: "100%" }}
@@ -1778,7 +1778,7 @@ export default function Home() {
                 <table className="custom-table">
                   <thead>
                     <tr>
-                      <th>Employee Name</th>
+                      <th>Team Member Name</th>
                       <th>Department</th>
                       <th>Role</th>
                       <th>Assigned Devices</th>
@@ -2216,7 +2216,7 @@ export default function Home() {
                       <th>Log ID</th>
                       <th>Action</th>
                       <th>System Number</th>
-                      <th>Employee Name</th>
+                      <th>Team Member Name</th>
                       <th>Timestamp</th>
                       <th>Assigned By</th>
                     </tr>
@@ -2320,7 +2320,7 @@ export default function Home() {
                     <div className="form-group">
                       <label>My Assigned System</label>
                       <select className="form-control" value={portalSystemId} onChange={(e) => setPortalSystemId(e.target.value)} required disabled={!portalEmployeeId}>
-                        <option value="">{portalEmployeeId ? "-- Select System --" : "-- Select Employee First --"}</option>
+                        <option value="">{portalEmployeeId ? "-- Select System --" : "-- Select Team Member First --"}</option>
                         {portalEmployeeId && (
                           (() => {
                             const assigned = systems.filter(s => s.assignedTo === portalEmployeeId);
@@ -2669,12 +2669,12 @@ export default function Home() {
       <div className={`modal-overlay ${showAddEmpModal ? "active" : ""}`}>
         <div className="modal-card">
           <div className="modal-header">
-            <h3 className="modal-title">Add New Employee</h3>
+            <h3 className="modal-title">Add New Team Member</h3>
             <button className="modal-close" onClick={() => setShowAddEmpModal(false)}>&times;</button>
           </div>
           <form onSubmit={handleAddEmployeeSubmit}>
             <div className="form-group">
-              <label>Employee Name</label>
+              <label>Team Member Name</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -2753,7 +2753,7 @@ export default function Home() {
             </div>
 
             <button type="submit" className="btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: "1rem" }}>
-              Add Employee
+              Add Team Member
             </button>
           </form>
         </div>
@@ -2763,12 +2763,12 @@ export default function Home() {
       <div className={`modal-overlay ${showEditEmpModal ? "active" : ""}`}>
         <div className="modal-card">
           <div className="modal-header">
-            <h3 className="modal-title">Edit Employee Profile</h3>
+            <h3 className="modal-title">Edit Team Member Profile</h3>
             <button className="modal-close" onClick={() => setShowEditEmpModal(false)}>&times;</button>
           </div>
           <form onSubmit={handleEditEmployeeSubmit}>
             <div className="form-group">
-              <label>Employee Name</label>
+              <label>Team Member Name</label>
               <input 
                 type="text" 
                 className="form-control" 
@@ -2878,7 +2878,7 @@ export default function Home() {
                       <thead>
                         <tr>
                           <th>Action</th>
-                          <th>Employee</th>
+                          <th>Team Member</th>
                           <th>Timestamp</th>
                           <th>Assigned By</th>
                         </tr>
@@ -3406,7 +3406,7 @@ export default function Home() {
                           <thead>
                             <tr>
                               <th>Action</th>
-                              <th>Employee</th>
+                              <th>Team Member</th>
                               <th>Timestamp</th>
                               <th>Assigned By</th>
                             </tr>
@@ -3455,7 +3455,7 @@ export default function Home() {
                 if (deptSystems.length === 0) {
                   return (
                     <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
-                      No systems are currently assigned to employees in the {selectedViewDept} department.
+                      No systems are currently assigned to team members in the {selectedViewDept} department.
                     </div>
                   );
                 }
@@ -3468,7 +3468,7 @@ export default function Home() {
                           <th>System Number</th>
                           <th>Model</th>
                           <th>Specs (CPU/RAM/GPU)</th>
-                          <th>Assigned Employee</th>
+                          <th>Assigned Team Member</th>
                           <th>Status</th>
                         </tr>
                       </thead>

@@ -464,7 +464,7 @@ export default function AdminDashboard({ user, onLogout }) {
         >
           <Text style={styles.tabIcon}>👥</Text>
           <Text style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>
-            Employees
+            Team Members
           </Text>
         </TouchableOpacity>
 
