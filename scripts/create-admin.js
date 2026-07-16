@@ -1,14 +1,32 @@
+const fs = require('fs');
+const path = require('path');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const readline = require('readline');
 
-// Setup DB Credentials with default database values
+// 1. Manually parse .env.local if present
+const envPath = path.join(__dirname, '..', '.env.local');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const parts = trimmed.split('=');
+    if (parts.length >= 2) {
+      const key = parts[0].trim();
+      const val = parts.slice(1).join('=').trim().replace(/(^['"]|['"]$)/g, '');
+      process.env[key] = val;
+    }
+  });
+}
+
+// 2. Setup DB Credentials
 const dbConfig = {
-  host:     'localhost',
-  port:     3306,
-  user:     'root',
-  password: 'Root@123',
-  database: 'system_tracking'
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '3306'),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASS || 'Root@123',
+  database: process.env.DB_NAME || 'system_tracking'
 };
 
 const rl = readline.createInterface({
@@ -45,7 +63,13 @@ async function main() {
 
   let connection;
   try {
-    console.log('\n⏳ Connecting to MySQL database...');
+    console.log('\n⏳ Connecting to MySQL database with the following config:');
+    console.log(`   Host:     ${dbConfig.host}`);
+    console.log(`   Port:     ${dbConfig.port}`);
+    console.log(`   User:     ${dbConfig.user}`);
+    console.log(`   Database: ${dbConfig.database}`);
+    console.log('-----------------------------------');
+    
     connection = await mysql.createConnection(dbConfig);
 
     // Hash password with bcrypt (salt rounds = 10) and secret key
