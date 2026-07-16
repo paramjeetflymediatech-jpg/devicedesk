@@ -7,8 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  Alert,
+  Share,
+  Linking,
 } from 'react-native';
+import { getApiUrl } from '../../utils/api';
+import { sweetAlert } from '../../utils/sweetAlert';
 import {
   getSystems,
   getEmployees,
@@ -16,6 +19,8 @@ import {
   updateSystem,
   deleteSystem,
   assignSystemToEmployee,
+  getAssignmentHistory,
+  getTickets,
   subscribe,
 } from '../../store/store';
 
@@ -27,6 +32,12 @@ export default function ManageSystems() {
   // Modal states
   const [modalVisible, setModalVisible] = useState(false);
   const [editingSystem, setEditingSystem] = useState(null); // null means adding a new system
+  
+  // History Modal States
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [selectedHistorySys, setSelectedHistorySys] = useState(null);
+  const [historyLogs, setHistoryLogs] = useState([]);
+  const [sysTickets, setSysTickets] = useState([]);
   
   // Form states
   const [systemNumber, setSystemNumber] = useState('');
@@ -82,9 +93,73 @@ export default function ManageSystems() {
     setModalVisible(true);
   };
 
+  const openHistoryModal = (sys) => {
+    setSelectedHistorySys(sys);
+    const logs = getAssignmentHistory().filter(h => h.systemId === sys.id);
+    const tkts = getTickets().filter(t => t.systemId === sys.id);
+    setHistoryLogs(logs);
+    setSysTickets(tkts);
+    setHistoryModalVisible(true);
+  };
+
+  const handleDownloadSystemReport = async () => {
+    if (!selectedHistorySys) return;
+    const sys = selectedHistorySys;
+    const sysLogs = historyLogs;
+    const sysTkts = sysTickets;
+    const csvRows = [];
+    
+    csvRows.push("SYSTEM SPECIFICATION REPORT");
+    csvRows.push(`System Number,${sys.systemNumber}`);
+    csvRows.push(`Model,${sys.model || "N/A"}`);
+    csvRows.push(`Operating System,${sys.os || "N/A"}`);
+    csvRows.push(`CPU,${sys.cpu || "N/A"}`);
+    csvRows.push(`GPU,${sys.gpu || "Integrated"}`);
+    csvRows.push(`RAM,${sys.ram || "N/A"}`);
+    csvRows.push(`Storage,${sys.storage || "N/A"}`);
+    csvRows.push(`Current Status,${sys.status || "Active"}`);
+    csvRows.push("");
+    
+    csvRows.push("ASSIGNMENT HISTORY LOGS");
+    csvRows.push("Log ID,Action,Employee ID,Employee Name,Timestamp,Assigned By");
+    sysLogs.forEach(log => {
+      const emp = employees.find(e => e.id === log.employeeId) || { name: "Unknown" };
+      csvRows.push(`${log.id},${log.action},${log.employeeId},${emp.name},${new Date(log.timestamp).toLocaleString()},${log.assignedBy || "System"}`);
+    });
+    csvRows.push("");
+    
+    csvRows.push("ISSUES AND COMPLAINTS BOARD");
+    csvRows.push("Ticket ID,Category,Description,Severity,Status,Created At,Resolved At,Notes");
+    sysTkts.forEach(t => {
+      const descEscaped = t.description ? `"${t.description.replace(/"/g, '""')}"` : "";
+      const notesEscaped = t.resolutionRemarks || t.notes ? `"${(t.resolutionRemarks || t.notes).replace(/"/g, '""')}"` : "";
+      csvRows.push(`${t.id},${t.category},${descEscaped},${t.severity},${t.status},${t.createdAt ? new Date(t.createdAt).toLocaleString() : ""},${t.resolvedAt ? new Date(t.resolvedAt).toLocaleString() : ""},${notesEscaped}`);
+    });
+    
+    const csvString = "\uFEFF" + csvRows.join("\n");
+    try {
+      await Share.share({
+        title: `DeviceDesk Report - ${sys.systemNumber}`,
+        message: csvString,
+      });
+    } catch (error) {
+      sweetAlert({ title: 'Error', text: 'Failed to share report: ' + error.message, type: 'error' });
+    }
+  };
+
+  const handleExportSystems = async () => {
+    try {
+      const baseUrl = getApiUrl();
+      const exportUrl = `${baseUrl}/api/export?type=systems`;
+      await Linking.openURL(exportUrl);
+    } catch (error) {
+      sweetAlert({ title: 'Error', text: 'Failed to export systems: ' + error.message, type: 'error' });
+    }
+  };
+
   const handleSave = () => {
     if (!systemNumber.trim()) {
-      Alert.alert('Error', 'Please enter a System Number.');
+      sweetAlert({ title: 'Error', text: 'Please enter a System Number.', type: 'error' });
       return;
     }
 
@@ -109,36 +184,31 @@ export default function ManageSystems() {
       // Update assignee relationship
       assignSystemToEmployee(editingSystem.id, assignedTo || null, 'Admin');
       
-      Alert.alert('Success', 'System updated successfully!');
+      sweetAlert({ title: 'Success', text: 'System updated successfully!', type: 'success' });
     } else {
       // Add new
       const newSys = addSystem(data);
       if (assignedTo) {
         assignSystemToEmployee(newSys.id, assignedTo, 'Admin');
       }
-      Alert.alert('Success', 'System added successfully!');
+      sweetAlert({ title: 'Success', text: 'System added successfully!', type: 'success' });
     }
 
     setModalVisible(false);
   };
 
   const handleDelete = (id) => {
-    Alert.alert(
-      'Confirm Delete',
-      'Are you sure you want to delete this system? This will unassign any active employee.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            deleteSystem(id);
-            setModalVisible(false);
-            Alert.alert('Success', 'System deleted successfully!');
-          },
-        },
-      ]
-    );
+    sweetAlert({
+      title: 'Confirm Delete',
+      text: 'Are you sure you want to delete this system? This will unassign any active employee.',
+      type: 'warning',
+      showCancel: true,
+      onConfirm: () => {
+        deleteSystem(id);
+        setModalVisible(false);
+        sweetAlert({ title: 'Success', text: 'System deleted successfully!', type: 'success' });
+      },
+    });
   };
 
   const filteredSystems = systems.filter(s => {
@@ -167,6 +237,9 @@ export default function ManageSystems() {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+        <TouchableOpacity style={styles.exportBtn} onPress={handleExportSystems}>
+          <Text style={styles.exportBtnText}>Excel 📥</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
@@ -180,10 +253,9 @@ export default function ManageSystems() {
           filteredSystems.map(s => {
             const assignee = employees.find(e => e.id === s.assignedTo);
             return (
-              <TouchableOpacity
+              <View
                 key={s.id}
                 style={styles.systemCard}
-                onPress={() => openEditModal(s)}
               >
                 <View style={styles.cardHeader}>
                   <View>
@@ -218,7 +290,18 @@ export default function ManageSystems() {
                     <Text style={styles.remarksText}>📝 {s.remarks}</Text>
                   </View>
                 ) : null}
-              </TouchableOpacity>
+
+                <View style={styles.divider} />
+
+                <View style={styles.cardActionsContainer}>
+                  <TouchableOpacity style={styles.editActionBtn} onPress={() => openEditModal(s)}>
+                    <Text style={styles.editActionText}>✏️ Edit Specs</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.historyActionBtn} onPress={() => openHistoryModal(s)}>
+                    <Text style={styles.historyActionText}>📜 History</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             );
           })
         )}
@@ -379,6 +462,98 @@ export default function ManageSystems() {
           </View>
         </View>
       </Modal>
+
+      {/* ================= MODAL: SYSTEM HISTORY REPORT ================= */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={historyModalVisible}
+        onRequestClose={() => setHistoryModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🖥️ History: {selectedHistorySys?.systemNumber}</Text>
+              <TouchableOpacity onPress={() => setHistoryModalVisible(false)} style={styles.closeBtn}>
+                <Text style={styles.closeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              {selectedHistorySys && (
+                <>
+                  {/* System Overview Panel */}
+                  <View style={styles.overviewPanel}>
+                    <View style={styles.overviewHeader}>
+                      <Text style={styles.overviewTitle}>{selectedHistorySys.model || 'Generic PC'}</Text>
+                      <TouchableOpacity style={styles.shareBtn} onPress={handleDownloadSystemReport}>
+                        <Text style={styles.shareBtnText}>📤 Share CSV</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.overviewSpecs}>
+                      OS: {selectedHistorySys.os}{'\n'}
+                      CPU: {selectedHistorySys.cpu}{'\n'}
+                      GPU: {selectedHistorySys.gpu || 'Integrated'}{'\n'}
+                      RAM/Storage: {selectedHistorySys.ram} / {selectedHistorySys.storage}
+                    </Text>
+                  </View>
+
+                  {/* Assignment Logs Section */}
+                  <View style={styles.historySection}>
+                    <Text style={styles.sectionSub}>Assignment History Logs</Text>
+                    {historyLogs.length === 0 ? (
+                      <Text style={styles.historyEmptyText}>No assignment logs recorded.</Text>
+                    ) : (
+                      historyLogs.map(log => {
+                        const emp = employees.find(e => e.id === log.employeeId) || { name: 'Unknown' };
+                        const isAssigned = log.action.toLowerCase() === 'assigned';
+                        return (
+                          <View key={log.id} style={styles.historyMiniCard}>
+                            <View style={styles.miniCardRow}>
+                              <Text style={[styles.miniBadge, isAssigned ? styles.badgeAssigned : styles.badgeUnassigned]}>
+                                {log.action}
+                              </Text>
+                              <Text style={styles.miniDate}>
+                                {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'N/A'}
+                              </Text>
+                            </View>
+                            <Text style={styles.miniText}>Employee: {emp.name}</Text>
+                            <Text style={styles.miniText}>By: {log.assignedBy || 'System'}</Text>
+                          </View>
+                        );
+                      })
+                    )}
+                  </View>
+
+                  {/* Related Tickets Section */}
+                  <View style={styles.historySection}>
+                    <Text style={styles.sectionSub}>Related IT Issues</Text>
+                    {sysTickets.length === 0 ? (
+                      <Text style={styles.historyEmptyText}>No issues raised for this machine.</Text>
+                    ) : (
+                      sysTickets.map(t => (
+                        <View key={t.id} style={styles.historyMiniCard}>
+                          <View style={styles.miniCardRow}>
+                            <Text style={styles.tktId}>#{t.id}</Text>
+                            <Text style={[styles.miniBadge, styles.badgeUnassigned]}>{t.severity}</Text>
+                            <Text style={[styles.miniBadge, styles.badgeAssigned]}>{t.status}</Text>
+                          </View>
+                          <Text style={styles.miniText}>Cat: {t.category}</Text>
+                          <Text style={styles.miniText} numberOfLines={2}>Desc: {t.description}</Text>
+                          {t.resolvedAt ? (
+                            <Text style={styles.miniText}>Resolved: {new Date(t.resolvedAt).toLocaleDateString()}</Text>
+                          ) : null}
+                        </View>
+                      ))
+                    )}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -652,6 +827,163 @@ const styles = StyleSheet.create({
   deleteBtnText: {
     color: '#f85149',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cardActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  editActionBtn: {
+    flex: 1,
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 6,
+    paddingVertical: 8,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  editActionText: {
+    color: '#c9d1d9',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  historyActionBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(88, 166, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: '#58a6ff',
+    borderRadius: 6,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  historyActionText: {
+    color: '#58a6ff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modalScroll: {
+    paddingBottom: 30,
+  },
+  overviewPanel: {
+    backgroundColor: '#161b22',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+  },
+  overviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#21262d',
+    paddingBottom: 6,
+    marginBottom: 8,
+  },
+  overviewTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#f0f6fc',
+  },
+  overviewSpecs: {
+    color: '#8b949e',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  shareBtn: {
+    backgroundColor: 'rgba(46, 160, 67, 0.15)',
+    borderWidth: 1,
+    borderColor: '#3fb950',
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  shareBtnText: {
+    color: '#3fb950',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  historySection: {
+    marginBottom: 20,
+  },
+  sectionSub: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#c9d1d9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#30363d',
+    paddingBottom: 6,
+    marginBottom: 10,
+  },
+  historyEmptyText: {
+    color: '#8b949e',
+    fontSize: 12,
+    fontStyle: 'italic',
+    paddingVertical: 5,
+  },
+  historyMiniCard: {
+    backgroundColor: '#161b22',
+    borderWidth: 1,
+    borderColor: '#21262d',
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 8,
+  },
+  miniCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  miniBadge: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#c9d1d9',
+    paddingVertical: 1,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    marginRight: 6,
+  },
+  badgeAssigned: {
+    backgroundColor: 'rgba(46, 160, 67, 0.15)',
+    color: '#3fb950',
+  },
+  badgeUnassigned: {
+    backgroundColor: 'rgba(248, 81, 73, 0.15)',
+    color: '#f85149',
+  },
+  miniDate: {
+    fontSize: 11,
+    color: '#8b949e',
+    marginLeft: 'auto',
+  },
+  miniText: {
+    fontSize: 12,
+    color: '#c9d1d9',
+    marginVertical: 1,
+  },
+  tktId: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#58a6ff',
+    marginRight: 8,
+  },
+  exportBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  exportBtnText: {
+    color: '#c9d1d9',
+    fontSize: 13,
     fontWeight: 'bold',
   },
 });

@@ -58,6 +58,7 @@ export default function Home() {
   const [soundOn, setSoundOn] = useState(true);
   const [fastTestMode, setFastTestMode] = useState(false);
   const [activeAudioAlert, setActiveAudioAlert] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   // Real-time re-renderer ticker
   const [now, setNow] = useState(Date.now());
@@ -504,6 +505,73 @@ export default function Home() {
     document.body.removeChild(link);
   };
 
+  const handleExportSystemsToExcel = () => {
+    const headers = ["System ID", "System Number", "Model", "OS", "CPU", "GPU", "RAM", "Storage", "Status", "Assigned To", "Employee Name", "Remarks"];
+    const csvRows = [
+      headers.join(","),
+      ...systems.map(s => {
+        const emp = employees.find(e => e.id === s.assignedTo) || { name: "Unassigned" };
+        const row = [
+          s.id,
+          s.systemNumber,
+          s.model || "Generic PC",
+          s.os || "Windows 11 Pro",
+          s.cpu || "Intel Core i5",
+          s.gpu || "Integrated Graphics",
+          s.ram || "16 GB",
+          s.storage || "512 GB SSD",
+          s.status || "Active",
+          s.assignedTo || "Unassigned",
+          emp.name,
+          s.remarks ? `"${s.remarks.replace(/"/g, '""')}"` : ""
+        ];
+        return row.map(val => val === null || val === undefined ? "" : String(val)).join(",");
+      })
+    ];
+
+    const csvString = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `devicedesk_systems_directory_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportEmployeesToExcel = () => {
+    const headers = ["Employee ID", "Name", "Email", "Role", "Department", "Ticket Limit", "Assigned Systems"];
+    const csvRows = [
+      headers.join(","),
+      ...employees.map(e => {
+        const assigned = systems.filter(sys => sys.assignedTo === e.id).map(sys => sys.systemNumber).join(" | ");
+        const row = [
+          e.id,
+          e.name,
+          e.email || "N/A",
+          e.role || "Team Member",
+          e.department || "Operations",
+          e.ticketLimit || 5,
+          assigned ? `"${assigned}"` : "None"
+        ];
+        return row.map(val => val === null || val === undefined ? "" : String(val)).join(",");
+      })
+    ];
+
+    const csvString = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `devicedesk_employees_directory_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+
+
   // Systems inventory modal handlers
   const handleOpenAddSysModal = () => {
     setEditingSys({
@@ -787,6 +855,9 @@ export default function Home() {
                 <li className={`nav-item ${currentView === "history" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("history")}><span className="nav-icon">📜</span> Transfer Logs</button>
                 </li>
+                <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
+                  <button onClick={() => setCurrentView("profile")}><span className="nav-icon">👤</span> My Profile</button>
+                </li>
               </>
             )}
             {userRole === "employee" && (
@@ -800,6 +871,13 @@ export default function Home() {
             <span className="role-title">Logged in as</span>
             <div style={{ padding: "8px", background: "rgba(0, 0, 0, 0.3)", borderRadius: "10px", border: "1px solid var(--glass-border)", display: "flex", flexDirection: "column", gap: "8px" }}>
               <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--accent-cyan)" }}>{user?.name}</span>
+              <button 
+                className="btn-secondary" 
+                onClick={() => router.push("/privacy-policy")}
+                style={{ padding: "6px", fontSize: "0.75rem", width: "100%", cursor: "pointer", border: "1px solid var(--glass-border)", borderRadius: "6px", background: "rgba(88, 166, 255, 0.1)", color: "#58a6ff" }}
+              >
+                🔒 Privacy & Terms
+              </button>
               <button 
                 className="btn-secondary" 
                 onClick={() => {
@@ -852,9 +930,13 @@ export default function Home() {
                 onClick={() => { setCurrentView("departments"); setMobileMenuOpen(false); }}>
                 <span>🏢</span> Departments
               </button>
-              <button className={`mobile-drawer-item ${currentView === "history" ? "active" : ""}`}
-                onClick={() => { setCurrentView("history"); setMobileMenuOpen(false); }}>
-                <span>📜</span> Transfer Logs
+              <button className={`mobile-drawer-item ${currentView === "profile" ? "active" : ""}`}
+                onClick={() => { setCurrentView("profile"); setMobileMenuOpen(false); }}>
+                <span>👤</span> My Profile
+              </button>
+              <button className="mobile-drawer-item"
+                onClick={() => { router.push("/privacy-policy"); setMobileMenuOpen(false); }}>
+                <span>🔒</span> Privacy & Terms
               </button>
             </>
           )}
@@ -920,6 +1002,96 @@ export default function Home() {
 
         {/* Page Container */}
         <main className="page-container">
+
+          {/* ================= VIEW: PROFILE ================= */}
+          {currentView === "profile" && (
+            <div className="page-section active">
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", marginBottom: "1.5rem" }}>👤 Admin Profile Details</h2>
+              
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "2rem", marginBottom: "2rem" }}>
+                {/* User card info */}
+                <div style={{
+                  flex: "1 1 300px",
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px solid var(--glass-border)",
+                  borderRadius: "16px",
+                  padding: "1.5rem"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
+                    <div style={{
+                      width: "60px",
+                      height: "60px",
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "1.5rem",
+                      fontWeight: "700",
+                      color: "#000"
+                    }}>
+                      A
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: "700" }}>{user?.name || "Administrator"}</h3>
+                      <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.85rem" }}>Root Admin Access</p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.9rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "6px" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Email:</span>
+                      <span>{user?.email || "admin@devicedesk.com"}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "6px" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Access Level:</span>
+                      <span style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>Full Owner</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account Actions card */}
+                <div style={{
+                  flex: "1 1 300px",
+                  background: "rgba(239, 68, 68, 0.03)",
+                  border: "1px dashed rgba(239, 68, 68, 0.3)",
+                  borderRadius: "16px",
+                  padding: "1.5rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center"
+                }}>
+                  <h4 style={{ color: "var(--status-critical)", fontSize: "1.1rem", fontWeight: "700", marginBottom: "0.75rem" }}>⚠️ Permanent Account Deletion</h4>
+                  <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5", marginBottom: "1.5rem" }}>
+                    Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. This action is irreversible.
+                  </p>
+                  <button 
+                    onClick={() => {
+                      if (user?.id === "admin") {
+                        alert("Default root admin account cannot be deleted.");
+                      } else {
+                        setShowDeleteConfirm(true);
+                      }
+                    }}
+                    className="btn-danger"
+                    style={{
+                      padding: "10px 16px",
+                      borderRadius: "8px",
+                      fontSize: "0.85rem",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                      border: "none",
+                      backgroundColor: "var(--status-critical)",
+                      color: "#fff",
+                      alignSelf: "flex-start"
+                    }}
+                  >
+                    Delete My Account
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ================= VIEW: DASHBOARD ================= */}
           {currentView === "dashboard" && userRole === "admin" && (
@@ -1057,7 +1229,10 @@ export default function Home() {
             <div className="page-section active">
               <div className="section-header">
                 <h2 style={{ fontSize: "1.4rem" }}>Hardware Directory</h2>
-                <button className="btn-primary" onClick={handleOpenAddSysModal}>+ Add New System</button>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button className="btn-secondary" onClick={handleExportSystemsToExcel}>📥 Export Systems</button>
+                  <button className="btn-primary" onClick={handleOpenAddSysModal}>+ Add New System</button>
+                </div>
               </div>
 
               {/* Filters */}
@@ -1192,9 +1367,12 @@ export default function Home() {
             <div className="page-section active">
               <div className="section-header">
                 <h2 style={{ fontSize: "1.4rem", margin: 0 }}>Employee Assignments</h2>
-                <button className="btn-primary" onClick={() => setShowAddEmpModal(true)}>
-                  + Add Employee
-                </button>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button className="btn-secondary" onClick={handleExportEmployeesToExcel}>📥 Export Employees</button>
+                  <button className="btn-primary" onClick={() => setShowAddEmpModal(true)}>
+                    + Add Employee
+                  </button>
+                </div>
               </div>
               
               {/* Search Bar */}
@@ -2335,6 +2513,89 @@ export default function Home() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.8)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: "16px",
+            padding: "24px",
+            width: "100%",
+            maxWidth: "420px",
+            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)",
+            textAlign: "center",
+          }}>
+            <div style={{
+              width: "60px",
+              height: "60px",
+              borderRadius: "50%",
+              border: "3px solid var(--status-critical)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.8rem",
+              margin: "0 auto 1rem auto"
+            }}>
+              ⚠️
+            </div>
+            <h3 style={{ fontSize: "1.25rem", fontWeight: "700", color: "var(--text-primary)", marginBottom: "8px" }}>Are you sure?</h3>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: "1.5", marginBottom: "1.5rem" }}>
+              You will not be able to revert this account deletion! All assignments and tickets will be permanently removed.
+            </p>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  fontWeight: "600",
+                  border: "1px solid var(--glass-border)",
+                  background: "var(--bg-tertiary)",
+                  color: "var(--text-primary)",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  removeEmployee(user.id);
+                  logout();
+                  router.push("/login");
+                }}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  fontWeight: "600",
+                  border: "none",
+                  background: "var(--status-critical)",
+                  color: "#fff",
+                  cursor: "pointer"
+                }}
+              >
+                Yes, delete it!
+              </button>
             </div>
           </div>
         </div>

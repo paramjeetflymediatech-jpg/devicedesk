@@ -7,14 +7,19 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  Alert,
+  Share,
+  Linking,
 } from 'react-native';
+import { getApiUrl } from '../../utils/api';
+import { sweetAlert } from '../../utils/sweetAlert';
 import {
   getEmployees,
   getSystems,
   addEmployee,
   removeEmployee,
   getDepartments,
+  addDepartment,
+  deleteDepartment,
   subscribe,
 } from '../../store/store';
 
@@ -59,13 +64,13 @@ export default function ManageEmployees() {
 
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter a name.');
+      sweetAlert({ title: 'Error', text: 'Please enter a name.', type: 'error' });
       return;
     }
 
     const limit = parseInt(ticketLimit, 10);
     if (isNaN(limit) || limit <= 0) {
-      Alert.alert('Error', 'Ticket limit must be a positive number.');
+      sweetAlert({ title: 'Error', text: 'Ticket limit must be a positive number.', type: 'error' });
       return;
     }
 
@@ -78,26 +83,30 @@ export default function ManageEmployees() {
       limit
     );
 
-    Alert.alert('Success', `Employee "${newEmp.name}" added successfully!`);
+    sweetAlert({ title: 'Success', text: `Employee "${newEmp.name}" added successfully!`, type: 'success' });
     setModalVisible(false);
   };
 
   const handleDelete = (id, empName) => {
-    Alert.alert(
-      'Confirm Remove',
-      `Are you sure you want to remove ${empName}? This will unassign any active IT system.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            removeEmployee(id);
-            Alert.alert('Success', 'Employee removed successfully!');
-          },
-        },
-      ]
-    );
+    sweetAlert({
+      title: 'Confirm Remove',
+      text: `Are you sure you want to remove ${empName}? This will unassign any active IT system.`,
+      type: 'warning',
+      showCancel: true,
+      onConfirm: () => {
+        removeEmployee(id);
+        sweetAlert({ title: 'Success', text: 'Employee removed successfully!', type: 'success' });
+      },
+    });
+  };
+  const handleExportEmployees = async () => {
+    try {
+      const baseUrl = getApiUrl();
+      const exportUrl = `${baseUrl}/api/export?type=employees`;
+      await Linking.openURL(exportUrl);
+    } catch (error) {
+      sweetAlert({ title: 'Error', text: 'Failed to export employees: ' + error.message, type: 'error' });
+    }
   };
 
   const filteredEmployees = employees.filter(e => {
@@ -121,10 +130,15 @@ export default function ManageEmployees() {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+        <TouchableOpacity style={styles.exportBtn} onPress={handleExportEmployees}>
+          <Text style={styles.exportBtnText}>Excel 📥</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
+
+
 
       {/* Employees List */}
       <ScrollView contentContainerStyle={styles.listContainer}>
@@ -282,6 +296,9 @@ export default function ManageEmployees() {
           </View>
         </View>
       </Modal>
+
+
+
     </View>
   );
 }
@@ -508,6 +525,76 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  deptShortcutContainer: {
+    paddingHorizontal: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#21262d',
+    backgroundColor: '#161b22',
+  },
+  deptBtn: {
+    backgroundColor: '#21262d',
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#30363d',
+    alignItems: 'center',
+  },
+  deptBtnText: {
+    color: '#58a6ff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  deptCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+  },
+  deptNameText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#f0f6fc',
+  },
+  deptCountText: {
+    fontSize: 11,
+    color: '#8b949e',
+    marginTop: 2,
+  },
+  deptDeleteBtn: {
+    backgroundColor: 'rgba(248, 81, 73, 0.1)',
+    borderWidth: 1,
+    borderColor: '#f85149',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  deptDeleteBtnText: {
+    color: '#f85149',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  exportBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  exportBtnText: {
+    color: '#c9d1d9',
+    fontSize: 13,
     fontWeight: 'bold',
   },
 });

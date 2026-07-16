@@ -8,6 +8,8 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
+  Image,
+  Modal,
 } from 'react-native';
 import {
   getSystems,
@@ -17,10 +19,14 @@ import {
   createTicket,
   subscribe,
   syncWithServer,
+  removeEmployee,
 } from '../../store/store';
+import { sweetAlert } from '../../utils/sweetAlert';
 
 export default function EmployeeDashboard({ user, onLogout }) {
-  const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records
+  const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records, profile
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   
   // Data lists
   const [systems, setSystems] = useState([]);
@@ -92,7 +98,11 @@ export default function EmployeeDashboard({ user, onLogout }) {
     
     setDescription('');
     setFormSuccess('Complaint ticket raised successfully!');
-    Alert.alert('Success', 'Complaint ticket raised successfully!');
+    sweetAlert({
+      title: 'Success',
+      text: 'Complaint ticket raised successfully!',
+      type: 'success',
+    });
     
     // Auto redirect to records tab
     setTimeout(() => {
@@ -250,6 +260,65 @@ export default function EmployeeDashboard({ user, onLogout }) {
           </ScrollView>
         );
 
+      case 'profile':
+        return (
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <Text style={styles.sectionTitle}>My Profile Details</Text>
+            
+            <View style={styles.profileCardFull}>
+              <View style={styles.profileAvatarLarge}>
+                <Text style={styles.profileAvatarTextLarge}>
+                  {empDetails.name ? empDetails.name.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+              <Text style={styles.profileNameLarge}>{empDetails.name}</Text>
+              <Text style={styles.profileRoleLabel}>{empDetails.role || 'Employee'}</Text>
+              
+              <View style={styles.profileInfoList}>
+                <View style={styles.profileInfoItem}>
+                  <Text style={styles.profileInfoLabel}>Email Address</Text>
+                  <Text style={styles.profileInfoVal}>{empDetails.email || 'N/A'}</Text>
+                </View>
+                <View style={styles.profileInfoItem}>
+                  <Text style={styles.profileInfoLabel}>Department</Text>
+                  <Text style={styles.profileInfoVal}>{empDetails.department || 'Operations'}</Text>
+                </View>
+                <View style={styles.profileInfoItem}>
+                  <Text style={styles.profileInfoLabel}>Max Ticket Limit</Text>
+                  <Text style={styles.profileInfoVal}>{empDetails.ticketLimit || 5} active issues</Text>
+                </View>
+                <View style={styles.profileInfoItem}>
+                  <Text style={styles.profileInfoLabel}>Open Tickets Raised</Text>
+                  <Text style={styles.profileInfoVal}>{totalRaised} tickets</Text>
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.subTitle}>My Assigned Equipment</Text>
+            {activeSystems.length === 0 ? (
+              <View style={styles.noSystemCard}>
+                <Text style={styles.noSystemText}>No hardware system currently assigned to you.</Text>
+              </View>
+            ) : (
+              activeSystems.map(sys => (
+                <View key={sys.id} style={styles.systemCard}>
+                  <View style={styles.systemHeader}>
+                    <Text style={styles.systemNumberText}>💻 {sys.systemNumber}</Text>
+                    <Text style={styles.systemStatusActive}>Assigned</Text>
+                  </View>
+                  <View style={styles.systemDetailsGrid}>
+                    <Text style={styles.specItem}>🧠 <Text style={{fontWeight: 'bold'}}>CPU:</Text> {sys.cpu}</Text>
+                    <Text style={styles.specItem}>⚡ <Text style={{fontWeight: 'bold'}}>RAM:</Text> {sys.ram}</Text>
+                    <Text style={styles.specItem}>💾 <Text style={{fontWeight: 'bold'}}>Storage:</Text> {sys.storage}</Text>
+                    <Text style={styles.specItem}>🎮 <Text style={{fontWeight: 'bold'}}>GPU:</Text> {sys.gpu || 'Integrated'}</Text>
+                    <Text style={styles.specItem}>💿 <Text style={{fontWeight: 'bold'}}>OS:</Text> {sys.os}</Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        );
+
       case 'overview':
       default:
         return (
@@ -317,17 +386,197 @@ export default function EmployeeDashboard({ user, onLogout }) {
     <SafeAreaView style={styles.container}>
       {/* Header bar */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>DeviceDesk</Text>
-          <Text style={styles.headerSub}>Employee Dashboard</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity 
+            onPress={() => setIsDrawerOpen(true)}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            style={styles.hamburgerBtn}
+          >
+            <Text style={styles.hamburgerIcon}>☰</Text>
+          </TouchableOpacity>
+          <View style={{ marginLeft: 10 }}>
+            <Text style={styles.headerTitle}>DeviceDesk</Text>
+            <Text style={styles.headerSub}>Employee Dashboard</Text>
+          </View>
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+        <TouchableOpacity 
+          style={styles.logoutBtn} 
+          onPress={() => {
+            sweetAlert({
+              title: 'Log Out',
+              text: 'Are you sure you want to log out of your session?',
+              type: 'warning',
+              showCancel: true,
+              onConfirm: onLogout,
+            });
+          }}
+        >
           <Text style={styles.logoutBtnText}>Log Out 🚪</Text>
         </TouchableOpacity>
       </View>
 
       {/* Content wrapper */}
       <View style={styles.content}>{renderContent()}</View>
+
+      <Modal
+        visible={showSettingsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSettingsModal(false)}
+      >
+        <SafeAreaView style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Settings & Policies</Text>
+            
+            <View style={styles.settingsProfileSection}>
+              <Text style={styles.settingsProfileTitle}>👤 My Profile Details</Text>
+              <View style={styles.profileDetailRow}>
+                <Text style={styles.profileDetailLabel}>Name:</Text>
+                <Text style={styles.profileDetailValue}>{empDetails.name}</Text>
+              </View>
+              <View style={styles.profileDetailRow}>
+                <Text style={styles.profileDetailLabel}>Email:</Text>
+                <Text style={styles.profileDetailValue}>{empDetails.email || 'N/A'}</Text>
+              </View>
+              <View style={styles.profileDetailRow}>
+                <Text style={styles.profileDetailLabel}>Department:</Text>
+                <Text style={styles.profileDetailValue}>{empDetails.department || 'Operations'}</Text>
+              </View>
+              <View style={styles.profileDetailRow}>
+                <Text style={styles.profileDetailLabel}>Role:</Text>
+                <Text style={styles.profileDetailValue}>{empDetails.role || 'Employee'}</Text>
+              </View>
+              <View style={styles.profileDetailRow}>
+                <Text style={styles.profileDetailLabel}>Ticket Limit:</Text>
+                <Text style={styles.profileDetailValue}>{empDetails.ticketLimit || 5} active issues</Text>
+              </View>
+            </View>
+
+            <ScrollView style={styles.modalScroll}>
+              <Text style={styles.legalHeader}>1. Privacy Policy</Text>
+              <Text style={styles.legalText}>
+                DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties.
+              </Text>
+              
+              <Text style={styles.legalHeader}>2. Terms & Conditions</Text>
+              <Text style={styles.legalText}>
+                This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited. All transactions, assignments, and support tickets raised are logged and audited.
+              </Text>
+              
+              <Text style={styles.legalHeader}>3. Permanent Account Deletion</Text>
+              <Text style={styles.legalText}>
+                Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. This action is immediate and cannot be undone.
+              </Text>
+              
+              <TouchableOpacity 
+                style={styles.deleteBtn} 
+                onPress={() => {
+                  sweetAlert({
+                    title: 'Are you sure?',
+                    text: 'You will not be able to revert this account deletion! All assignments and tickets will be permanently removed.',
+                    type: 'warning',
+                    showCancel: true,
+                    onConfirm: () => {
+                      removeEmployee(user.id);
+                      setShowSettingsModal(false);
+                      onLogout();
+                    }
+                  });
+                }}
+              >
+                <Text style={styles.deleteBtnText}>⚠️ Delete My Account</Text>
+              </TouchableOpacity>
+            </ScrollView>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowSettingsModal(false)}>
+              <Text style={styles.closeBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Hamburger Drawer Overlay */}
+      {isDrawerOpen && (
+        <View style={styles.drawerOverlay}>
+          <TouchableOpacity 
+            style={styles.drawerBackdrop} 
+            activeOpacity={1} 
+            onPress={() => setIsDrawerOpen(false)}
+          />
+          <View style={styles.drawerContent}>
+            <View style={styles.drawerHeader}>
+              <View style={styles.drawerAvatarContainer}>
+                <Text style={styles.drawerAvatarText}>
+                  {empDetails.name ? empDetails.name.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+              <Text style={styles.drawerName}>{empDetails.name}</Text>
+              <Text style={styles.drawerEmail}>{empDetails.email || 'employee@devicedesk.com'}</Text>
+            </View>
+
+            <View style={styles.drawerItemsContainer}>
+              <TouchableOpacity 
+                style={[styles.drawerItem, activeTab === 'overview' && styles.drawerItemActive]} 
+                onPress={() => { setActiveTab('overview'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>📊</Text>
+                <Text style={styles.drawerItemLabel}>Overview Dashboard</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.drawerItem, activeTab === 'profile' && styles.drawerItemActive]} 
+                onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>👤</Text>
+                <Text style={styles.drawerItemLabel}>My Profile Screen</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.drawerItem} 
+                onPress={() => { setShowSettingsModal(true); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>⚙️</Text>
+                <Text style={styles.drawerItemLabel}>Privacy & Terms</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.drawerItem} 
+                onPress={() => {
+                  setIsDrawerOpen(false);
+                  sweetAlert({
+                    title: 'Are you sure?',
+                    text: 'You will not be able to revert this account deletion! All assignments and tickets will be permanently removed.',
+                    type: 'warning',
+                    showCancel: true,
+                    onConfirm: () => {
+                      removeEmployee(user.id);
+                      onLogout();
+                    }
+                  });
+                }}
+              >
+                <Text style={styles.drawerItemIcon}>⚠️</Text>
+                <Text style={styles.drawerItemLabel}>Delete User Account</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.drawerLogoutBtn} 
+              onPress={() => {
+                setIsDrawerOpen(false);
+                sweetAlert({
+                  title: 'Log Out',
+                  text: 'Are you sure you want to log out of your session?',
+                  type: 'warning',
+                  showCancel: true,
+                  onConfirm: onLogout,
+                });
+              }}
+            >
+              <Text style={styles.drawerLogoutText}>Log Out 🚪</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Tabs */}
       <View style={styles.tabBar}>
@@ -379,6 +628,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#30363d',
     backgroundColor: '#161b22',
+    zIndex: 10,
+    elevation: 10,
   },
   headerTitle: {
     fontSize: 22,
@@ -754,5 +1005,273 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: '#58a6ff',
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 17, 23, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#161b22',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxHeight: '85%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#58a6ff',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalScroll: {
+    marginBottom: 20,
+  },
+  legalHeader: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#f0f6fc',
+    marginTop: 15,
+    marginBottom: 6,
+  },
+  legalText: {
+    fontSize: 13,
+    color: '#8b949e',
+    lineHeight: 18,
+    textAlign: 'justify',
+  },
+  deleteBtn: {
+    backgroundColor: 'rgba(248, 81, 73, 0.1)',
+    borderWidth: 1,
+    borderColor: '#f85149',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  deleteBtnText: {
+    color: '#f85149',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  closeBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  closeBtnText: {
+    color: '#f0f6fc',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  settingsProfileSection: {
+    backgroundColor: '#0d1117',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#30363d',
+    marginBottom: 15,
+  },
+  settingsProfileTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#58a6ff',
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#21262d',
+    paddingBottom: 6,
+  },
+  profileDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  profileDetailLabel: {
+    fontSize: 12,
+    color: '#8b949e',
+    fontWeight: '600',
+  },
+  profileDetailValue: {
+    fontSize: 12,
+    color: '#f0f6fc',
+    fontWeight: 'bold',
+  },
+  // Hamburger menu styles
+  hamburgerBtn: {
+    paddingRight: 12,
+  },
+  hamburgerIcon: {
+    fontSize: 26,
+    color: '#58a6ff',
+    fontWeight: 'bold',
+  },
+  drawerOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    zIndex: 999,
+  },
+  drawerBackdrop: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  drawerContent: {
+    width: 280,
+    height: '100%',
+    backgroundColor: '#161b22',
+    borderRightWidth: 1,
+    borderColor: '#30363d',
+    padding: 20,
+    paddingTop: 45,
+    justifyContent: 'space-between',
+  },
+  drawerHeader: {
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#30363d',
+    paddingBottom: 20,
+    marginBottom: 20,
+  },
+  drawerAvatarContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#58a6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  drawerAvatarText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#0d1117',
+  },
+  drawerName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#f0f6fc',
+    textAlign: 'center',
+  },
+  drawerEmail: {
+    fontSize: 12,
+    color: '#8b949e',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  drawerItemsContainer: {
+    flex: 1,
+  },
+  drawerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  drawerItemActive: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+  },
+  drawerItemIcon: {
+    fontSize: 18,
+    marginRight: 12,
+  },
+  drawerItemLabel: {
+    fontSize: 14,
+    color: '#c9d1d9',
+    fontWeight: '600',
+  },
+  drawerLogoutBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  drawerLogoutText: {
+    color: '#f85149',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  // Profile screen styles
+  profileCardFull: {
+    backgroundColor: '#161b22',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profileAvatarLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#58a6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  profileAvatarTextLarge: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#0d1117',
+  },
+  profileNameLarge: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#f0f6fc',
+  },
+  profileRoleLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#58a6ff',
+    backgroundColor: 'rgba(88, 166, 255, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  profileInfoList: {
+    width: '100%',
+    borderTopWidth: 1,
+    borderTopColor: '#30363d',
+    paddingTop: 15,
+  },
+  profileInfoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#21262d',
+  },
+  profileInfoLabel: {
+    fontSize: 13,
+    color: '#8b949e',
+  },
+  profileInfoVal: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#f0f6fc',
   },
 });

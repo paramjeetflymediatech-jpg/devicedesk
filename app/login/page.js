@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -136,7 +137,7 @@ export default function LoginPage() {
 
 
         <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
-          <div style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginTop: "0.75rem" }}>
+          <div style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginTop: "0.75rem", display: "flex", justifyContent: "center", gap: "10px", alignItems: "center" }}>
             <button
               onClick={() => router.push("/forgot-password")}
               style={{
@@ -151,6 +152,23 @@ export default function LoginPage() {
               }}
             >
               Forgot Password?
+            </button>
+            <span style={{ color: "var(--text-secondary)", opacity: 0.3 }}>|</span>
+            <button
+              type="button"
+              onClick={() => router.push("/privacy-policy")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-secondary)",
+                fontWeight: "500",
+                cursor: "pointer",
+                textDecoration: "underline",
+                fontFamily: "var(--font-main)",
+                fontSize: "0.85rem"
+              }}
+            >
+              Privacy & Terms
             </button>
           </div>
         </div>

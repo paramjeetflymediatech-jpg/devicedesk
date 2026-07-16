@@ -10,9 +10,12 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Modal,
 } from 'react-native';
-import { getApiUrl, setApiUrl, initApiUrl, syncWithServer } from '../utils/api';
-import { findEmployeeByCredentials, isAdminCredentials } from '../store/store';
+import { getApiUrl, setApiUrl, initApiUrl } from '../utils/api';
+import { findEmployeeByCredentials, isAdminCredentials, syncWithServer } from '../store/store';
+import { sweetAlert } from '../utils/sweetAlert';
 
 export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
   const [identifier, setIdentifier] = useState('');
@@ -22,6 +25,8 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     // Load current API host settings
@@ -39,18 +44,48 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
     }
     const success = await setApiUrl(apiUrl);
     if (success) {
-      setSuccessMsg('API Server URL updated successfully!');
-      setTimeout(() => setSuccessMsg(''), 3000);
+      sweetAlert({ title: 'Success', text: 'API Server URL updated successfully!', type: 'success' });
       setShowConfig(false);
       // Attempt to sync after config change
       setLoading(true);
       const syncResult = await syncWithServer();
       setLoading(false);
       if (!syncResult.success) {
-        setErrorMsg('Successfully set URL, but failed to connect to server.');
+        sweetAlert({ title: 'Warning', text: 'Successfully set URL, but failed to connect to server.', type: 'warning' });
       }
     } else {
-      setErrorMsg('Failed to save API URL.');
+      sweetAlert({ title: 'Error', text: 'Failed to save API URL.', type: 'error' });
+    }
+  };
+
+  const handleTestConnection = async () => {
+    if (!apiUrl.trim()) {
+      sweetAlert({ title: 'Error', text: 'API Base URL cannot be empty.', type: 'error' });
+      return;
+    }
+    setTesting(true);
+    try {
+      let cleanUrl = apiUrl.trim();
+      if (cleanUrl.endsWith('/')) {
+        cleanUrl = cleanUrl.slice(0, -1);
+      }
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(`${cleanUrl}/api/db`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal
+      });
+      clearTimeout(id);
+      if (res.ok) {
+        sweetAlert({ title: 'Success', text: 'Server is active and reachable!', type: 'success' });
+      } else {
+        sweetAlert({ title: 'Connection Failed', text: `Server returned status code ${res.status}`, type: 'error' });
+      }
+    } catch (err) {
+      sweetAlert({ title: 'Connection Error', text: 'Failed to reach server: ' + err.message, type: 'error' });
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -58,7 +93,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
     setErrorMsg('');
     setSuccessMsg('');
     if (!identifier.trim() || !password.trim()) {
-      setErrorMsg('Please fill in all fields.');
+      sweetAlert({ title: 'Error', text: 'Please fill in all fields.', type: 'error' });
       return;
     }
 
@@ -71,11 +106,19 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
 
     // Check admin credentials
     if (isAdminCredentials(cleanUsername, password)) {
-      onLoginSuccess({
+      const adminUser = {
         id: 'admin',
         name: 'Administrator',
         email: 'admin@devicedesk.com',
         role: 'admin',
+      };
+      sweetAlert({
+        title: 'Success',
+        text: 'Logged in successfully as Administrator.',
+        type: 'success',
+        onConfirm: () => {
+          onLoginSuccess(adminUser);
+        }
       });
       return;
     }
@@ -89,15 +132,24 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
         employee.role === 'Management' || 
         employee.role === 'IT Engineer';
 
-      onLoginSuccess({
+      const empUser = {
         id: employee.id,
         name: employee.name,
         email: employee.email,
         role: isEmployeeAdmin ? 'admin' : 'employee',
         department: employee.department,
+      };
+
+      sweetAlert({
+        title: 'Success',
+        text: `Welcome back, ${employee.name}!`,
+        type: 'success',
+        onConfirm: () => {
+          onLoginSuccess(empUser);
+        }
       });
     } else {
-      setErrorMsg('⚠️ Invalid username/email or password.');
+      sweetAlert({ title: 'Error', text: 'Invalid username/email or password.', type: 'error' });
     }
   };
 
@@ -111,6 +163,12 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
           <View style={styles.headerContainer}>
             <Text style={styles.title}>DeviceDesk</Text>
             <Text style={styles.subtitle}>System Tracking & Support Portal</Text>
+            <TouchableOpacity 
+              style={styles.gearButton} 
+              onPress={() => setShowConfig(true)}
+            >
+              <Text style={styles.gearIcon}>⚙️ Server Settings</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.card}>
@@ -155,27 +213,24 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
             </TouchableOpacity>
           </View>
 
-          {/* Config Panel */}
-          <TouchableOpacity
-            style={styles.configToggle}
-            onPress={() => setShowConfig(!showConfig)}
-          >
-            <Text style={styles.configToggleText}>
-              {showConfig ? 'Hide Connection Config' : 'Configure Server API Connection ⚙️'}
-            </Text>
-          </TouchableOpacity>
-
-          {showConfig && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Server Settings</Text>
+        {/* Server Config Modal */}
+        <Modal
+          visible={showConfig}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowConfig(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>🌐 Server Settings</Text>
               <Text style={styles.configDesc}>
-                Set the IP/URL of your local running Next.js server (e.g. http://192.168.1.50:3000)
+                Set the IP/URL of your corporate Next.js deployment server.
               </Text>
 
               <Text style={styles.label}>API Base URL</Text>
               <TextInput
                 style={styles.input}
-                placeholder="http://192.168.1.XX:3000"
+                placeholder="https://api.yourdomain.com"
                 placeholderTextColor="#888"
                 value={apiUrl}
                 onChangeText={setApiUrlState}
@@ -183,17 +238,70 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
                 autoCorrect={false}
               />
 
-              <TouchableOpacity style={styles.saveButton} onPress={handleSaveConfig}>
-                <Text style={styles.saveButtonText}>Save & Sync</Text>
+              <TouchableOpacity 
+                style={styles.testBtn} 
+                onPress={handleTestConnection}
+                disabled={testing}
+              >
+                {testing ? (
+                  <ActivityIndicator color="#58a6ff" />
+                ) : (
+                  <Text style={styles.testBtnText}>⚡ Test Connection</Text>
+                )}
               </TouchableOpacity>
+
+              <View style={styles.modalButtonsRow}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowConfig(false)}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveConfig}>
+                  <Text style={styles.saveBtnText}>Save & Apply</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
+          </View>
+        </Modal>
 
           <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>Fly Media Technology</Text>
+            <Text style={styles.footerText}>DeviceDesk</Text>
+            <TouchableOpacity style={{ marginTop: 8 }} onPress={() => setShowLegalModal(true)}>
+              <Text style={styles.footerLinkText}>Privacy Policy & Terms of Service</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={showLegalModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowLegalModal(false)}
+      >
+        <SafeAreaView style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Legal & Privacy Policy</Text>
+            <ScrollView style={styles.modalScroll}>
+              <Text style={styles.legalHeader}>1. Privacy Policy</Text>
+              <Text style={styles.legalText}>
+                DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties.
+              </Text>
+              
+              <Text style={styles.legalHeader}>2. Terms & Conditions</Text>
+              <Text style={styles.legalText}>
+                This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited. All transactions, assignments, and support tickets raised are logged and audited.
+              </Text>
+              
+              <Text style={styles.legalHeader}>3. Data & Account Deletion</Text>
+              <Text style={styles.legalText}>
+                In compliance with App Store guidelines, users have the right to request full account profile and data deletion. Account deletion will permanently erase your employee record, delete your raised tickets, and unassign any active inventory assets. To delete your account, please log in and navigate to the Account Settings menu on your dashboard.
+              </Text>
+            </ScrollView>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowLegalModal(false)}>
+              <Text style={styles.closeBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -210,7 +318,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   title: {
     fontSize: 32,
@@ -280,32 +388,69 @@ const styles = StyleSheet.create({
     color: '#58a6ff',
     fontSize: 14,
   },
-  configToggle: {
-    alignItems: 'center',
-    marginVertical: 10,
+  gearButton: {
+    marginTop: 15,
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignSelf: 'center',
   },
-  configToggleText: {
+  gearIcon: {
     color: '#8b949e',
     fontSize: 13,
-    textDecorationLine: 'underline',
+    fontWeight: 'bold',
   },
   configDesc: {
     color: '#8b949e',
     fontSize: 13,
-    marginBottom: 15,
+    marginBottom: 20,
     lineHeight: 18,
+    textAlign: 'center',
   },
-  saveButton: {
-    backgroundColor: '#238636', // Green save button
+  testBtn: {
+    borderWidth: 1,
+    borderColor: '#58a6ff',
+    backgroundColor: 'rgba(88, 166, 255, 0.1)',
     borderRadius: 8,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 15,
   },
-  saveButtonText: {
-    fontSize: 14,
+  testBtnText: {
+    color: '#58a6ff',
     fontWeight: 'bold',
+    fontSize: 14,
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+  },
+  cancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#30363d',
+    backgroundColor: '#21262d',
+    marginRight: 10,
+  },
+  cancelBtnText: {
+    color: '#c9d1d9',
+    fontWeight: '600',
+  },
+  saveBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#238636',
+  },
+  saveBtnText: {
     color: '#ffffff',
+    fontWeight: 'bold',
   },
   errorText: {
     color: '#f85149',
@@ -328,5 +473,62 @@ const styles = StyleSheet.create({
   footerText: {
     color: '#8b949e',
     fontSize: 12,
+  },
+  footerLinkText: {
+    color: '#58a6ff',
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 17, 23, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#161b22',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxHeight: '85%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#58a6ff',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalScroll: {
+    marginBottom: 20,
+  },
+  legalHeader: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#f0f6fc',
+    marginTop: 15,
+    marginBottom: 6,
+  },
+  legalText: {
+    fontSize: 13,
+    color: '#8b949e',
+    lineHeight: 18,
+    textAlign: 'justify',
+  },
+  closeBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  closeBtnText: {
+    color: '#f0f6fc',
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 });

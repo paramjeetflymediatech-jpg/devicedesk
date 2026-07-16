@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  Alert,
   Share,
+  Linking,
 } from 'react-native';
+import { getApiUrl } from '../../utils/api';
+import { sweetAlert } from '../../utils/sweetAlert';
 import {
   getTickets,
   getEmployees,
@@ -39,40 +41,12 @@ export default function ManageTickets() {
   };
 
   const handleExportTickets = async () => {
-    const headers = ["Ticket ID", "Category", "Description", "Severity", "Status", "System ID", "System Number", "Raised By", "Employee Name", "Created At", "Started At", "Resolved At", "Resolution Remarks"];
-    const csvRows = [
-      headers.join(","),
-      ...tickets.map(t => {
-        const emp = employees.find(e => e.id === t.employeeId) || { name: 'Unknown' };
-        const sys = systems.find(s => s.id === t.systemId) || { systemNumber: 'N/A' };
-        const row = [
-          t.id,
-          t.category,
-          t.description ? `"${t.description.replace(/"/g, '""')}"` : "",
-          t.severity,
-          t.status,
-          t.systemId,
-          t.systemNumber || sys.systemNumber,
-          t.raisedBy || t.employeeId,
-          t.raisedByName || emp.name,
-          t.createdAt ? new Date(t.createdAt).toLocaleString() : "",
-          t.startedAt ? new Date(t.startedAt).toLocaleString() : "",
-          t.resolvedAt ? new Date(t.resolvedAt).toLocaleString() : "",
-          t.resolutionRemarks || t.notes ? `"${(t.resolutionRemarks || t.notes).replace(/"/g, '""')}"` : ""
-        ];
-        return row.map(val => val === null || val === undefined ? "" : String(val)).join(",");
-      })
-    ];
-
-    const csvString = "\uFEFF" + csvRows.join("\n");
-    
     try {
-      await Share.share({
-        title: 'DeviceDesk Ticket Reports',
-        message: csvString,
-      });
+      const baseUrl = getApiUrl();
+      const exportUrl = `${baseUrl}/api/export?type=tickets`;
+      await Linking.openURL(exportUrl);
     } catch (error) {
-      Alert.alert('Error', 'Failed to export tickets: ' + error.message);
+      sweetAlert({ title: 'Error', text: 'Failed to export tickets: ' + error.message, type: 'error' });
     }
   };
 
@@ -85,25 +59,25 @@ export default function ManageTickets() {
   const handleStartWork = (ticketId) => {
     const res = startTicketWork(ticketId);
     if (res) {
-      Alert.alert('Success', 'Ticket marked as "In Progress". Work has started!');
+      sweetAlert({ title: 'Success', text: 'Ticket marked as "In Progress". Work has started!', type: 'success' });
       setSelectedTicket(null);
     } else {
-      Alert.alert('Error', 'Failed to update ticket.');
+      sweetAlert({ title: 'Error', text: 'Failed to update ticket.', type: 'error' });
     }
   };
 
   const handleResolve = (ticketId) => {
     if (!resolutionRemarks.trim()) {
-      Alert.alert('Error', 'Please enter resolution remarks.');
+      sweetAlert({ title: 'Error', text: 'Please enter resolution remarks.', type: 'error' });
       return;
     }
     const res = resolveTicket(ticketId, resolutionRemarks.trim());
     if (res) {
-      Alert.alert('Success', 'Ticket marked as "Resolved"!');
+      sweetAlert({ title: 'Success', text: 'Ticket marked as "Resolved"!', type: 'success' });
       setSelectedTicket(null);
       setResolutionRemarks('');
     } else {
-      Alert.alert('Error', 'Failed to resolve ticket.');
+      sweetAlert({ title: 'Error', text: 'Failed to resolve ticket.', type: 'error' });
     }
   };
 

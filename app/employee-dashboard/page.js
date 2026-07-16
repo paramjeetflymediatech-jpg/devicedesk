@@ -8,7 +8,8 @@ import {
   getTickets,
   getEmployees,
   getAssignmentHistory,
-  createTicket
+  createTicket,
+  removeEmployee
 } from "../store";
 
 export default function EmployeeDashboard() {
@@ -43,6 +44,9 @@ export default function EmployeeDashboard() {
   const ticketsPerPage = 3;
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const mySystems = systems.filter(s => s.assignedTo === user?.id);
 
   const refreshData = () => {
     setSystems(getSystems());
@@ -143,6 +147,9 @@ export default function EmployeeDashboard() {
             <li className={`nav-item ${currentView === "records" ? "active" : ""}`}>
               <button onClick={() => setCurrentView("records")}><span className="nav-icon">📋</span> My Records</button>
             </li>
+            <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
+              <button onClick={() => setCurrentView("profile")}><span className="nav-icon">👤</span> My Profile</button>
+            </li>
           </ul>
           
           <div className="role-badge-container">
@@ -150,6 +157,13 @@ export default function EmployeeDashboard() {
             <div style={{ padding: "8px", background: "rgba(0, 0, 0, 0.3)", borderRadius: "10px", border: "1px solid var(--glass-border)", display: "flex", flexDirection: "column", gap: "8px" }}>
               <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--accent-cyan)" }}>{empDetails.name}</span>
               <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{empDetails.department || "General"}</span>
+              <button 
+                className="btn-secondary" 
+                onClick={() => router.push("/privacy-policy")}
+                style={{ padding: "6px", fontSize: "0.75rem", width: "100%", cursor: "pointer", border: "1px solid var(--glass-border)", borderRadius: "6px", background: "rgba(88, 166, 255, 0.1)", color: "#58a6ff" }}
+              >
+                🔒 Privacy & Terms
+              </button>
               <button 
                 className="btn-secondary" 
                 onClick={() => {
@@ -192,6 +206,14 @@ export default function EmployeeDashboard() {
           <button className={`mobile-drawer-item ${currentView === "records" ? "active" : ""}`}
             onClick={() => { setCurrentView("records"); setMobileMenuOpen(false); }}>
             <span>📋</span> My Records
+          </button>
+          <button className={`mobile-drawer-item ${currentView === "profile" ? "active" : ""}`}
+            onClick={() => { setCurrentView("profile"); setMobileMenuOpen(false); }}>
+            <span>👤</span> My Profile
+          </button>
+          <button className="mobile-drawer-item"
+            onClick={() => { router.push("/privacy-policy"); setMobileMenuOpen(false); }}>
+            <span>🔒</span> Privacy & Terms
           </button>
         </nav>
         <div className="mobile-drawer-footer">
@@ -245,6 +267,142 @@ export default function EmployeeDashboard() {
         {/* Page Container */}
         <div className="page-container emp-container">
           
+          {/* VIEW: PROFILE */}
+          {currentView === "profile" && (
+            <div className="container-card">
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", marginBottom: "1.5rem" }}>👤 My Profile Details</h2>
+              
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "2rem", marginBottom: "2rem" }}>
+                {/* User card info */}
+                <div style={{
+                  flex: "1 1 300px",
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px solid var(--glass-border)",
+                  borderRadius: "16px",
+                  padding: "1.5rem"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
+                    <div style={{
+                      width: "60px",
+                      height: "60px",
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "1.5rem",
+                      fontWeight: "700",
+                      color: "#000"
+                    }}>
+                      {empDetails.name ? empDetails.name.charAt(0).toUpperCase() : "U"}
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: "700" }}>{empDetails.name}</h3>
+                      <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.85rem" }}>{empDetails.role}</p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.9rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "6px" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Email:</span>
+                      <span>{empDetails.email || "N/A"}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "6px" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Department:</span>
+                      <span>{empDetails.department || "Operations"}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "6px" }}>
+                      <span style={{ color: "var(--text-muted)" }}>Ticket Limit Status:</span>
+                      <span>{totalRaised} / {ticketLimit} complaints used</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account Actions card */}
+                <div style={{
+                  flex: "1 1 300px",
+                  background: "rgba(239, 68, 68, 0.03)",
+                  border: "1px dashed rgba(239, 68, 68, 0.3)",
+                  borderRadius: "16px",
+                  padding: "1.5rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center"
+                }}>
+                  <h4 style={{ color: "var(--status-critical)", fontSize: "1.1rem", fontWeight: "700", marginBottom: "0.75rem" }}>⚠️ Permanent Account Deletion</h4>
+                  <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5", marginBottom: "1.5rem" }}>
+                    Deleting your account will permanently remove your login credentials, raised tickets, and unassign any active computer systems assigned to you. This action is irreversible.
+                  </p>
+                  <button 
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="btn-danger"
+                    style={{
+                      padding: "10px 16px",
+                      borderRadius: "8px",
+                      fontSize: "0.85rem",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                      border: "none",
+                      backgroundColor: "var(--status-critical)",
+                      color: "#fff",
+                      alignSelf: "flex-start"
+                    }}
+                  >
+                    Delete My Account
+                  </button>
+                </div>
+              </div>
+
+              {/* Hardware Specifications */}
+              <h3 style={{ fontSize: "1.2rem", fontWeight: "700", color: "var(--accent-cyan)", marginBottom: "1rem" }}>🖥️ My Assigned Hardware Specs</h3>
+              {mySystems.length === 0 ? (
+                <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border)", borderRadius: "12px", padding: "1.5rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+                  No hardware inventory assigned to you.
+                </div>
+              ) : (
+                mySystems.map(sys => (
+                  <div key={sys.id} style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "16px",
+                    padding: "1.5rem",
+                    marginBottom: "1.5rem"
+                  }}>
+                    <h4 style={{ margin: "0 0 1rem 0", color: "var(--text-primary)", fontSize: "1.05rem" }}>
+                      System ID: <span style={{ color: "var(--accent-cyan)" }}>{sys.systemNumber}</span> ({sys.model || "Standard Desktop"})
+                    </h4>
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                      gap: "1rem"
+                    }}>
+                      <div style={{ background: "rgba(0,0,0,0.2)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.03)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Processor (CPU)</span>
+                        <p style={{ margin: "4px 0 0 0", fontSize: "0.9rem", fontWeight: "600" }}>{sys.cpu || "N/A"}</p>
+                      </div>
+                      <div style={{ background: "rgba(0,0,0,0.2)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.03)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Graphics Card (GPU)</span>
+                        <p style={{ margin: "4px 0 0 0", fontSize: "0.9rem", fontWeight: "600" }}>{sys.gpu || "Integrated"}</p>
+                      </div>
+                      <div style={{ background: "rgba(0,0,0,0.2)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.03)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Memory (RAM)</span>
+                        <p style={{ margin: "4px 0 0 0", fontSize: "0.9rem", fontWeight: "600" }}>{sys.ram || "N/A"}</p>
+                      </div>
+                      <div style={{ background: "rgba(0,0,0,0.2)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.03)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Storage Specs</span>
+                        <p style={{ margin: "4px 0 0 0", fontSize: "0.9rem", fontWeight: "600" }}>{sys.storage || "N/A"}</p>
+                      </div>
+                      <div style={{ background: "rgba(0,0,0,0.2)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.03)" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Operating System</span>
+                        <p style={{ margin: "4px 0 0 0", fontSize: "0.9rem", fontWeight: "600" }}>{sys.os || "N/A"}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
           {/* VIEW: OVERVIEW */}
           {currentView === "overview" && (
             <div className="page-section active emp-overview-grid">
@@ -556,6 +714,89 @@ export default function EmployeeDashboard() {
 
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.8)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "var(--bg-secondary)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: "16px",
+            padding: "24px",
+            width: "100%",
+            maxWidth: "420px",
+            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)",
+            textAlign: "center",
+          }}>
+            <div style={{
+              width: "60px",
+              height: "60px",
+              borderRadius: "50%",
+              border: "3px solid var(--status-critical)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.8rem",
+              margin: "0 auto 1rem auto"
+            }}>
+              ⚠️
+            </div>
+            <h3 style={{ fontSize: "1.25rem", fontWeight: "700", color: "var(--text-primary)", marginBottom: "8px" }}>Are you sure?</h3>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: "1.5", marginBottom: "1.5rem" }}>
+              You will not be able to revert this account deletion! All assignments and tickets will be permanently removed.
+            </p>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  fontWeight: "600",
+                  border: "1px solid var(--glass-border)",
+                  background: "var(--bg-tertiary)",
+                  color: "var(--text-primary)",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  removeEmployee(user.id);
+                  logout();
+                  router.push("/login");
+                }}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  fontWeight: "600",
+                  border: "none",
+                  background: "var(--status-critical)",
+                  color: "#fff",
+                  cursor: "pointer"
+                }}
+              >
+                Yes, delete it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

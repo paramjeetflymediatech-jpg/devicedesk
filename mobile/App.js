@@ -7,6 +7,9 @@ import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import AdminDashboard from './src/screens/Admin/Dashboard';
 import EmployeeDashboard from './src/screens/Employee/Dashboard';
 
+import SweetAlertModal from './src/components/SweetAlertModal';
+import { sweetAlertRef } from './src/utils/sweetAlert';
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('login'); // login, forgot, admin, employee
   const [currentUser, setCurrentUser] = useState(null);
@@ -101,6 +104,7 @@ export default function App() {
     <SafeAreaProvider style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0d1117" />
       {renderScreen()}
+      <SweetAlertModal ref={sweetAlertRef} />
     </SafeAreaProvider>
   );
 }
