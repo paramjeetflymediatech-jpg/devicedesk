@@ -1068,6 +1068,12 @@ export default function Home() {
 
   // Filtered & Paginated Employees for Admin employee view
   const filteredEmployees = employees.filter(emp => {
+    // 1. Don't show the currently logged-in user
+    if (emp.id === user?.id) return false;
+
+    // 2. Don't show other admin roles in the general employee list
+    if (['Admin', 'Management', 'IT Engineer'].includes(emp.role)) return false;
+
     const query = empSearch.toLowerCase();
     return emp.name.toLowerCase().includes(query) || 
            emp.department.toLowerCase().includes(query) || 
