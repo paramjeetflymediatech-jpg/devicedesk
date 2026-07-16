@@ -121,6 +121,8 @@ export default function Home() {
   const [assigningSysId, setAssigningSysId] = useState("");
   const [resolvingTicketId, setResolvingTicketId] = useState("");
   const [resolveNotes, setResolveNotes] = useState("");
+  const [selectedViewSystem, setSelectedViewSystem] = useState(null);
+  const [selectedViewDept, setSelectedViewDept] = useState(null);
 
   // Raise Records Filter & Pagination States
   const [ticketSearch, setTicketSearch] = useState("");
@@ -1790,12 +1792,29 @@ export default function Home() {
                       return (
                         <tr key={emp.id}>
                           <td><strong>{emp.name}</strong></td>
-                          <td><span className="status-tag resolved">{emp.department}</span></td>
+                          <td>
+                            <span 
+                              className="status-tag resolved" 
+                              style={{ cursor: "pointer", transition: "transform 0.2s" }}
+                              onClick={() => setSelectedViewDept(emp.department)}
+                              title={`View all devices in ${emp.department}`}
+                            >
+                              {emp.department}
+                            </span>
+                          </td>
                           <td>{emp.role}</td>
                           <td>
                             {assigned.length > 0 ? (
                               assigned.map(s => (
-                                <span className="timer-badge" style={{ color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)", marginRight: "4px" }} key={s.id}>{s.systemNumber}</span>
+                                <span 
+                                  className="timer-badge" 
+                                  style={{ color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)", marginRight: "4px", cursor: "pointer" }} 
+                                  key={s.id}
+                                  onClick={() => setSelectedViewSystem(s)}
+                                  title="Click to view details"
+                                >
+                                  {s.systemNumber}
+                                </span>
                               ))
                             ) : (<span style={{ color: "var(--text-muted)" }}>None</span>)}
                           </td>
@@ -1821,20 +1840,35 @@ export default function Home() {
                 {currentEmployees.map(emp => {
                   const assigned = systems.filter(s => s.assignedTo === emp.id);
                   return (
-                    <div className="mobile-card" key={emp.id}>
-                      <div className="mobile-card-header">
-                        <span className="mobile-card-title">👤 {emp.name}</span>
-                        <span className="status-tag resolved">{emp.department}</span>
-                      </div>
-                      <div className="mobile-card-row"><span className="mobile-card-label">Role</span><span className="mobile-card-value">{emp.role}</span></div>
-                      <div className="mobile-card-row">
-                        <span className="mobile-card-label">Devices</span>
-                        <span className="mobile-card-value">
-                          {assigned.length > 0 ? assigned.map(s => (
-                            <span key={s.id} className="timer-badge" style={{ color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)", marginRight: "4px" }}>{s.systemNumber}</span>
-                          )) : <span style={{ color: "var(--text-muted)" }}>None</span>}
-                        </span>
-                      </div>
+                     <div className="mobile-card" key={emp.id}>
+                       <div className="mobile-card-header">
+                         <span className="mobile-card-title">👤 {emp.name}</span>
+                         <span 
+                           className="status-tag resolved" 
+                           style={{ cursor: "pointer" }}
+                           onClick={() => setSelectedViewDept(emp.department)}
+                           title={`View all devices in ${emp.department}`}
+                         >
+                           {emp.department}
+                         </span>
+                       </div>
+                       <div className="mobile-card-row"><span className="mobile-card-label">Role</span><span className="mobile-card-value">{emp.role}</span></div>
+                       <div className="mobile-card-row">
+                         <span className="mobile-card-label">Devices</span>
+                         <span className="mobile-card-value">
+                           {assigned.length > 0 ? assigned.map(s => (
+                             <span 
+                               key={s.id} 
+                               className="timer-badge" 
+                               style={{ color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)", marginRight: "4px", cursor: "pointer" }}
+                               onClick={() => setSelectedViewSystem(s)}
+                               title="Click to view details"
+                             >
+                               {s.systemNumber}
+                             </span>
+                           )) : <span style={{ color: "var(--text-muted)" }}>None</span>}
+                         </span>
+                       </div>
                       <div className="mobile-card-row"><span className="mobile-card-label">Ticket Limit</span><span className="mobile-card-value">{emp.ticketLimit || 5}</span></div>
                       <div className="mobile-card-actions">
                         <button className="btn-action start" onClick={() => handleOpenAssignModal(emp)}>🖥️ Assign</button>
@@ -3310,6 +3344,127 @@ export default function Home() {
         </div>
       </div>
     )}
+      {/* ================= MODAL: DETAILED SYSTEM INFO ================= */}
+      {selectedViewSystem && (
+        <div className="modal-overlay active">
+          <div className="modal-card" style={{ maxWidth: "500px" }}>
+            <div className="modal-header">
+              <h3 className="modal-title">💻 Device Specification Details</h3>
+              <button className="modal-close" onClick={() => setSelectedViewSystem(null)}>&times;</button>
+            </div>
+            <div style={{ color: "var(--text-primary)", padding: "1rem 0" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+                  <strong style={{ color: "var(--text-muted)" }}>System Number:</strong>
+                  <span style={{ color: "var(--accent-blue)", fontWeight: "bold" }}>{selectedViewSystem.systemNumber}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+                  <strong style={{ color: "var(--text-muted)" }}>Model:</strong>
+                  <span>{selectedViewSystem.model}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+                  <strong style={{ color: "var(--text-muted)" }}>OS:</strong>
+                  <span>{selectedViewSystem.os}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+                  <strong style={{ color: "var(--text-muted)" }}>CPU:</strong>
+                  <span>{selectedViewSystem.cpu}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+                  <strong style={{ color: "var(--text-muted)" }}>GPU:</strong>
+                  <span>{selectedViewSystem.gpu || "N/A"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+                  <strong style={{ color: "var(--text-muted)" }}>RAM:</strong>
+                  <span>{selectedViewSystem.ram}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+                  <strong style={{ color: "var(--text-muted)" }}>Storage:</strong>
+                  <span>{selectedViewSystem.storage}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+                  <strong style={{ color: "var(--text-muted)" }}>Status:</strong>
+                  <span className={`status-tag ${selectedViewSystem.status === 'Active' ? 'resolved' : 'progress'}`}>{selectedViewSystem.status}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  <strong style={{ color: "var(--text-muted)" }}>Remarks / Hardware Issues:</strong>
+                  <div style={{ backgroundColor: "rgba(255,255,255,0.05)", padding: "8px", borderRadius: "6px", fontSize: "0.85rem", minHeight: "50px" }}>
+                    {selectedViewSystem.remarks || "No remarks or known hardware issues."}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{ textAlign: "right", marginTop: "1rem" }}>
+              <button className="btn-action start" onClick={() => setSelectedViewSystem(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: DEPARTMENT SYSTEMS LIST ================= */}
+      {selectedViewDept && (
+        <div className="modal-overlay active">
+          <div className="modal-card" style={{ maxWidth: "800px", width: "95%" }}>
+            <div className="modal-header">
+              <h3 className="modal-title">🏢 Devices in {selectedViewDept} Department</h3>
+              <button className="modal-close" onClick={() => setSelectedViewDept(null)}>&times;</button>
+            </div>
+            <div style={{ color: "var(--text-primary)", padding: "1rem 0" }}>
+              {(() => {
+                const deptEmployees = employees.filter(e => e.department?.toLowerCase() === selectedViewDept.toLowerCase());
+                const deptSystems = systems.filter(s => deptEmployees.some(e => e.id === s.assignedTo));
+                
+                if (deptSystems.length === 0) {
+                  return (
+                    <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
+                      No systems are currently assigned to employees in the {selectedViewDept} department.
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div className="table-wrapper">
+                    <table className="custom-table">
+                      <thead>
+                        <tr>
+                          <th>System Number</th>
+                          <th>Model</th>
+                          <th>Specs (CPU/RAM/GPU)</th>
+                          <th>Assigned Employee</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deptSystems.map(sys => {
+                          const assignee = employees.find(e => e.id === sys.assignedTo);
+                          return (
+                            <tr key={sys.id}>
+                              <td><strong style={{ color: "var(--accent-blue)" }}>{sys.systemNumber}</strong></td>
+                              <td>{sys.model}</td>
+                              <td>
+                                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                                  CPU: {sys.cpu} | RAM: {sys.ram} | GPU: {sys.gpu || "N/A"}
+                                </div>
+                              </td>
+                              <td>{assignee ? `${assignee.name} (${assignee.email})` : "Unassigned"}</td>
+                              <td>
+                                <span className={`status-tag ${sys.status === 'Active' ? 'resolved' : 'progress'}`}>{sys.status}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+            <div style={{ textAlign: "right", marginTop: "1rem" }}>
+              <button className="btn-action start" onClick={() => setSelectedViewDept(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
