@@ -4,20 +4,24 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const readline = require('readline');
 
-// 1. Manually parse .env.local if present
-const envPath = path.join(__dirname, '..', '.env.local');
-if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf8');
-  envContent.split('\n').forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) return;
-    const parts = trimmed.split('=');
-    if (parts.length >= 2) {
-      const key = parts[0].trim();
-      const val = parts.slice(1).join('=').trim().replace(/(^['"]|['"]$)/g, '');
-      process.env[key] = val;
-    }
-  });
+// 1. Manually parse env file if present (.env.local, .env, or .env.production)
+const envNames = ['.env.local', '.env', '.env.production'];
+for (const name of envNames) {
+  const envPath = path.join(__dirname, '..', name);
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    envContent.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const parts = trimmed.split('=');
+      if (parts.length >= 2) {
+        const key = parts[0].trim();
+        const val = parts.slice(1).join('=').trim().replace(/(^['"]|['"]$)/g, '');
+        process.env[key] = val;
+      }
+    });
+    break; // Load the first env file found
+  }
 }
 
 // 2. Setup DB Credentials
