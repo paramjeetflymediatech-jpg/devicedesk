@@ -1072,7 +1072,7 @@ export default function Home() {
     if (emp.id === user?.id) return false;
 
     // 2. Don't show other admin roles in the general employee list
-    if (['Admin', 'Management'].includes(emp.role)) return false;
+    if (['Admin'].includes(emp.role)) return false;
 
     const query = empSearch.toLowerCase();
     return emp.name.toLowerCase().includes(query) || 
