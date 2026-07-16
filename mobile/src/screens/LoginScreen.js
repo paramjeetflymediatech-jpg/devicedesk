@@ -203,12 +203,6 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
           <View style={styles.headerContainer}>
             <Text style={styles.title}>DeviceDesk</Text>
             <Text style={styles.subtitle}>System Tracking & Support Portal</Text>
-            <TouchableOpacity 
-              style={styles.gearButton} 
-              onPress={() => setShowConfig(true)}
-            >
-              <Text style={styles.gearIcon}>⚙️ Server Settings</Text>
-            </TouchableOpacity>
           </View>
 
           <View style={styles.card}>
@@ -220,7 +214,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
             <Text style={styles.label}>Username or Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. admin or employee@yopmail.com"
+              placeholder="enter here"
               placeholderTextColor="#888"
               value={identifier}
               onChangeText={setIdentifier}

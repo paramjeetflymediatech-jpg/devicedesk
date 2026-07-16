@@ -46,6 +46,120 @@ export default function ManageEmployees({ currentUser }) {
     setDepartments(getDepartments());
   };
 
+  // Import states
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [parsedEmployees, setParsedEmployees] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleParseEmployees = () => {
+    try {
+      if (!pasteText.trim()) {
+        sweetAlert({ title: 'Error', text: 'Please paste some Excel or CSV data first.', type: 'error' });
+        return;
+      }
+      
+      const lines = pasteText.trim().split('\n');
+      if (lines.length < 2) {
+        sweetAlert({ title: 'Error', text: 'Data must include at least a header row and one data row.', type: 'error' });
+        return;
+      }
+
+      const headerLine = lines[0];
+      const sep = headerLine.includes('\t') ? '\t' : ',';
+      const headers = headerLine.split(sep).map(h => h.trim().toLowerCase().replace(/(^["']|["']$)/g, ''));
+
+      // Find indexes
+      const nameIdx = headers.findIndex(h => h === 'name' || h === 'employee name' || h === 'employee');
+      const emailIdx = headers.findIndex(h => h === 'email' || h === 'email address');
+      const passwordIdx = headers.findIndex(h => h === 'password' || h === 'pass');
+      const roleIdx = headers.findIndex(h => h === 'role');
+      const deptIdx = headers.findIndex(h => h === 'department' || h === 'dept');
+      const limitIdx = headers.findIndex(h => h === 'ticket limit' || h === 'limit' || h === 'ticketlimit');
+
+      if (nameIdx === -1) {
+        sweetAlert({ title: 'Error', text: 'Could not find "Name" column in headers.', type: 'error' });
+        return;
+      }
+
+      const list = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        const vals = line.split(sep).map(v => v.trim().replace(/(^["']|["']$)/g, ''));
+        
+        const empName = vals[nameIdx] || '';
+        if (!empName) continue;
+
+        const empEmail = emailIdx !== -1 ? vals[emailIdx] : '';
+        const empPass = passwordIdx !== -1 ? vals[passwordIdx] : '';
+        const empRole = roleIdx !== -1 ? vals[roleIdx] : 'Team Member';
+        const empDept = deptIdx !== -1 ? vals[deptIdx] : 'General';
+        const empLimit = limitIdx !== -1 ? Number(vals[limitIdx]) || 5 : 5;
+
+        list.push({
+          name: empName,
+          email: empEmail,
+          password: empPass,
+          role: empRole,
+          department: empDept,
+          ticketLimit: empLimit
+        });
+      }
+
+      if (list.length === 0) {
+        sweetAlert({ title: 'No Rows Found', text: 'Could not parse any valid rows. Please check headers and data.', type: 'warning' });
+        return;
+      }
+
+      setParsedEmployees(list);
+      sweetAlert({ title: 'Parsed!', text: `Successfully parsed ${list.length} employees. Review the preview below before importing.`, type: 'success' });
+    } catch (err) {
+      sweetAlert({ title: 'Parse Error', text: err.message, type: 'error' });
+    }
+  };
+
+  const handleImportSubmit = async () => {
+    if (parsedEmployees.length === 0) {
+      sweetAlert({ title: 'Error', text: 'No parsed employees to import.', type: 'error' });
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { getApiUrl } = require('../../utils/api');
+      const baseUrl = getApiUrl();
+      const res = await fetch(`${baseUrl}/api/import-employees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employees: parsedEmployees })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Import failed');
+
+      let msg = `Successfully imported ${data.imported || 0} employees.`;
+      if (data.duplicates && data.duplicates.length > 0) {
+        msg += `\nSkipped ${data.duplicates.length} duplicates.`;
+      }
+      
+      sweetAlert({ title: 'Import Successful', text: msg, type: 'success' });
+      
+      // Close modal and clean up
+      setImportModalVisible(false);
+      setPasteText('');
+      setParsedEmployees([]);
+
+      // Sync and refresh
+      const { syncWithServer } = require('../../store/store');
+      await syncWithServer();
+    } catch (err) {
+      sweetAlert({ title: 'Import Failed', text: err.message, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     refreshData();
     const unsubscribe = subscribe(refreshData);
@@ -154,6 +268,9 @@ export default function ManageEmployees({ currentUser }) {
         />
         <TouchableOpacity style={styles.exportBtn} onPress={handleExportEmployees}>
           <Text style={styles.exportBtnText}>Excel 📥</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.importBtn} onPress={() => setImportModalVisible(true)}>
+          <Text style={styles.importBtnText}>Import 📤</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
           <Text style={styles.addBtnText}>+ Add</Text>
@@ -319,7 +436,74 @@ export default function ManageEmployees({ currentUser }) {
         </View>
       </Modal>
 
+      {/* Bulk Import Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={importModalVisible}
+        onRequestClose={() => setImportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>📤 Bulk Import Employees</Text>
+              <TouchableOpacity onPress={() => setImportModalVisible(false)}>
+                <Text style={styles.closeIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
 
+            <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
+              <View style={styles.infoCard}>
+                <Text style={styles.infoText}>
+                  📋 Copy cells from your Excel or Google Sheets (with headers) and paste below.
+                </Text>
+                <Text style={[styles.infoText, { fontWeight: 'bold', marginTop: 5, color: '#58a6ff' }]}>
+                  Supported headers: Name*, Email, Password, Role, Department, Ticket Limit
+                </Text>
+              </View>
+
+              <Text style={styles.label}>Paste Excel / TSV Data Here</Text>
+              <TextInput
+                style={styles.textArea}
+                multiline={true}
+                numberOfLines={8}
+                placeholder="Name&#9;Email&#9;Password&#9;Role&#9;Department&#9;Ticket Limit&#10;John Doe&#9;john@yopmail.com&#9;john123&#9;Team Member&#9;Sales&#9;5"
+                placeholderTextColor="#8b949e"
+                value={pasteText}
+                onChangeText={setPasteText}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <TouchableOpacity style={styles.parseBtn} onPress={handleParseEmployees}>
+                <Text style={styles.parseBtnText}>🔍 Parse & Preview Data</Text>
+              </TouchableOpacity>
+
+              {parsedEmployees.length > 0 && (
+                <View style={{ marginTop: 15 }}>
+                  <Text style={[styles.label, { color: '#58a6ff' }]}>Parsed Preview ({parsedEmployees.length} rows)</Text>
+                  <View style={styles.previewContainer}>
+                    <ScrollView nestedScrollEnabled={true}>
+                      {parsedEmployees.map((emp, index) => (
+                        <View key={index} style={styles.previewRow}>
+                          <Text style={styles.previewText}>👤 {emp.name}</Text>
+                          <Text style={[styles.previewText, { color: '#8b949e' }]}>🏢 {emp.department} | {emp.role}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <TouchableOpacity style={styles.saveBtn} onPress={handleImportSubmit} disabled={loading}>
+                    <Text style={styles.saveBtnText}>
+                      {loading ? 'Importing...' : `Confirm Import (${parsedEmployees.length} Employees)`}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -618,5 +802,81 @@ const styles = StyleSheet.create({
     color: '#c9d1d9',
     fontSize: 13,
     fontWeight: 'bold',
+  },
+  importBtn: {
+    backgroundColor: '#238636',
+    borderWidth: 1,
+    borderColor: '#2ea44f',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  importBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  textArea: {
+    backgroundColor: '#0d1117',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    color: '#f0f6fc',
+    padding: 12,
+    fontSize: 13,
+    height: 120,
+    textAlignVertical: 'top',
+    marginBottom: 15,
+  },
+  parseBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  parseBtnText: {
+    color: '#c9d1d9',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  infoCard: {
+    backgroundColor: '#161b22',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+  },
+  infoText: {
+    color: '#8b949e',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  previewContainer: {
+    maxHeight: 180,
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    backgroundColor: '#0d1117',
+    marginBottom: 15,
+    padding: 8,
+  },
+  previewRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#21262d',
+    paddingVertical: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  previewText: {
+    color: '#f0f6fc',
+    fontSize: 12,
   },
 });

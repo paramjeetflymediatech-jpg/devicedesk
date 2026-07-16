@@ -56,6 +56,125 @@ export default function ManageSystems() {
     setEmployees(getEmployees());
   };
 
+  // Import states
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [parsedSystems, setParsedSystems] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleParseSystems = () => {
+    try {
+      if (!pasteText.trim()) {
+        sweetAlert({ title: 'Error', text: 'Please paste some Excel or CSV data first.', type: 'error' });
+        return;
+      }
+
+      const lines = pasteText.trim().split('\n');
+      if (lines.length < 2) {
+        sweetAlert({ title: 'Error', text: 'Data must include at least a header row and one data row.', type: 'error' });
+        return;
+      }
+
+      const headerLine = lines[0];
+      const sep = headerLine.includes('\t') ? '\t' : ',';
+      const headers = headerLine.split(sep).map(h => h.trim().toLowerCase().replace(/(^["']|["']$)/g, ''));
+
+      // Find column indexes
+      const snIdx      = headers.findIndex(h => h === 'system number' || h === 'systemnumber' || h === 'system_number' || h === 'sn');
+      const modelIdx   = headers.findIndex(h => h === 'model' || h === 'model name');
+      const osIdx      = headers.findIndex(h => h === 'os' || h === 'operating system');
+      const cpuIdx     = headers.findIndex(h => h === 'cpu' || h === 'processor');
+      const gpuIdx     = headers.findIndex(h => h === 'gpu' || h === 'graphics');
+      const ramIdx     = headers.findIndex(h => h === 'ram' || h === 'memory');
+      const storageIdx = headers.findIndex(h => h === 'storage' || h === 'hard drive');
+      const statusIdx  = headers.findIndex(h => h === 'status' || h === 'state');
+      const assignIdx  = headers.findIndex(h => h === 'assigned to' || h === 'assigned employee' || h === 'employee');
+      const remarksIdx = headers.findIndex(h => h === 'remarks' || h === 'comments');
+
+      if (snIdx === -1) {
+        sweetAlert({ title: 'Error', text: 'Could not find "System Number" column in headers.', type: 'error' });
+        return;
+      }
+
+      const list = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        const vals = line.split(sep).map(v => v.trim().replace(/(^["']|["']$)/g, ''));
+
+        const systemNo = vals[snIdx] || '';
+        if (!systemNo) continue;
+
+        list.push({
+          systemNumber: systemNo,
+          model:        modelIdx   !== -1 ? vals[modelIdx]   : '',
+          os:           osIdx      !== -1 ? vals[osIdx]      : '',
+          cpu:          cpuIdx     !== -1 ? vals[cpuIdx]     : '',
+          gpu:          gpuIdx     !== -1 ? vals[gpuIdx]     : '',
+          ram:          ramIdx     !== -1 ? vals[ramIdx]     : '',
+          storage:      storageIdx !== -1 ? vals[storageIdx] : '',
+          status:       statusIdx  !== -1 ? vals[statusIdx]  : 'Active',
+          assignedTo:   assignIdx  !== -1 ? vals[assignIdx]  : '',
+          remarks:      remarksIdx !== -1 ? vals[remarksIdx] : '',
+        });
+      }
+
+      if (list.length === 0) {
+        sweetAlert({ title: 'No Rows Found', text: 'Could not parse any valid rows. Please check headers.', type: 'warning' });
+        return;
+      }
+
+      setParsedSystems(list);
+      sweetAlert({ title: 'Parsed!', text: `Successfully parsed ${list.length} systems. Review the preview below before importing.`, type: 'success' });
+    } catch (err) {
+      sweetAlert({ title: 'Parse Error', text: err.message, type: 'error' });
+    }
+  };
+
+  const handleImportSubmit = async () => {
+    if (parsedSystems.length === 0) {
+      sweetAlert({ title: 'Error', text: 'No parsed systems to import.', type: 'error' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { getApiUrl } = require('../../utils/api');
+      const baseUrl = getApiUrl();
+      const res = await fetch(`${baseUrl}/api/import-systems`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ systems: parsedSystems })
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Import failed');
+
+      let msg = `Successfully imported ${data.imported || 0} systems.`;
+      if (data.duplicates && data.duplicates.length > 0) {
+        msg += `\nSkipped ${data.duplicates.length} duplicate system numbers.`;
+      }
+      if (data.errors && data.errors.length > 0) {
+        msg += `\nErrors in ${data.errors.length} records.`;
+      }
+
+      sweetAlert({ title: 'Import Successful', text: msg, type: 'success' });
+
+      // Close modal and clean up
+      setImportModalVisible(false);
+      setPasteText('');
+      setParsedSystems([]);
+
+      // Sync and refresh store
+      const { syncWithServer } = require('../../store/store');
+      await syncWithServer();
+    } catch (err) {
+      sweetAlert({ title: 'Import Failed', text: err.message, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     refreshData();
     // Subscribe to store updates
@@ -239,6 +358,9 @@ export default function ManageSystems() {
         />
         <TouchableOpacity style={styles.exportBtn} onPress={handleExportSystems}>
           <Text style={styles.exportBtnText}>Excel 📥</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.importBtn} onPress={() => setImportModalVisible(true)}>
+          <Text style={styles.importBtnText}>Import 📤</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
           <Text style={styles.addBtnText}>+ Add</Text>
@@ -548,6 +670,75 @@ export default function ManageSystems() {
                     )}
                   </View>
                 </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Bulk Import Systems Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={importModalVisible}
+        onRequestClose={() => setImportModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>📤 Bulk Import Systems</Text>
+              <TouchableOpacity onPress={() => setImportModalVisible(false)}>
+                <Text style={styles.closeIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
+              <View style={styles.infoCard}>
+                <Text style={styles.infoText}>
+                  📋 Copy cells from your Excel or Google Sheets (with headers) and paste below.
+                </Text>
+                <Text style={[styles.infoText, { fontWeight: 'bold', marginTop: 5, color: '#58a6ff' }]}>
+                  Supported headers: System Number*, Model, OS, CPU, GPU, RAM, Storage, Status, Assigned To, Remarks
+                </Text>
+              </View>
+
+              <Text style={styles.label}>Paste Excel / TSV Data Here</Text>
+              <TextInput
+                style={styles.textArea}
+                multiline={true}
+                numberOfLines={8}
+                placeholder="System Number&#9;Model&#9;OS&#9;CPU&#9;RAM&#9;Storage&#9;Assigned To&#10;SN101&#9;MacBook Pro&#9;macOS&#9;M3 Max&#9;32GB&#9;1TB SSD&#9;amit@yopmail.com"
+                placeholderTextColor="#8b949e"
+                value={pasteText}
+                onChangeText={setPasteText}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <TouchableOpacity style={styles.parseBtn} onPress={handleParseSystems}>
+                <Text style={styles.parseBtnText}>🔍 Parse & Preview Data</Text>
+              </TouchableOpacity>
+
+              {parsedSystems.length > 0 && (
+                <View style={{ marginTop: 15 }}>
+                  <Text style={[styles.label, { color: '#58a6ff' }]}>Parsed Preview ({parsedSystems.length} rows)</Text>
+                  <View style={styles.previewContainer}>
+                    <ScrollView nestedScrollEnabled={true}>
+                      {parsedSystems.map((sys, index) => (
+                        <View key={index} style={styles.previewRow}>
+                          <Text style={styles.previewText}>💻 {sys.systemNumber}</Text>
+                          <Text style={[styles.previewText, { color: '#8b949e' }]}>{sys.model} | {sys.assignedTo || 'Unassigned'}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <TouchableOpacity style={styles.saveBtn} onPress={handleImportSubmit} disabled={loading}>
+                    <Text style={styles.saveBtnText}>
+                      {loading ? 'Importing...' : `Confirm Import (${parsedSystems.length} Systems)`}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </ScrollView>
           </View>
@@ -984,6 +1175,87 @@ const styles = StyleSheet.create({
   exportBtnText: {
     color: '#c9d1d9',
     fontSize: 13,
+    fontWeight: 'bold',
+  },
+  importBtn: {
+    backgroundColor: '#238636',
+    borderWidth: 1,
+    borderColor: '#2ea44f',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  importBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  textArea: {
+    backgroundColor: '#0d1117',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    color: '#f0f6fc',
+    padding: 12,
+    fontSize: 13,
+    height: 120,
+    textAlignVertical: 'top',
+    marginBottom: 15,
+  },
+  parseBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  parseBtnText: {
+    color: '#c9d1d9',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  infoCard: {
+    backgroundColor: '#161b22',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+  },
+  infoText: {
+    color: '#8b949e',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  previewContainer: {
+    maxHeight: 180,
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    backgroundColor: '#0d1117',
+    marginBottom: 15,
+    padding: 8,
+  },
+  previewRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#21262d',
+    paddingVertical: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  previewText: {
+    color: '#f0f6fc',
+    fontSize: 12,
+  },
+  closeIcon: {
+    fontSize: 18,
+    color: '#8b949e',
     fontWeight: 'bold',
   },
 });
