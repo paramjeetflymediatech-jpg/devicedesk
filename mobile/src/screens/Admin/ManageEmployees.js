@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { getApiUrl } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
+import { pick } from '@react-native-documents/picker';
+import * as XLSX from 'xlsx';
 import {
   getEmployees,
   getSystems,
@@ -48,74 +50,78 @@ export default function ManageEmployees({ currentUser }) {
 
   // Import states
   const [importModalVisible, setImportModalVisible] = useState(false);
-  const [pasteText, setPasteText] = useState('');
+  const [selectedFileName, setSelectedFileName] = useState('');
   const [parsedEmployees, setParsedEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const handleParseEmployees = () => {
+  const handleSelectFile = async () => {
     try {
-      if (!pasteText.trim()) {
-        sweetAlert({ title: 'Error', text: 'Please paste some Excel or CSV data first.', type: 'error' });
-        return;
-      }
+      const [res] = await pick({
+        type: [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+          'text/csv',
+          'text/comma-separated-values'
+        ]
+      });
+
+      if (!res || !res.uri) return;
+      setSelectedFileName(res.name);
+
+      // Read file content
+      const fileUri = res.uri;
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+      const reader = new FileReader();
       
-      const lines = pasteText.trim().split('\n');
-      if (lines.length < 2) {
-        sweetAlert({ title: 'Error', text: 'Data must include at least a header row and one data row.', type: 'error' });
-        return;
-      }
+      reader.onload = () => {
+        try {
+          const base64 = reader.result.split(',')[1];
+          const workbook = XLSX.read(base64, { type: 'base64' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+          
+          if (!json || json.length === 0) {
+            sweetAlert({ title: 'Empty File', text: 'No rows found in the selected Excel sheet.', type: 'warning' });
+            return;
+          }
 
-      const headerLine = lines[0];
-      const sep = headerLine.includes('\t') ? '\t' : ',';
-      const headers = headerLine.split(sep).map(h => h.trim().toLowerCase().replace(/(^["']|["']$)/g, ''));
+          // Map parsed objects to standard keys based on header synonyms
+          const list = json.map(row => {
+            const getValue = (synonyms) => {
+              const key = Object.keys(row).find(k => synonyms.includes(k.toLowerCase().trim()));
+              return key ? String(row[key]).trim() : '';
+            };
 
-      // Find indexes
-      const nameIdx = headers.findIndex(h => h === 'name' || h === 'employee name' || h === 'employee');
-      const emailIdx = headers.findIndex(h => h === 'email' || h === 'email address');
-      const passwordIdx = headers.findIndex(h => h === 'password' || h === 'pass');
-      const roleIdx = headers.findIndex(h => h === 'role');
-      const deptIdx = headers.findIndex(h => h === 'department' || h === 'dept');
-      const limitIdx = headers.findIndex(h => h === 'ticket limit' || h === 'limit' || h === 'ticketlimit');
+            return {
+              name: getValue(['name', 'employee name', 'employee', 'full name']),
+              email: getValue(['email', 'email address', 'mail']),
+              password: getValue(['password', 'pass', 'pwd']),
+              role: getValue(['role', 'designation', 'user role']) || 'Team Member',
+              department: getValue(['department', 'dept', 'dep']),
+              ticketLimit: Number(getValue(['ticket limit', 'limit', 'ticketlimit'])) || 5
+            };
+          }).filter(e => e.name); // Filter out rows without a name
 
-      if (nameIdx === -1) {
-        sweetAlert({ title: 'Error', text: 'Could not find "Name" column in headers.', type: 'error' });
-        return;
-      }
+          if (list.length === 0) {
+            sweetAlert({ title: 'No Rows Found', text: 'Could not find any rows with a valid "Name" column.', type: 'warning' });
+            return;
+          }
 
-      const list = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.trim()) continue;
-        const vals = line.split(sep).map(v => v.trim().replace(/(^["']|["']$)/g, ''));
-        
-        const empName = vals[nameIdx] || '';
-        if (!empName) continue;
+          setParsedEmployees(list);
+          sweetAlert({ title: 'Parsed!', text: `Successfully loaded ${list.length} employees from "${res.name}".`, type: 'success' });
+        } catch (parseErr) {
+          sweetAlert({ title: 'Read Error', text: 'Failed to parse Excel file: ' + parseErr.message, type: 'error' });
+        }
+      };
 
-        const empEmail = emailIdx !== -1 ? vals[emailIdx] : '';
-        const empPass = passwordIdx !== -1 ? vals[passwordIdx] : '';
-        const empRole = roleIdx !== -1 ? vals[roleIdx] : 'Team Member';
-        const empDept = deptIdx !== -1 ? vals[deptIdx] : 'General';
-        const empLimit = limitIdx !== -1 ? Number(vals[limitIdx]) || 5 : 5;
-
-        list.push({
-          name: empName,
-          email: empEmail,
-          password: empPass,
-          role: empRole,
-          department: empDept,
-          ticketLimit: empLimit
-        });
-      }
-
-      if (list.length === 0) {
-        sweetAlert({ title: 'No Rows Found', text: 'Could not parse any valid rows. Please check headers and data.', type: 'warning' });
-        return;
-      }
-
-      setParsedEmployees(list);
-      sweetAlert({ title: 'Parsed!', text: `Successfully parsed ${list.length} employees. Review the preview below before importing.`, type: 'success' });
+      reader.readAsDataURL(blob);
     } catch (err) {
-      sweetAlert({ title: 'Parse Error', text: err.message, type: 'error' });
+      if (err.message && err.message.includes('User canceled')) {
+        return;
+      }
+      sweetAlert({ title: 'Picker Error', text: err.message, type: 'error' });
     }
   };
 
@@ -147,7 +153,7 @@ export default function ManageEmployees({ currentUser }) {
       
       // Close modal and clean up
       setImportModalVisible(false);
-      setPasteText('');
+      setSelectedFileName('');
       setParsedEmployees([]);
 
       // Sync and refresh
@@ -455,29 +461,24 @@ export default function ManageEmployees({ currentUser }) {
             <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
               <View style={styles.infoCard}>
                 <Text style={styles.infoText}>
-                  📋 Copy cells from your Excel or Google Sheets (with headers) and paste below.
+                  📁 Choose an Excel (.xlsx, .xls) or CSV file containing your employee list.
                 </Text>
                 <Text style={[styles.infoText, { fontWeight: 'bold', marginTop: 5, color: '#58a6ff' }]}>
-                  Supported headers: Name*, Email, Password, Role, Department, Ticket Limit
+                  Supported columns: Name*, Email, Password, Role, Department, Ticket Limit
                 </Text>
               </View>
 
-              <Text style={styles.label}>Paste Excel / TSV Data Here</Text>
-              <TextInput
-                style={styles.textArea}
-                multiline={true}
-                numberOfLines={8}
-                placeholder="Name&#9;Email&#9;Password&#9;Role&#9;Department&#9;Ticket Limit&#10;John Doe&#9;john@yopmail.com&#9;john123&#9;Team Member&#9;Sales&#9;5"
-                placeholderTextColor="#8b949e"
-                value={pasteText}
-                onChangeText={setPasteText}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              <TouchableOpacity style={styles.parseBtn} onPress={handleParseEmployees}>
-                <Text style={styles.parseBtnText}>🔍 Parse & Preview Data</Text>
+              <TouchableOpacity style={styles.selectFileBtn} onPress={handleSelectFile}>
+                <Text style={styles.selectFileBtnText}>
+                  {selectedFileName ? `📄 ${selectedFileName}` : '📁 Select Excel / CSV File'}
+                </Text>
               </TouchableOpacity>
+
+              {selectedFileName ? (
+                <Text style={styles.fileSelectedText}>
+                  File loaded. Press Confirm below to import.
+                </Text>
+              ) : null}
 
               {parsedEmployees.length > 0 && (
                 <View style={{ marginTop: 15 }}>
@@ -878,5 +879,26 @@ const styles = StyleSheet.create({
   previewText: {
     color: '#f0f6fc',
     fontSize: 12,
+  },
+  selectFileBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  selectFileBtnText: {
+    color: '#58a6ff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  fileSelectedText: {
+    color: '#3fb950',
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 15,
+    fontWeight: '600',
   },
 });

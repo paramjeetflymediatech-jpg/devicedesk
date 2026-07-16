@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { getApiUrl } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
+import { pick } from '@react-native-documents/picker';
+import * as XLSX from 'xlsx';
 import {
   getSystems,
   getEmployees,
@@ -58,76 +60,82 @@ export default function ManageSystems() {
 
   // Import states
   const [importModalVisible, setImportModalVisible] = useState(false);
-  const [pasteText, setPasteText] = useState('');
+  const [selectedFileName, setSelectedFileName] = useState('');
   const [parsedSystems, setParsedSystems] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const handleParseSystems = () => {
+  const handleSelectFile = async () => {
     try {
-      if (!pasteText.trim()) {
-        sweetAlert({ title: 'Error', text: 'Please paste some Excel or CSV data first.', type: 'error' });
-        return;
-      }
+      const [res] = await pick({
+        type: [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+          'text/csv',
+          'text/comma-separated-values'
+        ]
+      });
 
-      const lines = pasteText.trim().split('\n');
-      if (lines.length < 2) {
-        sweetAlert({ title: 'Error', text: 'Data must include at least a header row and one data row.', type: 'error' });
-        return;
-      }
+      if (!res || !res.uri) return;
+      setSelectedFileName(res.name);
 
-      const headerLine = lines[0];
-      const sep = headerLine.includes('\t') ? '\t' : ',';
-      const headers = headerLine.split(sep).map(h => h.trim().toLowerCase().replace(/(^["']|["']$)/g, ''));
+      // Read file content
+      const fileUri = res.uri;
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      
+      reader.onload = () => {
+        try {
+          const base64 = reader.result.split(',')[1];
+          const workbook = XLSX.read(base64, { type: 'base64' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+          
+          if (!json || json.length === 0) {
+            sweetAlert({ title: 'Empty File', text: 'No rows found in the selected Excel sheet.', type: 'warning' });
+            return;
+          }
 
-      // Find column indexes
-      const snIdx      = headers.findIndex(h => h === 'system number' || h === 'systemnumber' || h === 'system_number' || h === 'sn');
-      const modelIdx   = headers.findIndex(h => h === 'model' || h === 'model name');
-      const osIdx      = headers.findIndex(h => h === 'os' || h === 'operating system');
-      const cpuIdx     = headers.findIndex(h => h === 'cpu' || h === 'processor');
-      const gpuIdx     = headers.findIndex(h => h === 'gpu' || h === 'graphics');
-      const ramIdx     = headers.findIndex(h => h === 'ram' || h === 'memory');
-      const storageIdx = headers.findIndex(h => h === 'storage' || h === 'hard drive');
-      const statusIdx  = headers.findIndex(h => h === 'status' || h === 'state');
-      const assignIdx  = headers.findIndex(h => h === 'assigned to' || h === 'assigned employee' || h === 'employee');
-      const remarksIdx = headers.findIndex(h => h === 'remarks' || h === 'comments');
+          // Map parsed objects to standard keys based on header synonyms
+          const list = json.map(row => {
+            const getValue = (synonyms) => {
+              const key = Object.keys(row).find(k => synonyms.includes(k.toLowerCase().trim()));
+              return key ? String(row[key]).trim() : '';
+            };
 
-      if (snIdx === -1) {
-        sweetAlert({ title: 'Error', text: 'Could not find "System Number" column in headers.', type: 'error' });
-        return;
-      }
+            return {
+              systemNumber: getValue(['system number', 'systemnumber', 'system_number', 'sn', 'serial number', 'serialno']),
+              model:        getValue(['model', 'model name', 'machine model']),
+              os:           getValue(['os', 'operating system', 'system os']),
+              cpu:          getValue(['cpu', 'processor', 'system cpu']),
+              gpu:          getValue(['gpu', 'graphics', 'graphics card']),
+              ram:          getValue(['ram', 'memory', 'system ram']),
+              storage:      getValue(['storage', 'hard drive', 'disk']),
+              status:       getValue(['status', 'state', 'condition']) || 'Active',
+              assignedTo:   getValue(['assigned to', 'employee email', 'assigned employee', 'employee']),
+              remarks:      getValue(['remarks', 'comments', 'notes']),
+            };
+          }).filter(s => s.systemNumber); // Filter out rows without system number
 
-      const list = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.trim()) continue;
-        const vals = line.split(sep).map(v => v.trim().replace(/(^["']|["']$)/g, ''));
+          if (list.length === 0) {
+            sweetAlert({ title: 'No Rows Found', text: 'Could not find any rows with a valid "System Number" column.', type: 'warning' });
+            return;
+          }
 
-        const systemNo = vals[snIdx] || '';
-        if (!systemNo) continue;
+          setParsedSystems(list);
+          sweetAlert({ title: 'Parsed!', text: `Successfully loaded ${list.length} systems from "${res.name}".`, type: 'success' });
+        } catch (parseErr) {
+          sweetAlert({ title: 'Read Error', text: 'Failed to parse Excel file: ' + parseErr.message, type: 'error' });
+        }
+      };
 
-        list.push({
-          systemNumber: systemNo,
-          model:        modelIdx   !== -1 ? vals[modelIdx]   : '',
-          os:           osIdx      !== -1 ? vals[osIdx]      : '',
-          cpu:          cpuIdx     !== -1 ? vals[cpuIdx]     : '',
-          gpu:          gpuIdx     !== -1 ? vals[gpuIdx]     : '',
-          ram:          ramIdx     !== -1 ? vals[ramIdx]     : '',
-          storage:      storageIdx !== -1 ? vals[storageIdx] : '',
-          status:       statusIdx  !== -1 ? vals[statusIdx]  : 'Active',
-          assignedTo:   assignIdx  !== -1 ? vals[assignIdx]  : '',
-          remarks:      remarksIdx !== -1 ? vals[remarksIdx] : '',
-        });
-      }
-
-      if (list.length === 0) {
-        sweetAlert({ title: 'No Rows Found', text: 'Could not parse any valid rows. Please check headers.', type: 'warning' });
-        return;
-      }
-
-      setParsedSystems(list);
-      sweetAlert({ title: 'Parsed!', text: `Successfully parsed ${list.length} systems. Review the preview below before importing.`, type: 'success' });
+      reader.readAsDataURL(blob);
     } catch (err) {
-      sweetAlert({ title: 'Parse Error', text: err.message, type: 'error' });
+      if (err.message && err.message.includes('User canceled')) {
+        return;
+      }
+      sweetAlert({ title: 'Picker Error', text: err.message, type: 'error' });
     }
   };
 
@@ -162,7 +170,7 @@ export default function ManageSystems() {
 
       // Close modal and clean up
       setImportModalVisible(false);
-      setPasteText('');
+      setSelectedFileName('');
       setParsedSystems([]);
 
       // Sync and refresh store
@@ -695,29 +703,24 @@ export default function ManageSystems() {
             <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
               <View style={styles.infoCard}>
                 <Text style={styles.infoText}>
-                  📋 Copy cells from your Excel or Google Sheets (with headers) and paste below.
+                  📁 Choose an Excel (.xlsx, .xls) or CSV file containing your systems list.
                 </Text>
                 <Text style={[styles.infoText, { fontWeight: 'bold', marginTop: 5, color: '#58a6ff' }]}>
-                  Supported headers: System Number*, Model, OS, CPU, GPU, RAM, Storage, Status, Assigned To, Remarks
+                  Supported columns: System Number*, Model, OS, CPU, GPU, RAM, Storage, Status, Assigned To, Remarks
                 </Text>
               </View>
 
-              <Text style={styles.label}>Paste Excel / TSV Data Here</Text>
-              <TextInput
-                style={styles.textArea}
-                multiline={true}
-                numberOfLines={8}
-                placeholder="System Number&#9;Model&#9;OS&#9;CPU&#9;RAM&#9;Storage&#9;Assigned To&#10;SN101&#9;MacBook Pro&#9;macOS&#9;M3 Max&#9;32GB&#9;1TB SSD&#9;amit@yopmail.com"
-                placeholderTextColor="#8b949e"
-                value={pasteText}
-                onChangeText={setPasteText}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              <TouchableOpacity style={styles.parseBtn} onPress={handleParseSystems}>
-                <Text style={styles.parseBtnText}>🔍 Parse & Preview Data</Text>
+              <TouchableOpacity style={styles.selectFileBtn} onPress={handleSelectFile}>
+                <Text style={styles.selectFileBtnText}>
+                  {selectedFileName ? `📄 ${selectedFileName}` : '📁 Select Excel / CSV File'}
+                </Text>
               </TouchableOpacity>
+
+              {selectedFileName ? (
+                <Text style={styles.fileSelectedText}>
+                  File loaded. Press Confirm below to import.
+                </Text>
+              ) : null}
 
               {parsedSystems.length > 0 && (
                 <View style={{ marginTop: 15 }}>
@@ -1257,5 +1260,26 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#8b949e',
     fontWeight: 'bold',
+  },
+  selectFileBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  selectFileBtnText: {
+    color: '#58a6ff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  fileSelectedText: {
+    color: '#3fb950',
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 15,
+    fontWeight: '600',
   },
 });
