@@ -23,7 +23,7 @@ import {
   subscribe,
 } from '../../store/store';
 
-export default function ManageEmployees() {
+export default function ManageEmployees({ currentUser }) {
   const [employees, setEmployees] = useState([]);
   const [systems, setSystems] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -126,6 +126,12 @@ export default function ManageEmployees() {
   };
 
   const filteredEmployees = employees.filter(e => {
+    // 1. Don't show currently logged-in user
+    if (e.id === currentUser?.id) return false;
+
+    // 2. Don't show other admin role users in the general list (to match web changes)
+    if (e.role === 'Admin') return false;
+
     const query = searchQuery.toLowerCase();
     return (
       (e.name || '').toLowerCase().includes(query) ||

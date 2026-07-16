@@ -221,7 +221,7 @@ export default function AdminDashboard({ user, onLogout }) {
       case 'systems':
         return <ManageSystems />;
       case 'employees':
-        return <ManageEmployees />;
+        return <ManageEmployees currentUser={user} />;
       case 'tickets':
         return <ManageTickets />;
       case 'history':
