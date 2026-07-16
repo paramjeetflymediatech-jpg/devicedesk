@@ -1804,7 +1804,7 @@ export default function Home() {
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
                               <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenAssignModal(emp)}>Assign Device</button>
                               <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(59, 130, 246, 0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>Edit</button>
-                              {!['Admin', 'Management'].includes(emp.role) && (
+                              {!['Admin'].includes(emp.role) && (
                                 <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>Remove</button>
                               )}
                             </div>
@@ -1839,7 +1839,7 @@ export default function Home() {
                       <div className="mobile-card-actions">
                         <button className="btn-action start" onClick={() => handleOpenAssignModal(emp)}>🖥️ Assign</button>
                         <button className="btn-action start" style={{ background: "rgba(59,130,246,0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>✏️ Edit</button>
-                        {!['Admin', 'Management'].includes(emp.role) && (
+                        {!['Admin'].includes(emp.role) && (
                            <button className="btn-action resolve" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>🗑️ Remove</button>
                         )}
                       </div>
