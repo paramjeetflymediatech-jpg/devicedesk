@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request) {
   try {
@@ -10,22 +11,22 @@ export async function POST(request) {
     }
 
     // Hard-coded admin shortcut
-    if ((identifier === 'admin' || identifier.toLowerCase() === 'admin') && password === 'admin123') {
+    if (identifier.toLowerCase() === 'admin' && password === 'admin123') {
       return NextResponse.json({
         success: true,
-        user: { role: 'admin', name: 'Admin' }
+        user: { role: 'admin', name: 'Admin', dbRole: 'Admin' }
       });
     }
 
     const db = await getDbConnection();
 
-    // Try matching by email OR name (case-insensitive)
+    // Fetch by email OR name — do NOT compare password in SQL; use bcrypt below
     const [rows] = await db.execute(
       `SELECT id, name, email, password, role, department, ticketLimit
        FROM employees
-       WHERE (LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?)) AND password = ?
+       WHERE LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?)
        LIMIT 1`,
-      [identifier, identifier, password]
+      [identifier, identifier]
     );
 
     if (rows.length === 0) {
@@ -33,6 +34,23 @@ export async function POST(request) {
     }
 
     const emp = rows[0];
+    const storedPassword = emp.password || '';
+
+    // Support bcrypt hashes AND legacy plain-text passwords (backward compatibility)
+    let passwordMatch = false;
+    const pepper = process.env.PASSWORD_PEPPER || 'devicedesk_secure_pepper_key_2026';
+    if (storedPassword.startsWith('$2')) {
+      // Hashed — use bcrypt.compare with secret key
+      passwordMatch = await bcrypt.compare(password + pepper, storedPassword);
+    } else {
+      // Legacy plain-text fallback
+      passwordMatch = storedPassword === password;
+    }
+
+    if (!passwordMatch) {
+      return NextResponse.json({ success: false, message: '⚠️ Account not found or incorrect password.' }, { status: 401 });
+    }
+
     const isAdmin = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer';
 
     return NextResponse.json({
@@ -42,6 +60,7 @@ export async function POST(request) {
         name:        emp.name,
         email:       emp.email,
         role:        isAdmin ? 'admin' : 'employee',
+        dbRole:      emp.role,
         department:  emp.department,
         ticketLimit: emp.ticketLimit
       }

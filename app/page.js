@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./auth/AuthContext";
 import {
@@ -11,6 +12,7 @@ import {
   setSoundEnabled,
   addSystem,
   updateSystem,
+  deleteSystem,
   getTicketTimings,
   calculateDuration,
   formatDuration,
@@ -83,6 +85,13 @@ export default function Home() {
   const [importParsed, setImportParsed] = useState([]);
   const [importStatus, setImportStatus] = useState(null); // null | 'preview' | 'loading' | 'done'
   const [importResult, setImportResult] = useState(null);
+
+  // Bulk Employee Import States
+  const [showEmpImportModal, setShowEmpImportModal] = useState(false);
+  const [empImportFile, setEmpImportFile] = useState(null);
+  const [empImportParsed, setEmpImportParsed] = useState([]);
+  const [empImportStatus, setEmpImportStatus] = useState(null); // null | 'preview' | 'loading' | 'done'
+  const [empImportResult, setEmpImportResult] = useState(null);
   
   // Add Employee Form States
   const [newEmpName, setNewEmpName] = useState("");
@@ -316,10 +325,36 @@ export default function Home() {
     }
   };
 
-  const handleAddEmployeeSubmit = (e) => {
+  const handleAddEmployeeSubmit = async (e) => {
     e.preventDefault();
     if (!newEmpName.trim()) return;
-    addEmployee(newEmpName, newEmpEmail, newEmpPassword, newEmpRole, newEmpDept, newEmpLimit);
+
+    try {
+      const res = await fetch('/api/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newEmpName,
+          email: newEmpEmail,
+          password: newEmpPassword,
+          role: newEmpRole,
+          department: newEmpDept,
+          ticketLimit: newEmpLimit,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add employee');
+
+      // Refresh local state from server
+      const { loadFromServer } = await import('./store.js');
+      if (typeof loadFromServer === 'function') await loadFromServer();
+      setEmployees(getEmployees());
+
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+      return;
+    }
+
     setNewEmpName("");
     setNewEmpEmail("");
     setNewEmpPassword("");
@@ -327,7 +362,6 @@ export default function Home() {
     setNewEmpDept("Development");
     setNewEmpLimit(5);
     setShowAddEmpModal(false);
-    setEmployees(getEmployees());
     playBeep(600, 0.1);
   };
 
@@ -362,11 +396,104 @@ export default function Home() {
   };
 
   const handleRemoveEmployee = (empId) => {
-    if (confirm("Are you sure you want to remove this employee? This will also unassign all their devices.")) {
-      removeEmployee(empId);
-      setEmployees(getEmployees());
+    if (userRole !== 'admin') {
+      Swal.fire({ icon: 'error', title: 'Access Denied', text: 'Only admins can delete employees.' });
+      return;
+    }
+    Swal.fire({
+      title: 'Remove Employee?',
+      text: 'This will also unassign all their devices.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, remove',
+      confirmButtonColor: '#dc2626',
+    }).then(result => {
+      if (result.isConfirmed) {
+        removeEmployee(empId);
+        setEmployees(getEmployees());
+        setSystems(getSystems());
+        playBeep(400, 0.15, 'sawtooth');
+      }
+    });
+  };
+  
+  const handleRemoveSystem = (sysId, sn) => {
+    if (userRole !== 'admin') {
+      Swal.fire({ icon: 'error', title: 'Access Denied', text: 'Only admins can delete systems.' });
+      return;
+    }
+    Swal.fire({
+      title: `Delete System ${sn}?`,
+      text: 'This will permanently remove this system and clear its assignments. This action cannot be undone!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete',
+      confirmButtonColor: '#dc2626',
+    }).then(result => {
+      if (result.isConfirmed) {
+        deleteSystem(sysId);
+        setSystems(getSystems());
+        playBeep(400, 0.15, 'sawtooth');
+        Swal.fire('Deleted!', `System ${sn} has been deleted.`, 'success');
+      }
+    });
+  };
+
+  const handleDangerDelete = async (target, label) => {
+    if (user?.dbRole !== 'Admin') {
+      Swal.fire({ icon: 'error', title: 'Access Denied', text: 'Only users with the Admin role can access the Danger Zone.' });
+      return;
+    }
+    // Double confirmation
+    const first = await Swal.fire({
+      title: `Delete All ${label}?`,
+      text: `This will permanently delete ALL ${label.toLowerCase()} records. This action cannot be undone!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: `Yes, delete all ${label}`,
+      confirmButtonColor: '#dc2626',
+      cancelButtonText: 'Cancel',
+    });
+    if (!first.isConfirmed) return;
+
+    const second = await Swal.fire({
+      title: 'Are you absolutely sure?',
+      input: 'text',
+      inputPlaceholder: 'Type DELETE to confirm',
+      inputAttributes: { autocapitalize: 'off' },
+      showCancelButton: true,
+      confirmButtonText: 'Delete Now',
+      confirmButtonColor: '#dc2626',
+      preConfirm: (val) => {
+        if (val !== 'DELETE') {
+          Swal.showValidationMessage('You must type DELETE exactly');
+          return false;
+        }
+        return true;
+      }
+    });
+    if (!second.isConfirmed) return;
+
+    try {
+      const res  = await fetch('/api/danger-zone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+
+      Swal.fire({ icon: 'success', title: 'Deleted!', text: `All ${label.toLowerCase()} have been permanently deleted.` });
+
+      // Refresh local state
+      const { loadFromServer } = await import('./store.js');
+      if (typeof loadFromServer === 'function') await loadFromServer();
       setSystems(getSystems());
-      playBeep(400, 0.15, "sawtooth");
+      setEmployees(getEmployees());
+      setTickets(getTickets());
+      setAssignmentHistory(getAssignmentHistory ? getAssignmentHistory() : []);
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Error', text: err.message });
     }
   };
 
@@ -591,6 +718,7 @@ export default function Home() {
         storage:      row['Storage']       || row['storage']      || '',
         status:       row['Status']        || row['status']       || 'Active',
         remarks:      row['Remarks']       || row['remarks']      || '',
+        assignedTo:   row['Assigned To']   || row['Assigned Employee'] || row['Employee'] || row['assignedTo'] || '',
       }));
 
       const res = await fetch('/api/import-systems', {
@@ -614,13 +742,80 @@ export default function Home() {
   };
 
   const handleDownloadTemplate = () => {
-    const headers = 'System Number,Model,OS,CPU,GPU,RAM,Storage,Status,Remarks';
-    const sample   = 'PC-001,Dell OptiPlex 7090,Windows 11 Pro,Intel Core i7-11700,Intel UHD 750,16 GB,512 GB SSD,Active,';
-    const csvStr   = '\uFEFF' + headers + '\n' + sample;
+    const headers = 'System Number,Model,OS,CPU,GPU,RAM,Storage,Status,Assigned To,Remarks';
+    const sample  = 'PC-001,Dell OptiPlex 7090,Windows 11 Pro,Intel Core i7-11700,Intel UHD 750,16 GB,512 GB SSD,Active,John Smith,';
+    const csvStr  = '\uFEFF' + headers + '\n' + sample;
     const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href = url; a.download = 'devicedesk_systems_import_template.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  /* ---- Bulk Import Employees from Excel/CSV ---- */
+  const handleEmpImportFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setEmpImportFile(file);
+    setEmpImportStatus(null);
+    setEmpImportParsed([]);
+    setEmpImportResult(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      import('xlsx').then(XLSX => {
+        const data = new Uint8Array(evt.target.result);
+        const wb   = XLSX.read(data, { type: 'array' });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        setEmpImportParsed(rows);
+        setEmpImportStatus('preview');
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleConfirmEmpImport = async () => {
+    if (!empImportParsed.length) return;
+    setEmpImportStatus('loading');
+    try {
+      const normalised = empImportParsed.map(row => ({
+        name:        row['Name']         || row['Employee Name'] || row['name']        || '',
+        email:       row['Email']        || row['Email Address'] || row['email']       || '',
+        password:    row['Password']     || row['Pass']          || row['password']    || '',
+        role:        row['Role']         || row['role']          || 'Team Member',
+        department:  row['Department']   || row['Dept']          || row['department']  || 'General',
+        ticketLimit: row['Ticket Limit'] || row['ticketLimit']   || 5,
+      }));
+
+      const res    = await fetch('/api/import-employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employees: normalised }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Import failed');
+
+      setEmpImportResult(result);
+      setEmpImportStatus('done');
+
+      const { loadFromServer } = await import('./store.js');
+      if (typeof loadFromServer === 'function') await loadFromServer();
+      setEmployees(getEmployees());
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Import Failed', text: err.message });
+      setEmpImportStatus('preview');
+    }
+  };
+
+  const handleDownloadEmpTemplate = () => {
+    const headers = 'Name,Email,Password,Role,Department,Ticket Limit';
+    const sample  = 'John Smith,john.smith@company.com,Pass@123,Team Member,Operations,5';
+    const csvStr  = '\uFEFF' + headers + '\n' + sample;
+    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'devicedesk_employees_import_template.csv';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
@@ -942,6 +1137,11 @@ export default function Home() {
                 <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("profile")}><span className="nav-icon">👤</span> My Profile</button>
                 </li>
+                {user?.dbRole === 'Admin' && (
+                  <li className={`nav-item ${currentView === "danger-zone" ? "active" : ""}`} style={{ marginTop: '8px' }}>
+                    <button onClick={() => setCurrentView("danger-zone")} style={{ color: 'var(--status-critical)' }}><span className="nav-icon">⚠️</span> Danger Zone</button>
+                  </li>
+                )}
               </>
             )}
             {userRole === "employee" && (
@@ -1177,6 +1377,92 @@ export default function Home() {
             </div>
           )}
 
+          {/* ================= VIEW: DANGER ZONE ================= */}
+          {currentView === "danger-zone" && user?.dbRole === "Admin" && (
+            <div className="page-section active">
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--status-critical)', margin: '0 0 6px 0' }}>⚠️ Danger Zone</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>All actions here are <strong style={{ color: 'var(--status-critical)' }}>permanent and irreversible</strong>. You will be asked to confirm twice before any data is deleted.</p>
+              </div>
+
+              {/* Delete per section */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+
+                {/* Systems */}
+                <div style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: '12px', padding: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '1.5rem' }}>🖥️</span>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>Delete All Systems</h3>
+                  </div>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '14px', lineHeight: '1.5' }}>
+                    Permanently removes <strong>{systems.length}</strong> system records, clears all assignments and hardware inventory.
+                  </p>
+                  <button
+                    onClick={() => handleDangerDelete('systems', 'Systems')}
+                    style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(220,38,38,0.5)', background: 'rgba(220,38,38,0.1)', color: '#ef4444', fontWeight: '700', cursor: 'pointer', fontSize: '0.82rem' }}>
+                    🗑️ Delete All Systems ({systems.length})
+                  </button>
+                </div>
+
+                {/* Tickets */}
+                <div style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: '12px', padding: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '1.5rem' }}>🎫</span>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>Delete All Tickets</h3>
+                  </div>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '14px', lineHeight: '1.5' }}>
+                    Permanently removes <strong>{tickets.length}</strong> IT complaint tickets and all resolution records.
+                  </p>
+                  <button
+                    onClick={() => handleDangerDelete('tickets', 'Tickets')}
+                    style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(220,38,38,0.5)', background: 'rgba(220,38,38,0.1)', color: '#ef4444', fontWeight: '700', cursor: 'pointer', fontSize: '0.82rem' }}>
+                    🗑️ Delete All Tickets ({tickets.length})
+                  </button>
+                </div>
+
+                {/* History */}
+                <div style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: '12px', padding: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '1.5rem' }}>📜</span>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>Delete Transfer Logs</h3>
+                  </div>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '14px', lineHeight: '1.5' }}>
+                    Permanently removes all assignment history and transfer audit logs from the system.
+                  </p>
+                  <button
+                    onClick={() => handleDangerDelete('history', 'Transfer Logs')}
+                    style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(220,38,38,0.5)', background: 'rgba(220,38,38,0.1)', color: '#ef4444', fontWeight: '700', cursor: 'pointer', fontSize: '0.82rem' }}>
+                    🗑️ Delete All Transfer Logs
+                  </button>
+                </div>
+              </div>
+
+              {/* Nuclear option */}
+              <div style={{
+                background: 'rgba(220,38,38,0.08)', border: '2px solid rgba(220,38,38,0.5)',
+                borderRadius: '14px', padding: '24px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '2rem' }}>☢️</span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#ef4444' }}>Delete Everything</h3>
+                    <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Wipes all systems, employees, tickets and history in one action</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDangerDelete('all', 'All Data')}
+                  style={{
+                    padding: '12px 28px', borderRadius: '10px', border: 'none',
+                    background: 'var(--status-critical)', color: '#fff',
+                    fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem',
+                    boxShadow: '0 4px 20px rgba(220,38,38,0.4)'
+                  }}>
+                  ☢️ Wipe All Data — Full Reset
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ================= VIEW: DASHBOARD ================= */}
           {currentView === "dashboard" && userRole === "admin" && (
             <div className="page-section active">
@@ -1378,10 +1664,13 @@ export default function Home() {
                             <td>{sys.storage}</td>
                             <td>{sys.os}</td>
                             <td style={{ textAlign: "right" }}>
-                               <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
-                                 <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenEditSysModal(sys)}>Edit</button>
-                                 <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenHistoryModal(sys)}>History</button>
-                               </div>
+                                <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
+                                  <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenEditSysModal(sys)}>Edit</button>
+                                  <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenHistoryModal(sys)}>History</button>
+                                  {userRole === 'admin' && (
+                                    <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveSystem(sys.id, sys.systemNumber)}>Delete</button>
+                                  )}
+                                </div>
                             </td>
                           </tr>
                         );
@@ -1413,6 +1702,9 @@ export default function Home() {
                         <div className="mobile-card-actions" style={{ display: "flex", gap: "8px" }}>
                           <button className="btn-action start" onClick={() => handleOpenEditSysModal(sys)}>✏️ Edit</button>
                           <button className="btn-action resolve" onClick={() => handleOpenHistoryModal(sys)}>📜 History</button>
+                          {userRole === 'admin' && (
+                            <button className="btn-action resolve" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveSystem(sys.id, sys.systemNumber)}>🗑️ Delete</button>
+                          )}
                         </div>
                       </div>
                     );
@@ -1454,6 +1746,7 @@ export default function Home() {
                 <h2 style={{ fontSize: "1.4rem", margin: 0 }}>Employee Assignments</h2>
                 <div style={{ display: "flex", gap: "10px" }}>
                   <button className="btn-secondary" onClick={handleExportEmployeesToExcel}>📥 Export Employees</button>
+                  <button className="btn-secondary" onClick={() => { setShowEmpImportModal(true); setEmpImportStatus(null); setEmpImportFile(null); setEmpImportParsed([]); setEmpImportResult(null); }} style={{ background: 'linear-gradient(135deg,#1a3a6b,#2260d4)', color: '#fff', border: 'none' }}>📤 Import Excel</button>
                   <button className="btn-primary" onClick={() => setShowAddEmpModal(true)}>
                     + Add Employee
                   </button>
@@ -1505,7 +1798,9 @@ export default function Home() {
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
                               <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenAssignModal(emp)}>Assign Device</button>
                               <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(59, 130, 246, 0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>Edit</button>
-                              <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>Remove</button>
+                              {!['Admin', 'Management'].includes(emp.role) && (
+                                <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>Remove</button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1538,7 +1833,9 @@ export default function Home() {
                       <div className="mobile-card-actions">
                         <button className="btn-action start" onClick={() => handleOpenAssignModal(emp)}>🖥️ Assign</button>
                         <button className="btn-action start" style={{ background: "rgba(59,130,246,0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>✏️ Edit</button>
-                        <button className="btn-action resolve" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>🗑️ Remove</button>
+                        {!['Admin', 'Management'].includes(emp.role) && (
+                           <button className="btn-action resolve" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>🗑️ Remove</button>
+                        )}
                       </div>
                     </div>
                   );
@@ -2718,7 +3015,7 @@ export default function Home() {
             <span style={{ fontSize: "1.4rem" }}>📋</span>
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontWeight: "600", color: "var(--text-primary)", fontSize: "0.88rem" }}>Download Import Template</p>
-              <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.78rem" }}>Required columns: System Number, Model, OS, CPU, GPU, RAM, Storage, Status, Remarks</p>
+              <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.78rem" }}>Columns: System Number, Model, OS, CPU, GPU, RAM, Storage, Status, <strong style={{color:"#22a05a"}}>Assigned To</strong> (employee name or email — optional), Remarks</p>
             </div>
             <button onClick={handleDownloadTemplate}
               style={{ background: "linear-gradient(135deg,#1a6b3c,#22a05a)", color: "#fff", border: "none", borderRadius: "8px", padding: "7px 16px", cursor: "pointer", fontWeight: "600", fontSize: "0.82rem", whiteSpace: "nowrap" }}>
@@ -2840,6 +3137,166 @@ export default function Home() {
 
               <button onClick={() => { setShowImportModal(false); window.location.reload(); }}
                 style={{ marginTop: "10px", padding: "9px 22px", borderRadius: "8px", border: "none", background: "var(--accent-cyan)", color: "#0d1117", fontWeight: "700", cursor: "pointer" }}>
+                Done — Refresh Page
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* ====================== BULK IMPORT EMPLOYEES MODAL ====================== */}
+    {showEmpImportModal && (
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 9999, padding: '20px'
+      }}>
+        <div style={{
+          background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)',
+          borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '780px',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.6)', maxHeight: '90vh', overflowY: 'auto'
+        }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>📤 Bulk Import Employees</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>Upload an Excel (.xlsx) or CSV file — passwords will be bcrypt encrypted automatically</p>
+            </div>
+            <button onClick={() => setShowEmpImportModal(false)}
+              style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontSize: '0.9rem' }}>✕ Close</button>
+          </div>
+
+          {/* Template download */}
+          <div style={{
+            background: 'rgba(34,96,212,0.08)', border: '1px solid rgba(34,96,212,0.3)',
+            borderRadius: '10px', padding: '12px 16px', marginBottom: '18px',
+            display: 'flex', alignItems: 'center', gap: '12px'
+          }}>
+            <span style={{ fontSize: '1.4rem' }}>📋</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.88rem' }}>Download Import Template</p>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.78rem' }}>Columns: Name, Email, Password, Role, Department, Ticket Limit — passwords auto-encrypted</p>
+            </div>
+            <button onClick={handleDownloadEmpTemplate}
+              style={{ background: 'linear-gradient(135deg,#1a3a6b,#2260d4)', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 16px', cursor: 'pointer', fontWeight: '600', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+              ⬇ Get Template
+            </button>
+          </div>
+
+          {/* File picker */}
+          {empImportStatus !== 'done' && (
+            <div style={{
+              border: '2px dashed var(--glass-border)', borderRadius: '10px',
+              padding: '24px', textAlign: 'center', marginBottom: '18px',
+              background: 'var(--bg-tertiary)'
+            }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>👥</div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '12px' }}>
+                {empImportFile ? `Selected: ${empImportFile.name}` : 'Choose your Excel (.xlsx) or CSV file'}
+              </p>
+              <label style={{ cursor: 'pointer' }}>
+                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleEmpImportFileChange} style={{ display: 'none' }} />
+                <span style={{
+                  background: 'var(--accent-cyan)', color: '#0d1117', fontWeight: '700',
+                  borderRadius: '8px', padding: '8px 20px', fontSize: '0.85rem', cursor: 'pointer'
+                }}>Browse File</span>
+              </label>
+            </div>
+          )}
+
+          {/* Preview table */}
+          {empImportStatus === 'preview' && empImportParsed.length > 0 && (
+            <div style={{ marginBottom: '18px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '8px' }}>
+                📊 Preview — <strong style={{ color: 'var(--text-primary)' }}>{empImportParsed.length} rows</strong> detected. Review before importing.
+              </p>
+              <div style={{ overflowX: 'auto', maxHeight: '220px', overflowY: 'auto', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-tertiary)', position: 'sticky', top: 0 }}>
+                      {Object.keys(empImportParsed[0]).slice(0, 6).map(h => (
+                        <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: 'var(--accent-cyan)', borderBottom: '1px solid var(--glass-border)', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {empImportParsed.slice(0, 20).map((row, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        {Object.values(row).slice(0, 6).map((val, j) => (
+                          <td key={j} style={{ padding: '5px 10px', color: j === 2 ? '#888' : 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                            {j === 2 ? '••••••••' : String(val)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {empImportParsed.length > 20 && <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '6px' }}>...and {empImportParsed.length - 20} more rows</p>}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+                <button onClick={() => { setEmpImportFile(null); setEmpImportParsed([]); setEmpImportStatus(null); }}
+                  style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>
+                  ↩ Change File
+                </button>
+                <button onClick={handleConfirmEmpImport}
+                  style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#2260d4)', color: '#fff', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }}>
+                  ✅ Confirm & Import {empImportParsed.length} Employees
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Loading */}
+          {empImportStatus === 'loading' && (
+            <div style={{ textAlign: 'center', padding: '30px' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⏳</div>
+              <p style={{ color: 'var(--text-secondary)' }}>Encrypting passwords & importing employees...</p>
+            </div>
+          )}
+
+          {/* Result */}
+          {empImportStatus === 'done' && empImportResult && (
+            <div>
+              <div style={{
+                background: 'rgba(34,96,212,0.1)', border: '1px solid rgba(34,96,212,0.4)',
+                borderRadius: '10px', padding: '16px', marginBottom: '14px'
+              }}>
+                <h3 style={{ color: '#4d90fe', margin: '0 0 6px 0', fontSize: '1.05rem' }}>✅ Import Complete!</h3>
+                <p style={{ color: 'var(--text-primary)', margin: 0, fontSize: '0.88rem' }}>
+                  <strong>{empImportResult.imported}</strong> employees imported successfully with encrypted passwords.
+                </p>
+              </div>
+
+              {empImportResult.duplicates?.length > 0 && (
+                <div style={{
+                  background: 'rgba(255,168,0,0.08)', border: '1px solid rgba(255,168,0,0.35)',
+                  borderRadius: '10px', padding: '14px', marginBottom: '10px'
+                }}>
+                  <p style={{ color: '#ffa800', fontWeight: '700', margin: '0 0 6px 0', fontSize: '0.88rem' }}>
+                    ⚠️ {empImportResult.duplicates.length} Duplicate(s) Skipped
+                  </p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: 0 }}>
+                    Already exist: <em>{empImportResult.duplicates.join(', ')}</em>
+                  </p>
+                </div>
+              )}
+
+              {empImportResult.errors?.length > 0 && (
+                <div style={{
+                  background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.35)',
+                  borderRadius: '10px', padding: '14px', marginBottom: '10px'
+                }}>
+                  <p style={{ color: '#dc2626', fontWeight: '700', margin: '0 0 6px 0', fontSize: '0.88rem' }}>
+                    ❌ {empImportResult.errors.length} Row(s) Had Errors
+                  </p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: 0 }}>Rows missing a Name were skipped.</p>
+                </div>
+              )}
+
+              <button onClick={() => { setShowEmpImportModal(false); window.location.reload(); }}
+                style={{ marginTop: '10px', padding: '9px 22px', borderRadius: '8px', border: 'none', background: 'var(--accent-cyan)', color: '#0d1117', fontWeight: '700', cursor: 'pointer' }}>
                 Done — Refresh Page
               </button>
             </div>

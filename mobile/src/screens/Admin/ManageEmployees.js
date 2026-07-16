@@ -62,7 +62,7 @@ export default function ManageEmployees() {
     setModalVisible(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       sweetAlert({ title: 'Error', text: 'Please enter a name.', type: 'error' });
       return;
@@ -74,17 +74,33 @@ export default function ManageEmployees() {
       return;
     }
 
-    const newEmp = addEmployee(
-      name.trim(),
-      email.trim() || null,
-      password.trim() || null,
-      role,
-      department,
-      limit
-    );
+    try {
+      const { getApiUrl } = require('../../utils/api');
+      const baseUrl = getApiUrl();
+      const res = await fetch(`${baseUrl}/api/employees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim() || null,
+          password: password.trim() || null,
+          role,
+          department,
+          ticketLimit: limit,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add employee');
 
-    sweetAlert({ title: 'Success', text: `Employee "${newEmp.name}" added successfully!`, type: 'success' });
-    setModalVisible(false);
+      sweetAlert({ title: 'Success', text: `Employee "${name.trim()}" added successfully!`, type: 'success' });
+      setModalVisible(false);
+
+      // Re-sync store from server
+      const { syncWithServer } = require('../../store/store');
+      await syncWithServer();
+    } catch (err) {
+      sweetAlert({ title: 'Error', text: err.message, type: 'error' });
+    }
   };
 
   const handleDelete = (id, empName) => {

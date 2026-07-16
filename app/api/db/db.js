@@ -115,74 +115,90 @@ export async function getDbConnection() {
     )
   `);
 
-  // Seed departments if empty
-  const [deptRows] = await db.execute('SELECT COUNT(*) as count FROM departments');
-  if (deptRows[0].count === 0) {
-    for (const d of initialDepartments) {
-      await db.execute(
-        `INSERT IGNORE INTO departments (id, name) VALUES (?, ?)`,
-        [n(d.id), n(d.name)]
-      );
-    }
-  }
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS db_meta (
+      meta_key VARCHAR(50) PRIMARY KEY,
+      meta_value VARCHAR(100)
+    )
+  `);
 
-  // Seed employees if empty
-  const [empRows] = await db.execute('SELECT COUNT(*) as count FROM employees');
-  if (empRows[0].count === 0) {
-    for (const e of initialEmployees) {
-      const firstName = e.name ? e.name.split(' ')[0].toLowerCase() : 'employee';
-      const email = e.email || `${firstName}@yopmail.com`;
-      const password = e.password || `${firstName}123`;
-      const ticketLimit = e.ticketLimit !== undefined ? e.ticketLimit : 5;
-      await db.execute(
-        `INSERT IGNORE INTO employees (id, name, email, password, role, department, ticketLimit) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [n(e.id), n(e.name), n(email), n(password), n(e.role), n(e.department), ticketLimit]
-      );
-    }
-  }
+  // Check if DB was already seeded
+  const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");
+  const alreadySeeded = metaRows.length > 0 && metaRows[0].meta_value === 'true';
 
-  // Seed systems if empty
-  const [sysRows] = await db.execute('SELECT COUNT(*) as count FROM systems');
-  if (sysRows[0].count === 0) {
-    for (const s of initialSystems) {
-      await db.execute(
-        `INSERT IGNORE INTO systems (id, systemNumber, cpu, ram, storage, os, model, assignedTo, status, remarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [n(s.id), n(s.systemNumber), n(s.cpu), n(s.ram), n(s.storage), n(s.os), n(s.model), n(s.assignedTo), n(s.status), n(s.remarks)]
-      );
+  if (!alreadySeeded) {
+    // Seed departments if empty
+    const [deptRows] = await db.execute('SELECT COUNT(*) as count FROM departments');
+    if (deptRows[0].count === 0) {
+      for (const d of initialDepartments) {
+        await db.execute(
+          `INSERT IGNORE INTO departments (id, name) VALUES (?, ?)`,
+          [n(d.id), n(d.name)]
+        );
+      }
     }
-  }
 
-  // Seed tickets if empty
-  const [tktRows] = await db.execute('SELECT COUNT(*) as count FROM tickets');
-  if (tktRows[0].count === 0) {
-    for (const t of initialTickets) {
-      await db.execute(
-        `INSERT IGNORE INTO tickets (id, title, description, category, severity, status, systemId, systemNumber, raisedBy, raisedByName, createdAt, startedAt, resolvedAt, resolutionRemarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [n(t.id), n(t.title), n(t.description), n(t.category), n(t.severity), n(t.status), n(t.systemId), n(t.systemNumber), n(t.raisedBy), n(t.raisedByName), n(t.createdAt), n(t.startedAt), n(t.resolvedAt), n(t.resolutionRemarks)]
-      );
+    // Seed employees if empty
+    const [empRows] = await db.execute('SELECT COUNT(*) as count FROM employees');
+    if (empRows[0].count === 0) {
+      for (const e of initialEmployees) {
+        const firstName = e.name ? e.name.split(' ')[0].toLowerCase() : 'employee';
+        const email = e.email || `${firstName}@yopmail.com`;
+        const password = e.password || `${firstName}123`;
+        const ticketLimit = e.ticketLimit !== undefined ? e.ticketLimit : 5;
+        await db.execute(
+          `INSERT IGNORE INTO employees (id, name, email, password, role, department, ticketLimit) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [n(e.id), n(e.name), n(email), n(password), n(e.role), n(e.department), ticketLimit]
+        );
+      }
     }
-  }
 
-  // Seed assignment history if empty
-  const [histRows] = await db.execute('SELECT COUNT(*) as count FROM assignment_history');
-  if (histRows[0].count === 0) {
-    const initialHistory = initialSystems
-      .filter(s => s.assignedTo)
-      .map((s, idx) => ({
-        id: 'log_seed_' + idx,
-        employeeId: s.assignedTo,
-        systemId: s.id,
-        systemNumber: s.systemNumber,
-        action: 'Assigned (Initial Seed)',
-        timestamp: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(),
-        assignedBy: 'System'
-      }));
-    for (const h of initialHistory) {
-      await db.execute(
-        `INSERT IGNORE INTO assignment_history (id, employeeId, systemId, systemNumber, action, timestamp, assignedBy) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [n(h.id), n(h.employeeId), n(h.systemId), n(h.systemNumber), n(h.action), n(h.timestamp), n(h.assignedBy)]
-      );
+    // Seed systems if empty
+    const [sysRows] = await db.execute('SELECT COUNT(*) as count FROM systems');
+    if (sysRows[0].count === 0) {
+      for (const s of initialSystems) {
+        await db.execute(
+          `INSERT IGNORE INTO systems (id, systemNumber, cpu, ram, storage, os, model, assignedTo, status, remarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [n(s.id), n(s.systemNumber), n(s.cpu), n(s.ram), n(s.storage), n(s.os), n(s.model), n(s.assignedTo), n(s.status), n(s.remarks)]
+        );
+      }
     }
+
+    // Seed tickets if empty
+    const [tktRows] = await db.execute('SELECT COUNT(*) as count FROM tickets');
+    if (tktRows[0].count === 0) {
+      for (const t of initialTickets) {
+        await db.execute(
+          `INSERT IGNORE INTO tickets (id, title, description, category, severity, status, systemId, systemNumber, raisedBy, raisedByName, createdAt, startedAt, resolvedAt, resolutionRemarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [n(t.id), n(t.title), n(t.description), n(t.category), n(t.severity), n(t.status), n(t.systemId), n(t.systemNumber), n(t.raisedBy), n(t.raisedByName), n(t.createdAt), n(t.startedAt), n(t.resolvedAt), n(t.resolutionRemarks)]
+        );
+      }
+    }
+
+    // Seed assignment history if empty
+    const [histRows] = await db.execute('SELECT COUNT(*) as count FROM assignment_history');
+    if (histRows[0].count === 0) {
+      const initialHistory = initialSystems
+        .filter(s => s.assignedTo)
+        .map((s, idx) => ({
+          id: 'log_seed_' + idx,
+          employeeId: s.assignedTo,
+          systemId: s.id,
+          systemNumber: s.systemNumber,
+          action: 'Assigned (Initial Seed)',
+          timestamp: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(),
+          assignedBy: 'System'
+        }));
+      for (const h of initialHistory) {
+        await db.execute(
+          `INSERT IGNORE INTO assignment_history (id, employeeId, systemId, systemNumber, action, timestamp, assignedBy) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [n(h.id), n(h.employeeId), n(h.systemId), n(h.systemNumber), n(h.action), n(h.timestamp), n(h.assignedBy)]
+        );
+      }
+    }
+
+    // Mark as seeded so it never auto-seeds again
+    await db.execute("INSERT INTO db_meta (meta_key, meta_value) VALUES ('seeded', 'true') ON DUPLICATE KEY UPDATE meta_value='true'");
   }
 
   return db;
