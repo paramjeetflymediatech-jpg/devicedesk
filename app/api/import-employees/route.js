@@ -58,6 +58,13 @@ export async function POST(request) {
           [newDeptId, empDept]
         ).catch(err => console.error('Failed to auto-create department:', err));
         
+        // Log department addition
+        const deptLogId = 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+        await db.execute(
+          `INSERT INTO assignment_history (id, employeeId, systemId, systemNumber, action, timestamp, assignedBy) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [deptLogId, null, null, null, `Department Added (Imported): ${empDept}`, new Date().toISOString(), 'Admin']
+        ).catch(() => {});
+
         existingDepts.add(empDept.toLowerCase());
       }
 
@@ -69,6 +76,13 @@ export async function POST(request) {
         `INSERT INTO employees (id, name, email, password, role, department, ticketLimit) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [empId, name, empEmail, hashedPassword, empRole, empDept, empLimit]
       );
+
+      // Log employee addition
+      const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+      await db.execute(
+        `INSERT INTO assignment_history (id, employeeId, systemId, systemNumber, action, timestamp, assignedBy) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [logId, empId, null, null, 'Employee Added (Imported)', new Date().toISOString(), 'Admin']
+      ).catch(() => {});
 
       // Track to prevent within-batch duplicates
       existingEmails.add(emailKey || empEmail.toLowerCase());

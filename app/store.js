@@ -9,6 +9,7 @@ const TICKETS_KEY = 'devicedesk_tickets';
 const SOUND_SETTING_KEY = 'devicedesk_sound_enabled';
 const ASSIGNMENT_HISTORY_KEY = 'devicedesk_assignment_history';
 const DEPARTMENTS_KEY = 'devicedesk_departments';
+const TASKS_KEY = 'devicedesk_tasks';
 
 // Client-side local data cache
 export let dbCache = {
@@ -17,7 +18,8 @@ export let dbCache = {
   tickets: [],
   assignment_history: [],
   departments: [],
-  sent_emails: []
+  sent_emails: [],
+  tasks: []
 };
 
 // Post updates to server-side JSON database in the background
@@ -48,6 +50,7 @@ export async function syncWithServer() {
     dbCache.assignment_history = serverDb.assignment_history || [];
     dbCache.departments = serverDb.departments || [];
     dbCache.sent_emails = serverDb.sent_emails || [];
+    dbCache.tasks = serverDb.tasks || [];
 
     // Persist to local storage as browser local backup cache
     localStorage.setItem(SYSTEMS_KEY, JSON.stringify(dbCache.systems));
@@ -56,6 +59,7 @@ export async function syncWithServer() {
     localStorage.setItem(ASSIGNMENT_HISTORY_KEY, JSON.stringify(dbCache.assignment_history));
     localStorage.setItem(DEPARTMENTS_KEY, JSON.stringify(dbCache.departments));
     localStorage.setItem('devicedesk_sent_emails', JSON.stringify(dbCache.sent_emails));
+    localStorage.setItem(TASKS_KEY, JSON.stringify(dbCache.tasks));
 
     // Dispatch global event so active client components refresh their state
     window.dispatchEvent(new CustomEvent('devicedesk_db_synced'));
@@ -78,6 +82,7 @@ if (typeof window !== 'undefined') {
     localStorage.removeItem(ASSIGNMENT_HISTORY_KEY);
     localStorage.removeItem(DEPARTMENTS_KEY);
     localStorage.removeItem('devicedesk_sent_emails');
+    localStorage.removeItem(TASKS_KEY);
     localStorage.setItem('devicedesk_seed_version', SEED_VERSION);
   }
 
@@ -108,6 +113,7 @@ if (typeof window !== 'undefined') {
   dbCache.assignment_history = JSON.parse(localStorage.getItem(ASSIGNMENT_HISTORY_KEY) || '[]');
   dbCache.departments = JSON.parse(localStorage.getItem(DEPARTMENTS_KEY) || '[]');
   dbCache.sent_emails = JSON.parse(localStorage.getItem('devicedesk_sent_emails') || '[]');
+  dbCache.tasks = JSON.parse(localStorage.getItem(TASKS_KEY) || '[]');
 
   // Launch server sync in background and start 5-second polling interval
   syncWithServer();
@@ -205,11 +211,16 @@ export function addDepartment(name) {
   };
   departments.push(newDept);
   saveDepartments(departments);
+  logAssignmentChange(null, null, null, `Department Added: ${trimmed}`, 'Admin');
   return newDept;
 }
 
 export function deleteDepartment(id) {
   const departments = getDepartments();
+  const dept = departments.find(d => d.id === id);
+  if (dept) {
+    logAssignmentChange(null, null, null, `Department Removed: ${dept.name}`, 'Admin');
+  }
   const filtered = departments.filter(d => d.id !== id);
   saveDepartments(filtered);
   return true;
@@ -291,6 +302,7 @@ export function addSystem(system) {
   };
   systems.push(newSystem);
   saveSystems(systems);
+  logAssignmentChange(null, newSystem.id, newSystem.systemNumber, 'System Added', 'Admin');
   return newSystem;
 }
 
@@ -300,6 +312,7 @@ export function updateSystem(updatedSys) {
   if (index !== -1) {
     systems[index] = { ...systems[index], ...updatedSys };
     saveSystems(systems);
+    logAssignmentChange(updatedSys.assignedTo || null, updatedSys.id, updatedSys.systemNumber, 'System Updated', 'Admin');
     return true;
   }
   return false;
@@ -325,8 +338,11 @@ export function logAssignmentChange(employeeId, systemId, systemNumber, action, 
 export function deleteSystem(systemId) {
   const systems = getSystems();
   const sys = systems.find(s => s.id === systemId);
-  if (sys && sys.assignedTo) {
-    logAssignmentChange(sys.assignedTo, sys.id, sys.systemNumber, 'Unassigned due to system deletion');
+  if (sys) {
+    logAssignmentChange(sys.assignedTo || null, sys.id, sys.systemNumber, 'System Removed', 'Admin');
+    if (sys.assignedTo) {
+      logAssignmentChange(sys.assignedTo, sys.id, sys.systemNumber, 'Unassigned due to system deletion');
+    }
   }
   const filtered = systems.filter(s => s.id !== systemId);
   saveSystems(filtered);
@@ -347,6 +363,8 @@ export function addEmployee(name, email, password, role, department, ticketLimit
   employees.push(newEmp);
   saveEmployees(employees);
 
+  logAssignmentChange(newEmp.id, null, null, `Employee Added: ${newEmp.name}`, 'Admin');
+
   // Send mock email
   sendMockEmail(
     newEmp.email,
@@ -359,6 +377,10 @@ export function addEmployee(name, email, password, role, department, ticketLimit
 
 export function removeEmployee(employeeId) {
   const employees = getEmployees();
+  const emp = employees.find(e => e.id === employeeId);
+  if (emp) {
+    logAssignmentChange(employeeId, null, null, `Employee Removed: ${emp.name}`, 'Admin');
+  }
   const filtered = employees.filter(e => e.id !== employeeId);
   saveEmployees(filtered);
 
@@ -670,6 +692,7 @@ export function updateEmployee(employeeId, updatedFields) {
     ...updatedFields
   };
   saveEmployees(employees);
+  logAssignmentChange(employeeId, null, null, `Employee Updated: ${employees[idx].name}`, 'Admin');
   return employees[idx];
 }
 
@@ -692,4 +715,130 @@ export function resetPasswordByEmail(email, newPassword) {
   employees[idx].password = newPassword;
   saveEmployees(employees);
   return { success: true, message: 'Password updated successfully!' };
+}
+
+export function getTasks() {
+  return dbCache.tasks || [];
+}
+
+export function saveTasks(tasks) {
+  if (typeof window === 'undefined') return;
+  dbCache.tasks = tasks;
+  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+  postToServer('saveTasks', tasks);
+}
+
+export function addTask(taskData) {
+  const tasks = getTasks();
+  const newTask = {
+    id: 'task_' + Date.now(),
+    title: taskData.title || 'New Task',
+    description: taskData.description || '',
+    assignedTo: taskData.assignedTo || null,
+    assignedToName: taskData.assignedToName || 'Unassigned',
+    assignedBy: taskData.assignedBy || 'Admin',
+    assignedByName: taskData.assignedByName || 'Admin',
+    status: 'Pending',
+    createdAt: new Date().toISOString(),
+    startedAt: null,
+    completedAt: null,
+    totalDuration: 0
+  };
+  tasks.push(newTask);
+  saveTasks(tasks);
+
+  logAssignmentChange(
+    newTask.assignedTo,
+    null,
+    null,
+    `Task Assigned: "${newTask.title}"`,
+    newTask.assignedByName
+  );
+  return newTask;
+}
+
+export function updateTask(updatedTask) {
+  const tasks = getTasks();
+  const index = tasks.findIndex(t => t.id === updatedTask.id);
+  if (index !== -1) {
+    tasks[index] = { ...tasks[index], ...updatedTask };
+    saveTasks(tasks);
+    return true;
+  }
+  return false;
+}
+
+export function startTask(taskId, operatorName = 'System') {
+  const tasks = getTasks();
+  const index = tasks.findIndex(t => t.id === taskId);
+  if (index !== -1 && tasks[index].status !== 'Completed') {
+    tasks[index].status = 'In Progress';
+    tasks[index].startedAt = new Date().toISOString();
+    saveTasks(tasks);
+
+    logAssignmentChange(
+      tasks[index].assignedTo,
+      null,
+      null,
+      `Task Started: "${tasks[index].title}"`,
+      operatorName
+    );
+    return true;
+  }
+  return false;
+}
+
+export function stopTask(taskId, operatorName = 'System') {
+  const tasks = getTasks();
+  const index = tasks.findIndex(t => t.id === taskId);
+  if (index !== -1 && tasks[index].status === 'In Progress') {
+    const started = new Date(tasks[index].startedAt).getTime();
+    const now = new Date().getTime();
+    const diffSeconds = Math.max(0, Math.floor((now - started) / 1000));
+    
+    tasks[index].status = 'Pending';
+    tasks[index].totalDuration = (tasks[index].totalDuration || 0) + diffSeconds;
+    tasks[index].startedAt = null;
+    saveTasks(tasks);
+
+    logAssignmentChange(
+      tasks[index].assignedTo,
+      null,
+      null,
+      `Task Stopped: "${tasks[index].title}" (${diffSeconds}s worked)`,
+      operatorName
+    );
+    return true;
+  }
+  return false;
+}
+
+export function completeTask(taskId, operatorName = 'System', fileUrl = null) {
+  const tasks = getTasks();
+  const index = tasks.findIndex(t => t.id === taskId);
+  if (index !== -1 && tasks[index].status !== 'Completed') {
+    // If currently running, accumulate time first
+    if (tasks[index].status === 'In Progress' && tasks[index].startedAt) {
+      const started = new Date(tasks[index].startedAt).getTime();
+      const now = new Date().getTime();
+      const diffSeconds = Math.max(0, Math.floor((now - started) / 1000));
+      tasks[index].totalDuration = (tasks[index].totalDuration || 0) + diffSeconds;
+    }
+
+    tasks[index].status = 'Completed';
+    tasks[index].startedAt = null;
+    tasks[index].completedAt = new Date().toISOString();
+    tasks[index].fileUrl = fileUrl || null;
+    saveTasks(tasks);
+
+    logAssignmentChange(
+      tasks[index].assignedTo,
+      null,
+      null,
+      `Task Completed: "${tasks[index].title}"`,
+      operatorName
+    );
+    return true;
+  }
+  return false;
 }

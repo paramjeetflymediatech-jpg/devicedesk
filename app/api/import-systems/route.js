@@ -82,12 +82,20 @@ export async function POST(request) {
          newSystem.storage, newSystem.os, newSystem.model, newSystem.assignedTo, newSystem.status, newSystem.remarks]
       );
 
+      // Log system addition
+      const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+      await db.execute(
+        `INSERT INTO assignment_history (id, employeeId, systemId, systemNumber, action, timestamp, assignedBy) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [logId, null, newSystem.id, newSystem.systemNumber, 'System Added (Imported)', new Date().toISOString(), 'Admin']
+      ).catch(err => console.error('Failed to log system import:', err));
+
       // Log assignment history if assigned
       if (assignedTo) {
+        const assignmentLogId = 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
         await db.execute(
-          `INSERT INTO assignment_history (systemId, systemNumber, employeeId, action, assignedBy, timestamp) VALUES (?, ?, ?, ?, ?, NOW())`,
-          [newSystem.id, newSystem.systemNumber, assignedTo, 'Assigned', 'Bulk Import', ]
-        ).catch(() => {}); // assignment_history is optional — don't fail import if table schema differs
+          `INSERT INTO assignment_history (id, systemId, systemNumber, employeeId, action, assignedBy, timestamp) VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+          [assignmentLogId, newSystem.id, newSystem.systemNumber, assignedTo, 'Assigned', 'Bulk Import']
+        ).catch(err => console.error('Failed to log system assignment on import:', err));
       }
 
       existingNumbers.add(systemNumber.toLowerCase());

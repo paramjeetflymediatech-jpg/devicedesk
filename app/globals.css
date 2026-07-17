@@ -75,6 +75,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+  overflow-y: auto;
 }
 
 .logo-container {
@@ -1132,7 +1133,7 @@ textarea.form-control {
 }
 
 /* RESPONSIVE LAYOUT FOR MOBILE SCREENS */
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
 
   /* ── Root layout ── */
   body {

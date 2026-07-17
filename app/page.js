@@ -26,8 +26,17 @@ import {
   getDepartments,
   addDepartment,
   deleteDepartment,
-  getAssignmentHistory
+  getAssignmentHistory,
+  logAssignmentChange,
+  getTasks,
+  addTask,
+  updateTask,
+  saveTasks
 } from "./store.js";
+import {
+  ResponsiveContainer, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend
+} from "recharts";
 
 export default function Home() {
   const { user, logout } = useAuth();
@@ -43,8 +52,25 @@ export default function Home() {
   }, [user, router]);
 
   // Navigation & Role States
-  const [currentView, setCurrentView] = useState("dashboard"); // dashboard, systems, employees, employee-portal, departments
+  const [currentView, setCurrentView] = useState("dashboard");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("devicedesk_admin_view");
+      if (saved) setCurrentView(saved);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("devicedesk_admin_view", currentView);
+    }
+  }, [currentView]);
+
   const userRole = user?.role || "admin";
+  // Team Leader scope — only sees their own department
+  const isTeamLeader = user?.dbRole === "Team Leader";
+  const leaderDepartment = user?.department || "";
 
   
   // Data States
@@ -55,6 +81,24 @@ export default function Home() {
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedHistorySys, setSelectedHistorySys] = useState(null);
+  
+  // Task Board States
+  const [tasks, setTasks] = useState([]);
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDesc, setNewTaskDesc] = useState("");
+  const [newTaskAssignee, setNewTaskAssignee] = useState("");
+  const [perfChartTab, setPerfChartTab] = useState("daily"); // daily | weekly | monthly | yearly
+  const [showEmpReportModal, setShowEmpReportModal] = useState(false);
+  const [empReportTarget, setEmpReportTarget] = useState(null); // the employee object
+  const [empReportFrom, setEmpReportFrom] = useState(""); // ISO date string yyyy-mm-dd
+  const [empReportTo, setEmpReportTo] = useState("");     // ISO date string yyyy-mm-dd
+  const [taskSearch, setTaskSearch] = useState("");
+  const [taskPage, setTaskPage] = useState(1);
+  const [perfPage, setPerfPage] = useState(1);
+  const [selectedTaskDetails, setSelectedTaskDetails] = useState(null);
+  const [showTaskDetailsModal, setShowTaskDetailsModal] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   
   // App Config States
   const [soundOn, setSoundOn] = useState(true);
@@ -158,6 +202,7 @@ export default function Home() {
       setEmployees(getEmployees());
       setTickets(getTickets());
       setAssignmentHistory(getAssignmentHistory());
+      setTasks(getTasks());
       const depts = getDepartments();
       setDepartments(depts);
       if (depts.length > 0) {
@@ -315,6 +360,7 @@ export default function Home() {
   // Audio initialize event listener on first click
   const handleBodyClick = () => {
     initAudio();
+    setUserDropdownOpen(false);
   };
 
   // Event handlers
@@ -415,6 +461,33 @@ export default function Home() {
         setEmployees(getEmployees());
         setSystems(getSystems());
         playBeep(400, 0.15, 'sawtooth');
+      }
+    });
+  };
+
+  const handleToggleEmployeeStatus = (emp) => {
+    if (userRole !== 'admin') {
+      Swal.fire({ icon: 'error', title: 'Access Denied', text: 'Only admins can suspend accounts.' });
+      return;
+    }
+    const isPaused = emp.status === 'Paused';
+    const newStatus = isPaused ? 'Active' : 'Paused';
+    const actionLabel = isPaused ? 'activate' : 'pause';
+    
+    Swal.fire({
+      title: `${isPaused ? 'Activate' : 'Pause'} Account?`,
+      text: `Are you sure you want to ${actionLabel} the account of ${emp.name}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: `Yes, ${actionLabel}`,
+      confirmButtonColor: isPaused ? '#10b981' : '#dc2626',
+      cancelButtonText: 'Cancel'
+    }).then(result => {
+      if (result.isConfirmed) {
+        updateEmployee(emp.id, { status: newStatus });
+        setEmployees(getEmployees());
+        playBeep(isPaused ? 700 : 400, 0.12);
+        Swal.fire('Updated!', `Account of ${emp.name} has been ${isPaused ? 'activated' : 'paused'}.`, 'success');
       }
     });
   };
@@ -874,6 +947,100 @@ export default function Home() {
     setIsHistoryModalOpen(true);
   };
 
+  const handleOpenEmpReportModal = (emp) => {
+    setEmpReportTarget(emp);
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    setEmpReportFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+    setEmpReportTo(today.toISOString().split('T')[0]);
+    setShowEmpReportModal(true);
+    playBeep(600, 0.05);
+  };
+
+  const handleDownloadEmpReport = (emp, fromDate, toDate) => {
+    const from = fromDate ? new Date(fromDate + "T00:00:00") : null;
+    const to = toDate ? new Date(toDate + "T23:59:59") : null;
+    
+    const empLogs = assignmentHistory.filter(h => {
+      if (h.employeeId !== emp.id) return false;
+      if (!h.timestamp) return false;
+      const ts = new Date(h.timestamp);
+      if (from && ts < from) return false;
+      if (to && ts > to) return false;
+      return true;
+    });
+
+    const empTickets = tickets.filter(t => {
+      const matchEmp = t.raisedBy === emp.id || t.employeeId === emp.id;
+      if (!matchEmp) return false;
+      if (!t.createdAt) return false;
+      const ts = new Date(t.createdAt);
+      if (from && ts < from) return false;
+      if (to && ts > to) return false;
+      return true;
+    });
+
+    const empTasks = tasks.filter(t => {
+      if (t.assignedTo !== emp.id) return false;
+      if (!t.createdAt) return false;
+      const ts = new Date(t.createdAt);
+      if (from && ts < from) return false;
+      if (to && ts > to) return false;
+      return true;
+    });
+
+    const csvRows = [];
+    csvRows.push(`EMPLOYEE ACTIVITY & PERFORMANCE REPORT,${emp.name}`);
+    csvRows.push(`Department,${emp.department || "N/A"}`);
+    csvRows.push(`Role,${emp.role || "N/A"}`);
+    csvRows.push(`Ticket Limit,${emp.ticketLimit || 5}`);
+    csvRows.push(`Report Range,${fromDate || "Start"} to ${toDate || "End"}`);
+    csvRows.push("");
+
+    csvRows.push("CURRENT ASSIGNED DEVICES");
+    csvRows.push("System ID,System Number,Model,OS,Status");
+    const currentDevices = systems.filter(s => s.assignedTo === emp.id);
+    currentDevices.forEach(s => {
+      csvRows.push(`${s.id},${s.systemNumber},${s.model || "N/A"},${s.os || "N/A"},${s.status || "Active"}`);
+    });
+    csvRows.push("");
+
+    csvRows.push("DEVICE TRANSFER & ASSIGNMENT LOGS (IN RANGE)");
+    csvRows.push("Log ID,Action,System Number,Timestamp,Assigned By");
+    empLogs.forEach(log => {
+      csvRows.push(`${log.id},${log.action},${log.systemNumber},${new Date(log.timestamp).toLocaleString()},${log.assignedBy || "System"}`);
+    });
+    csvRows.push("");
+
+    csvRows.push("ISSUES AND COMPLAINTS BOARD (IN RANGE)");
+    csvRows.push("Ticket ID,Category,Description,Severity,Status,Created At,Resolved At,Notes");
+    empTickets.forEach(t => {
+      const descEscaped = t.description ? `"${t.description.replace(/"/g, '""')}"` : "";
+      const notesEscaped = t.resolutionRemarks || t.notes ? `"${(t.resolutionRemarks || t.notes).replace(/"/g, '""')}"` : "";
+      csvRows.push(`${t.id},${t.category},${descEscaped},${t.severity},${t.status},${t.createdAt ? new Date(t.createdAt).toLocaleString() : ""},${t.resolvedAt ? new Date(t.resolvedAt).toLocaleString() : ""},${notesEscaped}`);
+    });
+    csvRows.push("");
+
+    csvRows.push("ASSIGNED TASKS (IN RANGE)");
+    csvRows.push("Task ID,Title,Description,Status,Created At,Started At,Completed At,Duration (mins)");
+    empTasks.forEach(t => {
+      const descEscaped = t.description ? `"${t.description.replace(/"/g, '""')}"` : "";
+      const durationMins = t.totalDuration ? Math.round(t.totalDuration / 60) : 0;
+      csvRows.push(`${t.id},${t.title},${descEscaped},${t.status},${t.createdAt ? new Date(t.createdAt).toLocaleString() : ""},${t.startedAt ? new Date(t.startedAt).toLocaleString() : ""},${t.completedAt ? new Date(t.completedAt).toLocaleString() : ""},${durationMins}`);
+    });
+
+    const csvString = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `devicedesk_report_${emp.name.replace(/\s+/g, "_")}_${fromDate}_to_${toDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleDownloadSystemReport = (sys) => {
     const sysLogs = assignmentHistory.filter(h => h.systemId === sys.id);
     const sysTickets = tickets.filter(t => t.systemId === sys.id);
@@ -976,7 +1143,297 @@ export default function Home() {
     playBeep(900, 0.1);
   };
 
-  // Calculations for dashboard
+  const handleAddTaskSubmit = (e) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Validation', text: 'Task title is required.' });
+      return;
+    }
+    const assignee = employees.find(emp => emp.id === newTaskAssignee);
+    const assigneeName = assignee ? assignee.name : 'Unassigned';
+    
+    addTask({
+      title: newTaskTitle,
+      description: newTaskDesc,
+      assignedTo: newTaskAssignee || null,
+      assignedToName: assigneeName,
+      assignedBy: user?.id || 'Admin',
+      assignedByName: user?.name || 'Admin'
+    });
+
+    setShowAddTaskModal(false);
+    setNewTaskTitle("");
+    setNewTaskDesc("");
+    setTasks(getTasks());
+    playBeep(900, 0.1);
+    Swal.fire({ icon: 'success', title: 'Assigned', text: 'Task successfully assigned!' });
+  };
+
+  const handleExportTasksToCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Task ID,Title,Description,Assigned To,Assigned By,Status,Total Duration (seconds),Created At,Completed\n";
+    
+    tasks.forEach(t => {
+      const row = [
+        t.id,
+        `"${t.title.replace(/"/g, '""')}"`,
+        `"${(t.description || '').replace(/"/g, '""')}"`,
+        `"${t.assignedToName || 'Unassigned'}"`,
+        `"${t.assignedByName || 'System'}"`,
+        t.status,
+        t.totalDuration || 0,
+        t.createdAt || '',
+        t.completedAt || ''
+      ].join(",");
+      csvContent += row + "\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "deviceDesk_task_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // ── Seed Dummy Task Data for Chart Preview ──────────────────────────────
+  const seedDummyTasks = () => {
+    const now = new Date();
+
+    const taskTemplates = [
+      { title: "SEO Keyword Research", description: "Research high-volume keywords for Q3 campaign", category: "SEO" },
+      { title: "On-Page Optimization", description: "Update meta titles and descriptions for landing pages", category: "SEO" },
+      { title: "Backlink Audit", description: "Review and disavow toxic backlinks", category: "SEO" },
+      { title: "Content Calendar Planning", description: "Plan blog posts for next 30 days", category: "Content" },
+      { title: "Social Media Post - Instagram", description: "Design and schedule 5 Instagram posts", category: "Social" },
+      { title: "PPC Campaign Review", description: "Analyze Google Ads performance and optimize bids", category: "Ads" },
+      { title: "Email Newsletter Draft", description: "Write and design monthly email newsletter", category: "Email" },
+      { title: "Google Analytics Report", description: "Pull weekly analytics report and share with team", category: "Analytics" },
+      { title: "Landing Page A/B Test", description: "Set up A/B test for new landing page variant", category: "CRO" },
+      { title: "Competitor Analysis", description: "Analyze top 5 competitors' digital strategies", category: "Research" },
+      { title: "Website Speed Audit", description: "Run Lighthouse audit and fix Core Web Vitals issues", category: "Technical" },
+      { title: "Lead Generation Form Setup", description: "Create and test lead capture form on homepage", category: "CRO" },
+      { title: "YouTube Thumbnail Design", description: "Design thumbnails for 3 new videos", category: "Design" },
+      { title: "Facebook Ad Creative", description: "Create 3 ad creatives for retargeting campaign", category: "Ads" },
+      { title: "Monthly Performance Report", description: "Compile KPIs and prepare monthly report for client", category: "Reporting" },
+      { title: "Blog Post Writing", description: "Write 1500-word blog on industry trends", category: "Content" },
+      { title: "Technical SEO Fix", description: "Fix broken links and 404 errors across the site", category: "Technical" },
+      { title: "CRM Data Cleanup", description: "Remove duplicate contacts and update lead status", category: "CRM" },
+    ];
+
+    // Helper: random date offset from now
+    const daysAgo = (d) => {
+      const dt = new Date(now);
+      dt.setDate(dt.getDate() - d);
+      return dt.toISOString();
+    };
+    const hoursAgo = (h) => {
+      const dt = new Date(now);
+      dt.setHours(dt.getHours() - h);
+      return dt.toISOString();
+    };
+
+    // Get assignable employees (non-admin)
+    const assignable = employees.filter(e => e.role !== "Admin" && e.role !== "Management");
+    if (assignable.length === 0) {
+      Swal.fire({ icon: "warning", title: "No Employees", text: "Add team members first, then seed demo data." });
+      return;
+    }
+
+    const statuses = ["Completed", "Completed", "Completed", "In Progress", "Pending"];
+    const existingIds = new Set(tasks.map(t => t.id));
+    const newTasks = [];
+    let idCounter = Date.now();
+
+    // For each employee generate tasks spread across all time buckets
+    assignable.forEach(emp => {
+      const templates = [...taskTemplates].sort(() => Math.random() - 0.5);
+
+      // TODAY  — 2 tasks
+      [0, 1].forEach((i) => {
+        const tpl = templates[i % templates.length];
+        const status = i === 0 ? "Completed" : "In Progress";
+        const created = hoursAgo(2 + i * 3);
+        const task = {
+          id: `demo_${idCounter++}`,
+          title: tpl.title,
+          description: tpl.description,
+          assignedTo: emp.id,
+          assignedToName: emp.name,
+          assignedBy: user?.id || "admin",
+          assignedByName: user?.name || "Admin",
+          status,
+          createdAt: created,
+          startedAt: status !== "Pending" ? created : null,
+          completedAt: status === "Completed" ? new Date(new Date(created).getTime() + 3600000).toISOString() : null,
+          totalDuration: status === "Completed" ? 3600 + Math.floor(Math.random() * 7200) : 0,
+          fileUrl: null
+        };
+        if (!existingIds.has(task.id)) newTasks.push(task);
+      });
+
+      // THIS WEEK — 3 more tasks (2–6 days ago)
+      [2, 3, 4].forEach((i, idx) => {
+        const tpl = templates[(i) % templates.length];
+        const status = statuses[Math.floor(Math.random() * statuses.length)];
+        const created = daysAgo(2 + idx);
+        const task = {
+          id: `demo_${idCounter++}`,
+          title: tpl.title,
+          description: tpl.description,
+          assignedTo: emp.id,
+          assignedToName: emp.name,
+          assignedBy: user?.id || "admin",
+          assignedByName: user?.name || "Admin",
+          status,
+          createdAt: created,
+          startedAt: status !== "Pending" ? created : null,
+          completedAt: status === "Completed" ? new Date(new Date(created).getTime() + 5400000).toISOString() : null,
+          totalDuration: status === "Completed" ? 5400 + Math.floor(Math.random() * 3600) : 0,
+          fileUrl: null
+        };
+        if (!existingIds.has(task.id)) newTasks.push(task);
+      });
+
+      // THIS MONTH — 4 more tasks (7–25 days ago)
+      [5, 6, 7, 8].forEach((i, idx) => {
+        const tpl = templates[(i) % templates.length];
+        const status = statuses[Math.floor(Math.random() * statuses.length)];
+        const created = daysAgo(8 + idx * 4);
+        const task = {
+          id: `demo_${idCounter++}`,
+          title: tpl.title,
+          description: tpl.description,
+          assignedTo: emp.id,
+          assignedToName: emp.name,
+          assignedBy: user?.id || "admin",
+          assignedByName: user?.name || "Admin",
+          status,
+          createdAt: created,
+          startedAt: status !== "Pending" ? created : null,
+          completedAt: status === "Completed" ? new Date(new Date(created).getTime() + 7200000).toISOString() : null,
+          totalDuration: status === "Completed" ? 7200 + Math.floor(Math.random() * 5400) : 0,
+          fileUrl: null
+        };
+        if (!existingIds.has(task.id)) newTasks.push(task);
+      });
+
+      // THIS YEAR — 5 more tasks (30–200 days ago)
+      [9, 10, 11, 12, 13].forEach((i, idx) => {
+        const tpl = templates[(i) % templates.length];
+        const status = statuses[Math.floor(Math.random() * statuses.length)];
+        const created = daysAgo(30 + idx * 35);
+        const task = {
+          id: `demo_${idCounter++}`,
+          title: tpl.title,
+          description: tpl.description,
+          assignedTo: emp.id,
+          assignedToName: emp.name,
+          assignedBy: user?.id || "admin",
+          assignedByName: user?.name || "Admin",
+          status,
+          createdAt: created,
+          startedAt: status !== "Pending" ? created : null,
+          completedAt: status === "Completed" ? new Date(new Date(created).getTime() + 9000000).toISOString() : null,
+          totalDuration: status === "Completed" ? 9000 + Math.floor(Math.random() * 7200) : 0,
+          fileUrl: null
+        };
+        if (!existingIds.has(task.id)) newTasks.push(task);
+      });
+    });
+
+    const merged = [...tasks, ...newTasks];
+    saveTasks(merged);
+    setTasks(getTasks());
+
+    Swal.fire({
+      icon: "success",
+      title: "Demo Data Seeded!",
+      html: `<p style="color:#aaa">Added <strong style="color:#00ccff">${newTasks.length}</strong> demo tasks across <strong style="color:#a855f7">${assignable.length}</strong> team members.<br><br>Switch between <em>Today / Week / Month / Year</em> tabs to see the chart populate.</p>`,
+      confirmButtonText: "View Chart 📊"
+    });
+  };
+
+  // ── Individual Employee Report ───────────────────────────────────────────
+  const openEmpReport = (emp) => {
+    // Default date range: last 30 days → today
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - 30);
+    const fmt = (d) => d.toISOString().split("T")[0];
+    setEmpReportTarget(emp);
+    setEmpReportFrom(fmt(from));
+    setEmpReportTo(fmt(to));
+    setShowEmpReportModal(true);
+  };
+
+  const downloadEmpReport = (emp, filteredTasks, from, to) => {
+    const formatTime = (secs) => {
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+      return `${h}h ${m}m ${s}s`;
+    };
+
+    const completed = filteredTasks.filter(t => t.status === "Completed");
+    const pending   = filteredTasks.filter(t => t.status === "Pending");
+    const inProg    = filteredTasks.filter(t => t.status === "In Progress");
+    const totalTime = filteredTasks.reduce((sum, t) => sum + (t.totalDuration || 0), 0);
+    const rate      = filteredTasks.length > 0 ? Math.round((completed.length / filteredTasks.length) * 100) : 0;
+
+    const lines = [];
+    lines.push(`EMPLOYEE PERFORMANCE REPORT`);
+    lines.push(`Generated: ${new Date().toLocaleString()}`);
+    lines.push(`Period: ${from} to ${to}`);
+    lines.push(``);
+    lines.push(`EMPLOYEE DETAILS`);
+    lines.push(`Name,${emp.name}`);
+    lines.push(`Department,${emp.department || "N/A"}`);
+    lines.push(`Role,${emp.role}`);
+    lines.push(`Email,${emp.email || "N/A"}`);
+    lines.push(``);
+    lines.push(`SUMMARY`);
+    lines.push(`Total Tasks Assigned,${filteredTasks.length}`);
+    lines.push(`Completed,${completed.length}`);
+    lines.push(`In Progress,${inProg.length}`);
+    lines.push(`Pending,${pending.length}`);
+    lines.push(`Total Time Spent,${formatTime(totalTime)}`);
+    lines.push(`Completion Rate,${rate}%`);
+    lines.push(``);
+    lines.push(`TASK DETAILS`);
+    lines.push(`Task Title,Description,Status,Assigned By,Created Date,Completed Date,Time Spent`);
+
+    filteredTasks
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .forEach(t => {
+        const created   = t.createdAt ? new Date(t.createdAt).toLocaleString() : "—";
+        const completed2 = t.completedAt ? new Date(t.completedAt).toLocaleString() : "—";
+        const time      = formatTime(t.totalDuration || 0);
+        lines.push([
+          `"${(t.title || "").replace(/"/g, '""')}"`,
+          `"${(t.description || "").replace(/"/g, '""')}"`,
+          t.status,
+          `"${t.assignedByName || "Admin"}"`,
+          `"${created}"`,
+          `"${completed2}"`,
+          time
+        ].join(","));
+      });
+
+    const csvContent = lines.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href  = url;
+    link.setAttribute("download", `report_${emp.name.replace(/ /g,"_")}_${from}_to_${to}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+
   const activeTickets = tickets.filter(t => t.status !== "Resolved")
     .sort((a, b) => {
       const severityWeight = { Critical: 4, High: 3, Medium: 2, Low: 1 };
@@ -1076,6 +1533,9 @@ export default function Home() {
     // 2. Don't show other admin roles in the general employee list
     if (['Admin'].includes(emp.role)) return false;
 
+    // 3. Team Leaders only see their own department
+    if (isTeamLeader && leaderDepartment && emp.department?.toLowerCase() !== leaderDepartment.toLowerCase()) return false;
+
     const query = empSearch.toLowerCase();
     return emp.name.toLowerCase().includes(query) || 
            emp.department.toLowerCase().includes(query) || 
@@ -1093,7 +1553,7 @@ export default function Home() {
     const empName = emp ? emp.name : "unknown";
     const query = historySearch.toLowerCase();
     return (
-      log.systemNumber.toLowerCase().includes(query) ||
+      (log.systemNumber || "").toLowerCase().includes(query) ||
       log.action.toLowerCase().includes(query) ||
       (log.assignedBy || "").toLowerCase().includes(query) ||
       empName.toLowerCase().includes(query) ||
@@ -1106,6 +1566,38 @@ export default function Home() {
   const indexOfFirstHistory = indexOfLastHistory - historyPerPage;
   const currentHistory = filteredHistory.slice(indexOfFirstHistory, indexOfLastHistory);
   const totalHistoryPages = Math.ceil(filteredHistory.length / historyPerPage);
+  // Filtered & Paginated Tasks calculations
+  const filteredTasks = tasks.filter(t => {
+    // Team Leaders only see tasks assigned to their department's employees
+    if (isTeamLeader && leaderDepartment) {
+      const assignee = employees.find(e => e.id === t.assignedTo);
+      if (!assignee || assignee.department?.toLowerCase() !== leaderDepartment.toLowerCase()) return false;
+    }
+    const query = taskSearch.toLowerCase();
+    return (
+      t.title.toLowerCase().includes(query) ||
+      (t.description || "").toLowerCase().includes(query) ||
+      (t.assignedToName || "").toLowerCase().includes(query)
+    );
+  });
+  const tasksPerPage = 5;
+  const indexOfLastTask = taskPage * tasksPerPage;
+  const indexOfFirstTask = indexOfLastTask - tasksPerPage;
+  const currentTasks = filteredTasks.slice(indexOfFirstTask, indexOfLastTask);
+  const totalTaskPages = Math.ceil(filteredTasks.length / tasksPerPage);
+
+  // Paginated Performance Employees
+  const performanceEmployees = employees.filter(e => {
+    if (e.role === "Admin" || e.role === "Management") return false;
+    // Team Leaders only see performance data for their own department
+    if (isTeamLeader && leaderDepartment && e.department?.toLowerCase() !== leaderDepartment.toLowerCase()) return false;
+    return true;
+  });
+  const perfPerPage = 10;
+  const indexOfLastPerf = perfPage * perfPerPage;
+  const indexOfFirstPerf = indexOfLastPerf - perfPerPage;
+  const currentPerfEmployees = performanceEmployees.slice(indexOfFirstPerf, indexOfLastPerf);
+  const totalPerfPages = Math.ceil(performanceEmployees.length / perfPerPage);
 
   return (
     <div onClick={handleBodyClick} style={{ display: "contents" }}>
@@ -1140,7 +1632,10 @@ export default function Home() {
                   <button onClick={() => setCurrentView("departments")}><span className="nav-icon">🏢</span> Departments</button>
                 </li>
                 <li className={`nav-item ${currentView === "history" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("history")}><span className="nav-icon">📜</span> Transfer Logs</button>
+                  <button onClick={() => setCurrentView("history")}><span className="nav-icon">📜</span> System Logs</button>
+                </li>
+                <li className={`nav-item ${currentView === "tasks" ? "active" : ""}`}>
+                  <button onClick={() => setCurrentView("tasks")}><span className="nav-icon">📅</span> Task Board</button>
                 </li>
                 <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("profile")}><span className="nav-icon">👤</span> My Profile</button>
@@ -1158,30 +1653,6 @@ export default function Home() {
               </li>
             )}
           </ul>
-          
-          <div className="role-badge-container">
-            <span className="role-title">Logged in as</span>
-            <div style={{ padding: "8px", background: "rgba(0, 0, 0, 0.3)", borderRadius: "10px", border: "1px solid var(--glass-border)", display: "flex", flexDirection: "column", gap: "8px" }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--accent-cyan)" }}>{user?.name}</span>
-              <button 
-                className="btn-secondary" 
-                onClick={() => router.push("/privacy-policy")}
-                style={{ padding: "6px", fontSize: "0.75rem", width: "100%", cursor: "pointer", border: "1px solid var(--glass-border)", borderRadius: "6px", background: "rgba(88, 166, 255, 0.1)", color: "#58a6ff" }}
-              >
-                🔒 Privacy & Terms
-              </button>
-              <button 
-                className="btn-secondary" 
-                onClick={() => {
-                  logout();
-                  router.push("/login");
-                }}
-                style={{ padding: "6px", fontSize: "0.75rem", width: "100%", cursor: "pointer", border: "1px solid var(--glass-border)", borderRadius: "6px" }}
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
         </nav>
       </aside>
 
@@ -1222,13 +1693,13 @@ export default function Home() {
                 onClick={() => { setCurrentView("departments"); setMobileMenuOpen(false); }}>
                 <span>🏢</span> Departments
               </button>
+              <button className={`mobile-drawer-item ${currentView === "tasks" ? "active" : ""}`}
+                onClick={() => { setCurrentView("tasks"); setMobileMenuOpen(false); }}>
+                <span>📅</span> Task Board
+              </button>
               <button className={`mobile-drawer-item ${currentView === "profile" ? "active" : ""}`}
                 onClick={() => { setCurrentView("profile"); setMobileMenuOpen(false); }}>
                 <span>👤</span> My Profile
-              </button>
-              <button className="mobile-drawer-item"
-                onClick={() => { router.push("/privacy-policy"); setMobileMenuOpen(false); }}>
-                <span>🔒</span> Privacy & Terms
               </button>
             </>
           )}
@@ -1263,32 +1734,166 @@ export default function Home() {
               style={{ height: "30px", objectFit: "contain" }}
             />
           </div>
-          <div className="alert-widget">
+          <div className="alert-widget" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {/* Clickable User Capsule & Dropdown */}
+            <div style={{ position: "relative" }}>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUserDropdownOpen(!userDropdownOpen);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  background: userDropdownOpen ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  padding: "6px 14px",
+                  borderRadius: "20px",
+                  cursor: "pointer",
+                  userSelect: "none",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.75rem",
+                  fontWeight: "bold",
+                  color: "#fff"
+                }}>
+                  {user?.name ? user.name.charAt(0).toUpperCase() : "A"}
+                </div>
+                <span style={{ fontSize: "0.8rem", color: "var(--text-primary)", fontWeight: "600" }}>
+                  {user?.name}
+                </span>
+                <span style={{ fontSize: "0.6rem", color: "var(--text-secondary)", transition: "transform 0.2s ease", transform: userDropdownOpen ? "rotate(180deg)" : "none" }}>
+                  ▼
+                </span>
+              </div>
+
+              {/* Sleek Glassmorphism Dropdown */}
+              {userDropdownOpen && (
+                <div 
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: "absolute",
+                    top: "42px",
+                    right: "0",
+                    width: "200px",
+                    background: "rgba(20, 20, 30, 0.95)",
+                    backdropFilter: "blur(20px)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "12px",
+                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5)",
+                    padding: "12px",
+                    zIndex: 1000,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "4px"
+                  }}
+                >
+                  <div style={{ padding: "4px 8px 8px 8px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "6px" }}>
+                    <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Signed in as</div>
+                    <div style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--accent-cyan)", wordBreak: "break-all" }}>{user?.name}</div>
+                    <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: "2px" }}>{isTeamLeader ? `Team Leader — ${leaderDepartment}` : userRole === "admin" ? "Administrator" : "Employee"}</div>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      setCurrentView("profile");
+                      setUserDropdownOpen(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-primary)",
+                      padding: "8px",
+                      borderRadius: "6px",
+                      textAlign: "left",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                      transition: "background 0.2s"
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                  >
+                    <span>👤</span> My Profile
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      router.push("/privacy-policy");
+                      setUserDropdownOpen(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-primary)",
+                      padding: "8px",
+                      borderRadius: "6px",
+                      textAlign: "left",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                      transition: "background 0.2s"
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                  >
+                    <span>🔒</span> Privacy & Terms
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      logout();
+                      router.push("/login");
+                    }}
+                    style={{
+                      background: "rgba(239, 68, 68, 0.12)",
+                      border: "1px solid rgba(239, 68, 68, 0.25)",
+                      color: "#ef4444",
+                      padding: "8px",
+                      borderRadius: "6px",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      width: "100%",
+                      marginTop: "6px",
+                      fontWeight: "600",
+                      transition: "background 0.2s"
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.12)"}
+                  >
+                    <span>🚪</span> Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button className={`sound-toggle-btn ${!soundOn ? "muted" : ""}`} onClick={handleSoundToggle}>
               <span className="nav-icon">{soundOn ? "🔊" : "🔇"}</span>
             </button>
             <div id="alert-bell" className={`notification-bell ${activeAudioAlert ? "active-alert" : ""}`} title="Warning Alerts Active">
               🔔
             </div>
-            <button
-              onClick={() => { logout(); router.push("/login"); }}
-              className="mobile-logout-btn"
-              style={{
-                background: "rgba(239,68,68,0.15)",
-                border: "1px solid rgba(239,68,68,0.4)",
-                color: "#ef4444",
-                padding: "5px 10px",
-                borderRadius: "8px",
-                fontSize: "0.75rem",
-                fontWeight: "600",
-                cursor: "pointer",
-                fontFamily: "var(--font-main)",
-                whiteSpace: "nowrap",
-                display: "none"
-              }}
-            >
-              Sign Out
-            </button>
           </div>
         </header>
 
@@ -1616,13 +2221,37 @@ export default function Home() {
 
               {/* Filters */}
               <div className="filter-row">
-                <input 
-                  type="text" 
-                  className="form-control search-box" 
-                  placeholder="Search System Number, CPU, RAM, Model..." 
-                  value={sysSearch}
-                  onChange={(e) => { setSysSearch(e.target.value); setSysPage(1); }}
-                />
+                <div style={{ position: "relative", flexGrow: 1 }}>
+                  <input 
+                    type="text" 
+                    className="form-control search-box" 
+                    placeholder="Search System Number, CPU, RAM, Model..." 
+                    value={sysSearch}
+                    onChange={(e) => { setSysSearch(e.target.value); setSysPage(1); }}
+                    style={{ width: "100%", paddingRight: "35px" }}
+                  />
+                  {sysSearch && (
+                    <button
+                      type="button"
+                      onClick={() => { setSysSearch(""); setSysPage(1); }}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        fontSize: "1.2rem",
+                        padding: "4px",
+                        lineHeight: 1
+                      }}
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
                 <select className="form-control select-filter" value={sysFilterOS} onChange={(e) => { setSysFilterOS(e.target.value); setSysPage(1); }}>
                   <option value="all">All OS</option>
                   <option value="Windows 11">Windows 11</option>
@@ -1763,14 +2392,37 @@ export default function Home() {
               
               {/* Search Bar */}
               <div className="filter-row" style={{ marginBottom: "1.5rem" }}>
-                <input 
-                  type="text" 
-                  className="form-control search-box" 
-                  placeholder="Search by Team Member name, department, or role..." 
-                  value={empSearch}
-                  onChange={(e) => { setEmpSearch(e.target.value); setEmpPage(1); }}
-                  style={{ width: "100%" }}
-                />
+                <div style={{ position: "relative", width: "100%" }}>
+                  <input 
+                    type="text" 
+                    className="form-control search-box" 
+                    placeholder="Search by Team Member name, department, or role..." 
+                    value={empSearch}
+                    onChange={(e) => { setEmpSearch(e.target.value); setEmpPage(1); }}
+                    style={{ width: "100%", paddingRight: "35px" }}
+                  />
+                  {empSearch && (
+                    <button
+                      type="button"
+                      onClick={() => { setEmpSearch(""); setEmpPage(1); }}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        fontSize: "1.2rem",
+                        padding: "4px",
+                        lineHeight: 1
+                      }}
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
               </div>
               
               {/* Table — Desktop */}
@@ -1791,7 +2443,12 @@ export default function Home() {
                       const assigned = systems.filter(s => s.assignedTo === emp.id);
                       return (
                         <tr key={emp.id}>
-                          <td><strong>{emp.name}</strong></td>
+                          <td>
+                            <strong>{emp.name}</strong>
+                            {emp.status === 'Paused' && (
+                              <span className="status-tag open" style={{ marginLeft: "8px", fontSize: "0.65rem", padding: "2px 6px", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }}>Paused</span>
+                            )}
+                          </td>
                           <td>
                             <span 
                               className="status-tag resolved" 
@@ -1823,8 +2480,24 @@ export default function Home() {
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
                               <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenAssignModal(emp)}>Assign Device</button>
                               <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(59, 130, 246, 0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>Edit</button>
+                              <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(139, 92, 246, 0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }} onClick={() => handleOpenEmpReportModal(emp)}>View Report</button>
                               {!['Admin'].includes(emp.role) && (
-                                <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>Remove</button>
+                                <>
+                                  <button 
+                                    className="btn-action start" 
+                                    style={{ 
+                                      padding: "4px 8px", 
+                                      fontSize: "0.75rem", 
+                                      background: emp.status === 'Paused' ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)", 
+                                      color: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)", 
+                                      borderColor: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)" 
+                                    }} 
+                                    onClick={() => handleToggleEmployeeStatus(emp)}
+                                  >
+                                    {emp.status === 'Paused' ? 'Activate' : 'Pause'}
+                                  </button>
+                                  <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>Remove</button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -1842,7 +2515,12 @@ export default function Home() {
                   return (
                      <div className="mobile-card" key={emp.id}>
                        <div className="mobile-card-header">
-                         <span className="mobile-card-title">👤 {emp.name}</span>
+                         <span className="mobile-card-title">
+                           👤 {emp.name}
+                           {emp.status === 'Paused' && (
+                             <span className="status-tag open" style={{ marginLeft: "6px", fontSize: "0.65rem", padding: "1px 5px", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }}>Paused</span>
+                           )}
+                         </span>
                          <span 
                            className="status-tag resolved" 
                            style={{ cursor: "pointer" }}
@@ -1873,8 +2551,22 @@ export default function Home() {
                       <div className="mobile-card-actions">
                         <button className="btn-action start" onClick={() => handleOpenAssignModal(emp)}>🖥️ Assign</button>
                         <button className="btn-action start" style={{ background: "rgba(59,130,246,0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>✏️ Edit</button>
+                        <button className="btn-action start" style={{ background: "rgba(139,92,246,0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }} onClick={() => handleOpenEmpReportModal(emp)}>📊 Report</button>
                         {!['Admin'].includes(emp.role) && (
-                           <button className="btn-action resolve" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>🗑️ Remove</button>
+                           <>
+                             <button 
+                               className="btn-action start" 
+                               style={{ 
+                                 background: emp.status === 'Paused' ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)", 
+                                 color: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)", 
+                                 borderColor: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)" 
+                               }} 
+                               onClick={() => handleToggleEmployeeStatus(emp)}
+                             >
+                               {emp.status === 'Paused' ? '🔓 Activate' : '🔒 Pause'}
+                             </button>
+                             <button className="btn-action resolve" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>🗑️ Remove</button>
+                           </>
                         )}
                       </div>
                     </div>
@@ -1927,14 +2619,36 @@ export default function Home() {
 
               {/* Filters & Search */}
               <div className="filter-row">
-                <div style={{ flexGrow: 1, minWidth: "250px" }}>
+                <div style={{ flexGrow: 1, minWidth: "250px", position: "relative" }}>
                   <input
                     type="text"
                     className="form-control"
                     placeholder="Search by Employee, System, ID, Description..."
                     value={ticketSearch}
                     onChange={(e) => { setTicketSearch(e.target.value); setTicketPage(1); }}
+                    style={{ width: "100%", paddingRight: "35px" }}
                   />
+                  {ticketSearch && (
+                    <button
+                      type="button"
+                      onClick={() => { setTicketSearch(""); setTicketPage(1); }}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        fontSize: "1.2rem",
+                        padding: "4px",
+                        lineHeight: 1
+                      }}
+                    >
+                      &times;
+                    </button>
+                  )}
                 </div>
                 <div>
                   <select
@@ -2186,26 +2900,49 @@ export default function Home() {
           {currentView === "history" && userRole === "admin" && (
             <div className="page-section active">
               <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2 style={{ fontSize: "1.4rem", margin: 0 }}>📜 System Transfer & Assignment Logs</h2>
+                <h2 style={{ fontSize: "1.4rem", margin: 0 }}>📜 System Tracking & Audit Logs</h2>
                 <button 
                   onClick={handleExportHistoryToExcel} 
                   className="btn-action start" 
                   style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px" }}
                 >
-                  📥 Export Transfer Logs
+                  📥 Export Audit Logs
                 </button>
               </div>
 
               {/* Filters */}
               <div className="filter-row">
-                <input 
-                  type="text" 
-                  className="form-control search-box" 
-                  placeholder="Search Employee, System Number, Action..." 
-                  style={{ flexGrow: 1 }}
-                  value={historySearch}
-                  onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
-                />
+                <div style={{ position: "relative", flexGrow: 1 }}>
+                  <input 
+                    type="text" 
+                    className="form-control search-box" 
+                    placeholder="Search Employee, System, Action, Department..." 
+                    style={{ width: "100%", paddingRight: "35px" }}
+                    value={historySearch}
+                    onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
+                  />
+                  {historySearch && (
+                    <button
+                      type="button"
+                      onClick={() => { setHistorySearch(""); setHistoryPage(1); }}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        fontSize: "1.2rem",
+                        padding: "4px",
+                        lineHeight: 1
+                      }}
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Table — Desktop */}
@@ -2218,25 +2955,33 @@ export default function Home() {
                       <th>System Number</th>
                       <th>Team Member Name</th>
                       <th>Timestamp</th>
-                      <th>Assigned By</th>
+                      <th>Performed By</th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentHistory.length === 0 ? (
-                      <tr><td colSpan="6" style={{ textAlign: "center", color: "var(--text-muted)" }}>No matching history logs found.</td></tr>
+                      <tr><td colSpan="6" style={{ textAlign: "center", color: "var(--text-muted)" }}>No matching audit logs found.</td></tr>
                     ) : (
                       currentHistory.map(log => {
                         const emp = employees.find(e => e.id === log.employeeId);
+                        const act = log.action.toLowerCase();
+                        let statusClass = 'open';
+                        if (act === 'assigned') statusClass = 'resolved';
+                        else if (act === 'unassigned') statusClass = 'open';
+                        else if (act.includes('added') || act.includes('add')) statusClass = 'progress';
+                        else if (act.includes('updated') || act.includes('update')) statusClass = 'open';
+                        else if (act.includes('removed') || act.includes('delete') || act.includes('unassigned')) statusClass = 'critical';
+
                         return (
                           <tr key={log.id}>
                             <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{log.id}</td>
                             <td>
-                              <span className={`status-tag ${log.action.toLowerCase() === "assigned" ? "resolved" : "open"}`}>
+                              <span className={`status-tag ${statusClass}`}>
                                 {log.action}
                               </span>
                             </td>
-                            <td style={{ fontWeight: 700, color: "var(--accent-cyan)" }}>{log.systemNumber}</td>
-                            <td><strong>{emp ? emp.name : "Unknown"}</strong></td>
+                            <td style={{ fontWeight: 700, color: log.systemNumber ? "var(--accent-cyan)" : "var(--text-muted)" }}>{log.systemNumber || "N/A"}</td>
+                            <td><strong>{emp ? emp.name : (log.employeeId ? (log.employeeId.startsWith('emp_') ? "Unknown" : log.employeeId) : "N/A")}</strong></td>
                             <td>{new Date(log.timestamp).toLocaleString()}</td>
                             <td><span className="timer-badge">{log.assignedBy || "System"}</span></td>
                           </tr>
@@ -2250,19 +2995,32 @@ export default function Home() {
               {/* Cards — Mobile */}
               <div className="mobile-card-list mobile-only">
                 {currentHistory.length === 0 ? (
-                  <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem 0" }}>No history logs found.</p>
+                  <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem 0" }}>No audit logs found.</p>
                 ) : (
                   currentHistory.map(log => {
                     const emp = employees.find(e => e.id === log.employeeId);
+                    const act = log.action.toLowerCase();
+                    let statusClass = 'open';
+                    if (act === 'assigned') statusClass = 'resolved';
+                    else if (act === 'unassigned') statusClass = 'open';
+                    else if (act.includes('added') || act.includes('add')) statusClass = 'progress';
+                    else if (act.includes('updated') || act.includes('update')) statusClass = 'open';
+                    else if (act.includes('removed') || act.includes('delete') || act.includes('unassigned')) statusClass = 'critical';
+
+                    let title = "📜 Audit Log";
+                    if (log.systemNumber) title = `🖥️ ${log.systemNumber}`;
+                    else if (act.includes('employee')) title = `👤 Employee Log`;
+                    else if (act.includes('department')) title = `🏢 Department Log`;
+
                     return (
                       <div className="mobile-card" key={log.id}>
                         <div className="mobile-card-header">
-                          <span className="mobile-card-title">🖥️ {log.systemNumber}</span>
-                          <span className={`status-tag ${log.action.toLowerCase() === "assigned" ? "resolved" : "open"}`}>{log.action}</span>
+                          <span className="mobile-card-title">{title}</span>
+                          <span className={`status-tag ${statusClass}`}>{log.action}</span>
                         </div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Employee</span><span className="mobile-card-value">{emp ? emp.name : "Unknown"}</span></div>
+                        <div className="mobile-card-row"><span className="mobile-card-label">Employee</span><span className="mobile-card-value">{emp ? emp.name : (log.employeeId ? (log.employeeId.startsWith('emp_') ? "Unknown" : log.employeeId) : "N/A")}</span></div>
                         <div className="mobile-card-row"><span className="mobile-card-label">Timestamp</span><span className="mobile-card-value">{new Date(log.timestamp).toLocaleString()}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Assigned By</span><span className="mobile-card-value">{log.assignedBy || "System"}</span></div>
+                        <div className="mobile-card-row"><span className="mobile-card-label">Performed By</span><span className="mobile-card-value">{log.assignedBy || "System"}</span></div>
                       </div>
                     );
                   })
@@ -2293,6 +3051,502 @@ export default function Home() {
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ================= VIEW: TASK BOARD (ADMIN/LEADER) ================= */}
+          {currentView === "tasks" && userRole === "admin" && (
+            <div className="page-section active">
+              <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <h2 style={{ fontSize: "1.4rem", margin: 0 }}>📅 Team Task Board</h2>
+                  <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginTop: "4px" }}>
+                    {isTeamLeader
+                      ? `Showing tasks for your department: ${leaderDepartment}`
+                      : "Assign tasks, view daily performance reports, and track employee task logs"}
+                  </p>
+                  {isTeamLeader && (
+                    <span style={{ display: "inline-block", marginTop: "6px", padding: "2px 10px", background: "rgba(0,204,255,0.12)", border: "1px solid rgba(0,204,255,0.3)", borderRadius: "20px", fontSize: "0.75rem", color: "var(--accent-cyan)", fontWeight: "600" }}>
+                      🏷️ Dept: {leaderDepartment}
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button 
+                    onClick={handleExportTasksToCSV} 
+                    className="btn-secondary" 
+                  >
+                    📥 Export All Tasks
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setEmpReportTarget(null);
+                      const today = new Date();
+                      const thirtyDaysAgo = new Date();
+                      thirtyDaysAgo.setDate(today.getDate() - 30);
+                      setEmpReportFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+                      setEmpReportTo(today.toISOString().split('T')[0]);
+                      setShowEmpReportModal(true);
+                    }} 
+                    className="btn-secondary"
+                    style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(139, 92, 246, 0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }}
+                  >
+                    📊 Performance Reports
+                  </button>
+                  <button 
+                    className="btn-primary" 
+                    onClick={() => {
+                      setNewTaskTitle("");
+                      setNewTaskDesc("");
+                      const assignableEmps = employees.filter(e => 
+                        e.role !== "Admin" && e.role !== "Management" &&
+                        (!isTeamLeader || !leaderDepartment || e.department?.toLowerCase() === leaderDepartment.toLowerCase())
+                      );
+                      setNewTaskAssignee(assignableEmps.length > 0 ? assignableEmps[0].id : "");
+                      setShowAddTaskModal(true);
+                    }}
+                  >
+                    + Assign New Task
+                  </button>
+                </div>
+              </div>
+
+              {/* Sub-Tabs */}
+              <div className="tab-container" style={{ display: "flex", gap: "15px", marginBottom: "1.5rem", borderBottom: "1px solid var(--glass-border)", paddingBottom: "10px" }}>
+                <button 
+                  onClick={() => setTaskPage(1)} 
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--accent-cyan)",
+                    fontWeight: "bold",
+                    borderBottom: "2px solid var(--accent-cyan)",
+                    paddingBottom: "5px",
+                    cursor: "pointer"
+                  }}
+                >
+                  Tasks List
+                </button>
+              </div>
+
+              {/* Filters */}
+              <div className="filter-row" style={{ marginBottom: "1.5rem" }}>
+                <div style={{ position: "relative", flexGrow: 1 }}>
+                  <input 
+                    type="text" 
+                    className="form-control search-box" 
+                    placeholder="Search by task title, description, or assignee..." 
+                    style={{ width: "100%", paddingRight: "35px" }}
+                    value={taskSearch}
+                    onChange={(e) => { setTaskSearch(e.target.value); setTaskPage(1); }}
+                  />
+                  {taskSearch && (
+                    <button
+                      type="button"
+                      onClick={() => { setTaskSearch(""); setTaskPage(1); }}
+                      style={{
+                        position: "absolute",
+                        right: "10px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        fontSize: "1.2rem",
+                        padding: "4px",
+                        lineHeight: 1
+                      }}
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Table — Tasks List */}
+              <div className="table-wrapper">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Task Title</th>
+                      <th>Description</th>
+                      <th>Assigned To</th>
+                      <th>Assigned By</th>
+                      <th>Status</th>
+                      <th>Time Spent</th>
+                      <th>Created</th>
+                      <th>Completed</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentTasks.length === 0 ? (
+                      <tr>
+                        <td colSpan="9" style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
+                          No tasks found.
+                        </td>
+                      </tr>
+                    ) : (
+                      currentTasks.map(t => {
+                        let displayDuration = t.totalDuration || 0;
+                        if (t.status === 'In Progress' && t.startedAt) {
+                          const elapsed = Math.floor((now - new Date(t.startedAt).getTime()) / 1000);
+                          displayDuration += Math.max(0, elapsed);
+                        }
+
+                        const formatTime = (secs) => {
+                          const h = Math.floor(secs / 3600);
+                          const m = Math.floor((secs % 3600) / 60);
+                          const s = secs % 60;
+                          return `${h}h ${m}m ${s}s`;
+                        };
+
+                        return (
+                          <tr key={t.id}>
+                            <td style={{ fontWeight: "600" }}>{t.title}</td>
+                            <td>{t.description || "—"}</td>
+                            <td><strong>{t.assignedToName || "Unassigned"}</strong></td>
+                            <td>{t.assignedByName || "System"}</td>
+                            <td>
+                              <span className={`status-badge badge-${t.status === 'In Progress' ? 'progress' : (t.status === 'Completed' ? 'resolved' : 'open')}`}>
+                                {t.status}
+                              </span>
+                            </td>
+                            <td style={{ fontFamily: "monospace", color: "var(--accent-cyan)" }}>{formatTime(displayDuration)}</td>
+                            <td>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
+                            <td>{t.completedAt ? new Date(t.completedAt).toLocaleString() : "—"}</td>
+                            <td>
+                              <button
+                                className="btn-secondary"
+                                style={{ padding: "4px 10px", fontSize: "0.75rem" }}
+                                onClick={() => {
+                                  setSelectedTaskDetails(t);
+                                  setShowTaskDetailsModal(true);
+                                }}
+                              >
+                                👁️ View details
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Task Pagination Controls */}
+              {totalTaskPages > 1 && (
+                <div className="pagination-controls" style={{ marginTop: "1rem" }}>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setTaskPage(prev => Math.max(prev - 1, 1))}
+                    disabled={taskPage === 1}
+                    style={{ padding: "6px 12px", opacity: taskPage === 1 ? 0.5 : 1, cursor: taskPage === 1 ? "not-allowed" : "pointer" }}
+                  >
+                    ← Previous
+                  </button>
+                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                    Page {taskPage} of {totalTaskPages} (Total {filteredTasks.length} tasks)
+                  </span>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setTaskPage(prev => Math.min(prev + 1, totalTaskPages))}
+                    disabled={taskPage === totalTaskPages}
+                    style={{ padding: "6px 12px", opacity: taskPage === totalTaskPages ? 0.5 : 1, cursor: taskPage === totalTaskPages ? "not-allowed" : "pointer" }}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+
+              {/* Performance Summary section */}
+              <div style={{ marginTop: "3rem" }}>
+                {/* ── Chart Header ── */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "1.5rem" }}>
+                  <div>
+                    <h3 style={{ fontSize: "1.2rem", color: "var(--accent-cyan)", margin: 0 }}>📊 Team Performance Chart</h3>
+                    <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "4px" }}>Task completion rates per team member across time periods</p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                    {/* Seed / Clear demo buttons */}
+                    <button
+                      onClick={seedDummyTasks}
+                      title="Inject demo tasks for all employees across all time periods"
+                      style={{
+                        padding: "5px 13px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(0,204,255,0.3)",
+                        background: "rgba(0,204,255,0.08)",
+                        color: "var(--accent-cyan)",
+                        fontSize: "0.72rem",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(0,204,255,0.18)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "rgba(0,204,255,0.08)"}
+                    >
+                      🧪 Seed Demo Data
+                    </button>
+                    <button
+                      onClick={() => {
+                        Swal.fire({
+                          title: "Clear all demo tasks?",
+                          text: "This removes tasks with IDs starting with 'demo_'. Real tasks are kept.",
+                          icon: "warning",
+                          showCancelButton: true,
+                          confirmButtonText: "Yes, clear",
+                          confirmButtonColor: "#ef4444"
+                        }).then(r => {
+                          if (r.isConfirmed) {
+                            const cleaned = tasks.filter(t => !t.id.startsWith("demo_"));
+                            saveTasks(cleaned);
+                            setTasks(getTasks());
+                            Swal.fire({ icon: "success", title: "Cleared", text: "Demo tasks removed." });
+                          }
+                        });
+                      }}
+                      title="Remove all seeded demo tasks"
+                      style={{
+                        padding: "5px 13px",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(239,68,68,0.3)",
+                        background: "rgba(239,68,68,0.06)",
+                        color: "#ef4444",
+                        fontSize: "0.72rem",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        transition: "all 0.2s ease"
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.15)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "rgba(239,68,68,0.06)"}
+                    >
+                      🗑️ Clear Demo
+                    </button>
+                    {/* Tab Switcher */}
+                    <div style={{ display: "flex", gap: "6px", background: "rgba(255,255,255,0.04)", padding: "4px", borderRadius: "10px", border: "1px solid var(--glass-border)" }}>
+                      {["daily", "weekly", "monthly", "yearly"].map(tab => (
+                        <button
+                          key={tab}
+                          onClick={() => setPerfChartTab(tab)}
+                          style={{
+                            padding: "5px 14px",
+                            borderRadius: "7px",
+                            border: "none",
+                            fontSize: "0.75rem",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            textTransform: "capitalize",
+                            background: perfChartTab === tab ? "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))" : "transparent",
+                            color: perfChartTab === tab ? "#fff" : "var(--text-secondary)",
+                            transition: "all 0.2s ease",
+                            boxShadow: perfChartTab === tab ? "0 2px 10px rgba(0,204,255,0.3)" : "none"
+                          }}
+                        >
+                          {tab === "daily" ? "Today" : tab === "weekly" ? "Week" : tab === "monthly" ? "Month" : "Year"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Bar Chart ── */}
+                {(() => {
+                  const now2 = new Date();
+                  const chartData = performanceEmployees.map(e => {
+                    let empTasks = tasks.filter(t => t.assignedTo === e.id);
+
+                    // Filter by time period
+                    if (perfChartTab === "daily") {
+                      empTasks = empTasks.filter(t => {
+                        const d = new Date(t.createdAt || t.updatedAt || 0);
+                        return d.toDateString() === now2.toDateString();
+                      });
+                    } else if (perfChartTab === "weekly") {
+                      const weekAgo = new Date(now2); weekAgo.setDate(weekAgo.getDate() - 7);
+                      empTasks = empTasks.filter(t => new Date(t.createdAt || t.updatedAt || 0) >= weekAgo);
+                    } else if (perfChartTab === "monthly") {
+                      empTasks = empTasks.filter(t => {
+                        const d = new Date(t.createdAt || t.updatedAt || 0);
+                        return d.getMonth() === now2.getMonth() && d.getFullYear() === now2.getFullYear();
+                      });
+                    } else if (perfChartTab === "yearly") {
+                      empTasks = empTasks.filter(t => {
+                        const d = new Date(t.createdAt || t.updatedAt || 0);
+                        return d.getFullYear() === now2.getFullYear();
+                      });
+                    }
+
+                    const total = empTasks.length;
+                    const completed = empTasks.filter(t => t.status === "Completed").length;
+                    const pending = total - completed;
+                    const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    const shortName = e.name.split(" ")[0];
+                    return { name: shortName, Completed: completed, Pending: pending, Rate: rate, total };
+                  }).filter(d => d.total > 0 || true); // show all employees
+
+                  const hasData = chartData.some(d => d.total > 0);
+
+                  return (
+                    <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border)", borderRadius: "16px", padding: "1.5rem", marginBottom: "2rem" }}>
+                      {!hasData ? (
+                        <div style={{ textAlign: "center", padding: "3rem 0", color: "var(--text-muted)" }}>
+                          <div style={{ fontSize: "2.5rem", marginBottom: "8px" }}>📭</div>
+                          <p style={{ margin: 0 }}>No tasks found for this time period.</p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Stacked Bar Chart */}
+                          <div style={{ marginBottom: "1.5rem" }}>
+                            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "8px" }}>Tasks: Completed vs Pending</p>
+                            <ResponsiveContainer width="100%" height={260}>
+                              <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                                <XAxis dataKey="name" tick={{ fill: "var(--text-secondary)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fill: "var(--text-secondary)", fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                <Tooltip
+                                  contentStyle={{ background: "rgba(15,15,25,0.95)", border: "1px solid var(--glass-border)", borderRadius: "10px", fontSize: "0.8rem" }}
+                                  labelStyle={{ color: "var(--accent-cyan)", fontWeight: "bold" }}
+                                  cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                                />
+                                <Legend wrapperStyle={{ fontSize: "0.75rem", paddingTop: "10px" }} />
+                                <Bar dataKey="Completed" stackId="a" fill="#00ccff" radius={[0, 0, 0, 0]} />
+                                <Bar dataKey="Pending" stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          {/* Completion Rate Bar Chart */}
+                          <div>
+                            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "8px" }}>Completion Rate (%)</p>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              {chartData.map((d, i) => (
+                                <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                  <span style={{ width: "90px", fontSize: "0.75rem", color: "var(--text-secondary)", textAlign: "right", flexShrink: 0 }}>{d.name}</span>
+                                  <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: "20px", height: "10px", overflow: "hidden" }}>
+                                    <div style={{
+                                      height: "100%",
+                                      width: `${d.Rate}%`,
+                                      background: d.Rate === 100 ? "linear-gradient(90deg, #00ccff, #00ff99)" : d.Rate >= 50 ? "linear-gradient(90deg, #00ccff, #a855f7)" : "linear-gradient(90deg, #f59e0b, #ef4444)",
+                                      borderRadius: "20px",
+                                      transition: "width 0.8s ease"
+                                    }} />
+                                  </div>
+                                  <span style={{ width: "38px", fontSize: "0.75rem", fontWeight: "700", color: d.Rate === 100 ? "#00ff99" : d.Rate >= 50 ? "var(--accent-cyan)" : "#f59e0b", textAlign: "left" }}>{d.Rate}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <h3 style={{ fontSize: "1.1rem", color: "var(--accent-cyan)", marginBottom: "1rem" }}>📈 Team Performance Table</h3>
+                <div className="table-wrapper">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Team Member</th>
+                        <th>Department</th>
+                        <th>Role</th>
+                        <th style={{ textAlign: "center" }}>Total Assigned</th>
+                        <th style={{ textAlign: "center" }}>Completed</th>
+                        <th style={{ textAlign: "center" }}>Pending</th>
+                        <th>Total Time Spent</th>
+                        <th>Rate (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentPerfEmployees.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
+                            No team members found.
+                          </td>
+                        </tr>
+                      ) : (
+                        currentPerfEmployees.map(e => {
+                          const empTasks = tasks.filter(t => t.assignedTo === e.id);
+                          const completed = empTasks.filter(t => t.status === "Completed");
+                          const pending = empTasks.filter(t => t.status !== "Completed");
+                          
+                          let totalTime = 0;
+                          empTasks.forEach(t => {
+                            let displayDuration = t.totalDuration || 0;
+                            if (t.status === 'In Progress' && t.startedAt) {
+                              const elapsed = Math.floor((now - new Date(t.startedAt).getTime()) / 1000);
+                              displayDuration += Math.max(0, elapsed);
+                            }
+                            totalTime += displayDuration;
+                          });
+
+                          const formatTime = (secs) => {
+                            const h = Math.floor(secs / 3600);
+                            const m = Math.floor((secs % 3600) / 60);
+                            const s = secs % 60;
+                            return `${h}h ${m}m ${s}s`;
+                          };
+
+                          const rate = empTasks.length > 0 
+                            ? Math.round((completed.length / empTasks.length) * 100) 
+                            : 0;
+
+                          return (
+                            <tr key={e.id}>
+                              <td><strong>{e.name}</strong></td>
+                              <td>{e.department || "Operations"}</td>
+                              <td>{e.role}</td>
+                              <td style={{ textAlign: "center" }}>{empTasks.length}</td>
+                              <td style={{ textAlign: "center", color: "var(--status-resolved)" }}>{completed.length}</td>
+                              <td style={{ textAlign: "center", color: "var(--status-progress)" }}>{pending.length}</td>
+                              <td style={{ fontFamily: "monospace", color: "var(--accent-cyan)" }}>{formatTime(totalTime)}</td>
+                              <td>
+                                <span style={{ fontWeight: "bold", color: rate === 100 ? "var(--status-resolved)" : "var(--text-primary)" }}>
+                                  {rate}%
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Performance Report Pagination Controls */}
+                {totalPerfPages > 1 && (
+                  <div className="pagination-controls" style={{ marginTop: "1rem" }}>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setPerfPage(prev => Math.max(prev - 1, 1))}
+                      disabled={perfPage === 1}
+                      style={{ padding: "6px 12px", opacity: perfPage === 1 ? 0.5 : 1, cursor: perfPage === 1 ? "not-allowed" : "pointer" }}
+                    >
+                      ← Previous
+                    </button>
+                    <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                      Page {perfPage} of {totalPerfPages} (Total {performanceEmployees.length} team members)
+                    </span>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setPerfPage(prev => Math.min(prev + 1, totalPerfPages))}
+                      disabled={perfPage === totalPerfPages}
+                      style={{ padding: "6px 12px", opacity: perfPage === totalPerfPages ? 0.5 : 1, cursor: perfPage === totalPerfPages ? "not-allowed" : "pointer" }}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -2665,6 +3919,288 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ================= MODAL: ASSIGN TASK ================= */}
+      <div className={`modal-overlay ${showAddTaskModal ? "active" : ""}`}>
+        <div className="modal-card">
+          <div className="modal-header">
+            <h3 className="modal-title">Assign New Task</h3>
+            <button className="modal-close" onClick={() => setShowAddTaskModal(false)}>&times;</button>
+          </div>
+          <form onSubmit={handleAddTaskSubmit}>
+            <div className="form-group">
+              <label>Task Title</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                placeholder="e.g. Complete System Tracking UI"
+                required 
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Task Description</label>
+              <textarea 
+                className="form-control" 
+                value={newTaskDesc}
+                onChange={(e) => setNewTaskDesc(e.target.value)}
+                placeholder="Describe the task instructions here..."
+                style={{ height: "100px", resize: "none" }}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Assign to Team Member</label>
+              <select 
+                className="form-control" 
+                value={newTaskAssignee}
+                onChange={(e) => setNewTaskAssignee(e.target.value)}
+                required
+              >
+                {employees.filter(e => 
+                  e.role !== "Admin" && e.role !== "Management" &&
+                  (!isTeamLeader || !leaderDepartment || e.department?.toLowerCase() === leaderDepartment.toLowerCase())
+                ).map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="modal-footer" style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "1.5rem" }}>
+              <button type="button" className="btn-secondary" onClick={() => setShowAddTaskModal(false)}>Cancel</button>
+              <button type="submit" className="btn-primary">Assign Task</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* ================= MODAL: VIEW TASK DETAILS ================= */}
+      <div className={`modal-overlay ${showTaskDetailsModal ? "active" : ""}`} style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "var(--bg-primary)",
+        zIndex: 1500,
+        overflowY: "auto",
+        display: showTaskDetailsModal ? "block" : "none",
+        padding: "2rem"
+      }}>
+        <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+          {/* Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: "1rem", marginBottom: "1.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                onClick={() => { setShowTaskDetailsModal(false); setSelectedTaskDetails(null); }}
+                style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.9rem", padding: "8px 16px" }}
+              >
+                ⬅️ Back to Task Board
+              </button>
+              <h2 style={{ margin: 0, fontSize: "1.5rem", color: "var(--text-primary)", fontWeight: "700" }}>Task Details & Attachment Viewer</h2>
+            </div>
+            <button 
+              onClick={() => { setShowTaskDetailsModal(false); setSelectedTaskDetails(null); }}
+              style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: "1.8rem", cursor: "pointer" }}
+            >
+              &times;
+            </button>
+          </div>
+
+          {selectedTaskDetails && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "2rem" }}>
+              {/* Left Column: Details Card */}
+              <div style={{ 
+                background: "rgba(255, 255, 255, 0.02)", 
+                border: "1px solid rgba(255, 255, 255, 0.06)", 
+                borderRadius: "12px", 
+                padding: "2rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "20px"
+              }}>
+                <div>
+                  <h3 style={{ margin: "0 0 10px 0", fontSize: "1.3rem", color: "var(--accent-cyan)", fontWeight: "700" }}>
+                    {selectedTaskDetails.title}
+                  </h3>
+                  <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.95rem", lineHeight: "1.6" }}>
+                    {selectedTaskDetails.description || "No description provided."}
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "10px" }}>
+                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Status</span>
+                    <span className={`status-badge badge-${selectedTaskDetails.status === 'In Progress' ? 'progress' : (selectedTaskDetails.status === 'Completed' ? 'resolved' : 'open')}`} style={{ marginTop: "6px", display: "inline-block" }}>
+                      {selectedTaskDetails.status}
+                    </span>
+                  </div>
+
+                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "10px" }}>
+                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Time Spent</span>
+                    <span style={{ color: "var(--accent-cyan)", fontSize: "1.2rem", fontFamily: "monospace", fontWeight: "bold", display: "block", marginTop: "4px" }}>
+                      {(() => {
+                        let displayDuration = selectedTaskDetails.totalDuration || 0;
+                        if (selectedTaskDetails.status === 'In Progress' && selectedTaskDetails.startedAt) {
+                          const elapsed = Math.floor((Date.now() - new Date(selectedTaskDetails.startedAt).getTime()) / 1000);
+                          displayDuration += Math.max(0, elapsed);
+                        }
+                        const h = Math.floor(displayDuration / 3600);
+                        const m = Math.floor((displayDuration % 3600) / 60);
+                        const s = displayDuration % 60;
+                        return `${h}h ${m}m ${s}s`;
+                      })()}
+                    </span>
+                  </div>
+
+                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "10px" }}>
+                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Assigned To</span>
+                    <span style={{ color: "var(--text-primary)", fontSize: "0.95rem", fontWeight: "600", display: "block", marginTop: "4px" }}>
+                      {selectedTaskDetails.assignedToName || "Unassigned"}
+                    </span>
+                  </div>
+
+                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "10px" }}>
+                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Assigned By</span>
+                    <span style={{ color: "var(--text-primary)", fontSize: "0.95rem", display: "block", marginTop: "4px" }}>
+                      {selectedTaskDetails.assignedByName || "System"}
+                    </span>
+                  </div>
+
+                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "10px" }}>
+                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Created Date</span>
+                    <span style={{ color: "var(--text-primary)", fontSize: "0.9rem", display: "block", marginTop: "4px" }}>
+                      {selectedTaskDetails.createdAt ? new Date(selectedTaskDetails.createdAt).toLocaleString() : "—"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Completed Date</span>
+                    <span style={{ color: "var(--text-primary)", fontSize: "0.9rem", display: "block", marginTop: "4px" }}>
+                      {selectedTaskDetails.completedAt ? new Date(selectedTaskDetails.completedAt).toLocaleString() : "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Files & Galleries */}
+              <div style={{ 
+                background: "rgba(255, 255, 255, 0.02)", 
+                border: "1px solid rgba(255, 255, 255, 0.06)", 
+                borderRadius: "12px", 
+                padding: "2rem",
+                minHeight: "450px"
+              }}>
+                <h3 style={{ margin: "0 0 20px 0", fontSize: "1.2rem", color: "var(--text-primary)", fontWeight: "600", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "10px" }}>
+                  📁 Uploaded Attachments & Proofs Gallery
+                </h3>
+
+                {selectedTaskDetails.fileUrl ? (() => {
+                  let urls = [];
+                  try {
+                    if (selectedTaskDetails.fileUrl.startsWith('[')) {
+                      urls = JSON.parse(selectedTaskDetails.fileUrl);
+                    } else {
+                      urls = [selectedTaskDetails.fileUrl];
+                    }
+                  } catch (e) {
+                    urls = [selectedTaskDetails.fileUrl];
+                  }
+
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                      {urls.map((url, idx) => {
+                        const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(url);
+                        return (
+                          <div key={idx} style={{ 
+                            border: "1px solid rgba(255, 255, 255, 0.08)", 
+                            borderRadius: "10px", 
+                            padding: "16px", 
+                            background: "rgba(255, 255, 255, 0.01)"
+                          }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                              <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem", fontWeight: "600" }}>
+                                📄 File Attachment #{idx + 1}
+                              </span>
+                              <a 
+                                href={url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="btn-primary" 
+                                style={{ padding: "6px 14px", fontSize: "0.8rem", textDecoration: "none" }}
+                              >
+                                🔗 Open Original File
+                              </a>
+                            </div>
+                            
+                            {isImage ? (
+                              <div style={{ display: "flex", justifyContent: "center", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "10px" }}>
+                                <a href={url} target="_blank" rel="noopener noreferrer" style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+                                  <img 
+                                    src={url} 
+                                    alt={`Attachment Proof ${idx + 1}`} 
+                                    style={{ 
+                                      maxWidth: "100%", 
+                                      maxHeight: "500px", 
+                                      borderRadius: "8px", 
+                                      border: "1px solid rgba(255, 255, 255, 0.05)",
+                                      objectFit: "contain",
+                                      boxShadow: "0 4px 12px rgba(0,0,0,0.5)"
+                                    }} 
+                                  />
+                                </a>
+                              </div>
+                            ) : (
+                              <div style={{ 
+                                display: "flex", 
+                                alignItems: "center", 
+                                gap: "12px", 
+                                padding: "16px", 
+                                background: "rgba(255,255,255,0.02)", 
+                                borderRadius: "8px",
+                                border: "1px solid rgba(255,255,255,0.05)"
+                              }}>
+                                <span style={{ fontSize: "2rem" }}>📄</span>
+                                <div style={{ display: "flex", flexDirection: "column" }}>
+                                  <span style={{ color: "var(--text-primary)", fontSize: "0.9rem", fontWeight: "500", wordBreak: "break-all" }}>
+                                    {url.split('/').pop()}
+                                  </span>
+                                  <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: "2px" }}>
+                                    Document / Non-Image format
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })() : (
+                  <div style={{ 
+                    display: "flex", 
+                    flexDirection: "column", 
+                    alignItems: "center", 
+                    justifyContent: "center", 
+                    height: "200px", 
+                    border: "1px dashed rgba(255,255,255,0.1)", 
+                    borderRadius: "12px" 
+                  }}>
+                    <span style={{ fontSize: "2.5rem", marginBottom: "10px" }}>📁</span>
+                    <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic" }}>
+                      No attachments uploaded for this task.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ================= MODAL: ADD EMPLOYEE ================= */}
       <div className={`modal-overlay ${showAddEmpModal ? "active" : ""}`}>
         <div className="modal-card">
@@ -2721,6 +4257,7 @@ export default function Home() {
                 onChange={(e) => setNewEmpRole(e.target.value)}
               >
                 <option value="Team Member">Team Member</option>
+                <option value="Team Leader">Team Leader</option>
                 <option value="IT Engineer">IT Engineer</option>
                 <option value="Management">Management</option>
               </select>
@@ -2799,6 +4336,7 @@ export default function Home() {
                 onChange={(e) => setEditingEmp({ ...editingEmp, role: e.target.value })}
               >
                 <option value="Team Member">Team Member</option>
+                <option value="Team Leader">Team Leader</option>
                 <option value="IT Engineer">IT Engineer</option>
                 <option value="Management">Management</option>
                 <option value="Admin">Admin</option>
@@ -2939,6 +4477,269 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* ================= MODAL: EMPLOYEE PERFORMANCE & ACTIVITY REPORT ================= */}
+      {showEmpReportModal && (() => {
+        const from = empReportFrom ? new Date(empReportFrom + "T00:00:00") : null;
+        const to = empReportTo ? new Date(empReportTo + "T23:59:59") : null;
+
+        const currentDevices = empReportTarget ? systems.filter(s => s.assignedTo === empReportTarget.id) : [];
+
+        const empLogs = empReportTarget ? assignmentHistory.filter(h => {
+          if (h.employeeId !== empReportTarget.id) return false;
+          if (!h.timestamp) return false;
+          const ts = new Date(h.timestamp);
+          if (from && ts < from) return false;
+          if (to && ts > to) return false;
+          return true;
+        }) : [];
+
+        const empTickets = empReportTarget ? tickets.filter(t => {
+          const matchEmp = t.raisedBy === empReportTarget.id || t.employeeId === empReportTarget.id;
+          if (!matchEmp) return false;
+          if (!t.createdAt) return false;
+          const ts = new Date(t.createdAt);
+          if (from && ts < from) return false;
+          if (to && ts > to) return false;
+          return true;
+        }) : [];
+
+        const empTasks = empReportTarget ? tasks.filter(t => {
+          if (t.assignedTo !== empReportTarget.id) return false;
+          if (!t.createdAt) return false;
+          const ts = new Date(t.createdAt);
+          if (from && ts < from) return false;
+          if (to && ts > to) return false;
+          return true;
+        }) : [];
+
+        return (
+          <div className="modal-overlay active">
+            <div className="modal-card" style={{ maxWidth: "850px", width: "95%" }}>
+              <div className="modal-header" style={{ paddingBottom: "10px" }}>
+                <h3 className="modal-title">📊 Team Member Performance Report</h3>
+                <button className="modal-close" onClick={() => setShowEmpReportModal(false)}>&times;</button>
+              </div>
+
+              {/* Selection & Filters Banner */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "flex-end", marginBottom: "20px", background: "rgba(255,255,255,0.01)", padding: "12px", borderRadius: "8px", border: "1px solid var(--glass-border)" }}>
+                
+                <div style={{ flex: "1 1 200px" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>Select Team Member</label>
+                  <select 
+                    className="form-control"
+                    value={empReportTarget?.id || ""}
+                    onChange={(e) => {
+                      const selectedEmp = employees.find(emp => emp.id === e.target.value);
+                      setEmpReportTarget(selectedEmp || null);
+                    }}
+                    style={{ width: "100%", padding: "6px 10px" }}
+                  >
+                    <option value="">-- Choose Team Member --</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.department} - {emp.role})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ flex: "1 1 150px" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>From Date</label>
+                  <input 
+                    type="date" 
+                    className="form-control" 
+                    value={empReportFrom} 
+                    onChange={(e) => setEmpReportFrom(e.target.value)} 
+                    style={{ width: "100%", padding: "6px 10px" }}
+                  />
+                </div>
+                <div style={{ flex: "1 1 150px" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>To Date</label>
+                  <input 
+                    type="date" 
+                    className="form-control" 
+                    value={empReportTo} 
+                    onChange={(e) => setEmpReportTo(e.target.value)} 
+                    style={{ width: "100%", padding: "6px 10px" }}
+                  />
+                </div>
+                <div>
+                  <button 
+                    onClick={() => {
+                      if (!empReportTarget) {
+                        Swal.fire({ icon: 'warning', title: 'Selection Required', text: 'Please select a team member first.' });
+                        return;
+                      }
+                      handleDownloadEmpReport(empReportTarget, empReportFrom, empReportTo);
+                    }}
+                    className="btn-action start"
+                    style={{ padding: "8px 14px", background: "var(--accent-cyan)", color: "#000", fontWeight: "600", whiteSpace: "nowrap" }}
+                  >
+                    📥 Download CSV Report
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal body */}
+              <div className="modal-body" style={{ maxHeight: "55vh", overflowY: "auto", paddingRight: "6px" }}>
+                {!empReportTarget ? (
+                  <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                    Please select a team member from the dropdown list above to generate their performance and activity report.
+                  </div>
+                ) : (
+                  <>
+                    {/* Employee Info Details Banner */}
+                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "20px", padding: "10px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
+                      <div><strong>Dept:</strong> {empReportTarget.department || "N/A"}</div>
+                      <div><strong>Role:</strong> {empReportTarget.role || "N/A"}</div>
+                      <div><strong>Email:</strong> {empReportTarget.email || "N/A"}</div>
+                      <div><strong>Ticket Limit:</strong> {empReportTarget.ticketLimit || 5}</div>
+                    </div>
+
+                    {/* Section 1: Assigned Devices */}
+                    <div style={{ marginBottom: "24px" }}>
+                      <h4 style={{ color: "var(--accent-cyan)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "12px", fontSize: "1rem" }}>
+                        <span>🖥️ Assigned Devices ({currentDevices.length})</span>
+                      </h4>
+                      {currentDevices.length === 0 ? (
+                        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No devices currently assigned to this team member.</p>
+                      ) : (
+                        <div className="table-wrapper">
+                          <table className="custom-table" style={{ fontSize: "0.85rem" }}>
+                            <thead>
+                              <tr>
+                                <th>System Number</th>
+                                <th>Model</th>
+                                <th>OS</th>
+                                <th>Specs</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {currentDevices.map(s => (
+                                <tr key={s.id}>
+                                  <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{s.systemNumber}</td>
+                                  <td>{s.model || "Generic PC"}</td>
+                                  <td>{s.os || "Windows 11"}</td>
+                                  <td>{s.cpu} / {s.ram} / {s.storage}</td>
+                                  <td><span className={`status-tag ${s.status?.toLowerCase() === "active" ? "resolved" : "open"}`}>{s.status}</span></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* Device Assignment History Logs */}
+                      <h5 style={{ marginTop: "12px", marginBottom: "8px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>Device Transfer Logs In Range ({empLogs.length})</h5>
+                      {empLogs.length === 0 ? (
+                        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No device assignment or transfer logs recorded for this period.</p>
+                      ) : (
+                        <div className="table-wrapper" style={{ maxHeight: "150px", overflowY: "auto" }}>
+                          <table className="custom-table" style={{ fontSize: "0.8rem" }}>
+                            <thead>
+                              <tr>
+                                <th>Action</th>
+                                <th>System Number</th>
+                                <th>Timestamp</th>
+                                <th>Assigned By</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {empLogs.map(log => (
+                                <tr key={log.id}>
+                                  <td><span className={`status-tag ${log.action.toLowerCase().includes("assign") ? "resolved" : "open"}`}>{log.action}</span></td>
+                                  <td><strong>{log.systemNumber}</strong></td>
+                                  <td>{new Date(log.timestamp).toLocaleString()}</td>
+                                  <td>{log.assignedBy || "System"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Section 2: Complaints & Tickets */}
+                    <div style={{ marginBottom: "24px" }}>
+                      <h4 style={{ color: "var(--accent-purple)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "12px", fontSize: "1rem" }}>
+                        📋 Issues & Complaints Raised In Range ({empTickets.length})
+                      </h4>
+                      {empTickets.length === 0 ? (
+                        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No issues or complaints registered by this team member during this period.</p>
+                      ) : (
+                        <div className="table-wrapper" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                          <table className="custom-table" style={{ fontSize: "0.85rem" }}>
+                            <thead>
+                              <tr>
+                                <th>ID</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Severity</th>
+                                <th>Status</th>
+                                <th>Date Raised</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {empTickets.map(t => (
+                                <tr key={t.id}>
+                                  <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{t.id}</td>
+                                  <td>{t.category}</td>
+                                  <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description}</td>
+                                  <td><span className={`status-tag ${t.severity.toLowerCase()}`}>{t.severity}</span></td>
+                                  <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
+                                  <td>{new Date(t.createdAt).toLocaleDateString()}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Section 3: Tasks Assigned */}
+                    <div style={{ marginBottom: "12px" }}>
+                      <h4 style={{ color: "var(--accent-blue)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "12px", fontSize: "1rem" }}>
+                        📅 Assigned Tasks In Range ({empTasks.length})
+                      </h4>
+                      {empTasks.length === 0 ? (
+                        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No tasks assigned to this team member during this period.</p>
+                      ) : (
+                        <div className="table-wrapper" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                          <table className="custom-table" style={{ fontSize: "0.85rem" }}>
+                            <thead>
+                              <tr>
+                                <th>Task Title</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Duration (mins)</th>
+                                <th>Date Assigned</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {empTasks.map(t => {
+                                const durationMins = t.totalDuration ? Math.round(t.totalDuration / 60) : 0;
+                                return (
+                                  <tr key={t.id}>
+                                    <td><strong>{t.title}</strong></td>
+                                    <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description || "—"}</td>
+                                    <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
+                                    <td>{durationMins > 0 ? `${durationMins} mins` : "—"}</td>
+                                    <td>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {showDeleteConfirm && (
         <div style={{

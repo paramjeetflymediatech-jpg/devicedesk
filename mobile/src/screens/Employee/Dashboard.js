@@ -22,6 +22,7 @@ import {
   removeEmployee,
 } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
+import EmployeeTasks from './EmployeeTasks';
 
 export default function EmployeeDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records, profile
@@ -126,6 +127,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'tasks':
+        return <EmployeeTasks currentUser={user} />;
       case 'file-complaint':
         return (
           <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -523,6 +526,14 @@ export default function EmployeeDashboard({ user, onLogout }) {
               </TouchableOpacity>
 
               <TouchableOpacity 
+                style={[styles.drawerItem, activeTab === 'tasks' && styles.drawerItemActive]} 
+                onPress={() => { setActiveTab('tasks'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>📅</Text>
+                <Text style={styles.drawerItemLabel}>My Tasks Board</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
                 style={[styles.drawerItem, activeTab === 'profile' && styles.drawerItemActive]} 
                 onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
               >
@@ -607,6 +618,16 @@ export default function EmployeeDashboard({ user, onLogout }) {
           <Text style={styles.tabIcon}>📋</Text>
           <Text style={[styles.tabLabel, activeTab === 'records' && styles.tabLabelActive]}>
             My Tickets
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'tasks' && styles.tabItemActive]}
+          onPress={() => setActiveTab('tasks')}
+        >
+          <Text style={styles.tabIcon}>📅</Text>
+          <Text style={[styles.tabLabel, activeTab === 'tasks' && styles.tabLabelActive]}>
+            My Tasks
           </Text>
         </TouchableOpacity>
       </View>

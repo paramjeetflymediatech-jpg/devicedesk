@@ -105,13 +105,29 @@ export default function ManageTickets() {
     <View style={styles.container}>
       {/* Search Header */}
       <View style={styles.headerBar}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by Employee, SN, Category or Severity..."
-          placeholderTextColor="#8b949e"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+        <View style={{ position: 'relative', flex: 1, marginRight: 10 }}>
+          <TextInput
+            style={[styles.searchInput, { width: '100%', marginRight: 0, paddingRight: 35 }]}
+            placeholder="Search by Employee, SN, Category or Severity..."
+            placeholderTextColor="#8b949e"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              style={{
+                position: 'absolute',
+                right: 10,
+                top: '50%',
+                transform: [{ translateY: -12 }],
+                padding: 4,
+              }}
+              onPress={() => setSearchQuery('')}
+            >
+              <Text style={{ color: '#8b949e', fontSize: 16 }}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <TouchableOpacity style={styles.exportBtn} onPress={handleExportTickets}>
           <Text style={styles.exportBtnText}>Export 📤</Text>
         </TouchableOpacity>

@@ -15,7 +15,7 @@ export class Employee {
       await conn.execute('DELETE FROM employees');
       for (const e of employees) {
         await conn.execute(
-          `INSERT INTO employees (id, name, email, password, role, department, ticketLimit) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             e.id || null,
             e.name || null,
@@ -23,7 +23,8 @@ export class Employee {
             e.password || null,
             e.role || null,
             e.department || null,
-            e.ticketLimit || 5
+            e.ticketLimit || 5,
+            e.status || 'Active'
           ]
         );
       }

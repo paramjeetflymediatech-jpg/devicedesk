@@ -53,10 +53,10 @@ export default function ManageHistory() {
     const emp = employees.find(e => e.id === log.employeeId) || { name: 'Unknown' };
     
     return (
-      log.systemNumber.toLowerCase().includes(query) ||
-      log.action.toLowerCase().includes(query) ||
+      (log.systemNumber || '').toLowerCase().includes(query) ||
+      (log.action || '').toLowerCase().includes(query) ||
       (log.assignedBy || '').toLowerCase().includes(query) ||
-      emp.name.toLowerCase().includes(query) ||
+      (log.employeeId ? emp.name.toLowerCase().includes(query) : false) ||
       (log.timestamp ? new Date(log.timestamp).toLocaleString().toLowerCase() : '').includes(query)
     );
   }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Newest first
@@ -68,47 +68,92 @@ export default function ManageHistory() {
     currentPage * itemsPerPage
   );
 
+  const getBadgeStyle = (action) => {
+    const act = (action || '').toLowerCase();
+    if (act === 'assigned') return styles.badgeAssigned;
+    if (act.includes('added') || act.includes('add')) return styles.badgeAdded;
+    if (act.includes('updated') || act.includes('update')) return styles.badgeUpdated;
+    if (act.includes('removed') || act.includes('delete') || act.includes('unassigned')) return styles.badgeUnassigned;
+    return styles.badgeAdded;
+  };
+
+  const getBadgeTextStyle = (action) => {
+    const act = (action || '').toLowerCase();
+    if (act === 'assigned') return styles.badgeTextAssigned;
+    if (act.includes('added') || act.includes('add')) return styles.badgeTextAdded;
+    if (act.includes('updated') || act.includes('update')) return styles.badgeTextUpdated;
+    if (act.includes('removed') || act.includes('delete') || act.includes('unassigned')) return styles.badgeTextUnassigned;
+    return styles.badgeTextAdded;
+  };
+
+  const getLogTitle = (log) => {
+    const act = (log.action || '').toLowerCase();
+    if (log.systemNumber) return `🖥️ ${log.systemNumber}`;
+    if (act.includes('employee')) return `👤 Employee Log`;
+    if (act.includes('department')) return `🏢 Department Log`;
+    return `📜 Audit Log`;
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Transfer & Assignment Logs</Text>
+        <Text style={styles.title}>System Tracking & Audit Logs</Text>
         <TouchableOpacity style={styles.exportBtn} onPress={handleExportHistory}>
           <Text style={styles.exportBtnText}>📤 Export CSV</Text>
         </TouchableOpacity>
       </View>
 
-      <TextInput
-        style={styles.searchBar}
-        placeholder="Search employee, system, action..."
-        placeholderTextColor="#8b949e"
-        value={searchQuery}
-        onChangeText={(text) => {
-          setSearchQuery(text);
-          setCurrentPage(1);
-        }}
-      />
+      <View style={{ position: 'relative', marginBottom: 15 }}>
+        <TextInput
+          style={[styles.searchBar, { marginBottom: 0, paddingRight: 40 }]}
+          placeholder="Search employee, system, action, department..."
+          placeholderTextColor="#8b949e"
+          value={searchQuery}
+          onChangeText={(text) => {
+            setSearchQuery(text);
+            setCurrentPage(1);
+          }}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              right: 12,
+              top: '50%',
+              transform: [{ translateY: -12 }],
+              padding: 4,
+            }}
+            onPress={() => {
+              setSearchQuery('');
+              setCurrentPage(1);
+            }}
+          >
+            <Text style={{ color: '#8b949e', fontSize: 16 }}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {paginatedHistory.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No transfer history logs found.</Text>
+            <Text style={styles.emptyText}>No audit logs found.</Text>
           </View>
         ) : (
           paginatedHistory.map((log) => {
-            const emp = employees.find(e => e.id === log.employeeId) || { name: 'Unknown' };
-            const isAssigned = log.action.toLowerCase() === 'assigned';
+            const emp = employees.find(e => e.id === log.employeeId);
+            const empName = emp ? emp.name : (log.employeeId ? (log.employeeId.startsWith('emp_') ? 'Unknown' : log.employeeId) : 'N/A');
             return (
               <View key={log.id} style={styles.logCard}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.sysNum}>🖥️ {log.systemNumber}</Text>
-                  <View style={[styles.badge, isAssigned ? styles.badgeAssigned : styles.badgeUnassigned]}>
-                    <Text style={styles.badgeText}>{log.action}</Text>
+                  <Text style={styles.sysNum}>{getLogTitle(log)}</Text>
+                  <View style={[styles.badge, getBadgeStyle(log.action)]}>
+                    <Text style={getBadgeTextStyle(log.action)}>{log.action}</Text>
                   </View>
                 </View>
                 
                 <View style={styles.cardRow}>
                   <Text style={styles.label}>Employee:</Text>
-                  <Text style={styles.value}>{emp.name}</Text>
+                  <Text style={styles.value}>{empName}</Text>
                 </View>
 
                 <View style={styles.cardRow}>
@@ -117,7 +162,7 @@ export default function ManageHistory() {
                 </View>
 
                 <View style={styles.cardRow}>
-                  <Text style={styles.label}>Assigned By:</Text>
+                  <Text style={styles.label}>Performed By:</Text>
                   <Text style={styles.value}>{log.assignedBy || 'System'}</Text>
                 </View>
               </View>
@@ -237,10 +282,36 @@ const styles = StyleSheet.create({
   badgeUnassigned: {
     backgroundColor: 'rgba(248, 81, 73, 0.15)',
   },
+  badgeAdded: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+  },
+  badgeUpdated: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
   badgeText: {
     fontSize: 11,
     fontWeight: '600',
     color: '#c9d1d9',
+  },
+  badgeTextAssigned: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#34d399',
+  },
+  badgeTextUnassigned: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#f87171',
+  },
+  badgeTextAdded: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#38bdf8',
+  },
+  badgeTextUpdated: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#fbbf24',
   },
   cardRow: {
     flexDirection: 'row',

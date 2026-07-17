@@ -6,6 +6,7 @@ import { Ticket } from './models/Ticket.js';
 import { AssignmentHistory } from './models/AssignmentHistory.js';
 import { Department } from './models/Department.js';
 import { Email } from './models/Email.js';
+import { Task } from './models/Task.js';
 
 export async function GET() {
   try {
@@ -18,6 +19,7 @@ export async function GET() {
     const assignment_history = await AssignmentHistory.getAll();
     const departments        = await Department.getAll();
     const sent_emails_raw    = await Email.getAll();
+    const tasks              = await Task.getAll();
 
     const sent_emails = sent_emails_raw.map(e => ({
       id:        e.id,
@@ -27,7 +29,7 @@ export async function GET() {
       timestamp: e.timestamp
     }));
 
-    return NextResponse.json({ employees, systems, tickets, assignment_history, departments, sent_emails });
+    return NextResponse.json({ employees, systems, tickets, assignment_history, departments, sent_emails, tasks });
   } catch (err) {
     console.error('MySQL GET Error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -52,6 +54,8 @@ export async function POST(request) {
       await Department.saveAll(data);
     } else if (action === 'saveEmails') {
       await Email.saveAll(data);
+    } else if (action === 'saveTasks') {
+      await Task.saveAll(data);
     } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }

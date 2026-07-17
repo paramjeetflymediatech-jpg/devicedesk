@@ -34,7 +34,8 @@ export async function getDbConnection() {
       password VARCHAR(255),
       role VARCHAR(100),
       department VARCHAR(100),
-      ticketLimit INT DEFAULT 5
+      ticketLimit INT DEFAULT 5,
+      status VARCHAR(20) DEFAULT 'Active'
     )
   `);
 
@@ -98,6 +99,24 @@ export async function getDbConnection() {
     // Column already exists, ignore error
   }
 
+  try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN status VARCHAR(20) DEFAULT 'Active'`);
+  } catch (err) {
+    // Column already exists, ignore error
+  }
+
+  try {
+    await db.execute(`ALTER TABLE tasks ADD COLUMN fileUrl VARCHAR(512) DEFAULT NULL`);
+  } catch (err) {
+    // Column already exists, ignore error
+  }
+
+  try {
+    await db.execute(`ALTER TABLE tasks MODIFY COLUMN fileUrl TEXT DEFAULT NULL`);
+  } catch (err) {
+    // Ignore
+  }
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS departments (
       id VARCHAR(50) PRIMARY KEY,
@@ -112,6 +131,24 @@ export async function getDbConnection() {
       subject VARCHAR(255),
       body TEXT,
       timestamp VARCHAR(50)
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id VARCHAR(50) PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      assignedTo VARCHAR(50),
+      assignedToName VARCHAR(100),
+      assignedBy VARCHAR(50),
+      assignedByName VARCHAR(100),
+      status VARCHAR(50) DEFAULT 'Pending',
+      createdAt VARCHAR(50),
+      startedAt VARCHAR(50),
+      completedAt VARCHAR(50),
+      totalDuration INT DEFAULT 0,
+      fileUrl VARCHAR(512) DEFAULT NULL
     )
   `);
 

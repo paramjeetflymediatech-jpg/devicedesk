@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -9,7 +10,11 @@ import {
   getEmployees,
   getAssignmentHistory,
   createTicket,
-  removeEmployee
+  removeEmployee,
+  getTasks,
+  startTask,
+  stopTask,
+  completeTask
 } from "../store";
 
 export default function EmployeeDashboard() {
@@ -26,11 +31,39 @@ export default function EmployeeDashboard() {
   }, [user, router]);
 
   // States
-  const [currentView, setCurrentView] = useState("overview"); // overview, file-complaint, records
+  const [currentView, setCurrentView] = useState("overview");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("devicedesk_employee_view");
+      if (saved) setCurrentView(saved);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("devicedesk_employee_view", currentView);
+    }
+  }, [currentView]);
   const [systems, setSystems] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [now, setNow] = useState(Date.now());
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  
+  // Performance report states
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportFrom, setReportFrom] = useState("");
+  const [reportTo, setReportTo] = useState("");
+  
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
   
   // Complaint Form States
   const [category, setCategory] = useState("RAM/Speed");
@@ -53,6 +86,172 @@ export default function EmployeeDashboard() {
     setTickets(getTickets());
     setEmployees(getEmployees());
     setAssignmentHistory(getAssignmentHistory());
+    setTasks(getTasks());
+  };
+
+  const handleOpenReportModal = () => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    setReportFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+    setReportTo(today.toISOString().split('T')[0]);
+    setShowReportModal(true);
+  };
+
+  const handleDownloadReport = (fromDate, toDate) => {
+    const from = fromDate ? new Date(fromDate + "T00:00:00") : null;
+    const to = toDate ? new Date(toDate + "T23:59:59") : null;
+    
+    const empLogs = assignmentHistory.filter(h => {
+      if (h.employeeId !== user.id) return false;
+      if (!h.timestamp) return false;
+      const ts = new Date(h.timestamp);
+      if (from && ts < from) return false;
+      if (to && ts > to) return false;
+      return true;
+    });
+
+    const empTickets = tickets.filter(t => {
+      const matchEmp = t.raisedBy === user.id || t.employeeId === user.id;
+      if (!matchEmp) return false;
+      if (!t.createdAt) return false;
+      const ts = new Date(t.createdAt);
+      if (from && ts < from) return false;
+      if (to && ts > to) return false;
+      return true;
+    });
+
+    const empTasks = tasks.filter(t => {
+      if (t.assignedTo !== user.id) return false;
+      if (!t.createdAt) return false;
+      const ts = new Date(t.createdAt);
+      if (from && ts < from) return false;
+      if (to && ts > to) return false;
+      return true;
+    });
+
+    const csvRows = [];
+    csvRows.push(`MY PERFORMANCE & ACTIVITY REPORT,${user.name}`);
+    csvRows.push(`Role,${user.role || "Team Member"}`);
+    csvRows.push(`Report Range,${fromDate || "Start"} to ${toDate || "End"}`);
+    csvRows.push("");
+
+    csvRows.push("CURRENT ASSIGNED DEVICES");
+    csvRows.push("System ID,System Number,Model,OS,Status");
+    const currentDevices = systems.filter(s => s.assignedTo === user.id);
+    currentDevices.forEach(s => {
+      csvRows.push(`${s.id},${s.systemNumber},${s.model || "N/A"},${s.os || "N/A"},${s.status || "Active"}`);
+    });
+    csvRows.push("");
+
+    csvRows.push("DEVICE TRANSFER & ASSIGNMENT LOGS (IN RANGE)");
+    csvRows.push("Log ID,Action,System Number,Timestamp,Assigned By");
+    empLogs.forEach(log => {
+      csvRows.push(`${log.id},${log.action},${log.systemNumber},${new Date(log.timestamp).toLocaleString()},${log.assignedBy || "System"}`);
+    });
+    csvRows.push("");
+
+    csvRows.push("ISSUES AND COMPLAINTS BOARD (IN RANGE)");
+    csvRows.push("Ticket ID,Category,Description,Severity,Status,Created At,Resolved At,Notes");
+    empTickets.forEach(t => {
+      const descEscaped = t.description ? `"${t.description.replace(/"/g, '""')}"` : "";
+      const notesEscaped = t.resolutionRemarks || t.notes ? `"${(t.resolutionRemarks || t.notes).replace(/"/g, '""')}"` : "";
+      csvRows.push(`${t.id},${t.category},${descEscaped},${t.severity},${t.status},${t.createdAt ? new Date(t.createdAt).toLocaleString() : ""},${t.resolvedAt ? new Date(t.resolvedAt).toLocaleString() : ""},${notesEscaped}`);
+    });
+    csvRows.push("");
+
+    csvRows.push("ASSIGNED TASKS (IN RANGE)");
+    csvRows.push("Task ID,Title,Description,Status,Created At,Started At,Completed At,Duration (mins)");
+    empTasks.forEach(t => {
+      const descEscaped = t.description ? `"${t.description.replace(/"/g, '""')}"` : "";
+      const durationMins = t.totalDuration ? Math.round(t.totalDuration / 60) : 0;
+      csvRows.push(`${t.id},${t.title},${descEscaped},${t.status},${t.createdAt ? new Date(t.createdAt).toLocaleString() : ""},${t.startedAt ? new Date(t.startedAt).toLocaleString() : ""},${t.completedAt ? new Date(t.completedAt).toLocaleString() : ""},${durationMins}`);
+    });
+
+    const csvString = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `my_performance_report_${fromDate}_to_${toDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCompleteTaskClick = async (taskId, title) => {
+    const confirm = await Swal.fire({
+      title: 'Confirm Completion',
+      text: `Are you sure you want to mark the task "${title}" as completed?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Complete it',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: 'var(--status-resolved)',
+      cancelButtonColor: '#30363d',
+      background: '#161b22',
+      color: '#f0f6fc',
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    const { value: files } = await Swal.fire({
+      title: 'Upload Work Proof',
+      html: `<div style="text-align: left; font-size: 0.9rem; color: #8b949e; margin-bottom: 10px;">
+               <strong>Task:</strong> ${title}<br/>
+               Upload files, images, or documents as proof (optional).
+             </div>
+             <input type="file" id="swal-multiple-files" class="swal2-file" multiple style="display: flex; margin: 15px auto;" />`,
+      showCancelButton: true,
+      confirmButtonText: 'Complete Task ✅',
+      confirmButtonColor: 'var(--status-resolved)',
+      cancelButtonColor: '#30363d',
+      background: '#161b22',
+      color: '#f0f6fc',
+      preConfirm: () => {
+        const fileInput = document.getElementById('swal-multiple-files');
+        return fileInput ? Array.from(fileInput.files) : [];
+      }
+    });
+
+    let fileUrl = null;
+    if (files && files.length > 0) {
+      Swal.fire({
+        title: 'Uploading files...',
+        didOpen: () => { Swal.showLoading(); },
+        allowOutsideClick: false,
+        background: '#161b22',
+        color: '#f0f6fc'
+      });
+
+      try {
+        const formData = new FormData();
+        files.forEach(f => {
+          formData.append('files', f);
+        });
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        fileUrl = JSON.stringify(data.fileUrls);
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message, background: '#161b22', color: '#f0f6fc' });
+        return;
+      }
+    }
+
+    completeTask(taskId, user.name, fileUrl);
+    refreshData();
+    Swal.fire({
+      icon: 'success',
+      title: 'Completed',
+      text: 'Task marked as completed successfully!',
+      background: '#161b22',
+      color: '#f0f6fc'
+    });
   };
 
   useEffect(() => {
@@ -73,6 +272,28 @@ export default function EmployeeDashboard() {
 
   // Get current employee details
   const empDetails = employees.find(e => e.id === user.id) || { name: user.name, ticketLimit: 5 };
+
+  // Guard for suspended/paused accounts
+  if (empDetails && empDetails.status === 'Paused') {
+    if (typeof window !== "undefined") {
+      logout();
+      Swal.fire({
+        icon: 'error',
+        title: 'Account Paused',
+        text: 'Your account has been paused due to suspicious activities. Please contact Admin/IT Support.',
+        background: '#161b22',
+        color: '#f0f6fc',
+        confirmButtonText: 'OK'
+      }).then(() => {
+        router.push("/login");
+      });
+    }
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "var(--bg-primary)" }}>
+        <p style={{ color: "var(--status-critical)", fontWeight: "bold" }}>🚫 Account Paused</p>
+      </div>
+    );
+  }
   const employeeTickets = tickets.filter(t => t.employeeId === user.id);
   const activeSystems = systems.filter(s => s.assignedTo === user.id);
   const empHistory = assignmentHistory.filter(h => h.employeeId === user.id);
@@ -125,7 +346,7 @@ export default function EmployeeDashboard() {
   };
 
   return (
-    <div style={{ display: "contents" }}>
+    <div style={{ display: "contents" }} onClick={() => setUserDropdownOpen(false)}>
       {/* Sidebar Navigation (Desktop) */}
       <aside className="sidebar">
         <div className="logo-container">
@@ -147,35 +368,13 @@ export default function EmployeeDashboard() {
             <li className={`nav-item ${currentView === "records" ? "active" : ""}`}>
               <button onClick={() => setCurrentView("records")}><span className="nav-icon">📋</span> My Records</button>
             </li>
+            <li className={`nav-item ${currentView === "tasks" ? "active" : ""}`}>
+              <button onClick={() => setCurrentView("tasks")}><span className="nav-icon">📅</span> Task Board</button>
+            </li>
             <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
               <button onClick={() => setCurrentView("profile")}><span className="nav-icon">👤</span> My Profile</button>
             </li>
           </ul>
-          
-          <div className="role-badge-container">
-            <span className="role-title">Logged in as</span>
-            <div style={{ padding: "8px", background: "rgba(0, 0, 0, 0.3)", borderRadius: "10px", border: "1px solid var(--glass-border)", display: "flex", flexDirection: "column", gap: "8px" }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--accent-cyan)" }}>{empDetails.name}</span>
-              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{empDetails.department || "General"}</span>
-              <button 
-                className="btn-secondary" 
-                onClick={() => router.push("/privacy-policy")}
-                style={{ padding: "6px", fontSize: "0.75rem", width: "100%", cursor: "pointer", border: "1px solid var(--glass-border)", borderRadius: "6px", background: "rgba(88, 166, 255, 0.1)", color: "#58a6ff" }}
-              >
-                🔒 Privacy & Terms
-              </button>
-              <button 
-                className="btn-secondary" 
-                onClick={() => {
-                  logout();
-                  router.push("/login");
-                }}
-                style={{ padding: "6px", fontSize: "0.75rem", width: "100%", cursor: "pointer", border: "1px solid var(--glass-border)", borderRadius: "6px" }}
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
         </nav>
       </aside>
 
@@ -207,14 +406,15 @@ export default function EmployeeDashboard() {
             onClick={() => { setCurrentView("records"); setMobileMenuOpen(false); }}>
             <span>📋</span> My Records
           </button>
+          <button className={`mobile-drawer-item ${currentView === "tasks" ? "active" : ""}`}
+            onClick={() => { setCurrentView("tasks"); setMobileMenuOpen(false); }}>
+            <span>📅</span> Task Board
+          </button>
           <button className={`mobile-drawer-item ${currentView === "profile" ? "active" : ""}`}
             onClick={() => { setCurrentView("profile"); setMobileMenuOpen(false); }}>
             <span>👤</span> My Profile
           </button>
-          <button className="mobile-drawer-item"
-            onClick={() => { router.push("/privacy-policy"); setMobileMenuOpen(false); }}>
-            <span>🔒</span> Privacy & Terms
-          </button>
+
         </nav>
         <div className="mobile-drawer-footer">
           <button className="mobile-drawer-logout" onClick={() => { logout(); router.push("/login"); }}>
@@ -242,31 +442,235 @@ export default function EmployeeDashboard() {
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <button
-              onClick={() => { logout(); router.push("/login"); }}
-              className="mobile-logout-btn"
-              style={{
-                background: "rgba(239,68,68,0.15)",
-                border: "1px solid rgba(239,68,68,0.4)",
-                color: "#ef4444",
-                padding: "6px 14px",
-                borderRadius: "8px",
-                fontSize: "0.8rem",
-                fontWeight: "600",
-                cursor: "pointer",
-                fontFamily: "var(--font-main)",
-                whiteSpace: "nowrap",
-                display: "none"
-              }}
-            >
-              Sign Out
-            </button>
+            {/* Clickable User Capsule & Dropdown */}
+            <div style={{ position: "relative" }}>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUserDropdownOpen(!userDropdownOpen);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  background: userDropdownOpen ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  padding: "6px 14px",
+                  borderRadius: "20px",
+                  cursor: "pointer",
+                  userSelect: "none",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.75rem",
+                  fontWeight: "bold",
+                  color: "#fff"
+                }}>
+                  {empDetails?.name ? empDetails.name.charAt(0).toUpperCase() : "E"}
+                </div>
+                <span style={{ fontSize: "0.8rem", color: "var(--text-primary)", fontWeight: "600" }}>
+                  {empDetails?.name}
+                </span>
+                <span style={{ fontSize: "0.6rem", color: "var(--text-secondary)", transition: "transform 0.2s ease", transform: userDropdownOpen ? "rotate(180deg)" : "none" }}>
+                  ▼
+                </span>
+              </div>
+
+              {/* Glassmorphism Dropdown */}
+              {userDropdownOpen && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: "absolute",
+                    top: "42px",
+                    right: "0",
+                    width: "200px",
+                    background: "rgba(20, 20, 30, 0.95)",
+                    backdropFilter: "blur(20px)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "12px",
+                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5)",
+                    padding: "12px",
+                    zIndex: 1000,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "4px"
+                  }}
+                >
+                  <div style={{ padding: "4px 8px 8px 8px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "6px" }}>
+                    <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Signed in as</div>
+                    <div style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--accent-cyan)", wordBreak: "break-all" }}>{empDetails?.name}</div>
+                    <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: "2px" }}>{empDetails?.department || "General"}</div>
+                  </div>
+
+                  <button
+                    onClick={() => { setCurrentView("profile"); setUserDropdownOpen(false); }}
+                    style={{ background: "none", border: "none", color: "var(--text-primary)", padding: "8px", borderRadius: "6px", textAlign: "left", fontSize: "0.8rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", width: "100%", transition: "background 0.2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                  >
+                    <span>👤</span> My Profile
+                  </button>
+
+                  <button
+                    onClick={() => { router.push("/privacy-policy"); setUserDropdownOpen(false); }}
+                    style={{ background: "none", border: "none", color: "var(--text-primary)", padding: "8px", borderRadius: "6px", textAlign: "left", fontSize: "0.8rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", width: "100%", transition: "background 0.2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                  >
+                    <span>🔒</span> Privacy & Terms
+                  </button>
+
+                  <button
+                    onClick={() => { logout(); router.push("/login"); }}
+                    style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", padding: "8px", borderRadius: "6px", textAlign: "center", fontSize: "0.8rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", marginTop: "6px", fontWeight: "600", transition: "background 0.2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.2)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.12)"}
+                  >
+                    <span>🚪</span> Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
         {/* Page Container */}
         <div className="page-container emp-container">
           
+          {/* VIEW: TASK BOARD */}
+          {currentView === "tasks" && (
+            <div className="container-card fade-in">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                <div>
+                  <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", margin: 0 }}>📅 My Task Board</h2>
+                  <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginTop: "4px" }}>Manage and track your assigned work in real-time</p>
+                </div>
+                <button 
+                  className="btn-secondary" 
+                  onClick={handleOpenReportModal}
+                  style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", background: "rgba(139, 92, 246, 0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)", padding: "8px 14px", borderRadius: "8px", border: "1px solid var(--accent-purple)", cursor: "pointer", transition: "all 0.2s" }}
+                >
+                  📊 My Performance Report
+                </button>
+              </div>
+
+              <div>
+                {tasks.filter(t => t.assignedTo === user.id).length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "3rem", background: "rgba(255,255,255,0.01)", borderRadius: "12px", border: "1px dashed var(--glass-border)" }}>
+                    <p style={{ color: "var(--text-muted)", margin: 0 }}>No tasks currently assigned to you.</p>
+                  </div>
+                ) : (
+                  <div className="table-wrapper">
+                    <table className="custom-table">
+                      <thead>
+                        <tr>
+                          <th>Task Title</th>
+                          <th>Description</th>
+                          <th>Assigned By</th>
+                          <th>Status</th>
+                          <th>Time Spent</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tasks
+                          .filter(t => t.assignedTo === user.id)
+                          .map(t => {
+                            let displayDuration = t.totalDuration || 0;
+                            if (t.status === 'In Progress' && t.startedAt) {
+                              const elapsed = Math.floor((now - new Date(t.startedAt).getTime()) / 1000);
+                              displayDuration += Math.max(0, elapsed);
+                            }
+                            
+                            const formatTime = (secs) => {
+                              const h = Math.floor(secs / 3600);
+                              const m = Math.floor((secs % 3600) / 60);
+                              const s = secs % 60;
+                              return `${h}h ${m}m ${s}s`;
+                            };
+
+                            return (
+                              <tr key={t.id}>
+                                <td style={{ fontWeight: "600", color: "var(--text-primary)" }}>{t.title}</td>
+                                <td style={{ color: "var(--text-secondary)" }}>{t.description || "—"}</td>
+                                <td>{t.assignedByName || "System"}</td>
+                                <td>
+                                  <span className={`status-badge badge-${t.status === 'In Progress' ? 'progress' : (t.status === 'Completed' ? 'resolved' : 'open')}`}>
+                                    {t.status}
+                                  </span>
+                                </td>
+                                <td style={{ fontFamily: "monospace", fontWeight: "600", color: "var(--accent-cyan)" }}>
+                                  {formatTime(displayDuration)}
+                                </td>
+                                <td>
+                                  <div style={{ display: "flex", gap: "8px" }}>
+                                    {t.status === 'Pending' && (
+                                      <button 
+                                        className="btn-action start" 
+                                        onClick={() => { startTask(t.id, user.name); refreshData(); }}
+                                        style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                                      >
+                                        ▶️ Start
+                                      </button>
+                                    )}
+                                    {t.status === 'In Progress' && (
+                                      <>
+                                        <button 
+                                          className="btn-action" 
+                                          style={{
+                                            background: "rgba(240,136,62,0.15)",
+                                            color: "#f0883e",
+                                            borderColor: "rgba(240,136,62,0.3)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                            padding: "6px 12px",
+                                            borderRadius: "6px",
+                                            fontSize: "0.85rem",
+                                            fontWeight: "500",
+                                            cursor: "pointer",
+                                            border: "1px solid"
+                                          }}
+                                          onClick={() => { stopTask(t.id, user.name); refreshData(); }}
+                                        >
+                                          ⏸️ Stop
+                                        </button>
+                                        <button 
+                                          className="btn-action resolve" 
+                                          onClick={() => handleCompleteTaskClick(t.id, t.title)}
+                                          style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                                        >
+                                          ✅ Complete
+                                        </button>
+                                      </>
+                                    )}
+                                    {t.status === 'Completed' && (
+                                      <span style={{ color: "var(--text-muted)", fontSize: "0.8rem", fontStyle: "italic" }}>
+                                        Done at {t.completedAt ? new Date(t.completedAt).toLocaleTimeString() : 'N/A'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* VIEW: PROFILE */}
           {currentView === "profile" && (
             <div className="container-card">
@@ -714,6 +1118,237 @@ export default function EmployeeDashboard() {
 
         </div>
       </div>
+
+      {/* ================= MODAL: MY PERFORMANCE & ACTIVITY REPORT ================= */}
+      {showReportModal && (() => {
+        const from = reportFrom ? new Date(reportFrom + "T00:00:00") : null;
+        const to = reportTo ? new Date(reportTo + "T23:59:59") : null;
+
+        const currentDevices = systems.filter(s => s.assignedTo === user.id);
+
+        const empLogs = assignmentHistory.filter(h => {
+          if (h.employeeId !== user.id) return false;
+          if (!h.timestamp) return false;
+          const ts = new Date(h.timestamp);
+          if (from && ts < from) return false;
+          if (to && ts > to) return false;
+          return true;
+        });
+
+        const empTickets = tickets.filter(t => {
+          const matchEmp = t.raisedBy === user.id || t.employeeId === user.id;
+          if (!matchEmp) return false;
+          if (!t.createdAt) return false;
+          const ts = new Date(t.createdAt);
+          if (from && ts < from) return false;
+          if (to && ts > to) return false;
+          return true;
+        });
+
+        const empTasks = tasks.filter(t => {
+          if (t.assignedTo !== user.id) return false;
+          if (!t.createdAt) return false;
+          const ts = new Date(t.createdAt);
+          if (from && ts < from) return false;
+          if (to && ts > to) return false;
+          return true;
+        });
+
+        return (
+          <div className="modal-overlay active">
+            <div className="modal-card" style={{ maxWidth: "800px", width: "95%" }}>
+              <div className="modal-header" style={{ paddingBottom: "10px" }}>
+                <h3 className="modal-title">📊 My Activity & Performance Report</h3>
+                <button className="modal-close" onClick={() => setShowReportModal(false)}>&times;</button>
+              </div>
+
+              {/* Employee Overview Info Banner */}
+              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "15px", padding: "10px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
+                <div><strong>Name:</strong> {user.name}</div>
+                <div><strong>Role:</strong> {user.role || "Team Member"}</div>
+                <div><strong>Email:</strong> {user.email || "N/A"}</div>
+              </div>
+
+              {/* Date Filters & Download Button */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "flex-end", marginBottom: "20px", background: "rgba(255,255,255,0.01)", padding: "12px", borderRadius: "8px", border: "1px solid var(--glass-border)" }}>
+                <div style={{ flex: "1 1 180px" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>From Date</label>
+                  <input 
+                    type="date" 
+                    className="form-control" 
+                    value={reportFrom} 
+                    onChange={(e) => setReportFrom(e.target.value)} 
+                    style={{ width: "100%", padding: "6px 10px" }}
+                  />
+                </div>
+                <div style={{ flex: "1 1 180px" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>To Date</label>
+                  <input 
+                    type="date" 
+                    className="form-control" 
+                    value={reportTo} 
+                    onChange={(e) => setReportTo(e.target.value)} 
+                    style={{ width: "100%", padding: "6px 10px" }}
+                  />
+                </div>
+                <div>
+                  <button 
+                    onClick={() => handleDownloadReport(reportFrom, reportTo)}
+                    className="btn-action start"
+                    style={{ padding: "8px 14px", background: "var(--accent-cyan)", color: "#000", fontWeight: "600", whiteSpace: "nowrap" }}
+                  >
+                    📥 Download CSV Report
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal scrollable body containing content tabs */}
+              <div className="modal-body" style={{ maxHeight: "55vh", overflowY: "auto", paddingRight: "6px" }}>
+                
+                {/* Section 1: Assigned Devices */}
+                <div style={{ marginBottom: "24px" }}>
+                  <h4 style={{ color: "var(--accent-cyan)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "12px", fontSize: "1rem" }}>
+                    <span>🖥️ Current Assigned Devices ({currentDevices.length})</span>
+                  </h4>
+                  {currentDevices.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No devices currently assigned.</p>
+                  ) : (
+                    <div className="table-wrapper">
+                      <table className="custom-table" style={{ fontSize: "0.85rem" }}>
+                        <thead>
+                          <tr>
+                            <th>System Number</th>
+                            <th>Model</th>
+                            <th>OS</th>
+                            <th>Specs</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentDevices.map(s => (
+                            <tr key={s.id}>
+                              <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{s.systemNumber}</td>
+                              <td>{s.model || "Generic PC"}</td>
+                              <td>{s.os || "Windows 11"}</td>
+                              <td>{s.cpu} / {s.ram} / {s.storage}</td>
+                              <td><span className={`status-tag ${s.status?.toLowerCase() === "active" ? "resolved" : "open"}`}>{s.status}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Device Assignment History Logs */}
+                  <h5 style={{ marginTop: "12px", marginBottom: "8px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>Device Transfer Logs In Range ({empLogs.length})</h5>
+                  {empLogs.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No device assignment or transfer logs recorded for this period.</p>
+                  ) : (
+                    <div className="table-wrapper" style={{ maxHeight: "150px", overflowY: "auto" }}>
+                      <table className="custom-table" style={{ fontSize: "0.8rem" }}>
+                        <thead>
+                          <tr>
+                            <th>Action</th>
+                            <th>System Number</th>
+                            <th>Timestamp</th>
+                            <th>Assigned By</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {empLogs.map(log => (
+                            <tr key={log.id}>
+                              <td><span className={`status-tag ${log.action.toLowerCase().includes("assign") ? "resolved" : "open"}`}>{log.action}</span></td>
+                              <td><strong>{log.systemNumber}</strong></td>
+                              <td>{new Date(log.timestamp).toLocaleString()}</td>
+                              <td>{log.assignedBy || "System"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 2: Complaints & Tickets */}
+                <div style={{ marginBottom: "24px" }}>
+                  <h4 style={{ color: "var(--accent-purple)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "12px", fontSize: "1rem" }}>
+                    📋 Issues & Complaints Raised In Range ({empTickets.length})
+                  </h4>
+                  {empTickets.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No issues or complaints registered by you during this period.</p>
+                  ) : (
+                    <div className="table-wrapper" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                      <table className="custom-table" style={{ fontSize: "0.85rem" }}>
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Severity</th>
+                            <th>Status</th>
+                            <th>Date Raised</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {empTickets.map(t => (
+                            <tr key={t.id}>
+                              <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{t.id}</td>
+                              <td>{t.category}</td>
+                              <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description}</td>
+                              <td><span className={`status-tag ${t.severity.toLowerCase()}`}>{t.severity}</span></td>
+                              <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
+                              <td>{new Date(t.createdAt).toLocaleDateString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 3: Tasks Assigned */}
+                <div style={{ marginBottom: "12px" }}>
+                  <h4 style={{ color: "var(--accent-blue)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "12px", fontSize: "1rem" }}>
+                    📅 Assigned Tasks In Range ({empTasks.length})
+                  </h4>
+                  {empTasks.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No tasks assigned to you during this period.</p>
+                  ) : (
+                    <div className="table-wrapper" style={{ maxHeight: "200px", overflowY: "auto" }}>
+                      <table className="custom-table" style={{ fontSize: "0.85rem" }}>
+                        <thead>
+                          <tr>
+                            <th>Task Title</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Duration (mins)</th>
+                            <th>Date Assigned</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {empTasks.map(t => {
+                            const durationMins = t.totalDuration ? Math.round(t.totalDuration / 60) : 0;
+                            return (
+                              <tr key={t.id}>
+                                <td><strong>{t.title}</strong></td>
+                                <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description || "—"}</td>
+                                <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
+                                <td>{durationMins > 0 ? `${durationMins} mins` : "—"}</td>
+                                <td>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {showDeleteConfirm && (
         <div style={{

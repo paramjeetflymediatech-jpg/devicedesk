@@ -18,6 +18,7 @@ import ManageEmployees from './ManageEmployees';
 import ManageTickets from './ManageTickets';
 import ManageHistory from './ManageHistory';
 import ManageDepartments from './ManageDepartments';
+import ManageTasks from './ManageTasks';
 
 const SEVERITY_COLOR = {
   Critical: '#f85149',
@@ -228,6 +229,8 @@ export default function AdminDashboard({ user, onLogout }) {
         return <ManageHistory />;
       case 'departments':
         return <ManageDepartments />;
+      case 'tasks':
+        return <ManageTasks />;
       case 'profile':
         return renderProfile();
       case 'overview':
@@ -314,6 +317,14 @@ export default function AdminDashboard({ user, onLogout }) {
               >
                 <Text style={styles.drawerItemIcon}>🏢</Text>
                 <Text style={styles.drawerItemLabel}>Manage Departments</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.drawerItem, activeTab === 'tasks' && styles.drawerItemActive]} 
+                onPress={() => { setActiveTab('tasks'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>📅</Text>
+                <Text style={styles.drawerItemLabel}>Manage Tasks</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 

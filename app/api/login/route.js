@@ -22,7 +22,7 @@ export async function POST(request) {
 
     // Fetch by email OR name — do NOT compare password in SQL; use bcrypt below
     const [rows] = await db.execute(
-      `SELECT id, name, email, password, role, department, ticketLimit
+      `SELECT id, name, email, password, role, department, ticketLimit, status
        FROM employees
        WHERE LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?)
        LIMIT 1`,
@@ -34,6 +34,9 @@ export async function POST(request) {
     }
 
     const emp = rows[0];
+    if (emp.status === 'Paused') {
+      return NextResponse.json({ success: false, message: '🚫 Your account has been paused due to suspicious activities. Please contact Admin/IT Support.' }, { status: 403 });
+    }
     const storedPassword = emp.password || '';
 
     // Support bcrypt hashes AND legacy plain-text passwords (backward compatibility)
@@ -51,7 +54,7 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: '⚠️ Account not found or incorrect password.' }, { status: 401 });
     }
 
-    const isAdmin = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer';
+    const isAdmin = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'Team Leader';
 
     return NextResponse.json({
       success: true,

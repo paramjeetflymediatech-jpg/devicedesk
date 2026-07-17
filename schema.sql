@@ -141,3 +141,20 @@ INSERT IGNORE INTO assignment_history (id, employeeId, systemId, systemNumber, a
 ('log_seed_9', 'emp11', 'sys20', 'SN20', 'Assigned (Initial Seed)', '2026-06-15T08:49:52.506Z', 'System'),
 ('log_seed_10', 'emp12', 'sys21', 'SN21', 'Assigned (Initial Seed)', '2026-06-15T08:49:52.506Z', 'System'),
 ('log_seed_11', 'emp13', 'sys22', 'SN22', 'Assigned (Initial Seed)', '2026-06-15T08:49:52.506Z', 'System');
+
+-- 7. Tasks Table
+CREATE TABLE IF NOT EXISTS tasks (
+  id VARCHAR(50) PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  assignedTo VARCHAR(50),
+  assignedToName VARCHAR(100),
+  assignedBy VARCHAR(50),
+  assignedByName VARCHAR(100),
+  status VARCHAR(50) DEFAULT 'Pending',
+  createdAt VARCHAR(50),
+  startedAt VARCHAR(50),
+  completedAt VARCHAR(50),
+  totalDuration INT DEFAULT 0,
+  fileUrl VARCHAR(512) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
