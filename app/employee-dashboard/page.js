@@ -1301,6 +1301,7 @@ export default function EmployeeDashboard() {
               </div>
             </form>
           </div>
+        </div>
       )}
 
       {/* ================= MODAL: EDIT SELF TASK ================= */}
