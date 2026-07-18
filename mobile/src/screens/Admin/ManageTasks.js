@@ -10,11 +10,11 @@ import {
   Linking,
   Image,
 } from 'react-native';
-import { getTasks, addTask, getEmployees, subscribe } from '../../store/store';
+import { getTasks, addTask, updateTask, deleteTask, getEmployees, subscribe } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { getApiUrl } from '../../utils/api';
 
-export default function ManageTasks() {
+export default function ManageTasks({ currentUser }) {
   const [tasks, setTasks] = useState(() => getTasks());
   const [employees, setEmployees] = useState(() => getEmployees());
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,6 +28,14 @@ export default function ManageTasks() {
   // View Task Details Modal states
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+
+  // Edit Task Modal states
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editTaskId, setEditTaskId] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editAssignedTo, setEditAssignedTo] = useState("");
+  const [editStatus, setEditStatus] = useState("Pending");
 
   useEffect(() => {
     const unsub = subscribe(() => {
@@ -55,8 +63,8 @@ export default function ManageTasks() {
       description: description.trim(),
       assignedTo,
       assignedToName,
-      assignedBy: 'admin',
-      assignedByName: 'Admin'
+      assignedBy: currentUser?.id || 'admin',
+      assignedByName: currentUser?.name || 'Admin'
     });
 
     // Reset fields
@@ -65,6 +73,58 @@ export default function ManageTasks() {
     setAssignedTo("");
     setModalVisible(false);
     sweetAlert('Success', 'Task assigned successfully!');
+  };
+
+  const handleEditTask = () => {
+    if (!editTitle.trim()) {
+      sweetAlert('Error', 'Please enter a task title.');
+      return;
+    }
+    const emp = employees.find(e => e.id === editAssignedTo);
+    const assignedToName = emp ? emp.name : 'Unassigned';
+
+    const taskToUpdate = tasks.find(t => t.id === editTaskId);
+    const oldStatus = taskToUpdate ? taskToUpdate.status : 'Pending';
+
+    const updatedData = {
+      id: editTaskId,
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      assignedTo: editAssignedTo || null,
+      assignedToName,
+      status: editStatus,
+    };
+
+    if (editStatus === 'Completed' && oldStatus !== 'Completed') {
+      updatedData.completedAt = new Date().toISOString();
+    } else if (editStatus !== 'Completed') {
+      updatedData.completedAt = null;
+    }
+
+    updateTask(updatedData, currentUser?.name || 'Admin');
+    setEditModalVisible(false);
+    setSelectedTask(null);
+    sweetAlert('Success', 'Task updated successfully!');
+  };
+
+  const handleDeleteTask = (task) => {
+    Alert.alert(
+      'Delete Task',
+      `Are you sure you want to delete "${task.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => {
+            deleteTask(task.id, currentUser?.name || 'Admin');
+            setDetailModalVisible(false);
+            setSelectedTask(null);
+            sweetAlert('Success', 'Task deleted successfully!');
+          }
+        }
+      ]
+    );
   };
 
   const formatDuration = (secs) => {
@@ -318,14 +378,121 @@ export default function ManageTasks() {
                   </Text>
                 )}
 
-                <TouchableOpacity 
-                  style={[styles.cancelBtn, { marginTop: 20, alignSelf: 'flex-end', width: '100%', alignItems: 'center' }]} 
-                  onPress={() => { setDetailModalVisible(false); setSelectedTask(null); }}
-                >
-                  <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Close</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                  <TouchableOpacity 
+                    style={[styles.cancelBtn, { flex: 1, alignItems: 'center' }]} 
+                    onPress={() => { setDetailModalVisible(false); setSelectedTask(null); }}
+                  >
+                    <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Close</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.submitBtn, { flex: 1, alignItems: 'center', backgroundColor: '#2188ff' }]} 
+                    onPress={() => {
+                      setDetailModalVisible(false);
+                      setEditTaskId(selectedTask.id);
+                      setEditTitle(selectedTask.title);
+                      setEditDescription(selectedTask.description || '');
+                      setEditAssignedTo(selectedTask.assignedTo || '');
+                      setEditStatus(selectedTask.status || 'Pending');
+                      setEditModalVisible(true);
+                    }}
+                  >
+                    <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[styles.submitBtn, { flex: 1, alignItems: 'center', backgroundColor: '#da3637' }]} 
+                    onPress={() => handleDeleteTask(selectedTask)}
+                  >
+                    <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
               </ScrollView>
             )}
+          </View>
+        </View>
+      </Modal>
+      {/* MODAL: EDIT TASK */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>✏️ Edit Task Details</Text>
+            
+            <Text style={styles.inputLabel}>Task Title</Text>
+            <TextInput
+              style={styles.textInput}
+              value={editTitle}
+              onChangeText={setEditTitle}
+              placeholder="Task title"
+              placeholderTextColor="#8b949e"
+            />
+
+            <Text style={styles.inputLabel}>Task Description</Text>
+            <TextInput
+              style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
+              value={editDescription}
+              onChangeText={setEditDescription}
+              placeholder="Task description"
+              placeholderTextColor="#8b949e"
+              multiline={true}
+            />
+
+            <Text style={styles.inputLabel}>Assign to Employee</Text>
+            <View style={[styles.pickerContainer, { height: 100 }]}>
+              <ScrollView nestedScrollEnabled={true}>
+                <TouchableOpacity
+                  style={[styles.pickerItem, editAssignedTo === "" && styles.pickerItemActive]}
+                  onPress={() => setEditAssignedTo("")}
+                >
+                  <Text style={[styles.pickerItemText, editAssignedTo === "" && styles.pickerItemTextActive]}>
+                    Unassigned
+                  </Text>
+                </TouchableOpacity>
+                {employees.filter(e => e.role !== "Admin" && e.role !== "Management").map(emp => (
+                  <TouchableOpacity
+                    key={emp.id}
+                    style={[styles.pickerItem, editAssignedTo === emp.id && styles.pickerItemActive]}
+                    onPress={() => setEditAssignedTo(emp.id)}
+                  >
+                    <Text style={[styles.pickerItemText, editAssignedTo === emp.id && styles.pickerItemTextActive]}>
+                      {emp.name} ({emp.department})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <Text style={styles.inputLabel}>Status</Text>
+            <View style={[styles.pickerContainer, { height: 80, marginTop: 5, marginBottom: 15 }]}>
+              <ScrollView nestedScrollEnabled={true}>
+                {['Pending', 'In Progress', 'Completed'].map(st => (
+                  <TouchableOpacity
+                    key={st}
+                    style={[styles.pickerItem, editStatus === st && styles.pickerItemActive]}
+                    onPress={() => setEditStatus(st)}
+                  >
+                    <Text style={[styles.pickerItemText, editStatus === st && styles.pickerItemTextActive]}>
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModalVisible(false)}>
+                <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.submitBtn} onPress={handleEditTask}>
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Save</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

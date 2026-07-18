@@ -31,6 +31,7 @@ import {
   getTasks,
   addTask,
   updateTask,
+  deleteTask,
   saveTasks
 } from "./store.js";
 import {
@@ -88,6 +89,12 @@ export default function Home() {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDesc, setNewTaskDesc] = useState("");
   const [newTaskAssignee, setNewTaskAssignee] = useState("");
+  const [editingTask, setEditingTask] = useState(null);
+  const [editTaskTitle, setEditTaskTitle] = useState("");
+  const [editTaskDesc, setEditTaskDesc] = useState("");
+  const [editTaskAssignee, setEditTaskAssignee] = useState("");
+  const [editTaskStatus, setEditTaskStatus] = useState("Pending");
+  const [showEditTaskModal, setShowEditTaskModal] = useState(false);
   const [perfChartTab, setPerfChartTab] = useState("daily"); // daily | weekly | monthly | yearly
   const [showEmpReportModal, setShowEmpReportModal] = useState(false);
   const [empReportTarget, setEmpReportTarget] = useState(null); // the employee object
@@ -1168,6 +1175,60 @@ export default function Home() {
     setTasks(getTasks());
     playBeep(900, 0.1);
     Swal.fire({ icon: 'success', title: 'Assigned', text: 'Task successfully assigned!' });
+  };
+
+  const handleEditTaskSubmit = (e) => {
+    e.preventDefault();
+    if (!editingTask) return;
+    if (!editTaskTitle.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Validation', text: 'Task title is required.' });
+      return;
+    }
+
+    const assignee = employees.find(emp => emp.id === editTaskAssignee);
+    const assigneeName = assignee ? assignee.name : 'Unassigned';
+
+    const oldStatus = editingTask.status;
+
+    const updatedTask = {
+      ...editingTask,
+      title: editTaskTitle,
+      description: editTaskDesc,
+      assignedTo: editTaskAssignee || null,
+      assignedToName: assigneeName,
+      status: editTaskStatus
+    };
+
+    if (editTaskStatus === 'Completed' && oldStatus !== 'Completed') {
+      updatedTask.completedAt = new Date().toISOString();
+    } else if (editTaskStatus !== 'Completed') {
+      updatedTask.completedAt = null;
+    }
+
+    updateTask(updatedTask, user?.name || 'Admin');
+    setTasks(getTasks());
+    setShowEditTaskModal(false);
+    setEditingTask(null);
+    playBeep(800, 0.1);
+    Swal.fire({ icon: 'success', title: 'Updated', text: 'Task successfully updated!' });
+  };
+
+  const handleDeleteTask = (taskId, taskTitle) => {
+    Swal.fire({
+      title: `Delete Task?`,
+      text: `Are you sure you want to delete task "${taskTitle}"? This will also delete its action log history.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete',
+      confirmButtonColor: '#dc2626',
+    }).then(result => {
+      if (result.isConfirmed) {
+        deleteTask(taskId, user?.name || 'Admin');
+        setTasks(getTasks());
+        playBeep(400, 0.15, 'sawtooth');
+        Swal.fire('Deleted!', `Task "${taskTitle}" has been deleted.`, 'success');
+      }
+    });
   };
 
   const handleExportTasksToCSV = () => {
@@ -3227,16 +3288,39 @@ export default function Home() {
                             <td>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
                             <td>{t.completedAt ? new Date(t.completedAt).toLocaleString() : "—"}</td>
                             <td>
-                              <button
-                                className="btn-secondary"
-                                style={{ padding: "4px 10px", fontSize: "0.75rem" }}
-                                onClick={() => {
-                                  setSelectedTaskDetails(t);
-                                  setShowTaskDetailsModal(true);
-                                }}
-                              >
-                                👁️ View details
-                              </button>
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button
+                                  className="btn-secondary"
+                                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                                  onClick={() => {
+                                    setSelectedTaskDetails(t);
+                                    setShowTaskDetailsModal(true);
+                                  }}
+                                >
+                                  👁️ View
+                                </button>
+                                <button
+                                  className="btn-action start"
+                                  style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(88, 166, 255, 0.15)", color: "#58a6ff", borderColor: "rgba(88, 166, 255, 0.3)" }}
+                                  onClick={() => {
+                                    setEditingTask(t);
+                                    setEditTaskTitle(t.title);
+                                    setEditTaskDesc(t.description || "");
+                                    setEditTaskAssignee(t.assignedTo || "");
+                                    setEditTaskStatus(t.status || "Pending");
+                                    setShowEditTaskModal(true);
+                                  }}
+                                >
+                                  ✏️ Edit
+                                </button>
+                                <button
+                                  className="btn-action resolve"
+                                  style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "rgba(239, 68, 68, 0.3)" }}
+                                  onClick={() => handleDeleteTask(t.id, t.title)}
+                                >
+                                  🗑️ Delete
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -3984,6 +4068,73 @@ export default function Home() {
           </form>
         </div>
       </div>
+
+      {/* ================= MODAL: EDIT TASK ================= */}
+      {showEditTaskModal && (
+        <div className="modal-overlay active">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3 className="modal-title">✏️ Edit Task Details</h3>
+              <button className="modal-close" onClick={() => setShowEditTaskModal(false)}>&times;</button>
+            </div>
+            <form onSubmit={handleEditTaskSubmit}>
+              <div className="form-group">
+                <label>Task Title</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  value={editTaskTitle}
+                  onChange={(e) => setEditTaskTitle(e.target.value)}
+                  required 
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Task Description</label>
+                <textarea 
+                  className="form-control" 
+                  value={editTaskDesc}
+                  onChange={(e) => setEditTaskDesc(e.target.value)}
+                  style={{ height: "100px", resize: "none" }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Assign to Team Member</label>
+                <select 
+                  className="form-control" 
+                  value={editTaskAssignee}
+                  onChange={(e) => setEditTaskAssignee(e.target.value)}
+                >
+                  <option value="">Unassigned</option>
+                  {employees.filter(e => e.role !== "Admin" && e.role !== "Management").map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Task Status</label>
+                <select 
+                  className="form-control" 
+                  value={editTaskStatus}
+                  onChange={(e) => setEditTaskStatus(e.target.value)}
+                  required
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+
+              <div className="modal-footer" style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "1.5rem" }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowEditTaskModal(false)}>Cancel</button>
+                <button type="submit" className="btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ================= MODAL: VIEW TASK DETAILS ================= */}
       <div className={`modal-overlay ${showTaskDetailsModal ? "active" : ""}`} style={{

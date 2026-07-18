@@ -9,8 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  TextInput,
 } from 'react-native';
-import { getTasks, startTask, stopTask, completeTask, subscribe } from '../../store/store';
+import { getTasks, addTask, startTask, stopTask, completeTask, subscribe } from '../../store/store';
 import { pick } from '@react-native-documents/picker';
 import { getApiUrl } from '../../utils/api';
 
@@ -23,6 +24,30 @@ export default function EmployeeTasks({ currentUser }) {
   const [activeCompletingId, setActiveCompletingId] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+
+  // Self Task states
+  const [showSelfModal, setShowSelfModal] = useState(false);
+  const [selfTitle, setSelfTitle] = useState('');
+  const [selfDesc, setSelfDesc] = useState('');
+
+  const handleCreateSelfTask = () => {
+    if (!selfTitle.trim()) {
+      Alert.alert('Error', 'Please enter a task title.');
+      return;
+    }
+    addTask({
+      title: selfTitle.trim(),
+      description: selfDesc.trim(),
+      assignedTo: currentUser?.id,
+      assignedToName: currentUser?.name || 'Employee',
+      assignedBy: currentUser?.id,
+      assignedByName: currentUser?.name || 'Employee'
+    });
+    setSelfTitle('');
+    setSelfDesc('');
+    setShowSelfModal(false);
+    Alert.alert('Success', 'Task created successfully!');
+  };
 
   const loadData = () => {
     setTasks(getTasks().filter(t => t.assignedTo === currentUser?.id));
@@ -137,8 +162,18 @@ export default function EmployeeTasks({ currentUser }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>📅 My Tasks</Text>
-        <Text style={styles.headerSub}>Track and manage your work hours</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1, marginRight: 10 }}>
+            <Text style={styles.headerTitle}>📅 My Tasks</Text>
+            <Text style={styles.headerSub}>Track and manage your work hours</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.createTaskBtn} 
+            onPress={() => setShowSelfModal(true)}
+          >
+            <Text style={styles.createTaskBtnText}>+ Create Self Task</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -285,6 +320,56 @@ export default function EmployeeTasks({ currentUser }) {
                 disabled={uploading}
               >
                 <Text style={{ color: '#fff', fontWeight: 'bold' }}>Submit & Complete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* Modal: Create Self Task */}
+      <Modal
+        visible={showSelfModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSelfModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Create Self Task</Text>
+            <Text style={styles.modalLabel}>
+              Enter the title and description to assign a new task to yourself.
+            </Text>
+            
+            <Text style={styles.inputLabel}>Task Title *</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. Code Review & Testing"
+              placeholderTextColor="#8b949e"
+              value={selfTitle}
+              onChangeText={setSelfTitle}
+            />
+            
+            <Text style={styles.inputLabel}>Description</Text>
+            <TextInput
+              style={[styles.textInput, { height: 100, textAlignVertical: 'top' }]}
+              placeholder="Provide context or description of the task..."
+              placeholderTextColor="#8b949e"
+              multiline={true}
+              value={selfDesc}
+              onChangeText={setSelfDesc}
+            />
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity 
+                style={styles.cancelBtn} 
+                onPress={() => setShowSelfModal(false)}
+              >
+                <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.submitBtn} 
+                onPress={handleCreateSelfTask}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Create</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -496,5 +581,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     backgroundColor: '#238636',
+  },
+  createTaskBtn: {
+    backgroundColor: '#238636',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  createTaskBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  inputLabel: {
+    color: '#8b949e',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  textInput: {
+    backgroundColor: '#0d1117',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    color: '#c9d1d9',
+    padding: 10,
+    fontSize: 14,
+    marginBottom: 16,
   },
 });

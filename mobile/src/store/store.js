@@ -629,12 +629,39 @@ export function addTask(taskData) {
   return newTask;
 }
 
-export function updateTask(updatedTask) {
+export function updateTask(updatedTask, operatorName = 'Admin') {
   const tasks = getTasks();
   const index = tasks.findIndex(t => t.id === updatedTask.id);
   if (index !== -1) {
     tasks[index] = { ...tasks[index], ...updatedTask };
     saveTasks(tasks);
+
+    logAssignmentChange(
+      tasks[index].assignedTo || null,
+      null,
+      null,
+      `Task Updated: "${tasks[index].title}"`,
+      operatorName
+    );
+    return true;
+  }
+  return false;
+}
+
+export function deleteTask(taskId, operatorName = 'Admin') {
+  const tasks = getTasks();
+  const index = tasks.findIndex(t => t.id === taskId);
+  if (index !== -1) {
+    const task = tasks[index];
+    logAssignmentChange(
+      task.assignedTo || null,
+      null,
+      null,
+      `Task Deleted: "${task.title}"`,
+      operatorName
+    );
+    const filtered = tasks.filter(t => t.id !== taskId);
+    saveTasks(filtered);
     return true;
   }
   return false;

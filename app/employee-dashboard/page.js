@@ -12,6 +12,7 @@ import {
   createTicket,
   removeEmployee,
   getTasks,
+  addTask,
   startTask,
   stopTask,
   completeTask
@@ -58,6 +59,11 @@ export default function EmployeeDashboard() {
   const [reportFrom, setReportFrom] = useState("");
   const [reportTo, setReportTo] = useState("");
   
+  // Self Task States
+  const [showSelfTaskModal, setShowSelfTaskModal] = useState(false);
+  const [selfTaskTitle, setSelfTaskTitle] = useState("");
+  const [selfTaskDesc, setSelfTaskDesc] = useState("");
+  
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(Date.now());
@@ -96,6 +102,30 @@ export default function EmployeeDashboard() {
     setReportFrom(thirtyDaysAgo.toISOString().split('T')[0]);
     setReportTo(today.toISOString().split('T')[0]);
     setShowReportModal(true);
+  };
+
+  const handleCreateSelfTaskSubmit = (e) => {
+    e.preventDefault();
+    if (!selfTaskTitle.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Validation', text: 'Task title is required.' });
+      return;
+    }
+
+    addTask({
+      title: selfTaskTitle,
+      description: selfTaskDesc,
+      assignedTo: user?.id,
+      assignedToName: user?.name || 'Employee',
+      assignedBy: user?.id,
+      assignedByName: user?.name || 'Employee'
+    });
+
+    setShowSelfTaskModal(false);
+    setSelfTaskTitle("");
+    setSelfTaskDesc("");
+    refreshData();
+    playBeep(900, 0.1);
+    Swal.fire({ icon: 'success', title: 'Created', text: 'Task successfully created for yourself!' });
   };
 
   const handleDownloadReport = (fromDate, toDate) => {
@@ -554,13 +584,22 @@ export default function EmployeeDashboard() {
                   <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", margin: 0 }}>📅 My Task Board</h2>
                   <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginTop: "4px" }}>Manage and track your assigned work in real-time</p>
                 </div>
-                <button 
-                  className="btn-secondary" 
-                  onClick={handleOpenReportModal}
-                  style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", background: "rgba(139, 92, 246, 0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)", padding: "8px 14px", borderRadius: "8px", border: "1px solid var(--accent-purple)", cursor: "pointer", transition: "all 0.2s" }}
-                >
-                  📊 My Performance Report
-                </button>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button 
+                    className="btn-secondary" 
+                    onClick={handleOpenReportModal}
+                    style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", background: "rgba(139, 92, 246, 0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)", padding: "8px 14px", borderRadius: "8px", border: "1px solid var(--accent-purple)", cursor: "pointer", transition: "all 0.2s" }}
+                  >
+                    📊 My Performance Report
+                  </button>
+                  <button 
+                    className="btn-primary" 
+                    onClick={() => setShowSelfTaskModal(true)}
+                    style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", padding: "8px 14px", borderRadius: "8px" }}
+                  >
+                    ➕ Create Self Task
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -1118,6 +1157,47 @@ export default function EmployeeDashboard() {
 
         </div>
       </div>
+
+      {/* ================= MODAL: CREATE SELF TASK ================= */}
+      {showSelfTaskModal && (
+        <div className="modal-overlay active">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3 className="modal-title">➕ Create Self Task</h3>
+              <button className="modal-close" onClick={() => setShowSelfTaskModal(false)}>&times;</button>
+            </div>
+            <form onSubmit={handleCreateSelfTaskSubmit}>
+              <div className="form-group">
+                <label>Task Title *</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  value={selfTaskTitle}
+                  onChange={(e) => setSelfTaskTitle(e.target.value)}
+                  placeholder="e.g. Design homepage mockup"
+                  required 
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Task Description</label>
+                <textarea 
+                  className="form-control" 
+                  value={selfTaskDesc}
+                  onChange={(e) => setSelfTaskDesc(e.target.value)}
+                  placeholder="Provide context or instructions for your task..."
+                  style={{ height: "100px", resize: "none" }}
+                />
+              </div>
+
+              <div className="modal-footer" style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "1.5rem" }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowSelfTaskModal(false)}>Cancel</button>
+                <button type="submit" className="btn-primary">Create Task</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ================= MODAL: MY PERFORMANCE & ACTIVITY REPORT ================= */}
       {showReportModal && (() => {
