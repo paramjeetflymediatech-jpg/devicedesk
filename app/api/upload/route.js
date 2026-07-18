@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
-export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
@@ -21,7 +20,7 @@ export async function POST(request) {
         const uniqueFilename = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
         const filepath = join(uploadDir, uniqueFilename);
         await writeFile(filepath, buffer);
-        fileUrls.push(`/uploads/${uniqueFilename}`);
+        fileUrls.push(`/api/uploads/${uniqueFilename}`);
       }
     } else {
       // Fallback for single file upload
@@ -32,7 +31,7 @@ export async function POST(request) {
         const uniqueFilename = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
         const filepath = join(uploadDir, uniqueFilename);
         await writeFile(filepath, buffer);
-        fileUrls.push(`/uploads/${uniqueFilename}`);
+        fileUrls.push(`/api/uploads/${uniqueFilename}`);
       }
     }
 
