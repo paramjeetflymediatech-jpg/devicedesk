@@ -6,13 +6,9 @@ require Pod::Executable.execute_command('node', ['-p',
   )', __dir__]).strip
 
 platform :ios, min_ios_version_supported
+inhibit_all_warnings!
 prepare_react_native_project!
 
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
 
 target 'DeviceDeskMobile' do
   config = use_native_modules!
@@ -24,11 +20,52 @@ target 'DeviceDeskMobile' do
   )
 
   post_install do |installer|
+    # Force replace-rncore-version.js to always perform the replacement
+    replace_script = File.join(config[:reactNativePath], 'scripts/replace-rncore-version.js')
+    if File.exist?(replace_script)
+      content = File.read(replace_script)
+      unless content.include?('shouldReplaceRnCoreConfiguration(configuration /*: string */) { return true;')
+        content = content.gsub('function shouldReplaceRnCoreConfiguration(configuration /*: string */) {', 'function shouldReplaceRnCoreConfiguration(configuration /*: string */) { return true;')
+        File.write(replace_script, content)
+      end
+    end
+
     react_native_post_install(
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['DEBUG_INFORMATION_FORMAT'] = 'dwarf-with-dsym'
+        config.build_settings['GCC_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+        config.build_settings['SWIFT_SKIP_AUTOLINKING_FRAMEWORKS'] = ['SwiftUICore']
+        config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+        
+        defs = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS']
+        if defs.is_a?(Array)
+          defs << 'DEBUG=1' unless defs.include?('DEBUG=1')
+          defs << 'REACT_NATIVE_DEBUG=1' unless defs.include?('REACT_NATIVE_DEBUG=1')
+        elsif defs.is_a?(String)
+          config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = "#{defs} DEBUG=1 REACT_NATIVE_DEBUG=1"
+        else
+          config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = ['$(inherited)', 'DEBUG=1', 'REACT_NATIVE_DEBUG=1']
+        end
+      end
+      
+      # Rewrite the prebuilt switcher scripts to always use Debug slices
+      target.build_phases.each do |phase|
+        if phase.respond_to?(:shell_script) && phase.shell_script
+          if phase.shell_script.include?('replace-rncore-version.js')
+            phase.shell_script = phase.shell_script.gsub('CONFIG="Release"', 'CONFIG="Debug"')
+          end
+          if phase.shell_script.include?('replace-hermes-version.js')
+            phase.shell_script = phase.shell_script.gsub('CONFIG="Release"', 'CONFIG="Debug"')
+          end
+        end
+      end
+    end
   end
 end
