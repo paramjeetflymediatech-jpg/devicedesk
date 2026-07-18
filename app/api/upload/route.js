@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request) {
   try {
     const formData = await request.formData();
     const files = formData.getAll('files');
 
-    const uploadDir = join(process.cwd(), '.next', 'cache', 'uploads');
+    const uploadDir = join(process.cwd(), 'uploads');
     await mkdir(uploadDir, { recursive: true });
 
     const fileUrls = [];

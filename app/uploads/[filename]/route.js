@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join, basename } from 'path';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request, { params }) {
   try {
     const { filename } = await params;
@@ -11,7 +13,7 @@ export async function GET(request, { params }) {
 
     // Sanitize the filename to prevent directory traversal
     const safeFilename = basename(filename);
-    const filePath = join(process.cwd(), '.next', 'cache', 'uploads', safeFilename);
+    const filePath = join(process.cwd(), 'uploads', safeFilename);
 
     const fileBuffer = await readFile(filePath);
 
