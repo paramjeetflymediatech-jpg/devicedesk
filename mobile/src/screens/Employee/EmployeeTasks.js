@@ -11,9 +11,10 @@ import {
   Linking,
   TextInput,
 } from 'react-native';
-import { getTasks, addTask, startTask, stopTask, completeTask, subscribe } from '../../store/store';
+import { getTasks, addTask, updateTask, deleteTask, startTask, stopTask, completeTask, subscribe } from '../../store/store';
 import { pick } from '@react-native-documents/picker';
 import { getApiUrl } from '../../utils/api';
+import { sweetAlert } from '../../utils/sweetAlert';
 
 export default function EmployeeTasks({ currentUser }) {
   const [tasks, setTasks] = useState(() => getTasks().filter(t => t.assignedTo === currentUser?.id));
@@ -47,6 +48,52 @@ export default function EmployeeTasks({ currentUser }) {
     setSelfDesc('');
     setShowSelfModal(false);
     Alert.alert('Success', 'Task created successfully!');
+  };
+
+  // Edit Self Task states
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editTaskId, setEditTaskId] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editStatus, setEditStatus] = useState('Pending');
+
+  const handleEditSelfTask = () => {
+    if (!editTitle.trim()) {
+      Alert.alert('Error', 'Please enter a task title.');
+      return;
+    }
+    const taskToUpdate = getTasks().find(t => t.id === editTaskId);
+    const oldStatus = taskToUpdate ? taskToUpdate.status : 'Pending';
+
+    const updatedData = {
+      id: editTaskId,
+      title: editTitle.trim(),
+      description: editDesc.trim(),
+      status: editStatus,
+    };
+
+    if (editStatus === 'Completed' && oldStatus !== 'Completed') {
+      updatedData.completedAt = new Date().toISOString();
+    } else if (editStatus !== 'Completed') {
+      updatedData.completedAt = null;
+    }
+
+    updateTask(updatedData, currentUser?.name || 'Employee');
+    setEditModalVisible(false);
+    Alert.alert('Success', 'Task updated successfully!');
+  };
+
+  const handleDeleteSelfTask = (task) => {
+    sweetAlert({
+      title: 'Delete Task',
+      text: `Are you sure you want to delete your task "${task.title}"?`,
+      type: 'warning',
+      showCancel: true,
+      onConfirm: () => {
+        deleteTask(task.id, currentUser?.name || 'Employee');
+        sweetAlert({ title: 'Success', text: 'Task deleted successfully!', type: 'success' });
+      }
+    });
   };
 
   const loadData = () => {
@@ -239,28 +286,52 @@ export default function EmployeeTasks({ currentUser }) {
                 })()}
 
                 <View style={styles.actionsRow}>
-                  {t.status === 'Pending' && (
-                    <TouchableOpacity style={styles.startBtn} onPress={() => handleStart(t.id)}>
-                      <Text style={styles.btnText}>▶️ Start Work</Text>
-                    </TouchableOpacity>
-                  )}
-                  {t.status === 'In Progress' && (
-                    <>
-                      <TouchableOpacity style={styles.stopBtn} onPress={() => handleStop(t.id)}>
-                        <Text style={styles.btnText}>⏸️ Stop Work</Text>
+                  <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1, alignItems: 'center' }}>
+                    {t.status === 'Pending' && (
+                      <TouchableOpacity style={styles.startBtn} onPress={() => handleStart(t.id)}>
+                        <Text style={styles.btnText}>▶️ Start Work</Text>
+                      </TouchableOpacity>
+                    )}
+                    {t.status === 'In Progress' && (
+                      <>
+                        <TouchableOpacity style={styles.stopBtn} onPress={() => handleStop(t.id)}>
+                          <Text style={styles.btnText}>⏸️ Stop Work</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.completeBtn} 
+                          onPress={() => handleCompletePress(t.id)}
+                        >
+                          <Text style={styles.btnText}>✅ Complete</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    {t.status === 'Completed' && (
+                      <Text style={styles.completedText}>
+                        Completed at {t.completedAt ? new Date(t.completedAt).toLocaleTimeString() : 'N/A'}
+                      </Text>
+                    )}
+                  </View>
+                  {t.assignedBy === currentUser?.id && (
+                    <View style={{ flexDirection: 'row', gap: 8, marginLeft: 'auto' }}>
+                      <TouchableOpacity 
+                        style={[styles.smallBtn, { backgroundColor: '#2188ff' }]} 
+                        onPress={() => {
+                          setEditTaskId(t.id);
+                          setEditTitle(t.title);
+                          setEditDesc(t.description || '');
+                          setEditStatus(t.status);
+                          setEditModalVisible(true);
+                        }}
+                      >
+                        <Text style={styles.smallBtnText}>✏️ Edit</Text>
                       </TouchableOpacity>
                       <TouchableOpacity 
-                        style={styles.completeBtn} 
-                        onPress={() => handleCompletePress(t.id)}
+                        style={[styles.smallBtn, { backgroundColor: '#da3637' }]} 
+                        onPress={() => handleDeleteSelfTask(t)}
                       >
-                        <Text style={styles.btnText}>✅ Complete</Text>
+                        <Text style={styles.smallBtnText}>🗑️ Delete</Text>
                       </TouchableOpacity>
-                    </>
-                  )}
-                  {t.status === 'Completed' && (
-                    <Text style={styles.completedText}>
-                      Completed at {t.completedAt ? new Date(t.completedAt).toLocaleTimeString() : 'N/A'}
-                    </Text>
+                    </View>
                   )}
                 </View>
               </View>
@@ -370,6 +441,70 @@ export default function EmployeeTasks({ currentUser }) {
                 onPress={handleCreateSelfTask}
               >
                 <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* Modal: Edit Self Task */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>✏️ Edit Task Details</Text>
+            
+            <Text style={styles.inputLabel}>Task Title *</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. Code Review & Testing"
+              placeholderTextColor="#8b949e"
+              value={editTitle}
+              onChangeText={setEditTitle}
+            />
+            
+            <Text style={styles.inputLabel}>Description</Text>
+            <TextInput
+              style={[styles.textInput, { height: 100, textAlignVertical: 'top' }]}
+              placeholder="Provide context or description of the task..."
+              placeholderTextColor="#8b949e"
+              multiline={true}
+              value={editDesc}
+              onChangeText={setEditDesc}
+            />
+
+            <Text style={styles.inputLabel}>Status</Text>
+            <View style={[styles.pickerContainer, { height: 80, marginTop: 5, marginBottom: 15 }]}>
+              <ScrollView nestedScrollEnabled={true}>
+                {['Pending', 'In Progress', 'Completed'].map(st => (
+                  <TouchableOpacity
+                    key={st}
+                    style={[styles.pickerItem, editStatus === st && styles.pickerItemActive]}
+                    onPress={() => setEditStatus(st)}
+                  >
+                    <Text style={[styles.pickerItemText, editStatus === st && styles.pickerItemTextActive]}>
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity 
+                style={styles.cancelBtn} 
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.submitBtn} 
+                onPress={handleEditSelfTask}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -608,5 +743,41 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 14,
     marginBottom: 16,
+  },
+  smallBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  smallBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  pickerContainer: {
+    height: 120,
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    backgroundColor: '#0d1117',
+    padding: 5,
+  },
+  pickerItem: {
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  pickerItemActive: {
+    backgroundColor: '#1f6feb',
+  },
+  pickerItemText: {
+    color: '#c9d1d9',
+    fontSize: 13,
+  },
+  pickerItemTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

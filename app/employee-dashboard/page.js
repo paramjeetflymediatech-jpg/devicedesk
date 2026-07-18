@@ -13,6 +13,8 @@ import {
   removeEmployee,
   getTasks,
   addTask,
+  updateTask,
+  deleteTask,
   startTask,
   stopTask,
   completeTask
@@ -63,6 +65,12 @@ export default function EmployeeDashboard() {
   const [showSelfTaskModal, setShowSelfTaskModal] = useState(false);
   const [selfTaskTitle, setSelfTaskTitle] = useState("");
   const [selfTaskDesc, setSelfTaskDesc] = useState("");
+
+  const [editingTask, setEditingTask] = useState(null);
+  const [editTaskTitle, setEditTaskTitle] = useState("");
+  const [editTaskDesc, setEditTaskDesc] = useState("");
+  const [editTaskStatus, setEditTaskStatus] = useState("Pending");
+  const [showEditTaskModal, setShowEditTaskModal] = useState(false);
   
   useEffect(() => {
     const timer = setInterval(() => {
@@ -126,6 +134,53 @@ export default function EmployeeDashboard() {
     refreshData();
     playBeep(900, 0.1);
     Swal.fire({ icon: 'success', title: 'Created', text: 'Task successfully created for yourself!' });
+  };
+
+  const handleEditTaskSubmit = (e) => {
+    e.preventDefault();
+    if (!editingTask) return;
+    if (!editTaskTitle.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Validation', text: 'Task title is required.' });
+      return;
+    }
+
+    const updatedTask = {
+      ...editingTask,
+      title: editTaskTitle.trim(),
+      description: editTaskDesc.trim(),
+      status: editTaskStatus
+    };
+
+    if (editTaskStatus === 'Completed' && editingTask.status !== 'Completed') {
+      updatedTask.completedAt = new Date().toISOString();
+    } else if (editTaskStatus !== 'Completed') {
+      updatedTask.completedAt = null;
+    }
+
+    updateTask(updatedTask, user?.name || 'Employee');
+    setShowEditTaskModal(false);
+    setEditingTask(null);
+    refreshData();
+    playBeep(800, 0.1);
+    Swal.fire({ icon: 'success', title: 'Updated', text: 'Task successfully updated!' });
+  };
+
+  const handleDeleteSelfTask = (taskId, taskTitle) => {
+    Swal.fire({
+      title: `Delete Task?`,
+      text: `Are you sure you want to delete task "${taskTitle}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete',
+      confirmButtonColor: '#dc2626',
+    }).then(result => {
+      if (result.isConfirmed) {
+        deleteTask(taskId, user?.name || 'Employee');
+        refreshData();
+        playBeep(400, 0.15, 'sawtooth');
+        Swal.fire('Deleted!', `Task "${taskTitle}" has been deleted.`, 'success');
+      }
+    });
   };
 
   const handleDownloadReport = (fromDate, toDate) => {
@@ -697,6 +752,56 @@ export default function EmployeeDashboard() {
                                         Done at {t.completedAt ? new Date(t.completedAt).toLocaleTimeString() : 'N/A'}
                                       </span>
                                     )}
+                                    {t.assignedBy === user.id && (
+                                      <>
+                                        <button 
+                                          className="btn-action"
+                                          onClick={() => {
+                                            setEditingTask(t);
+                                            setEditTaskTitle(t.title);
+                                            setEditTaskDesc(t.description || "");
+                                            setEditTaskStatus(t.status);
+                                            setShowEditTaskModal(true);
+                                          }}
+                                          style={{
+                                            background: "rgba(33, 136, 255, 0.15)",
+                                            color: "#2188ff",
+                                            borderColor: "rgba(33, 136, 255, 0.3)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                            padding: "6px 12px",
+                                            borderRadius: "6px",
+                                            fontSize: "0.85rem",
+                                            fontWeight: "500",
+                                            cursor: "pointer",
+                                            border: "1px solid"
+                                          }}
+                                        >
+                                          ✏️ Edit
+                                        </button>
+                                        <button 
+                                          className="btn-action"
+                                          onClick={() => handleDeleteSelfTask(t.id, t.title)}
+                                          style={{
+                                            background: "rgba(218, 54, 55, 0.15)",
+                                            color: "#da3637",
+                                            borderColor: "rgba(218, 54, 55, 0.3)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "4px",
+                                            padding: "6px 12px",
+                                            borderRadius: "6px",
+                                            fontSize: "0.85rem",
+                                            fontWeight: "500",
+                                            cursor: "pointer",
+                                            border: "1px solid"
+                                          }}
+                                        >
+                                          🗑️ Delete
+                                        </button>
+                                      </>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -1196,8 +1301,61 @@ export default function EmployeeDashboard() {
               </div>
             </form>
           </div>
+      )}
+
+      {/* ================= MODAL: EDIT SELF TASK ================= */}
+      {showEditTaskModal && (
+        <div className="modal-overlay active">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3 className="modal-title">✏️ Edit Task Details</h3>
+              <button className="modal-close" onClick={() => setShowEditTaskModal(false)}>&times;</button>
+            </div>
+            <form onSubmit={handleEditTaskSubmit}>
+              <div className="form-group">
+                <label>Task Title *</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  value={editTaskTitle}
+                  onChange={(e) => setEditTaskTitle(e.target.value)}
+                  required 
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Task Description</label>
+                <textarea 
+                  className="form-control" 
+                  value={editTaskDesc}
+                  onChange={(e) => setEditTaskDesc(e.target.value)}
+                  style={{ height: "100px", resize: "none" }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Task Status</label>
+                <select 
+                  className="form-control" 
+                  value={editTaskStatus}
+                  onChange={(e) => setEditTaskStatus(e.target.value)}
+                  required
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+
+              <div className="modal-footer" style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "1.5rem" }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowEditTaskModal(false)}>Cancel</button>
+                <button type="submit" className="btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
+
 
       {/* ================= MODAL: MY PERFORMANCE & ACTIVITY REPORT ================= */}
       {showReportModal && (() => {
