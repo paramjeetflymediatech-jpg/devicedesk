@@ -9,6 +9,7 @@ import {
   Modal,
   Linking,
   Image,
+  Alert,
 } from 'react-native';
 import { getTasks, addTask, updateTask, deleteTask, getEmployees, subscribe } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
