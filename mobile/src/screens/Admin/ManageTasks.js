@@ -48,11 +48,11 @@ export default function ManageTasks({ currentUser }) {
 
   const handleAssignTask = () => {
     if (!title.trim()) {
-      sweetAlert('Error', 'Please enter task title');
+      sweetAlert({ title: 'Error', text: 'Please enter task title.', type: 'error' });
       return;
     }
     if (!assignedTo) {
-      sweetAlert('Error', 'Please select a team member');
+      sweetAlert({ title: 'Error', text: 'Please select a team member.', type: 'error' });
       return;
     }
 
@@ -73,12 +73,12 @@ export default function ManageTasks({ currentUser }) {
     setDescription("");
     setAssignedTo("");
     setModalVisible(false);
-    sweetAlert('Success', 'Task assigned successfully!');
+    sweetAlert({ title: 'Success', text: 'Task assigned successfully!', type: 'success' });
   };
 
   const handleEditTask = () => {
     if (!editTitle.trim()) {
-      sweetAlert('Error', 'Please enter a task title.');
+      sweetAlert({ title: 'Error', text: 'Please enter a task title.', type: 'error' });
       return;
     }
     const emp = employees.find(e => e.id === editAssignedTo);
@@ -105,27 +105,22 @@ export default function ManageTasks({ currentUser }) {
     updateTask(updatedData, currentUser?.name || 'Admin');
     setEditModalVisible(false);
     setSelectedTask(null);
-    sweetAlert('Success', 'Task updated successfully!');
+    sweetAlert({ title: 'Success', text: 'Task updated successfully!', type: 'success' });
   };
 
   const handleDeleteTask = (task) => {
-    Alert.alert(
-      'Delete Task',
-      `Are you sure you want to delete "${task.title}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: () => {
-            deleteTask(task.id, currentUser?.name || 'Admin');
-            setDetailModalVisible(false);
-            setSelectedTask(null);
-            sweetAlert('Success', 'Task deleted successfully!');
-          }
-        }
-      ]
-    );
+    sweetAlert({
+      title: 'Delete Task',
+      text: `Are you sure you want to delete "${task.title}"?`,
+      type: 'warning',
+      showCancel: true,
+      onConfirm: () => {
+        deleteTask(task.id, currentUser?.name || 'Admin');
+        setDetailModalVisible(false);
+        setSelectedTask(null);
+        sweetAlert({ title: 'Success', text: 'Task deleted successfully!', type: 'success' });
+      }
+    });
   };
 
   const formatDuration = (secs) => {
