@@ -17,9 +17,9 @@ import {
   subscribe,
 } from '../../store/store';
 
-export default function ManageDepartments() {
-  const [departments, setDepartments] = useState([]);
-  const [employees, setEmployees] = useState([]);
+export default function ManageDepartments({ currentUser }) {
+  const [departments, setDepartments] = useState(() => getDepartments());
+  const [employees, setEmployees] = useState(() => getEmployees());
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [newDeptName, setNewDeptName] = useState('');
@@ -30,7 +30,6 @@ export default function ManageDepartments() {
   };
 
   useEffect(() => {
-    refreshData();
     const unsubscribe = subscribe(refreshData);
     return () => unsubscribe();
   }, []);
@@ -40,7 +39,7 @@ export default function ManageDepartments() {
       sweetAlert({ title: 'Error', text: 'Please enter a department name.', type: 'error' });
       return;
     }
-    const res = addDepartment(newDeptName.trim());
+    const res = addDepartment(newDeptName.trim(), currentUser?.name || 'Admin');
     if (res) {
       sweetAlert({ title: 'Success', text: `Department "${newDeptName.trim()}" added successfully!`, type: 'success' });
       setNewDeptName('');
@@ -71,7 +70,7 @@ export default function ManageDepartments() {
       type: 'warning',
       showCancel: true,
       onConfirm: () => {
-        deleteDepartment(dept.id);
+        deleteDepartment(dept.id, currentUser?.name || 'Admin');
         refreshData();
         sweetAlert({ title: 'Success', text: 'Department removed successfully.', type: 'success' });
       },

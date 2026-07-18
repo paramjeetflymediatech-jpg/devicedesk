@@ -19,16 +19,18 @@ import {
   getSystems,
   addEmployee,
   removeEmployee,
+  updateEmployee,
   getDepartments,
   addDepartment,
   deleteDepartment,
+  getAssignmentHistory,
   subscribe,
 } from '../../store/store';
 
 export default function ManageEmployees({ currentUser }) {
-  const [employees, setEmployees] = useState([]);
-  const [systems, setSystems] = useState([]);
-  const [departments, setDepartments] = useState([]);
+  const [employees, setEmployees] = useState(() => getEmployees());
+  const [systems, setSystems] = useState(() => getSystems());
+  const [departments, setDepartments] = useState(() => getDepartments());
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modal states
@@ -46,6 +48,51 @@ export default function ManageEmployees({ currentUser }) {
     setEmployees(getEmployees());
     setSystems(getSystems());
     setDepartments(getDepartments());
+  };
+
+  const handleToggleStatus = (emp) => {
+    const isPaused = emp.status === 'Paused';
+    const newStatus = isPaused ? 'Active' : 'Paused';
+    const actionLabel = isPaused ? 'activate' : 'pause';
+
+    sweetAlert({
+      title: `${isPaused ? 'Activate' : 'Pause'} Account?`,
+      text: `Are you sure you want to ${actionLabel} the account of ${emp.name}?`,
+      type: 'warning',
+      showCancel: true,
+      onConfirm: () => {
+        updateEmployee(emp.id, { status: newStatus }, currentUser?.name || 'Admin');
+        sweetAlert({
+          title: 'Success',
+          text: `Account of ${emp.name} has been ${isPaused ? 'activated' : 'paused'}.`,
+          type: 'success'
+        });
+      },
+    });
+  };
+
+  // Department Modal States
+  const [deptModalVisible, setDeptModalVisible] = useState(false);
+  const [selectedDept, setSelectedDept] = useState('');
+
+  // System Details Modal States
+  const [sysModalVisible, setSysModalVisible] = useState(false);
+  const [selectedSys, setSelectedSys] = useState(null);
+
+  // Computed values
+  const deptEmps = employees.filter(e => e.department && e.department.toLowerCase() === selectedDept.toLowerCase());
+  const deptSystems = systems.filter(s => deptEmps.some(e => e.id === s.assignedTo));
+
+  const handleOpenDeptDetails = (deptName) => {
+    if (!deptName) return;
+    setSelectedDept(deptName);
+    setDeptModalVisible(true);
+  };
+
+  const handleOpenSysDetails = (sys) => {
+    if (!sys) return;
+    setSelectedSys(sys);
+    setSysModalVisible(true);
   };
 
   // Import states
@@ -167,7 +214,6 @@ export default function ManageEmployees({ currentUser }) {
   };
 
   useEffect(() => {
-    refreshData();
     const unsubscribe = subscribe(refreshData);
     return () => unsubscribe();
   }, []);
@@ -230,7 +276,7 @@ export default function ManageEmployees({ currentUser }) {
       type: 'warning',
       showCancel: true,
       onConfirm: () => {
-        removeEmployee(id);
+        removeEmployee(id, currentUser?.name || 'Admin');
         sweetAlert({ title: 'Success', text: 'Team Member removed successfully!', type: 'success' });
       },
     });
@@ -311,16 +357,38 @@ export default function ManageEmployees({ currentUser }) {
             return (
               <View key={e.id} style={styles.employeeCard}>
                 <View style={styles.cardHeader}>
-                  <View>
-                    <Text style={styles.empName}>{e.name}</Text>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Text style={styles.empName}>{e.name}</Text>
+                      {e.status === 'Paused' && (
+                        <View style={styles.pausedBadge}>
+                          <Text style={styles.pausedBadgeText}>Paused</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={styles.empEmail}>✉️ {e.email}</Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.deleteIcon}
-                    onPress={() => handleDelete(e.id, e.name)}
-                  >
-                    <Text style={styles.deleteIconText}>🗑️</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {!['Admin'].includes(e.role) && (
+                      <TouchableOpacity
+                        style={[
+                          styles.statusBtn,
+                          e.status === 'Paused' ? styles.activateBtn : styles.pauseBtn
+                        ]}
+                        onPress={() => handleToggleStatus(e)}
+                      >
+                        <Text style={styles.statusBtnText}>
+                          {e.status === 'Paused' ? '🔓' : '🔒'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={styles.deleteIcon}
+                      onPress={() => handleDelete(e.id, e.name)}
+                    >
+                      <Text style={styles.deleteIconText}>🗑️</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 <View style={styles.divider} />
@@ -332,7 +400,11 @@ export default function ManageEmployees({ currentUser }) {
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Dept:</Text>
-                    <Text style={styles.detailVal}>{e.department}</Text>
+                    <TouchableOpacity onPress={() => handleOpenDeptDetails(e.department)}>
+                      <Text style={[styles.detailVal, { color: '#58a6ff', textDecorationLine: 'underline' }]}>
+                        {e.department}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Limit:</Text>
@@ -348,9 +420,11 @@ export default function ManageEmployees({ currentUser }) {
                     <Text style={styles.noSystems}>None assigned</Text>
                   ) : (
                     assignedSys.map(s => (
-                      <Text key={s.id} style={styles.systemBadge}>
-                        🖥️ {s.systemNumber} ({s.model})
-                      </Text>
+                      <TouchableOpacity key={s.id} onPress={() => handleOpenSysDetails(s)}>
+                        <Text style={styles.systemBadge}>
+                          🖥️ {s.systemNumber} ({s.model})
+                        </Text>
+                      </TouchableOpacity>
                     ))
                   )}
                 </View>
@@ -515,6 +589,148 @@ export default function ManageEmployees({ currentUser }) {
                       {loading ? 'Importing...' : `Confirm Import (${parsedEmployees.length} Team Members)`}
                     </Text>
                   </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: DEPARTMENT DETAILS */}
+      <Modal
+        visible={deptModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setDeptModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🏢 Devices: {selectedDept}</Text>
+              <TouchableOpacity onPress={() => setDeptModalVisible(false)}>
+                <Text style={styles.closeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+              {deptSystems.length === 0 ? (
+                <Text style={styles.emptyText}>No devices assigned to this department.</Text>
+              ) : (
+                deptSystems.map(sys => {
+                  const assignee = employees.find(e => e.id === sys.assignedTo);
+                  return (
+                    <View key={sys.id} style={styles.deptSysCard}>
+                      <View style={styles.deptSysHeader}>
+                        <TouchableOpacity onPress={() => { setDeptModalVisible(false); handleOpenSysDetails(sys); }}>
+                          <Text style={styles.deptSysLink}>{sys.systemNumber}</Text>
+                        </TouchableOpacity>
+                        <View style={[styles.statusBadge, sys.status === 'Active' ? styles.badgeSuccess : styles.badgeProgress]}>
+                          <Text style={styles.statusText}>{sys.status}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.deptSysModel}>{sys.model}</Text>
+                      <Text style={styles.deptSysSpecs}>
+                        CPU: {sys.cpu} | RAM: {sys.ram} | GPU: {sys.gpu || 'N/A'}
+                      </Text>
+                      <Text style={styles.deptSysAssignee}>
+                        Assigned to: {assignee ? assignee.name : 'Unassigned'}
+                      </Text>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL: DEVICE SPECIFICATION DETAILS */}
+      <Modal
+        visible={sysModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setSysModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🖥️ Device Specs Details</Text>
+              <TouchableOpacity onPress={() => setSysModalVisible(false)}>
+                <Text style={styles.closeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+              {selectedSys && (
+                <View>
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>System Number:</Text>
+                    <Text style={[styles.specValue, { color: '#58a6ff', fontWeight: 'bold' }]}>
+                      {selectedSys.systemNumber}
+                    </Text>
+                  </View>
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>Model:</Text>
+                    <Text style={styles.specValue}>{selectedSys.model || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>OS:</Text>
+                    <Text style={styles.specValue}>{selectedSys.os || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>CPU:</Text>
+                    <Text style={styles.specValue}>{selectedSys.cpu || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>GPU:</Text>
+                    <Text style={styles.specValue}>{selectedSys.gpu || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>RAM:</Text>
+                    <Text style={styles.specValue}>{selectedSys.ram || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>Storage:</Text>
+                    <Text style={styles.specValue}>{selectedSys.storage || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.specRow}>
+                    <Text style={styles.specLabel}>Status:</Text>
+                    <View style={[styles.statusBadge, selectedSys.status === 'Active' ? styles.badgeSuccess : styles.badgeProgress]}>
+                      <Text style={styles.statusText}>{selectedSys.status}</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.specRow, { flexDirection: 'column', alignItems: 'flex-start' }]}>
+                    <Text style={styles.specLabel}>Remarks / Hardware Issues:</Text>
+                    <Text style={[styles.specValue, { marginTop: 4, fontStyle: 'italic', color: '#8b949e' }]}>
+                      {selectedSys.remarks || 'No remarks provided.'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <Text style={styles.historySectionTitle}>📦 Device Assignment History (Past Users):</Text>
+                  {(() => {
+                    const logs = getAssignmentHistory().filter(log => log.systemId === selectedSys.id);
+                    if (logs.length === 0) {
+                      return <Text style={styles.emptyHistoryText}>No past assignment logs recorded for this machine.</Text>;
+                    }
+                    return logs.map(log => {
+                      const emp = employees.find(e => e.id === log.employeeId) || { name: 'Unknown' };
+                      const isAssigned = log.action.toLowerCase() === 'assigned';
+                      return (
+                        <View key={log.id} style={styles.historyMiniCard}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={[styles.miniBadge, isAssigned ? styles.badgeAssigned : styles.badgeUnassigned]}>
+                              {log.action}
+                            </Text>
+                            <Text style={styles.miniDate}>
+                              {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'N/A'}
+                            </Text>
+                          </View>
+                          <Text style={styles.miniText}>Team Member: {emp.name}</Text>
+                          <Text style={styles.miniText}>By: {log.assignedBy || 'System'}</Text>
+                        </View>
+                      );
+                    });
+                  })()}
                 </View>
               )}
             </ScrollView>
@@ -916,5 +1132,157 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 15,
     fontWeight: '600',
+  },
+  pausedBadge: {
+    backgroundColor: 'rgba(248, 81, 73, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 81, 73, 0.3)',
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginLeft: 6,
+  },
+  pausedBadgeText: {
+    color: '#f85149',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  statusBtn: {
+    borderRadius: 6,
+    padding: 6,
+    marginRight: 8,
+    borderWidth: 1,
+  },
+  activateBtn: {
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  pauseBtn: {
+    backgroundColor: 'rgba(234, 179, 8, 0.1)',
+    borderColor: 'rgba(234, 179, 8, 0.3)',
+  },
+  statusBtnText: {
+    fontSize: 14,
+  },
+  deptSysCard: {
+    backgroundColor: '#0d1117',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+  },
+  deptSysHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  deptSysLink: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#58a6ff',
+    textDecorationLine: 'underline',
+  },
+  deptSysModel: {
+    fontSize: 13,
+    color: '#c9d1d9',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  deptSysSpecs: {
+    fontSize: 12,
+    color: '#8b949e',
+    marginBottom: 4,
+  },
+  deptSysAssignee: {
+    fontSize: 12,
+    color: '#8b949e',
+  },
+  specRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#21262d',
+  },
+  specLabel: {
+    fontSize: 13,
+    color: '#8b949e',
+    fontWeight: '600',
+  },
+  specValue: {
+    fontSize: 13,
+    color: '#c9d1d9',
+  },
+  historySectionTitle: {
+    fontSize: 14,
+    color: '#f0f6fc',
+    fontWeight: 'bold',
+    marginVertical: 12,
+  },
+  emptyHistoryText: {
+    fontSize: 12,
+    color: '#8b949e',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginVertical: 10,
+  },
+  historyMiniCard: {
+    backgroundColor: '#0d1117',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 8,
+  },
+  miniBadge: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeAssigned: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    color: '#58a6ff',
+    borderWidth: 0.5,
+    borderColor: '#58a6ff',
+  },
+  badgeUnassigned: {
+    backgroundColor: 'rgba(248, 81, 73, 0.15)',
+    color: '#f85149',
+    borderWidth: 0.5,
+    borderColor: '#f85149',
+  },
+  miniDate: {
+    fontSize: 10,
+    color: '#8b949e',
+  },
+  miniText: {
+    fontSize: 11,
+    color: '#c9d1d9',
+    marginTop: 2,
+  },
+  statusBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  badgeSuccess: {
+    backgroundColor: 'rgba(63, 185, 80, 0.15)',
+    borderWidth: 0.5,
+    borderColor: '#3fb950',
+  },
+  badgeProgress: {
+    backgroundColor: 'rgba(210, 153, 34, 0.15)',
+    borderWidth: 0.5,
+    borderColor: '#d29922',
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#f0f6fc',
   },
 });

@@ -26,9 +26,9 @@ import {
   subscribe,
 } from '../../store/store';
 
-export default function ManageSystems() {
-  const [systems, setSystems] = useState([]);
-  const [employees, setEmployees] = useState([]);
+export default function ManageSystems({ currentUser }) {
+  const [systems, setSystems] = useState(() => getSystems());
+  const [employees, setEmployees] = useState(() => getEmployees());
   const [searchQuery, setSearchQuery] = useState('');
   
   // Modal states
@@ -184,7 +184,6 @@ export default function ManageSystems() {
   };
 
   useEffect(() => {
-    refreshData();
     // Subscribe to store updates
     const unsubscribe = subscribe(refreshData);
     return () => unsubscribe();
@@ -306,17 +305,17 @@ export default function ManageSystems() {
     if (editingSystem) {
       // Update existing
       const updated = { ...editingSystem, ...data };
-      updateSystem(updated);
+      updateSystem(updated, currentUser?.name || 'Admin');
       
       // Update assignee relationship
-      assignSystemToEmployee(editingSystem.id, assignedTo || null, 'Admin');
+      assignSystemToEmployee(editingSystem.id, assignedTo || null, currentUser?.name || 'Admin');
       
       sweetAlert({ title: 'Success', text: 'System updated successfully!', type: 'success' });
     } else {
       // Add new
-      const newSys = addSystem(data);
+      const newSys = addSystem(data, currentUser?.name || 'Admin');
       if (assignedTo) {
-        assignSystemToEmployee(newSys.id, assignedTo, 'Admin');
+        assignSystemToEmployee(newSys.id, assignedTo, currentUser?.name || 'Admin');
       }
       sweetAlert({ title: 'Success', text: 'System added successfully!', type: 'success' });
     }
@@ -331,7 +330,7 @@ export default function ManageSystems() {
       type: 'warning',
       showCancel: true,
       onConfirm: () => {
-        deleteSystem(id);
+        deleteSystem(id, currentUser?.name || 'Admin');
         setModalVisible(false);
         sweetAlert({ title: 'Success', text: 'System deleted successfully!', type: 'success' });
       },

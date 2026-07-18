@@ -167,6 +167,7 @@ export default function Home() {
   const [resolveNotes, setResolveNotes] = useState("");
   const [selectedViewSystem, setSelectedViewSystem] = useState(null);
   const [selectedViewDept, setSelectedViewDept] = useState(null);
+  const [deptModalTab, setDeptModalTab] = useState("members");
 
   // Raise Records Filter & Pagination States
   const [ticketSearch, setTicketSearch] = useState("");
@@ -436,7 +437,7 @@ export default function Home() {
       role: editingEmp.role,
       department: editingEmp.department,
       ticketLimit: Number(editingEmp.ticketLimit)
-    });
+    }, user?.name || "Admin");
     
     setShowEditEmpModal(false);
     setEmployees(getEmployees());
@@ -457,7 +458,7 @@ export default function Home() {
       confirmButtonColor: '#dc2626',
     }).then(result => {
       if (result.isConfirmed) {
-        removeEmployee(empId);
+        removeEmployee(empId, user?.name || "Admin");
         setEmployees(getEmployees());
         setSystems(getSystems());
         playBeep(400, 0.15, 'sawtooth');
@@ -484,7 +485,7 @@ export default function Home() {
       cancelButtonText: 'Cancel'
     }).then(result => {
       if (result.isConfirmed) {
-        updateEmployee(emp.id, { status: newStatus });
+        updateEmployee(emp.id, { status: newStatus }, user?.name || "Admin");
         setEmployees(getEmployees());
         playBeep(isPaused ? 700 : 400, 0.12);
         Swal.fire('Updated!', `Account of ${emp.name} has been ${isPaused ? 'activated' : 'paused'}.`, 'success');
@@ -506,7 +507,7 @@ export default function Home() {
       confirmButtonColor: '#dc2626',
     }).then(result => {
       if (result.isConfirmed) {
-        deleteSystem(sysId);
+        deleteSystem(sysId, user?.name || "Admin");
         setSystems(getSystems());
         playBeep(400, 0.15, 'sawtooth');
         Swal.fire('Deleted!', `System ${sn} has been deleted.`, 'success');
@@ -598,7 +599,7 @@ export default function Home() {
       const sys = getSystems().find(s => s.id === ticket.systemId);
       if (sys) {
         sys.remarks = `Upgrade details: ${resolveNotes} (ticket ${ticket.id}). ` + sys.remarks;
-        updateSystem(sys);
+        updateSystem(sys, user?.name || "Admin");
       }
     }
     
@@ -1096,9 +1097,9 @@ export default function Home() {
       if (oldAssignee !== newAssignee) {
         assignSystemToEmployee(editingSys.id, newAssignee, adminName);
       }
-      updateSystem({ ...editingSys, assignedTo: newAssignee });
+      updateSystem({ ...editingSys, assignedTo: newAssignee }, adminName);
     } else {
-      const added = addSystem({ ...editingSys, assignedTo: null });
+      const added = addSystem({ ...editingSys, assignedTo: null }, adminName);
       if (editingSys.assignedTo) {
         assignSystemToEmployee(added.id, editingSys.assignedTo, adminName);
       }
@@ -1133,7 +1134,7 @@ export default function Home() {
         if (s.assignedTo === assigningEmp.id) {
           logAssignmentChange(assigningEmp.id, s.id, s.systemNumber, 'Unassigned', adminName);
           s.assignedTo = null;
-          updateSystem(s);
+          updateSystem(s, adminName);
         }
       });
     }
@@ -2453,8 +2454,8 @@ export default function Home() {
                             <span 
                               className="status-tag resolved" 
                               style={{ cursor: "pointer", transition: "transform 0.2s" }}
-                              onClick={() => setSelectedViewDept(emp.department)}
-                              title={`View all devices in ${emp.department}`}
+                              onClick={() => { setSelectedViewDept(emp.department); setDeptModalTab("members"); }}
+                              title={`View details of ${emp.department} department`}
                             >
                               {emp.department}
                             </span>
@@ -2524,7 +2525,7 @@ export default function Home() {
                          <span 
                            className="status-tag resolved" 
                            style={{ cursor: "pointer" }}
-                           onClick={() => setSelectedViewDept(emp.department)}
+                           onClick={() => { setSelectedViewDept(emp.department); setDeptModalTab("members"); }}
                            title={`View all devices in ${emp.department}`}
                          >
                            {emp.department}
@@ -2802,7 +2803,7 @@ export default function Home() {
                   <form onSubmit={(e) => {
                     e.preventDefault();
                     if (!newDeptName.trim()) return;
-                    const added = addDepartment(newDeptName);
+                    const added = addDepartment(newDeptName, user?.name || "Admin");
                     if (added) {
                       setNewDeptName("");
                       setDeptError("");
@@ -2856,7 +2857,16 @@ export default function Home() {
                             const count = employees.filter(e => e.department && e.department.toLowerCase() === dept.name.toLowerCase()).length;
                             return (
                               <tr key={dept.id}>
-                                <td style={{ fontWeight: 600 }}>{dept.name} <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "8px" }}>({count} employees)</span></td>
+                                <td style={{ fontWeight: 600 }}>
+                                  <span 
+                                    style={{ cursor: "pointer", color: "var(--accent-cyan)", textDecoration: "underline" }}
+                                    onClick={() => { setSelectedViewDept(dept.name); setDeptModalTab("members"); }}
+                                    title={`View details of ${dept.name} department`}
+                                  >
+                                    🏢 {dept.name}
+                                  </span>
+                                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "8px" }}>({count} employees)</span>
+                                </td>
                                 <td style={{ textAlign: "right" }}>
                                   <button
                                     type="button"
@@ -2868,7 +2878,7 @@ export default function Home() {
                                         return;
                                       }
                                       if (confirm(`Are you sure you want to delete the department "${dept.name}"?`)) {
-                                        deleteDepartment(dept.id);
+                                        deleteDepartment(dept.id, user?.name || "Admin");
                                         setDepartments(getDepartments());
                                         playBeep(700, 0.1);
                                       }
@@ -5245,7 +5255,7 @@ export default function Home() {
         <div className="modal-overlay active">
           <div className="modal-card" style={{ maxWidth: "800px", width: "95%" }}>
             <div className="modal-header">
-              <h3 className="modal-title">🏢 Devices in {selectedViewDept} Department</h3>
+              <h3 className="modal-title">🏢 {selectedViewDept} Department Details</h3>
               <button className="modal-close" onClick={() => setSelectedViewDept(null)}>&times;</button>
             </div>
             <div style={{ color: "var(--text-primary)", padding: "1rem 0" }}>
@@ -5253,48 +5263,133 @@ export default function Home() {
                 const deptEmployees = employees.filter(e => e.department?.toLowerCase() === selectedViewDept.toLowerCase());
                 const deptSystems = systems.filter(s => deptEmployees.some(e => e.id === s.assignedTo));
                 
-                if (deptSystems.length === 0) {
-                  return (
-                    <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
-                      No systems are currently assigned to team members in the {selectedViewDept} department.
-                    </div>
-                  );
-                }
-                
                 return (
-                  <div className="table-wrapper">
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>System Number</th>
-                          <th>Model</th>
-                          <th>Specs (CPU/RAM/GPU)</th>
-                          <th>Assigned Team Member</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {deptSystems.map(sys => {
-                          const assignee = employees.find(e => e.id === sys.assignedTo);
-                          return (
-                            <tr key={sys.id}>
-                              <td><strong style={{ color: "var(--accent-blue)" }}>{sys.systemNumber}</strong></td>
-                              <td>{sys.model}</td>
-                              <td>
-                                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                                  CPU: {sys.cpu} | RAM: {sys.ram} | GPU: {sys.gpu || "N/A"}
-                                </div>
-                              </td>
-                              <td>{assignee ? `${assignee.name} (${assignee.email})` : "Unassigned"}</td>
-                              <td>
-                                <span className={`status-tag ${sys.status === 'Active' ? 'resolved' : 'progress'}`}>{sys.status}</span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <>
+                    {/* Tab Navigation */}
+                    <div style={{ display: "flex", gap: "10px", borderBottom: "1px solid var(--border-color)", paddingBottom: "10px", marginBottom: "15px" }}>
+                      <button 
+                        onClick={() => setDeptModalTab("members")} 
+                        className="btn-action start"
+                        style={{ 
+                          background: deptModalTab === 'members' ? 'var(--accent-blue)' : 'rgba(255,255,255,0.05)',
+                          color: deptModalTab === 'members' ? '#fff' : 'var(--text-secondary)',
+                          borderColor: deptModalTab === 'members' ? 'var(--accent-blue)' : 'var(--border-color)',
+                          padding: "6px 12px",
+                          fontSize: "0.85rem"
+                        }}
+                      >
+                        👥 Team Members ({deptEmployees.length})
+                      </button>
+                      <button 
+                        onClick={() => setDeptModalTab("devices")} 
+                        className="btn-action start"
+                        style={{ 
+                          background: deptModalTab === 'devices' ? 'var(--accent-blue)' : 'rgba(255,255,255,0.05)',
+                          color: deptModalTab === 'devices' ? '#fff' : 'var(--text-secondary)',
+                          borderColor: deptModalTab === 'devices' ? 'var(--accent-blue)' : 'var(--border-color)',
+                          padding: "6px 12px",
+                          fontSize: "0.85rem"
+                        }}
+                      >
+                        🖥️ Assigned Devices ({deptSystems.length})
+                      </button>
+                    </div>
+
+                    {/* Tab Content */}
+                    {deptModalTab === "members" ? (
+                      deptEmployees.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
+                          No team members are currently assigned to the {selectedViewDept} department.
+                        </div>
+                      ) : (
+                        <div className="table-wrapper">
+                          <table className="custom-table">
+                            <thead>
+                              <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Assigned Devices</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {deptEmployees.map(emp => {
+                                const empSystems = systems.filter(s => s.assignedTo === emp.id);
+                                return (
+                                  <tr key={emp.id}>
+                                    <td><strong>{emp.name}</strong></td>
+                                    <td>{emp.email}</td>
+                                    <td>{emp.role}</td>
+                                    <td>
+                                      <span className={`status-tag ${emp.status === 'Active' ? 'resolved' : 'open'}`}>
+                                        {emp.status || 'Active'}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      {empSystems.length > 0 ? (
+                                        empSystems.map(s => (
+                                          <span 
+                                            className="timer-badge" 
+                                            style={{ color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)", marginRight: "4px" }} 
+                                            key={s.id}
+                                          >
+                                            {s.systemNumber}
+                                          </span>
+                                        ))
+                                      ) : (
+                                        <span style={{ color: "var(--text-muted)" }}>None</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    ) : (
+                      deptSystems.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
+                          No systems are currently assigned to team members in the {selectedViewDept} department.
+                        </div>
+                      ) : (
+                        <div className="table-wrapper">
+                          <table className="custom-table">
+                            <thead>
+                              <tr>
+                                <th>System Number</th>
+                                <th>Model</th>
+                                <th>Specs (CPU/RAM/GPU)</th>
+                                <th>Assigned Team Member</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {deptSystems.map(sys => {
+                                const assignee = employees.find(e => e.id === sys.assignedTo);
+                                return (
+                                  <tr key={sys.id}>
+                                    <td><strong style={{ color: "var(--accent-blue)" }}>{sys.systemNumber}</strong></td>
+                                    <td>{sys.model}</td>
+                                    <td>
+                                      <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                                        CPU: {sys.cpu} | RAM: {sys.ram} | GPU: {sys.gpu || "N/A"}
+                                      </div>
+                                    </td>
+                                    <td>{assignee ? `${assignee.name} (${assignee.email})` : "Unassigned"}</td>
+                                    <td>
+                                      <span className={`status-tag ${sys.status === 'Active' ? 'resolved' : 'progress'}`}>{sys.status}</span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    )}
+                  </>
                 );
               })()}
             </div>

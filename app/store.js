@@ -198,7 +198,7 @@ export function getDepartments() {
   return dbCache.departments || [];
 }
 
-export function addDepartment(name) {
+export function addDepartment(name, operatorName = 'Admin') {
   const departments = getDepartments();
   const trimmed = name.trim();
   if (!trimmed) return null;
@@ -211,15 +211,15 @@ export function addDepartment(name) {
   };
   departments.push(newDept);
   saveDepartments(departments);
-  logAssignmentChange(null, null, null, `Department Added: ${trimmed}`, 'Admin');
+  logAssignmentChange(null, null, null, `Department Added: ${trimmed}`, operatorName);
   return newDept;
 }
 
-export function deleteDepartment(id) {
+export function deleteDepartment(id, operatorName = 'Admin') {
   const departments = getDepartments();
   const dept = departments.find(d => d.id === id);
   if (dept) {
-    logAssignmentChange(null, null, null, `Department Removed: ${dept.name}`, 'Admin');
+    logAssignmentChange(null, null, null, `Department Removed: ${dept.name}`, operatorName);
   }
   const filtered = departments.filter(d => d.id !== id);
   saveDepartments(filtered);
@@ -285,7 +285,7 @@ function saveDepartments(departments) {
 }
 
 // Hardware Inventory Operations
-export function addSystem(system) {
+export function addSystem(system, operatorName = 'Admin') {
   const systems = getSystems();
   const newSystem = {
     id: 'sys_' + Date.now(),
@@ -302,17 +302,17 @@ export function addSystem(system) {
   };
   systems.push(newSystem);
   saveSystems(systems);
-  logAssignmentChange(null, newSystem.id, newSystem.systemNumber, 'System Added', 'Admin');
+  logAssignmentChange(null, newSystem.id, newSystem.systemNumber, 'System Added', operatorName);
   return newSystem;
 }
 
-export function updateSystem(updatedSys) {
+export function updateSystem(updatedSys, operatorName = 'Admin') {
   const systems = getSystems();
   const index = systems.findIndex(s => s.id === updatedSys.id);
   if (index !== -1) {
     systems[index] = { ...systems[index], ...updatedSys };
     saveSystems(systems);
-    logAssignmentChange(updatedSys.assignedTo || null, updatedSys.id, updatedSys.systemNumber, 'System Updated', 'Admin');
+    logAssignmentChange(updatedSys.assignedTo || null, updatedSys.id, updatedSys.systemNumber, 'System Updated', operatorName);
     return true;
   }
   return false;
@@ -335,13 +335,13 @@ export function logAssignmentChange(employeeId, systemId, systemNumber, action, 
   saveAssignmentHistory(history);
 }
 
-export function deleteSystem(systemId) {
+export function deleteSystem(systemId, operatorName = 'Admin') {
   const systems = getSystems();
   const sys = systems.find(s => s.id === systemId);
   if (sys) {
-    logAssignmentChange(sys.assignedTo || null, sys.id, sys.systemNumber, 'System Removed', 'Admin');
+    logAssignmentChange(sys.assignedTo || null, sys.id, sys.systemNumber, 'System Removed', operatorName);
     if (sys.assignedTo) {
-      logAssignmentChange(sys.assignedTo, sys.id, sys.systemNumber, 'Unassigned due to system deletion');
+      logAssignmentChange(sys.assignedTo, sys.id, sys.systemNumber, 'Unassigned due to system deletion', operatorName);
     }
   }
   const filtered = systems.filter(s => s.id !== systemId);
@@ -349,7 +349,7 @@ export function deleteSystem(systemId) {
 }
 
 // Employee Operations
-export function addEmployee(name, email, password, role, department, ticketLimit = 5) {
+export function addEmployee(name, email, password, role, department, ticketLimit = 5, operatorName = 'Admin') {
   const employees = getEmployees();
   const newEmp = {
     id: 'emp_' + Date.now(),
@@ -363,7 +363,7 @@ export function addEmployee(name, email, password, role, department, ticketLimit
   employees.push(newEmp);
   saveEmployees(employees);
 
-  logAssignmentChange(newEmp.id, null, null, `Employee Added: ${newEmp.name}`, 'Admin');
+  logAssignmentChange(newEmp.id, null, null, `Employee Added: ${newEmp.name}`, operatorName);
 
   // Send mock email
   sendMockEmail(
@@ -375,11 +375,11 @@ export function addEmployee(name, email, password, role, department, ticketLimit
   return newEmp;
 }
 
-export function removeEmployee(employeeId) {
+export function removeEmployee(employeeId, operatorName = 'Admin') {
   const employees = getEmployees();
   const emp = employees.find(e => e.id === employeeId);
   if (emp) {
-    logAssignmentChange(employeeId, null, null, `Employee Removed: ${emp.name}`, 'Admin');
+    logAssignmentChange(employeeId, null, null, `Employee Removed: ${emp.name}`, operatorName);
   }
   const filtered = employees.filter(e => e.id !== employeeId);
   saveEmployees(filtered);
@@ -389,7 +389,7 @@ export function removeEmployee(employeeId) {
   let systemsUpdated = false;
   systems.forEach(s => {
     if (s.assignedTo === employeeId) {
-      logAssignmentChange(employeeId, s.id, s.systemNumber, 'Unassigned due to employee removal');
+      logAssignmentChange(employeeId, s.id, s.systemNumber, 'Unassigned due to employee removal', operatorName);
       s.assignedTo = null;
       systemsUpdated = true;
     }
@@ -681,7 +681,7 @@ export function sendMockEmail(to, subject, body) {
   return newEmail;
 }
 
-export function updateEmployee(employeeId, updatedFields) {
+export function updateEmployee(employeeId, updatedFields, operatorName = 'Admin') {
   if (typeof window === 'undefined') return null;
   const employees = getEmployees();
   const idx = employees.findIndex(e => e.id === employeeId);
@@ -692,7 +692,7 @@ export function updateEmployee(employeeId, updatedFields) {
     ...updatedFields
   };
   saveEmployees(employees);
-  logAssignmentChange(employeeId, null, null, `Employee Updated: ${employees[idx].name}`, 'Admin');
+  logAssignmentChange(employeeId, null, null, `Employee Updated: ${employees[idx].name}`, operatorName);
   return employees[idx];
 }
 

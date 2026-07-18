@@ -131,10 +131,13 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
           }
         });
         return;
-      } else if (response.status === 401 || response.status === 400) {
-        // Correct server response indicating wrong credentials
+      } else {
         setLoading(false);
-        sweetAlert({ title: 'Error', text: data.message || 'Invalid credentials.', type: 'error' });
+        sweetAlert({
+          title: response.status === 403 ? 'Account Paused' : 'Error',
+          text: data.message || 'Invalid credentials.',
+          type: 'error'
+        });
         return;
       }
     } catch (err) {
@@ -167,6 +170,14 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
     setLoading(false);
 
     if (employee) {
+      if (employee.status === 'Paused') {
+        sweetAlert({
+          title: 'Account Paused',
+          text: '🚫 Your account has been paused due to suspicious activities. Please contact Admin/IT Support.',
+          type: 'error'
+        });
+        return;
+      }
       const isEmployeeAdmin = 
         employee.role === 'Admin' || 
         employee.role === 'Management' || 
@@ -317,7 +328,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
             <ScrollView style={styles.modalScroll}>
               <Text style={styles.legalHeader}>1. Privacy Policy</Text>
               <Text style={styles.legalText}>
-                DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties.
+                {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties."}
               </Text>
               
               <Text style={styles.legalHeader}>2. Terms & Conditions</Text>

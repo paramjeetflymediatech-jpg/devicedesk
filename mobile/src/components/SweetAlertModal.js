@@ -175,4 +175,6 @@ const styles = StyleSheet.create({
   },
 });
 
+SweetAlertModal.displayName = 'SweetAlertModal';
+
 export default SweetAlertModal;

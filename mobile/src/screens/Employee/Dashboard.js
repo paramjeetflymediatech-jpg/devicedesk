@@ -30,10 +30,10 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   
   // Data lists
-  const [systems, setSystems] = useState([]);
-  const [tickets, setTickets] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [systems, setSystems] = useState(() => getSystems());
+  const [tickets, setTickets] = useState(() => getTickets());
+  const [employees, setEmployees] = useState(() => getEmployees());
+  const [assignmentHistory, setAssignmentHistory] = useState(() => getAssignmentHistory());
   
   // Complaint form states
   const [category, setCategory] = useState('RAM/Speed');
@@ -54,7 +54,6 @@ export default function EmployeeDashboard({ user, onLogout }) {
   };
 
   useEffect(() => {
-    refreshData();
     const unsubscribe = subscribe(refreshData);
     return () => unsubscribe();
   }, []);
@@ -458,7 +457,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
             <ScrollView style={styles.modalScroll}>
               <Text style={styles.legalHeader}>1. Privacy Policy</Text>
               <Text style={styles.legalText}>
-                DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties.
+                {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties."}
               </Text>
               
               <Text style={styles.legalHeader}>2. Terms & Conditions</Text>

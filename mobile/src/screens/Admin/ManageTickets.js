@@ -24,9 +24,9 @@ import {
 } from '../../store/store';
 
 export default function ManageTickets() {
-  const [tickets, setTickets] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [systems, setSystems] = useState([]);
+  const [tickets, setTickets] = useState(() => getTickets());
+  const [employees, setEmployees] = useState(() => getEmployees());
+  const [systems, setSystems] = useState(() => getSystems());
   const [searchQuery, setSearchQuery] = useState('');
   const [statusTab, setStatusTab] = useState('All'); // All, Open, In Progress, Resolved
 
@@ -51,7 +51,6 @@ export default function ManageTickets() {
   };
 
   useEffect(() => {
-    refreshData();
     const unsubscribe = subscribe(refreshData);
     return () => unsubscribe();
   }, []);

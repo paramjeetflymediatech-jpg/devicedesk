@@ -7,7 +7,7 @@ export async function POST(request) {
     const formData = await request.formData();
     const files = formData.getAll('files');
 
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
+    const uploadDir = join(process.cwd(), '.next', 'cache', 'uploads');
     await mkdir(uploadDir, { recursive: true });
 
     const fileUrls = [];

@@ -48,15 +48,14 @@ export default function AdminDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview'); // overview, systems, employees, tickets, profile
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [stats, setStats] = useState({
-    totalSystems: 0,
-    activeAssignments: 0,
-    pendingComplaints: 0,
-    resolvedCount: 0,
-    avgResolutionTimeStr: 'N/A',
-  });
+  const [stats, setStats] = useState(() => getStats());
   const [refreshing, setRefreshing] = useState(false);
-  const [recentTickets, setRecentTickets] = useState([]);
+  const [recentTickets, setRecentTickets] = useState(() => {
+    const all = getTickets();
+    return [...all].sort((a, b) =>
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    ).slice(0, 5);
+  });
   const [newTicketAlert, setNewTicketAlert] = useState(false);
 
   // Track previous open ticket count to detect new ones
@@ -83,8 +82,6 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   useEffect(() => {
-    loadData();
-
     // Subscribe to store updates (fires after syncWithServer or local changes)
     const unsubscribe = subscribe(() => {
       loadData();
@@ -92,10 +89,6 @@ export default function AdminDashboard({ user, onLogout }) {
 
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [activeTab]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -182,7 +175,7 @@ export default function AdminDashboard({ user, onLogout }) {
       <View style={styles.welcomeCard}>
         <Text style={styles.welcomeTitle}>Welcome back, {user.name}!</Text>
         <Text style={styles.welcomeDesc}>
-          Use the tabs below to manage your organization's IT infrastructure, track open tickets, and coordinate equipment assignments.
+          {"Use the tabs below to manage your organization's IT infrastructure, track open tickets, and coordinate equipment assignments."}
         </Text>
       </View>
     </ScrollView>
@@ -220,17 +213,17 @@ export default function AdminDashboard({ user, onLogout }) {
   const renderContent = () => {
     switch (activeTab) {
       case 'systems':
-        return <ManageSystems />;
+        return <ManageSystems currentUser={user} />;
       case 'employees':
         return <ManageEmployees currentUser={user} />;
       case 'tickets':
-        return <ManageTickets />;
+        return <ManageTickets currentUser={user} />;
       case 'history':
-        return <ManageHistory />;
+        return <ManageHistory currentUser={user} />;
       case 'departments':
-        return <ManageDepartments />;
+        return <ManageDepartments currentUser={user} />;
       case 'tasks':
-        return <ManageTasks />;
+        return <ManageTasks currentUser={user} />;
       case 'profile':
         return renderProfile();
       case 'overview':
@@ -406,7 +399,7 @@ export default function AdminDashboard({ user, onLogout }) {
             <ScrollView style={styles.modalScroll}>
               <Text style={styles.legalHeader}>1. Privacy Policy</Text>
               <Text style={styles.legalText}>
-                DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties.
+                {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties."}
               </Text>
               
               <Text style={styles.legalHeader}>2. Terms & Conditions</Text>

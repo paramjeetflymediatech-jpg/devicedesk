@@ -18,8 +18,8 @@ import {
 } from '../../store/store';
 
 export default function ManageHistory() {
-  const [history, setHistory] = useState([]);
-  const [employees, setEmployees] = useState([]);
+  const [history, setHistory] = useState(() => getAssignmentHistory());
+  const [employees, setEmployees] = useState(() => getEmployees());
   const [searchQuery, setSearchQuery] = useState('');
   
   // Pagination
@@ -32,7 +32,6 @@ export default function ManageHistory() {
   };
 
   useEffect(() => {
-    refreshData();
     const unsubscribe = subscribe(refreshData);
     return () => unsubscribe();
   }, []);
