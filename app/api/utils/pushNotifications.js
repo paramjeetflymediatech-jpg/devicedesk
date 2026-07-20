@@ -1,0 +1,105 @@
+import admin from 'firebase-admin';
+import { getDbConnection } from '../db/db.js';
+
+// Initialize firebase-admin only once
+if (!admin.apps.length) {
+  try {
+    // Look for credentials in environment variables or serviceAccountKey.json
+    const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+    
+    if (serviceAccountBase64) {
+      const serviceAccount = JSON.parse(Buffer.from(serviceAccountBase64, 'base64').toString('ascii'));
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+    } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+      const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+    } else {
+      console.warn('Firebase Admin: No credentials provided. Push notifications will be mocked.');
+    }
+  } catch (e) {
+    console.warn('Could not initialize Firebase Admin SDK. Push notifications will be mocked.', e.message);
+  }
+}
+
+/**
+ * Send a push notification to all logged-in devices of a specific user.
+ * 
+ * @param {string} userId - Recipient employee/admin ID (e.g. 'emp1')
+ * @param {string} title - Notification title
+ * @param {string} body - Notification body text
+ * @param {object} data - Optional payload data key-value pairs
+ */
+export async function sendPushNotification(userId, title, body, data = {}) {
+  try {
+    const db = await getDbConnection();
+    
+    // 1. Fetch all registered FCM tokens for this user
+    const [devices] = await db.execute(
+      'SELECT fcmToken FROM user_devices WHERE userId = ?',
+      [userId]
+    );
+
+    if (devices.length === 0) {
+      console.log(`Push notifications: No registered devices found for user ${userId}.`);
+      return { success: false, reason: 'No registered devices' };
+    }
+
+    const tokens = devices.map(d => d.fcmToken);
+
+    // 2. If Firebase Admin is not initialized, run in mock mode
+    if (!admin.apps.length) {
+      console.log(`[MOCK PUSH] User: ${userId} | Title: ${title} | Body: ${body}`);
+      console.log(`[MOCK PUSH] Sent to tokens:`, tokens);
+      return { success: true, mocked: true, tokensCount: tokens.length };
+    }
+
+    // 3. Format message payload
+    const message = {
+      notification: { title, body },
+      data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) : {},
+      tokens: tokens,
+    };
+
+    // 4. Send multicast message
+    const response = await admin.messaging().sendEachForMulticast(message);
+    
+    console.log(`Push notifications: Sent successfully. Success: ${response.successCount}, Failures: ${response.failureCount}`);
+
+    // 5. Clean up stale/invalid tokens reported by FCM
+    const badTokens = [];
+    response.responses.forEach((resp, idx) => {
+      if (!resp.success) {
+        const errCode = resp.error?.code;
+        if (
+          errCode === 'messaging/registration-token-not-registered' || 
+          errCode === 'messaging/invalid-registration-token'
+        ) {
+          badTokens.push(tokens[idx]);
+        }
+      }
+    });
+
+    if (badTokens.length > 0) {
+      console.log(`Push notifications: Removing ${badTokens.length} stale tokens from DB...`);
+      const placeholders = badTokens.map(() => '?').join(',');
+      await db.execute(
+        `DELETE FROM user_devices WHERE fcmToken IN (${placeholders})`,
+        badTokens
+      );
+    }
+
+    return {
+      success: true,
+      successCount: response.successCount,
+      failureCount: response.failureCount
+    };
+
+  } catch (err) {
+    console.error(`Error sending push notification to user ${userId}:`, err);
+    return { success: false, error: err.message };
+  }
+}

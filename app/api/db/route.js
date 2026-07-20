@@ -7,6 +7,8 @@ import { AssignmentHistory } from './models/AssignmentHistory.js';
 import { Department } from './models/Department.js';
 import { Email } from './models/Email.js';
 import { Task } from './models/Task.js';
+import { sendPushNotification } from '../utils/pushNotifications.js';
+
 
 export async function GET() {
   try {
@@ -55,6 +57,40 @@ export async function POST(request) {
     } else if (action === 'saveEmails') {
       await Email.saveAll(data);
     } else if (action === 'saveTasks') {
+      try {
+        const currentTasks = await Task.getAll();
+        const currentMap = new Map(currentTasks.map(t => [t.id, t]));
+        
+        if (Array.isArray(data)) {
+          for (const newTask of data) {
+            const oldTask = currentMap.get(newTask.id);
+            
+            // Check 1: Newly assigned or assignee changed
+            const hasNewAssignee = newTask.assignedTo && (!oldTask || oldTask.assignedTo !== newTask.assignedTo);
+            if (hasNewAssignee) {
+              sendPushNotification(
+                newTask.assignedTo,
+                'New Task Assigned 📋',
+                `${newTask.assignedByName || 'Someone'} assigned you: ${newTask.title}`,
+                { type: 'task_assigned', taskId: newTask.id }
+              ).catch(e => console.error('FCM Task Assignment Push Error:', e));
+            }
+
+            // Check 2: Task status changed to Completed
+            const isNowCompleted = newTask.status === 'Completed' && (!oldTask || oldTask.status !== 'Completed');
+            if (isNowCompleted && newTask.assignedBy) {
+              sendPushNotification(
+                newTask.assignedBy,
+                'Task Completed ✅',
+                `${newTask.assignedToName || 'Team member'} has completed: ${newTask.title}`,
+                { type: 'task_completed', taskId: newTask.id }
+              ).catch(e => console.error('FCM Task Completion Push Error:', e));
+            }
+          }
+        }
+      } catch (compareErr) {
+        console.error('Error comparing tasks for push triggers:', compareErr);
+      }
       await Task.saveAll(data);
     } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
