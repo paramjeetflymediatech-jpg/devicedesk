@@ -18,12 +18,12 @@ export async function POST(request) {
     const entryId = 'dev_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
     const lastActive = new Date().toISOString();
 
-    // Use INSERT ON DUPLICATE KEY UPDATE so a token maps to only one user and device at a time.
+    // Use INSERT ON DUPLICATE KEY UPDATE so both fcmToken and deviceId map to the current active user.
     await db.execute(
       `INSERT INTO user_devices (id, userId, fcmToken, deviceId, deviceModel, lastActive) 
        VALUES (?, ?, ?, ?, ?, ?) 
-       ON DUPLICATE KEY UPDATE userId = ?, deviceId = ?, deviceModel = ?, lastActive = ?`,
-      [entryId, userId, fcmToken, deviceId, deviceModel || null, lastActive, userId, deviceId, deviceModel || null, lastActive]
+       ON DUPLICATE KEY UPDATE userId = VALUES(userId), fcmToken = VALUES(fcmToken), deviceId = VALUES(deviceId), deviceModel = VALUES(deviceModel), lastActive = VALUES(lastActive)`,
+      [entryId, userId, fcmToken, deviceId, deviceModel || null, lastActive]
     );
 
     return NextResponse.json({ success: true, message: 'Device registered successfully.' });

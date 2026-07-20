@@ -164,7 +164,7 @@ export async function getDbConnection() {
       id VARCHAR(100) PRIMARY KEY,
       userId VARCHAR(50) NOT NULL,
       fcmToken VARCHAR(255) NOT NULL UNIQUE,
-      deviceId VARCHAR(100) NOT NULL,
+      deviceId VARCHAR(100) NOT NULL UNIQUE,
       deviceModel VARCHAR(100),
       lastActive VARCHAR(50)
     )
