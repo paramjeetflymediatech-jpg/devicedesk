@@ -7,16 +7,23 @@ let isInitialized = false;
 try {
   const apps = getApps();
   if (apps.length === 0) {
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
     const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
     
-    if (serviceAccountBase64) {
-      const serviceAccount = JSON.parse(Buffer.from(serviceAccountBase64, 'base64').toString('ascii'));
+    if (projectId && clientEmail && privateKey) {
+      const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
       initializeApp({
-        credential: cert(serviceAccount)
+        credential: cert({
+          projectId,
+          clientEmail,
+          privateKey: formattedPrivateKey
+        })
       });
       isInitialized = true;
-    } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
-      const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+    } else if (serviceAccountBase64) {
+      const serviceAccount = JSON.parse(Buffer.from(serviceAccountBase64, 'base64').toString('ascii'));
       initializeApp({
         credential: cert(serviceAccount)
       });
