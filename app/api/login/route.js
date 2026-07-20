@@ -11,12 +11,12 @@ export async function POST(request) {
     }
 
     // Hard-coded admin shortcut
-    if (identifier.toLowerCase() === 'admin' && password === 'admin123') {
-      return NextResponse.json({
-        success: true,
-        user: { role: 'admin', name: 'Admin', dbRole: 'Admin' }
-      });
-    }
+    // if (identifier.toLowerCase() === 'admin' && password === 'admin123') {
+    //   return NextResponse.json({
+    //     success: true,
+    //     user: { role: 'admin', name: 'Admin', dbRole: 'Admin' }
+    //   });
+    // }
 
     const db = await getDbConnection();
 
@@ -26,7 +26,7 @@ export async function POST(request) {
        FROM employees
        WHERE LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?)
        LIMIT 1`,
-      [identifier, identifier]
+      [identifier.toLowerCase().trim(), identifier.toLowerCase().trim()]
     );
 
     if (rows.length === 0) {
