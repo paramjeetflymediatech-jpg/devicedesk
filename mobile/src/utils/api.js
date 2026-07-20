@@ -118,8 +118,12 @@ export async function registerDeviceToken(userId, fcmToken, deviceId, deviceMode
   }
 }
 
-export async function deregisterDeviceToken(fcmToken) {
-  const url = `${currentApiUrl}/api/devices?fcmToken=${encodeURIComponent(fcmToken)}`;
+export async function deregisterDeviceToken(fcmToken, deviceId) {
+  const params = [];
+  if (fcmToken) params.push(`fcmToken=${encodeURIComponent(fcmToken)}`);
+  if (deviceId) params.push(`deviceId=${encodeURIComponent(deviceId)}`);
+
+  const url = `${currentApiUrl}/api/devices?${params.join('&')}`;
   try {
     const response = await fetch(url, {
       method: 'DELETE',

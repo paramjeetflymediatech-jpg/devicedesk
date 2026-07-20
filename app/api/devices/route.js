@@ -34,24 +34,37 @@ export async function POST(request) {
 }
 
 /**
- * DELETE /api/devices?fcmToken=...
- * Action: Removes the specified device token (used on logout).
+ * DELETE /api/devices?fcmToken=...&deviceId=...
+ * Action: Removes the specified device entry by token or deviceId (used on logout).
  */
 export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);
     const fcmToken = searchParams.get('fcmToken');
+    const deviceId = searchParams.get('deviceId');
 
-    if (!fcmToken) {
-      return NextResponse.json({ error: 'fcmToken parameter is required.' }, { status: 400 });
+    if (!fcmToken && !deviceId) {
+      return NextResponse.json({ error: 'fcmToken or deviceId parameter is required.' }, { status: 400 });
     }
 
     const db = await getDbConnection();
 
-    await db.execute(
-      `DELETE FROM user_devices WHERE fcmToken = ?`,
-      [fcmToken]
-    );
+    if (fcmToken && deviceId) {
+      await db.execute(
+        `DELETE FROM user_devices WHERE fcmToken = ? OR deviceId = ?`,
+        [fcmToken, deviceId]
+      );
+    } else if (fcmToken) {
+      await db.execute(
+        `DELETE FROM user_devices WHERE fcmToken = ?`,
+        [fcmToken]
+      );
+    } else if (deviceId) {
+      await db.execute(
+        `DELETE FROM user_devices WHERE deviceId = ?`,
+        [deviceId]
+      );
+    }
 
     return NextResponse.json({ success: true, message: 'Device token removed successfully.' });
   } catch (err) {

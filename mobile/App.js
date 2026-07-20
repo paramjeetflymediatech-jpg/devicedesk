@@ -115,12 +115,14 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    // 1. Get token to deregister on server
+    // 1. Get tokens & deviceId to deregister on server
     let fcmToken = null;
+    let deviceId = null;
     try {
       fcmToken = await getFcmToken();
+      deviceId = await getOrCreateDeviceId();
     } catch (err) {
-      console.warn('Could not read FCM token for deregistration (non-fatal):', err);
+      console.warn('Could not read device tokens for deregistration (non-fatal):', err);
     }
 
     // 2. Clear local session states
@@ -134,10 +136,10 @@ export default function App() {
       console.error('Failed to clear persistent user session:', err);
     }
 
-    // 4. Deregister from server
-    if (fcmToken) {
+    // 4. Deregister device entry from server DB
+    if (fcmToken || deviceId) {
       try {
-        await deregisterDeviceToken(fcmToken);
+        await deregisterDeviceToken(fcmToken, deviceId);
       } catch (err) {
         console.warn('Failed to deregister device token on server (non-fatal):', err);
       }
