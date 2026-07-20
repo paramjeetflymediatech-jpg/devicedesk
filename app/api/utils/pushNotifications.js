@@ -1,28 +1,34 @@
-import admin from 'firebase-admin';
+import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 import { getDbConnection } from '../db/db.js';
 
-// Initialize firebase-admin only once
-if (!admin.apps.length) {
-  try {
-    // Look for credentials in environment variables or serviceAccountKey.json
+let isInitialized = false;
+
+try {
+  const apps = getApps();
+  if (apps.length === 0) {
     const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
     
     if (serviceAccountBase64) {
       const serviceAccount = JSON.parse(Buffer.from(serviceAccountBase64, 'base64').toString('ascii'));
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+      initializeApp({
+        credential: cert(serviceAccount)
       });
+      isInitialized = true;
     } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
       const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+      initializeApp({
+        credential: cert(serviceAccount)
       });
+      isInitialized = true;
     } else {
-      console.warn('Firebase Admin: No credentials provided. Push notifications will be mocked.');
+      console.warn('Firebase Admin: No credentials provided. Push notifications will run in mock mode.');
     }
-  } catch (e) {
-    console.warn('Could not initialize Firebase Admin SDK. Push notifications will be mocked.', e.message);
+  } else {
+    isInitialized = true;
   }
+} catch (e) {
+  console.warn('Could not initialize Firebase Admin SDK. Push notifications will be mocked.', e.message);
 }
 
 /**
@@ -51,7 +57,7 @@ export async function sendPushNotification(userId, title, body, data = {}) {
     const tokens = devices.map(d => d.fcmToken);
 
     // 2. If Firebase Admin is not initialized, run in mock mode
-    if (!admin.apps.length) {
+    if (!isInitialized) {
       console.log(`[MOCK PUSH] User: ${userId} | Title: ${title} | Body: ${body}`);
       console.log(`[MOCK PUSH] Sent to tokens:`, tokens);
       return { success: true, mocked: true, tokensCount: tokens.length };
@@ -64,8 +70,9 @@ export async function sendPushNotification(userId, title, body, data = {}) {
       tokens: tokens,
     };
 
-    // 4. Send multicast message
-    const response = await admin.messaging().sendEachForMulticast(message);
+    // 4. Send multicast message using modular getMessaging
+    const messaging = getMessaging();
+    const response = await messaging.sendEachForMulticast(message);
     
     console.log(`Push notifications: Sent successfully. Success: ${response.successCount}, Failures: ${response.failureCount}`);
 
