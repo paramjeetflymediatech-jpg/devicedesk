@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "525258636305",
+    "project_id": "devicedesk-bc7bc",
+    "storage_bucket": "devicedesk-bc7bc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:525258636305:android:8a366c5742f31e360045b0",
+        "android_client_info": {
+          "package_name": "com.devicedesk.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApa_UIY6bC8XOliC0mq2KAw7c5JsU2-qU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -159,6 +159,17 @@ export async function getDbConnection() {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS user_devices (
+      id VARCHAR(100) PRIMARY KEY,
+      userId VARCHAR(50) NOT NULL,
+      fcmToken VARCHAR(255) NOT NULL UNIQUE,
+      deviceId VARCHAR(100) NOT NULL,
+      deviceModel VARCHAR(100),
+      lastActive VARCHAR(50)
+    )
+  `);
+
   // Check if DB was already seeded
   const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");
   const alreadySeeded = metaRows.length > 0 && metaRows[0].meta_value === 'true';

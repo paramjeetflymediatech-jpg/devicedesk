@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   Image,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiUrl, setApiUrl, initApiUrl } from '../utils/api';
 import { findEmployeeByCredentials, isAdminCredentials, syncWithServer } from '../store/store';
 import { sweetAlert } from '../utils/sweetAlert';
@@ -207,7 +207,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>

@@ -5,12 +5,12 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Vibration,
   Image,
   Modal,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getStats, syncWithServer, getTickets, subscribe, removeEmployee } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
 import ManageSystems from './ManageSystems';

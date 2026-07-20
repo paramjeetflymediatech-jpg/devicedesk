@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 const API_URL_KEY = 'devicedesk_api_url';
 
 // Default URLs: 10.0.2.2 for Android Emulator, localhost for iOS simulator
-// const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
+ const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+//const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
 
 let currentApiUrl = DEFAULT_URL;
 
@@ -82,3 +82,58 @@ export async function postToDb(action, data) {
     throw err;
   }
 }
+
+export async function getOrCreateDeviceId() {
+  try {
+    let deviceId = await AsyncStorage.getItem('devicedesk_device_id');
+    if (!deviceId) {
+      deviceId = 'dev_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+      await AsyncStorage.setItem('devicedesk_device_id', deviceId);
+    }
+    return deviceId;
+  } catch (err) {
+    console.error('Failed to get/create deviceId:', err);
+    return 'dev_fallback_' + Date.now();
+  }
+}
+
+export async function registerDeviceToken(userId, fcmToken, deviceId, deviceModel) {
+  const url = `${currentApiUrl}/api/devices`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ userId, fcmToken, deviceId, deviceModel }),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP Error ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.error(`Register device token failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function deregisterDeviceToken(fcmToken) {
+  const url = `${currentApiUrl}/api/devices?fcmToken=${encodeURIComponent(fcmToken)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP Error ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.error(`Deregister device token failed at ${url}:`, err);
+    throw err;
+  }
+}
+
