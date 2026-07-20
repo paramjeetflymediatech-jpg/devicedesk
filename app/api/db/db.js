@@ -171,6 +171,17 @@ export async function getDbConnection() {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id VARCHAR(100) PRIMARY KEY,
+      email VARCHAR(255) NOT NULL,
+      token VARCHAR(255) NOT NULL UNIQUE,
+      createdAt VARCHAR(50) NOT NULL,
+      expiresAt VARCHAR(50) NOT NULL,
+      used INT DEFAULT 0
+    )
+  `);
+
   // Check if DB was already seeded
   const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");
   const alreadySeeded = metaRows.length > 0 && metaRows[0].meta_value === 'true';

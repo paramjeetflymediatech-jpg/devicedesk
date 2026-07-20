@@ -8,19 +8,18 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { findEmployeeByEmail, sendMockEmail, resetPasswordByEmail } from '../store/store';
+import { requestForgotPasswordLink } from '../utils/api';
 
 export default function ForgotPasswordScreen({ onNavigateToLogin }) {
   const [email, setEmail] = useState('');
-  const [step, setStep] = useState('email'); // email, reset
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const handleRequestLink = () => {
+  const handleRequestLink = async () => {
     setErrorMsg('');
     setSuccessMsg('');
 
@@ -30,53 +29,14 @@ export default function ForgotPasswordScreen({ onNavigateToLogin }) {
       return;
     }
 
-    const isDefaultAdmin = targetEmail.toLowerCase() === 'admin@devicedesk.com' || targetEmail.toLowerCase() === 'admin';
-    const cleanEmail = isDefaultAdmin ? 'admin@devicedesk.com' : targetEmail;
-    
-    const emp = findEmployeeByEmail(cleanEmail);
-
-    if (emp || isDefaultAdmin) {
-      // Send mock email
-      const resetLink = `http://localhost:3000/reset-password?email=${encodeURIComponent(cleanEmail)}`;
-      sendMockEmail(
-        cleanEmail,
-        'Reset your DeviceDesk Password',
-        `Hello,\n\nYou requested a password reset for your DeviceDesk account.\n\nPlease click the link below to set a new password:\n\n${resetLink}\n\nBest Regards,\nIT Support Team`
-      );
-
-      setSuccessMsg('A password reset link has been mock-sent to your email. You can also set a new password directly below:');
-      setStep('reset');
-      setEmail(cleanEmail); // Set to resolved email
-    } else {
-      setErrorMsg('No account found with this email address.');
-    }
-  };
-
-  const handleResetPassword = () => {
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    if (!password.trim()) {
-      setErrorMsg('Please enter a new password.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setErrorMsg('Passwords do not match.');
-      return;
-    }
-
-    const res = resetPasswordByEmail(email, password);
-
-    if (res.success) {
-      setSuccessMsg('Password updated successfully! Redirecting you back to login...');
-      setPassword('');
-      setConfirmPassword('');
-      setTimeout(() => {
-        onNavigateToLogin();
-      }, 2500);
-    } else {
-      setErrorMsg(res.message || 'Failed to update password.');
+    setLoading(true);
+    try {
+      const res = await requestForgotPasswordLink(targetEmail);
+      setSuccessMsg(res.message || 'A password reset link has been sent to your email. Please check your inbox and open the link on your web browser to set a new password.');
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to send reset link.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -93,13 +53,9 @@ export default function ForgotPasswordScreen({ onNavigateToLogin }) {
             <View style={styles.logoGradient}>
               <Text style={styles.logoText}>DD</Text>
             </View>
-            <Text style={styles.title}>
-              {step === 'email' ? 'Forgot Password' : 'Set New Password'}
-            </Text>
+            <Text style={styles.title}>Forgot Password</Text>
             <Text style={styles.subtitle}>
-              {step === 'email' 
-                ? 'Enter your registered email to receive a password reset link'
-                : 'Enter your new credentials below'}
+              Enter your registered email address below. We will send a single-use password reset link to your email.
             </Text>
           </View>
 
@@ -116,64 +72,30 @@ export default function ForgotPasswordScreen({ onNavigateToLogin }) {
               </View>
             ) : null}
 
-            {step === 'email' ? (
-              /* Step 1: Request Reset */
-              <View>
-                <Text style={styles.label}>Email Address</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. sarabjot@devicedesk.com"
-                  placeholderTextColor="#8b949e"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                />
+            <Text style={styles.label}>Email Address</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. sarabjot@yopmail.com"
+              placeholderTextColor="#8b949e"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              editable={!loading}
+            />
 
-                <TouchableOpacity style={styles.primaryButton} onPress={handleRequestLink}>
-                  <Text style={styles.primaryButtonText}>Send Reset Link</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              /* Step 2: Set New Password */
-              <View>
-                <Text style={styles.label}>Account Email</Text>
-                <TextInput
-                  style={[styles.input, styles.disabledInput]}
-                  value={email}
-                  editable={false}
-                />
-
-                <Text style={styles.label}>New Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  placeholderTextColor="#8b949e"
-                  secureTextEntry
-                  value={password}
-                  onChangeText={setPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-
-                <Text style={styles.label}>Confirm New Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  placeholderTextColor="#8b949e"
-                  secureTextEntry
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-
-                <TouchableOpacity style={styles.primaryButton} onPress={handleResetPassword}>
-                  <Text style={styles.primaryButtonText}>Update Password</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            <TouchableOpacity 
+              style={[styles.primaryButton, loading && styles.disabledButton]} 
+              onPress={handleRequestLink}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Send Reset Link</Text>
+              )}
+            </TouchableOpacity>
 
             <TouchableOpacity style={styles.backButton} onPress={onNavigateToLogin}>
               <Text style={styles.backButtonText}>← Back to Login</Text>
@@ -263,10 +185,6 @@ const styles = StyleSheet.create({
     color: '#f0f6fc',
     marginBottom: 20,
   },
-  disabledInput: {
-    opacity: 0.6,
-    color: '#8b949e',
-  },
   primaryButton: {
     backgroundColor: '#1f6feb',
     borderRadius: 10,
@@ -279,6 +197,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   primaryButtonText: {
     fontSize: 15,

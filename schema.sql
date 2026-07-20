@@ -168,3 +168,13 @@ CREATE TABLE IF NOT EXISTS user_devices (
   deviceModel VARCHAR(100),
   lastActive VARCHAR(50)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 9. Password Reset Tokens Table
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id VARCHAR(100) PRIMARY KEY,
+  email VARCHAR(255) NOT NULL,
+  token VARCHAR(255) NOT NULL UNIQUE,
+  createdAt VARCHAR(50) NOT NULL,
+  expiresAt VARCHAR(50) NOT NULL,
+  used INT DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

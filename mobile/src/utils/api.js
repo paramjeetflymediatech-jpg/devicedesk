@@ -141,3 +141,26 @@ export async function deregisterDeviceToken(fcmToken, deviceId) {
   }
 }
 
+export async function requestForgotPasswordLink(email) {
+  const url = `${currentApiUrl}/api/forgot-password`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || data.message || `HTTP Error ${response.status}`);
+    }
+    return data;
+  } catch (err) {
+    console.error(`Request forgot password failed at ${url}:`, err);
+    throw err;
+  }
+}
+

@@ -1,28 +1,62 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { resetPasswordByEmail } from "../store";
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
+  const token = searchParams.get("token") || "";
 
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isValidating, setIsValidating] = useState(true);
+  const [tokenValid, setTokenValid] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    if (!token) {
+      setIsValidating(false);
+      setTokenValid(false);
+      setError("No reset token provided. Please request a password reset link from your mobile app or login screen.");
+      return;
+    }
+
+    let isMounted = true;
+    async function validateToken() {
+      try {
+        const res = await fetch(`/api/reset-password?token=${encodeURIComponent(token)}`);
+        const data = await res.json();
+        if (isMounted) {
+          setIsValidating(false);
+          if (data.valid) {
+            setTokenValid(true);
+            setEmail(data.email || "");
+          } else {
+            setTokenValid(false);
+            setError(data.message || "This password reset link is invalid or has expired.");
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setIsValidating(false);
+          setTokenValid(false);
+          setError("Failed to validate reset link. Please check your network connection.");
+        }
+      }
+    }
+
+    validateToken();
+    return () => { isMounted = false; };
+  }, [token]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
-
-    if (!email) {
-      setError("Invalid or missing email parameter in URL.");
-      return;
-    }
 
     if (!password.trim()) {
       setError("Please enter a new password.");
@@ -34,35 +68,80 @@ function ResetPasswordForm() {
       return;
     }
 
-    const result = resetPasswordByEmail(email, password);
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, newPassword: password }),
+      });
 
-    if (result.success) {
-      setSuccess("Password updated successfully! Redirecting you back to login...");
-      setPassword("");
-      setConfirmPassword("");
-      setTimeout(() => {
-        router.push("/login");
-      }, 3000);
-    } else {
-      setError(result.message);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccess("Password updated successfully! Redirecting you back to login...");
+        setPassword("");
+        setConfirmPassword("");
+        setTokenValid(false); // Link is now used
+        setTimeout(() => {
+          router.push("/login");
+        }, 3000);
+      } else {
+        setError(data.message || "Failed to reset password.");
+      }
+    } catch (err) {
+      setError("Server error while resetting password.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  if (isValidating) {
+    return <p style={{ color: "var(--text-secondary)", textAlign: "center" }}>Validating your reset link...</p>;
+  }
+
+  if (!tokenValid && !success) {
+    return (
+      <div>
+        <div
+          style={{
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid var(--status-critical)",
+            color: "var(--status-critical)",
+            padding: "14px",
+            borderRadius: "12px",
+            fontSize: "0.9rem",
+            marginBottom: "1.5rem",
+            textAlign: "center",
+            lineHeight: "1.4",
+          }}
+        >
+          ⚠️ {error || "This password reset link is invalid, expired, or has already been used."}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit}>
-      <div className="form-group">
-        <label>Account Email</label>
-        <input
-          type="email"
-          className="form-control"
-          value={email}
-          disabled
-          style={{ opacity: 0.6, background: "rgba(0,0,0,0.2)" }}
-        />
-      </div>
+      {email ? (
+        <div className="form-group" style={{ marginBottom: "1.25rem" }}>
+          <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.5rem", display: "block" }}>
+            Account Email
+          </label>
+          <input
+            type="email"
+            className="form-control"
+            value={email}
+            disabled
+            style={{ opacity: 0.7, background: "rgba(0,0,0,0.3)" }}
+          />
+        </div>
+      ) : null}
 
-      <div className="form-group">
-        <label>New Password</label>
+      <div className="form-group" style={{ marginBottom: "1.25rem" }}>
+        <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.5rem", display: "block" }}>
+          New Password
+        </label>
         <input
           type="password"
           className="form-control"
@@ -70,11 +149,14 @@ function ResetPasswordForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          disabled={isSubmitting}
         />
       </div>
 
       <div className="form-group" style={{ marginBottom: "1.5rem" }}>
-        <label>Confirm New Password</label>
+        <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.5rem", display: "block" }}>
+          Confirm New Password
+        </label>
         <input
           type="password"
           className="form-control"
@@ -82,6 +164,7 @@ function ResetPasswordForm() {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
+          disabled={isSubmitting}
         />
       </div>
 
@@ -119,8 +202,13 @@ function ResetPasswordForm() {
         </div>
       )}
 
-      <button type="submit" className="btn-primary" style={{ width: "100%", padding: "12px", borderRadius: "10px" }}>
-        Update Password
+      <button 
+        type="submit" 
+        className="btn-primary" 
+        style={{ width: "100%", padding: "12px", borderRadius: "10px", opacity: isSubmitting ? 0.7 : 1 }}
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? "Updating Password..." : "Update Password"}
       </button>
     </form>
   );
