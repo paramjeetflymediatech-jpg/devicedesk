@@ -7,7 +7,7 @@ import { AssignmentHistory } from './models/AssignmentHistory.js';
 import { Department } from './models/Department.js';
 import { Email } from './models/Email.js';
 import { Task } from './models/Task.js';
-import { sendPushNotification } from '../utils/pushNotifications.js';
+import { sendPushNotification, sendPushNotificationToAdmins } from '../utils/pushNotifications.js';
 
 
 export async function GET() {
@@ -78,13 +78,18 @@ export async function POST(request) {
 
             // Check 2: Task status changed to Completed
             const isNowCompleted = newTask.status === 'Completed' && (!oldTask || oldTask.status !== 'Completed');
-            if (isNowCompleted && newTask.assignedBy) {
-              sendPushNotification(
-                newTask.assignedBy,
-                'Task Completed ✅',
-                `${newTask.assignedToName || 'Team member'} has completed: ${newTask.title}`,
-                { type: 'task_completed', taskId: newTask.id }
-              ).catch(e => console.error('FCM Task Completion Push Error:', e));
+            if (isNowCompleted) {
+              const title = 'Task Completed ✅';
+              const body = `${newTask.assignedToName || 'Team member'} has completed: ${newTask.title}`;
+              const payload = { type: 'task_completed', taskId: newTask.id };
+
+              if (newTask.assignedBy && !['admin', 'Admin', 'system', 'System'].includes(String(newTask.assignedBy).trim())) {
+                sendPushNotification(newTask.assignedBy, title, body, payload)
+                  .catch(e => console.error('FCM Task Completion Push Error (Assigner):', e));
+              }
+
+              sendPushNotificationToAdmins(title, body, payload)
+                .catch(e => console.error('FCM Task Completion Push Error (Admins):', e));
             }
           }
         }
