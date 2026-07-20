@@ -45,13 +45,23 @@ export async function sendPushNotificationToAdmins(title, body, data = {}) {
   try {
     const db = await getDbConnection();
 
-    // Fetch registered FCM tokens for all Admin / Management / Team Leader accounts
+    // 1. Fetch IDs of all admin/management/team leader employees
+    const [adminRows] = await db.execute(
+      `SELECT id FROM employees WHERE role IN ('Admin', 'Management', 'IT Engineer', 'Team Leader')`
+    );
+
+    const adminUserIds = new Set(['admin', 'Admin', 'emp1']);
+    adminRows.forEach(row => {
+      if (row.id) adminUserIds.add(row.id);
+    });
+
+    const targetUserIds = Array.from(adminUserIds);
+    const placeholders = targetUserIds.map(() => '?').join(',');
+
+    // 2. Fetch registered FCM tokens for these user IDs (no JOINs, no collation conflicts!)
     const [devices] = await db.execute(
-      `SELECT DISTINCT ud.fcmToken 
-       FROM user_devices ud 
-       LEFT JOIN employees e ON ud.userId = e.id 
-       WHERE e.role IN ('Admin', 'Management', 'IT Engineer', 'Team Leader') 
-          OR LOWER(ud.userId) IN ('admin', 'emp1')`
+      `SELECT DISTINCT fcmToken FROM user_devices WHERE userId IN (${placeholders})`,
+      targetUserIds
     );
 
     if (devices.length === 0) {
