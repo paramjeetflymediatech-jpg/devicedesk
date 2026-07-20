@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise';
+import bcrypt from 'bcryptjs';
 import { initialSystems, initialEmployees, initialTickets, initialDepartments } from '../../data.js';
 
 // Coerce undefined → null so MySQL2 doesn't throw "undefined bind param"
@@ -189,14 +190,19 @@ export async function getDbConnection() {
     // Seed employees if empty
     const [empRows] = await db.execute('SELECT COUNT(*) as count FROM employees');
     if (empRows[0].count === 0) {
+      const pepper = process.env.PASSWORD_PEPPER || 'devicedesk_secure_pepper_key_2026';
       for (const e of initialEmployees) {
         const firstName = e.name ? e.name.split(' ')[0].toLowerCase() : 'employee';
         const email = e.email || `${firstName}@yopmail.com`;
-        const password = e.password || `${firstName}123`;
+        const rawPassword = e.password || `${firstName}123`;
+        let hashedPassword = rawPassword;
+        if (!rawPassword.startsWith('$2a$') && !rawPassword.startsWith('$2b$')) {
+          hashedPassword = await bcrypt.hash(rawPassword + pepper, 10);
+        }
         const ticketLimit = e.ticketLimit !== undefined ? e.ticketLimit : 5;
         await db.execute(
           `INSERT IGNORE INTO employees (id, name, email, password, role, department, ticketLimit) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [n(e.id), n(e.name), n(email), n(password), n(e.role), n(e.department), ticketLimit]
+          [n(e.id), n(e.name), n(email), hashedPassword, n(e.role), n(e.department), ticketLimit]
         );
       }
     }

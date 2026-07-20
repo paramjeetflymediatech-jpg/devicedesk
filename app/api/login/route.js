@@ -54,6 +54,17 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: '⚠️ Account not found or incorrect password.' }, { status: 401 });
     }
 
+    // Auto-migrate legacy plain-text password to bcrypt hash upon successful login
+    if (!storedPassword.startsWith('$2') && passwordMatch) {
+      try {
+        const db = await getDbConnection();
+        const newHash = await bcrypt.hash(password + pepper, 10);
+        await db.execute('UPDATE employees SET password = ? WHERE id = ?', [newHash, emp.id]);
+      } catch (migrateErr) {
+        console.warn('Auto-hash password migration failed:', migrateErr);
+      }
+    }
+
     const isAdmin = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'Team Leader';
 
     return NextResponse.json({
