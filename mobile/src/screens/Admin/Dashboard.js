@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getStats, syncWithServer, getTickets, subscribe, removeEmployee } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
+import { playTicketSound } from '../../utils/sound';
 import ManageSystems from './ManageSystems';
 import ManageEmployees from './ManageEmployees';
 import ManageTickets from './ManageTickets';
@@ -73,8 +74,8 @@ export default function AdminDashboard({ user, onLogout }) {
     // Check for new Open tickets to trigger alert
     const openCount = all.filter(t => t.status === 'Open').length;
     if (prevOpenCountRef.current !== null && openCount > prevOpenCountRef.current) {
-      // New ticket raised - trigger dual pulse vibration
-      Vibration.vibrate([0, 400, 200, 400]);
+      // New ticket raised - trigger sound and vibration
+      playTicketSound('ticket_raised');
       setNewTicketAlert(true);
       setTimeout(() => setNewTicketAlert(false), 5000);
     }

@@ -1,4 +1,5 @@
-import { Alert } from 'react-native';
+import { Alert, Platform, PermissionsAndroid } from 'react-native';
+import { playTicketSound } from './sound';
 
 let getApps = null;
 let getMessaging = null;
@@ -30,11 +31,32 @@ function isFirebaseReady() {
 }
 
 /**
- * Request permission for iOS devices and log FCM token
+ * Request notification permission for Android 13+ and iOS devices, then retrieve FCM token
  */
 export async function requestUserPermission() {
+  // 1. Android 13+ (API 33+) explicit POST_NOTIFICATIONS permission prompt
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+      );
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('Android 13+ notification permission granted.');
+      } else {
+        console.warn('Android 13+ notification permission denied by user.');
+      }
+    } catch (androidErr) {
+      console.warn('Error requesting Android notification permission:', androidErr);
+    }
+  }
+
+  // 2. iOS & Firebase messaging permission prompt
   if (!isFirebaseReady()) {
-    console.warn('Firebase Push Notifications: Default app is not initialized. Please add google-services.json to android/app/.');
+    console.warn(
+      Platform.OS === 'ios'
+        ? 'Firebase Push Notifications: Missing GoogleService-Info.plist in ios/DeviceDeskMobile. Add it in Xcode to enable iOS notifications.'
+        : 'Firebase Push Notifications: Default app is not initialized. Please check google-services.json in android/app/.'
+    );
     return null;
   }
 
@@ -48,6 +70,8 @@ export async function requestUserPermission() {
     if (enabled) {
       console.log('Push notification authorization status:', authStatus);
       return await getFcmToken();
+    } else {
+      console.warn('FCM Push notification permission denied or dismissed by user.');
     }
   } catch (error) {
     console.error('Error requesting push permission:', error);
@@ -95,6 +119,15 @@ export async function setupPushNotifications() {
     // 2. Handle foreground messages (when user is active inside the app)
     messagingInstance.onMessage(async remoteMessage => {
       console.log('A new FCM message arrived in foreground:', remoteMessage);
+      
+      const type = remoteMessage.data?.type === 'ticket_raised' 
+        ? 'ticket_raised' 
+        : remoteMessage.data?.type === 'ticket_resolved' 
+        ? 'ticket_resolved' 
+        : 'notification';
+        
+      playTicketSound(type);
+
       Alert.alert(
         remoteMessage.notification?.title || 'New Notification',
         remoteMessage.notification?.body || 'You have new information regarding your devices.'

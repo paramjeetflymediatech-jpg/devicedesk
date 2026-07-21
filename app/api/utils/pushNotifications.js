@@ -81,6 +81,21 @@ export async function sendPushNotificationToAdmins(title, body, data = {}) {
       notification: { title, body },
       data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) : {},
       tokens: tokens,
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'qt',
+          defaultSound: true,
+          channelId: 'high_importance_channel',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'qt.mp3',
+          },
+        },
+      },
     };
 
     const messaging = getMessaging();
@@ -163,6 +178,21 @@ export async function sendPushNotification(userId, title, body, data = {}) {
       notification: { title, body },
       data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) : {},
       tokens: tokens,
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'qt',
+          defaultSound: true,
+          channelId: 'high_importance_channel',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'qt.mp3',
+          },
+        },
+      },
     };
 
     // 4. Send multicast message using modular getMessaging

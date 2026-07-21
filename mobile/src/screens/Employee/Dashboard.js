@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -22,6 +22,7 @@ import {
   removeEmployee,
 } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
+import { playTicketSound } from '../../utils/sound';
 import EmployeeTasks from './EmployeeTasks';
 
 export default function EmployeeDashboard({ user, onLogout }) {
@@ -46,11 +47,25 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
+  const prevResolvedCountRef = useRef(null);
+
   const refreshData = () => {
-    setSystems(getSystems());
-    setTickets(getTickets());
-    setEmployees(getEmployees());
-    setAssignmentHistory(getAssignmentHistory());
+    const allSystems = getSystems();
+    const allTickets = getTickets();
+    const allEmployees = getEmployees();
+    const allHistory = getAssignmentHistory();
+
+    setSystems(allSystems);
+    setTickets(allTickets);
+    setEmployees(allEmployees);
+    setAssignmentHistory(allHistory);
+
+    // Play sound if a ticket belonging to this employee was resolved
+    const resolvedCount = allTickets.filter(t => t.employeeId === user.id && t.status === 'Resolved').length;
+    if (prevResolvedCountRef.current !== null && resolvedCount > prevResolvedCountRef.current) {
+      playTicketSound('ticket_resolved');
+    }
+    prevResolvedCountRef.current = resolvedCount;
   };
 
   useEffect(() => {

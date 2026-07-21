@@ -8,6 +8,7 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 inhibit_all_warnings!
 prepare_react_native_project!
+use_modular_headers!
 
 
 target 'DeviceDeskMobile' do

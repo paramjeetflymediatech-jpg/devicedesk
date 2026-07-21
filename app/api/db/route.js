@@ -49,6 +49,45 @@ export async function POST(request) {
     } else if (action === 'saveEmployees') {
       await Employee.saveAll(data);
     } else if (action === 'saveTickets') {
+      try {
+        const currentTickets = await Ticket.getAll();
+        const currentMap = new Map(currentTickets.map(t => [t.id, t]));
+        
+        if (Array.isArray(data)) {
+          for (const newTicket of data) {
+            const oldTicket = currentMap.get(newTicket.id);
+            
+            // Check 1: Newly raised ticket (status is Open and not previously present or wasn't Open)
+            const isNewOpen = newTicket.status === 'Open' && (!oldTicket || oldTicket.status !== 'Open');
+            if (isNewOpen) {
+              const title = 'New Ticket Raised 🎫';
+              const body = `${newTicket.employeeName || 'An employee'} raised a ticket: ${newTicket.category || 'Support Ticket'}`;
+              const payload = { type: 'ticket_raised', ticketId: newTicket.id };
+
+              sendPushNotificationToAdmins(title, body, payload)
+                .catch(e => console.error('FCM Ticket Raised Push Error (Admins):', e));
+            }
+
+            // Check 2: Ticket marked Resolved/Completed
+            const isNowResolved = newTicket.status === 'Resolved' && (!oldTicket || oldTicket.status !== 'Resolved');
+            if (isNowResolved) {
+              const title = 'Ticket Resolved ✅';
+              const body = `Ticket "${newTicket.category || 'Support Ticket'}" has been marked as Resolved.`;
+              const payload = { type: 'ticket_resolved', ticketId: newTicket.id };
+
+              if (newTicket.employeeId) {
+                sendPushNotification(newTicket.employeeId, title, body, payload)
+                  .catch(e => console.error('FCM Ticket Resolved Push Error (Employee):', e));
+              }
+
+              sendPushNotificationToAdmins(title, body, payload)
+                .catch(e => console.error('FCM Ticket Resolved Push Error (Admins):', e));
+            }
+          }
+        }
+      } catch (compareErr) {
+        console.error('Error comparing tickets for push triggers:', compareErr);
+      }
       await Ticket.saveAll(data);
     } else if (action === 'saveAssignmentHistory') {
       await AssignmentHistory.saveAll(data);
