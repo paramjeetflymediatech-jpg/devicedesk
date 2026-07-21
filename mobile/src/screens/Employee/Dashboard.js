@@ -43,9 +43,10 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
-  // Search/Filters
+  // Search/Filters & Pagination
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
 
   const prevResolvedCountRef = useRef(null);
 
@@ -84,13 +85,23 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const empDetails = employees.find(e => e.id === user.id) || { name: user.name, ticketLimit: 5 };
   const employeeTickets = tickets.filter(t => t.employeeId === user.id);
   const activeSystems = systems.filter(s => s.assignedTo === user.id);
-  const empHistory = assignmentHistory.filter(h => h.employeeId === user.id);
 
-  // Stats calculation
+  // Sort assignment history logs descending (latest history first)
+  const empHistory = [...assignmentHistory]
+    .filter(h => h.employeeId === user.id)
+    .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+
+  // Device History Pagination
+  const historyLogsPerPage = 5;
+  const totalHistoryPages = Math.ceil(empHistory.length / historyLogsPerPage) || 1;
+  const currentHistoryLogs = empHistory.slice((historyPage - 1) * historyLogsPerPage, historyPage * historyLogsPerPage);
+
+  // Stats calculation (ticket limit applies to active unresolved issues: Open / In Progress)
   const totalRaised = employeeTickets.length;
-  const ticketLimit = empDetails.ticketLimit || 5;
-  const remainingTickets = Math.max(0, ticketLimit - totalRaised);
-  const isLimitReached = totalRaised >= ticketLimit;
+  const activeUnresolved = employeeTickets.filter(t => t.status !== 'Resolved').length;
+  const ticketLimit = empDetails.ticketLimit || 10;
+  const remainingTickets = Math.max(0, ticketLimit - activeUnresolved);
+  const isLimitReached = activeUnresolved >= ticketLimit;
 
   const handleRaiseComplaint = () => {
     setFormError('');
@@ -155,13 +166,13 @@ export default function EmployeeDashboard({ user, onLogout }) {
               {isLimitReached ? (
                 <View style={styles.limitBanner}>
                   <Text style={styles.limitBannerText}>
-                    ⚠️ Ticket Limit Reached ({totalRaised}/{ticketLimit}). You cannot raise more issues.
+                    ⚠️ Active Ticket Limit Reached ({activeUnresolved}/{ticketLimit} open issues). Please wait for IT Support to resolve existing issues.
                   </Text>
                 </View>
               ) : (
                 <View style={styles.limitInfoBox}>
                   <Text style={styles.limitInfoText}>
-                    Remaining Tickets: {remainingTickets} / {ticketLimit}
+                    Remaining Active Ticket Allowance: {remainingTickets} / {ticketLimit}
                   </Text>
                 </View>
               )}
@@ -324,11 +335,11 @@ export default function EmployeeDashboard({ user, onLogout }) {
                     <Text style={styles.systemStatusActive}>Assigned</Text>
                   </View>
                   <View style={styles.systemDetailsGrid}>
-                    <Text style={styles.specItem}>🧠 <Text style={{fontWeight: 'bold'}}>CPU:</Text> {sys.cpu}</Text>
-                    <Text style={styles.specItem}>⚡ <Text style={{fontWeight: 'bold'}}>RAM:</Text> {sys.ram}</Text>
-                    <Text style={styles.specItem}>💾 <Text style={{fontWeight: 'bold'}}>Storage:</Text> {sys.storage}</Text>
-                    <Text style={styles.specItem}>🎮 <Text style={{fontWeight: 'bold'}}>GPU:</Text> {sys.gpu || 'Integrated'}</Text>
-                    <Text style={styles.specItem}>💿 <Text style={{fontWeight: 'bold'}}>OS:</Text> {sys.os}</Text>
+                    <Text style={styles.specItem}>🧠 <Text style={{fontWeight: 'bold', color: '#f0f6fc'}}>CPU:</Text> {sys.cpu}</Text>
+                    <Text style={styles.specItem}>⚡ <Text style={{fontWeight: 'bold', color: '#f0f6fc'}}>RAM:</Text> {sys.ram}</Text>
+                    <Text style={styles.specItem}>💾 <Text style={{fontWeight: 'bold', color: '#f0f6fc'}}>Storage:</Text> {sys.storage}</Text>
+                    <Text style={styles.specItem}>🎮 <Text style={{fontWeight: 'bold', color: '#f0f6fc'}}>GPU:</Text> {sys.gpu || 'Integrated'}</Text>
+                    <Text style={styles.specItem}>💿 <Text style={{fontWeight: 'bold', color: '#f0f6fc'}}>OS:</Text> {sys.os}</Text>
                   </View>
                 </View>
               ))
@@ -342,9 +353,6 @@ export default function EmployeeDashboard({ user, onLogout }) {
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <View style={styles.rowBetween}>
               <Text style={styles.sectionTitle}>My Workspace</Text>
-              <TouchableOpacity style={styles.syncBtn} onPress={handleRefresh}>
-                <Text style={styles.syncBtnText}>{refreshing ? 'Syncing...' : 'Sync 🔄'}</Text>
-              </TouchableOpacity>
             </View>
 
             {/* Profile Overview */}
@@ -379,20 +387,55 @@ export default function EmployeeDashboard({ user, onLogout }) {
             )}
 
             {/* Assignment History logs */}
-            <Text style={styles.subTitle}>Device History Logs</Text>
+            <Text style={styles.subTitle}>Device History Logs ({empHistory.length})</Text>
             {empHistory.length === 0 ? (
               <Text style={styles.emptyText}>No device transfers logged.</Text>
             ) : (
-              empHistory.map(log => (
-                <View key={log.id} style={styles.historyRow}>
-                  <Text style={styles.historyLogText}>
-                    🛠️ {log.action} System {log.systemNumber}
-                  </Text>
-                  <Text style={styles.historyTime}>
-                    {new Date(log.timestamp).toLocaleDateString()}
-                  </Text>
-                </View>
-              ))
+              <>
+                {currentHistoryLogs.map(log => (
+                  <View key={log.id} style={styles.historyRow}>
+                    <View style={{ flex: 1, marginRight: 10 }}>
+                      <Text style={styles.historyLogText}>
+                        🛠️ {log.action} System <Text style={{ fontWeight: 'bold', color: '#58a6ff' }}>{log.systemNumber}</Text>
+                      </Text>
+                      {log.assignedBy && (
+                        <Text style={styles.historySubText}>Assigned by: {log.assignedBy}</Text>
+                      )}
+                    </View>
+                    <Text style={styles.historyTime}>
+                      {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'N/A'}
+                    </Text>
+                  </View>
+                ))}
+
+                {totalHistoryPages > 1 && (
+                  <View style={styles.paginationContainer}>
+                    <TouchableOpacity
+                      style={[styles.pageBtn, historyPage === 1 && styles.pageBtnDisabled]}
+                      onPress={() => setHistoryPage(p => Math.max(1, p - 1))}
+                      disabled={historyPage === 1}
+                    >
+                      <Text style={[styles.pageBtnText, historyPage === 1 && styles.pageBtnTextDisabled]}>
+                        ◀ Prev
+                      </Text>
+                    </TouchableOpacity>
+
+                    <Text style={styles.pageInfoText}>
+                      Page {historyPage} of {totalHistoryPages}
+                    </Text>
+
+                    <TouchableOpacity
+                      style={[styles.pageBtn, historyPage === totalHistoryPages && styles.pageBtnDisabled]}
+                      onPress={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                      disabled={historyPage === totalHistoryPages}
+                    >
+                      <Text style={[styles.pageBtnText, historyPage === totalHistoryPages && styles.pageBtnTextDisabled]}>
+                        Next ▶
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
           </ScrollView>
         );
@@ -773,11 +816,35 @@ const styles = StyleSheet.create({
   systemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   systemNo: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#58a6ff',
+  },
+  systemNumberText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#58a6ff',
+  },
+  systemStatusActive: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#3fb950',
+    backgroundColor: 'rgba(56, 139, 60, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#3fb950',
+    overflow: 'hidden',
+  },
+  systemDetailsGrid: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#30363d',
+    paddingTop: 8,
   },
   systemModel: {
     fontSize: 14,
@@ -790,12 +857,13 @@ const styles = StyleSheet.create({
   },
   specItem: {
     fontSize: 13,
-    color: '#8b949e',
+    color: '#c9d1d9',
     marginTop: 4,
   },
   historyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: '#21262d',
@@ -804,9 +872,48 @@ const styles = StyleSheet.create({
     color: '#c9d1d9',
     fontSize: 13,
   },
+  historySubText: {
+    color: '#8b949e',
+    fontSize: 11,
+    marginTop: 2,
+  },
   historyTime: {
     color: '#8b949e',
     fontSize: 11,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#30363d',
+  },
+  pageBtn: {
+    backgroundColor: '#21262d',
+    borderWidth: 1,
+    borderColor: '#30363d',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  pageBtnDisabled: {
+    opacity: 0.4,
+    backgroundColor: '#161b22',
+  },
+  pageBtnText: {
+    color: '#58a6ff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  pageBtnTextDisabled: {
+    color: '#8b949e',
+  },
+  pageInfoText: {
+    color: '#8b949e',
+    fontSize: 12,
+    fontWeight: '600',
   },
   card: {
     backgroundColor: '#161b22',

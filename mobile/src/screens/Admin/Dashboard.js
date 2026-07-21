@@ -108,9 +108,6 @@ export default function AdminDashboard({ user, onLogout }) {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Dashboard Overview</Text>
-        <TouchableOpacity style={styles.syncBtn} onPress={handleRefresh}>
-          <Text style={styles.syncBtnText}>{refreshing ? 'Syncing...' : 'Sync Data 🔄'}</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Stat Cards Grid */}

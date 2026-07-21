@@ -349,7 +349,7 @@ export function deleteSystem(systemId, operatorName = 'Admin') {
 }
 
 // Employee Operations
-export function addEmployee(name, email, password, role, department, ticketLimit = 5, operatorName = 'Admin') {
+export function addEmployee(name, email, password, role, department, ticketLimit = 100, operatorName = 'Admin') {
   const employees = getEmployees();
   const newEmp = {
     id: 'emp_' + Date.now(),

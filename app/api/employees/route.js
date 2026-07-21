@@ -9,15 +9,27 @@ export async function POST(request) {
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Name is required.' }, { status: 400 });
     }
+    if (!email || !email.trim()) {
+      return NextResponse.json({ error: 'Email Address is required.' }, { status: 400 });
+    }
+    if (!password || !password.trim()) {
+      return NextResponse.json({ error: 'Password is required.' }, { status: 400 });
+    }
+    if (!role || !role.trim()) {
+      return NextResponse.json({ error: 'Role is required.' }, { status: 400 });
+    }
+    if (!department || !department.trim()) {
+      return NextResponse.json({ error: 'Department is required.' }, { status: 400 });
+    }
 
     const db = await getDbConnection();
 
     const empId    = 'emp_' + Date.now();
-    const empEmail = (email || '').trim() || (name.split(' ')[0].toLowerCase() + '@devicedesk.com');
-    const empPass  = (password || '').trim() || (name.split(' ')[0].toLowerCase() + '123');
-    const empRole  = (role || 'Team Member').trim();
-    const empDept  = (department || 'General').trim();
-    const empLimit = Number(ticketLimit) || 5;
+    const empEmail = email.trim();
+    const empPass  = password.trim();
+    const empRole  = role.trim();
+    const empDept  = department.trim();
+    const empLimit = Number(ticketLimit) || 100;
 
     // Hash the password with bcrypt (salt rounds = 10) and secret key
     const pepper = process.env.PASSWORD_PEPPER || 'devicedesk_secure_pepper_key_2026';

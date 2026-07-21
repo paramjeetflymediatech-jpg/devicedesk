@@ -48,7 +48,7 @@ export async function POST(request) {
       const rawPass  = (row.password || row['Password'] || row['Pass'] || name.split(' ')[0].toLowerCase() + '123').toString().trim();
       const empRole  = (row.role     || row['Role']     || 'Team Member').toString().trim();
       const empDept  = (row.department || row['Department'] || row['Dept'] || 'General').toString().trim();
-      const empLimit = Number(row.ticketLimit || row['Ticket Limit'] || row['ticketlimit'] || 5);
+      const empLimit = Number(row.ticketLimit || row['Ticket Limit'] || row['ticketlimit'] || 100);
 
       // Auto-create department if it does not exist
       if (empDept && !existingDepts.has(empDept.toLowerCase())) {

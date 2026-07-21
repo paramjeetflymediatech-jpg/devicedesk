@@ -399,11 +399,12 @@ export default function EmployeeDashboard() {
   const currentTickets = filteredTickets.slice(indexOfFirstTicket, indexOfLastTicket);
   const totalPages = Math.ceil(filteredTickets.length / ticketsPerPage);
 
-  // Issue raising limits
+  // Issue raising limits (ticket limit applies to active unresolved issues: Open / In Progress)
   const totalRaised = employeeTickets.length;
-  const ticketLimit = empDetails.ticketLimit || 5;
-  const remainingTickets = Math.max(0, ticketLimit - totalRaised);
-  const isLimitReached = totalRaised >= ticketLimit;
+  const activeUnresolved = employeeTickets.filter(t => t.status !== 'Resolved').length;
+  const ticketLimit = empDetails.ticketLimit || 10;
+  const remainingTickets = Math.max(0, ticketLimit - activeUnresolved);
+  const isLimitReached = activeUnresolved >= ticketLimit;
 
   const handleRaiseComplaint = (e) => {
     e.preventDefault();

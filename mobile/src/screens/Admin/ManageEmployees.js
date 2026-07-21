@@ -42,7 +42,7 @@ export default function ManageEmployees({ currentUser }) {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Team Member');
   const [department, setDepartment] = useState('Operations');
-  const [ticketLimit, setTicketLimit] = useState('5');
+  const [ticketLimit, setTicketLimit] = useState('100');
 
   const refreshData = () => {
     setEmployees(getEmployees());
@@ -230,7 +230,23 @@ export default function ManageEmployees({ currentUser }) {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      sweetAlert({ title: 'Error', text: 'Please enter a name.', type: 'error' });
+      sweetAlert({ title: 'Error', text: 'Full Name is required.', type: 'error' });
+      return;
+    }
+    if (!email.trim()) {
+      sweetAlert({ title: 'Error', text: 'Email Address is required.', type: 'error' });
+      return;
+    }
+    if (!password.trim()) {
+      sweetAlert({ title: 'Error', text: 'Password is required.', type: 'error' });
+      return;
+    }
+    if (!role || !role.trim()) {
+      sweetAlert({ title: 'Error', text: 'Role is required.', type: 'error' });
+      return;
+    }
+    if (!department || !department.trim()) {
+      sweetAlert({ title: 'Error', text: 'Department is required.', type: 'error' });
       return;
     }
 
@@ -248,8 +264,8 @@ export default function ManageEmployees({ currentUser }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          email: email.trim() || null,
-          password: password.trim() || null,
+          email: email.trim(),
+          password: password.trim(),
           role,
           department,
           ticketLimit: limit,
@@ -460,22 +476,22 @@ export default function ManageEmployees({ currentUser }) {
                 placeholderTextColor="#666"
               />
 
-              <Text style={styles.label}>Email Address (Optional)</Text>
+              <Text style={styles.label}>Email Address *</Text>
               <TextInput
                 style={styles.input}
                 value={email}
                 onChangeText={setEmail}
-                placeholder="Auto-generated if empty"
+                placeholder="e.g. sarabjot@example.com"
                 placeholderTextColor="#666"
                 autoCapitalize="none"
               />
 
-              <Text style={styles.label}>Password (Optional)</Text>
+              <Text style={styles.label}>Password *</Text>
               <TextInput
                 style={styles.input}
                 value={password}
                 onChangeText={setPassword}
-                placeholder="Auto-generated if empty"
+                placeholder="e.g. password123"
                 placeholderTextColor="#666"
                 secureTextEntry
               />
@@ -520,7 +536,7 @@ export default function ManageEmployees({ currentUser }) {
                 value={ticketLimit}
                 onChangeText={setTicketLimit}
                 keyboardType="numeric"
-                placeholder="5"
+                placeholder="100"
                 placeholderTextColor="#666"
               />
 

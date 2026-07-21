@@ -150,7 +150,7 @@ export default function Home() {
   const [newEmpPassword, setNewEmpPassword] = useState("");
   const [newEmpRole, setNewEmpRole] = useState("Team Member");
   const [newEmpDept, setNewEmpDept] = useState("");
-  const [newEmpLimit, setNewEmpLimit] = useState(5);
+  const [newEmpLimit, setNewEmpLimit] = useState(100);
 
   // Departments CRUD States
   const [newDeptName, setNewDeptName] = useState("");
@@ -166,7 +166,7 @@ export default function Home() {
   });
   const [showEditEmpModal, setShowEditEmpModal] = useState(false);
   const [editingEmp, setEditingEmp] = useState({
-    id: "", name: "", email: "", role: "Team Member", department: "", ticketLimit: 5
+    id: "", name: "", email: "", role: "Team Member", department: "", ticketLimit: 100
   });
   const [assigningEmp, setAssigningEmp] = useState({ id: "", name: "" });
   const [assigningSysId, setAssigningSysId] = useState("");
@@ -4389,11 +4389,9 @@ export default function Home() {
                 className="form-control" 
                 value={newEmpEmail}
                 onChange={(e) => setNewEmpEmail(e.target.value)}
-                placeholder="e.g. sarabjot@example.com (Optional)" 
+                placeholder="e.g. sarabjot@example.com" 
+                required
               />
-              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                Leave blank to auto-generate: first name in lowercase + '@devicedesk.com'
-              </span>
             </div>
             
             <div className="form-group">
@@ -4403,11 +4401,9 @@ export default function Home() {
                 className="form-control" 
                 value={newEmpPassword}
                 onChange={(e) => setNewEmpPassword(e.target.value)}
-                placeholder="e.g. password123 (Optional)" 
+                placeholder="e.g. password123" 
+                required
               />
-              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                Leave blank to auto-generate: first name in lowercase + '123'
-              </span>
             </div>
 
             <div className="form-group">
@@ -4443,9 +4439,9 @@ export default function Home() {
                 type="number" 
                 className="form-control" 
                 value={newEmpLimit}
-                onChange={(e) => setNewEmpLimit(parseInt(e.target.value) || 5)}
+                onChange={(e) => setNewEmpLimit(parseInt(e.target.value) || 100)}
                 min="1"
-                max="999"
+                max="99999"
                 required 
               />
             </div>
@@ -4523,9 +4519,9 @@ export default function Home() {
                 type="number" 
                 className="form-control" 
                 value={editingEmp.ticketLimit}
-                onChange={(e) => setEditingEmp({ ...editingEmp, ticketLimit: parseInt(e.target.value) || 5 })}
+                onChange={(e) => setEditingEmp({ ...editingEmp, ticketLimit: parseInt(e.target.value) || 100 })}
                 min="1"
-                max="999"
+                max="99999"
                 required 
               />
             </div>
