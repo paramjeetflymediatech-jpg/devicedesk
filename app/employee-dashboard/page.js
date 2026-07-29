@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../auth/AuthContext";
@@ -17,12 +17,61 @@ import {
   deleteTask,
   startTask,
   stopTask,
-  completeTask
+  completeTask,
+  isSoundEnabled
 } from "../store";
 
 export default function EmployeeDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
+
+  const audioCtxRef = useRef(null);
+  const [soundOn, setSoundOn] = useState(true);
+
+  useEffect(() => {
+    setSoundOn(isSoundEnabled());
+
+    const enableAudio = () => {
+      initAudio();
+    };
+    window.addEventListener('click', enableAudio, { once: true });
+    return () => {
+      window.removeEventListener('click', enableAudio);
+    };
+  }, []);
+
+  const initAudio = () => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume();
+    }
+    return audioCtxRef.current;
+  };
+
+  const playBeep = (frequency = 800, duration = 0.15, type = "sine") => {
+    if (!soundOn) return;
+    try {
+      const ctx = initAudio();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = type;
+      osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+      
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch (e) {
+      console.warn("Audio Context blocked or not ready:", e);
+    }
+  };
 
   // Redirect if not authenticated or not an employee
   useEffect(() => {
