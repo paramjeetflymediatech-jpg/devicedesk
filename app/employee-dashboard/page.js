@@ -20,6 +20,7 @@ import {
   completeTask,
   isSoundEnabled
 } from "../store";
+import ChatView from "../components/ChatView.js";
 
 export default function EmployeeDashboard() {
   const router = useRouter();
@@ -97,6 +98,24 @@ export default function EmployeeDashboard() {
       localStorage.setItem("devicedesk_employee_view", currentView);
     }
   }, [currentView]);
+
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("devicedesk_unread_chat_count");
+      if (stored) setUnreadChatCount(Number(stored));
+
+      const handleUnreadChange = (e) => {
+        setUnreadChatCount(Number(e.detail || 0));
+      };
+
+      window.addEventListener("devicedesk_unread_chat_changed", handleUnreadChange);
+      return () => {
+        window.removeEventListener("devicedesk_unread_chat_changed", handleUnreadChange);
+      };
+    }
+  }, []);
   const [systems, setSystems] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -120,6 +139,10 @@ export default function EmployeeDashboard() {
   const [editTaskDesc, setEditTaskDesc] = useState("");
   const [editTaskStatus, setEditTaskStatus] = useState("Pending");
   const [showEditTaskModal, setShowEditTaskModal] = useState(false);
+  
+  const [selectedTaskDetails, setSelectedTaskDetails] = useState(null);
+  const [showTaskDetailsModal, setShowTaskDetailsModal] = useState(false);
+  const [previewMediaUrl, setPreviewMediaUrl] = useState(null);
   
   useEffect(() => {
     const timer = setInterval(() => {
@@ -455,6 +478,343 @@ export default function EmployeeDashboard() {
   const remainingTickets = Math.max(0, ticketLimit - activeUnresolved);
   const isLimitReached = activeUnresolved >= ticketLimit;
 
+  const renderProfileAvatar = (emp, size = "60px") => {
+    if (emp?.avatarUrl) {
+      return (
+        <img
+          src={emp.avatarUrl}
+          alt={emp.name || "User"}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: "50%",
+            objectFit: "cover",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+          }}
+        />
+      );
+    }
+    // Fallback: initials + gradient
+    const getInitials = (n) => {
+      if (!n) return "?";
+      const parts = n.trim().split(" ");
+      if (parts.length >= 2) {
+        return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+      }
+      return n.charAt(0).toUpperCase();
+    };
+
+    const getGradient = (n) => {
+      const colors = [
+        "linear-gradient(135deg, #4f46e5, #06b6d4)",
+        "linear-gradient(135deg, #7c3aed, #ec4899)",
+        "linear-gradient(135deg, #f59e0b, #e11d48)",
+        "linear-gradient(135deg, #10b981, #059669)",
+        "linear-gradient(135deg, #3b82f6, #1d4ed8)"
+      ];
+      let hash = 0;
+      for (let i = 0; i < (n || "").length; i++) {
+        hash = (n || "").charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return colors[Math.abs(hash) % colors.length];
+    };
+
+    return (
+      <div style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: getGradient(emp?.name || ""),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: "700",
+        fontSize: size === "24px" || size === "28px" ? "0.7rem" : "1.4rem",
+        color: "#fff",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+      }}>
+        {getInitials(emp?.name || "")}
+      </div>
+    );
+  };
+
+  const cropAndUploadImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          Swal.fire({
+            title: "Adjust Profile Picture",
+            html: `
+              <div style="display:flex; flex-direction:column; align-items:center; gap:12px; margin: 10px 0;">
+                <div style="position:relative; width:180px; height:180px; border-radius:50%; overflow:hidden; border:3px solid var(--accent-cyan); background:#000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                  <canvas id="crop-canvas" width="180" height="180" style="cursor:move; display:block;"></canvas>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; width:100%; max-width:200px; margin-top:8px;">
+                  <span style="font-size:12px;">➖</span>
+                  <input type="range" id="crop-zoom" min="1" max="4" step="0.05" value="1" style="flex-grow:1; accent-color:var(--accent-cyan); cursor:pointer;" />
+                  <span style="font-size:12px;">➕</span>
+                </div>
+                <p style="font-size:0.75rem; color:var(--text-secondary); margin:0;">Drag to adjust position • Use slider to zoom</p>
+              </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: "Apply & Upload",
+            cancelButtonText: "Cancel",
+            confirmButtonColor: "var(--accent-cyan)",
+            cancelButtonColor: "#6e7881",
+            background: "#161b22",
+            color: "#f0f6fc",
+            didOpen: (popup) => {
+              const canvas = popup.querySelector("#crop-canvas");
+              const ctx = canvas.getContext("2d");
+              const zoomInput = popup.querySelector("#crop-zoom");
+
+              let zoom = 1;
+              let offsetX = 0;
+              let offsetY = 0;
+              let isDragging = false;
+              let startX = 0;
+              let startY = 0;
+
+              const draw = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const minScale = Math.max(canvas.width / img.width, canvas.height / img.height);
+                const scale = minScale * zoom;
+                const w = img.width * scale;
+                const h = img.height * scale;
+                const x = (canvas.width - w) / 2 + offsetX;
+                const y = (canvas.height - h) / 2 + offsetY;
+                ctx.drawImage(img, x, y, w, h);
+              };
+
+              draw();
+
+              zoomInput.oninput = (e) => {
+                zoom = parseFloat(e.target.value);
+                draw();
+              };
+
+              canvas.onmousedown = (e) => {
+                isDragging = true;
+                startX = e.clientX - offsetX;
+                startY = e.clientY - offsetY;
+              };
+
+              window.onmousemove = (e) => {
+                if (!isDragging) return;
+                offsetX = e.clientX - startX;
+                offsetY = e.clientY - startY;
+                draw();
+              };
+
+              window.onmouseup = () => {
+                isDragging = false;
+              };
+
+              canvas.ontouchstart = (e) => {
+                isDragging = true;
+                const touch = e.touches[0];
+                startX = touch.clientX - offsetX;
+                startY = touch.clientY - offsetY;
+              };
+
+              canvas.ontouchmove = (e) => {
+                if (!isDragging) return;
+                const touch = e.touches[0];
+                offsetX = touch.clientX - startX;
+                offsetY = touch.clientY - startY;
+                draw();
+              };
+
+              canvas.ontouchend = () => {
+                isDragging = false;
+              };
+            },
+            preConfirm: () => {
+              const canvas = document.getElementById("crop-canvas");
+              return new Promise((res) => {
+                canvas.toBlob((blob) => {
+                  res(blob);
+                }, "image/jpeg", 0.9);
+              });
+            }
+          }).then((result) => {
+            if (result.isConfirmed && result.value) {
+              resolve(result.value);
+            } else {
+              reject(new Error("Cancelled"));
+            }
+          });
+        };
+        img.src = event.target.result;
+      };
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleProfilePictureUpload = async () => {
+    const hasAvatar = !!empDetails?.avatarUrl;
+
+    if (hasAvatar) {
+      const choice = await Swal.fire({
+        title: "Profile Picture Options",
+        text: "Would you like to upload a new photo or remove the current one?",
+        icon: "question",
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: "Upload New",
+        denyButtonText: "Remove Current",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "var(--accent-cyan)",
+        denyButtonColor: "var(--status-critical)",
+        cancelButtonColor: "#6e7881",
+        background: '#161b22',
+        color: '#f0f6fc'
+      });
+
+      if (choice.isDenied) {
+        Swal.fire({
+          title: "Removing...",
+          text: "Please wait.",
+          allowOutsideClick: false,
+          background: '#161b22',
+          color: '#f0f6fc',
+          didOpen: () => { Swal.showLoading(); }
+        });
+        try {
+          const saveRes = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "updateProfilePicture", avatarUrl: null })
+          });
+          const saveData = await saveRes.json();
+          if (saveRes.ok && saveData.success) {
+            Swal.fire({
+              icon: "success",
+              title: "Success",
+              text: "Profile picture removed successfully!",
+              background: '#161b22',
+              color: '#f0f6fc'
+            });
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("devicedesk_db_synced"));
+            }
+            refreshData();
+          } else {
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: saveData.error || "Failed to remove profile picture",
+              background: '#161b22',
+              color: '#f0f6fc'
+            });
+          }
+        } catch (err) {
+          console.error("Remove profile picture error:", err);
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "Network error. Failed to remove profile picture.",
+            background: '#161b22',
+            color: '#f0f6fc'
+          });
+        }
+        return;
+      }
+
+      if (!choice.isConfirmed) {
+        return;
+      }
+    }
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const croppedBlob = await cropAndUploadImage(file);
+
+        Swal.fire({
+          title: "Uploading...",
+          text: "Please wait while we upload your profile picture.",
+          allowOutsideClick: false,
+          background: '#161b22',
+          color: '#f0f6fc',
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        const formData = new FormData();
+        formData.append("file", croppedBlob, "profile.jpg");
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData
+        });
+
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok || !uploadData.success) {
+          throw new Error(uploadData.error || "Upload failed");
+        }
+
+        const avatarUrl = uploadData.fileUrls[0];
+
+        const saveRes = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "updateProfilePicture",
+            avatarUrl
+          })
+        });
+
+        const saveData = await saveRes.json();
+        if (saveRes.ok && saveData.success) {
+          Swal.fire({
+            icon: "success",
+            title: "Success",
+            text: "Profile picture updated successfully!",
+            background: '#161b22',
+            color: '#f0f6fc'
+          });
+
+          if (typeof window !== "undefined") {
+            const event = new CustomEvent("devicedesk_db_synced");
+            window.dispatchEvent(event);
+          }
+          refreshData();
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: saveData.error || "Failed to save profile picture to database",
+            background: '#161b22',
+            color: '#f0f6fc'
+          });
+        }
+      } catch (err) {
+        if (err.message !== "Cancelled") {
+          console.error("Profile picture upload error:", err);
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: err.message || "Failed to upload profile picture.",
+            background: '#161b22',
+            color: '#f0f6fc'
+          });
+        }
+      }
+    };
+    input.click();
+  };
+
   const handleRaiseComplaint = (e) => {
     e.preventDefault();
     setFormError("");
@@ -506,6 +866,24 @@ export default function EmployeeDashboard() {
             <li className={`nav-item ${currentView === "tasks" ? "active" : ""}`}>
               <button onClick={() => setCurrentView("tasks")}><span className="nav-icon">📅</span> Task Board</button>
             </li>
+            <li className={`nav-item ${currentView === "chat" ? "active" : ""}`}>
+              <button onClick={() => setCurrentView("chat")}>
+                <span className="nav-icon">💬</span> Chat Workspace
+                {unreadChatCount > 0 && (
+                  <span style={{
+                    background: "var(--status-critical)",
+                    color: "#fff",
+                    borderRadius: "50%",
+                    padding: "2px 6px",
+                    fontSize: "0.7rem",
+                    fontWeight: "700",
+                    marginLeft: "8px"
+                  }}>
+                    {unreadChatCount}
+                  </span>
+                )}
+              </button>
+            </li>
             <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
               <button onClick={() => setCurrentView("profile")}><span className="nav-icon">👤</span> My Profile</button>
             </li>
@@ -544,6 +922,26 @@ export default function EmployeeDashboard() {
           <button className={`mobile-drawer-item ${currentView === "tasks" ? "active" : ""}`}
             onClick={() => { setCurrentView("tasks"); setMobileMenuOpen(false); }}>
             <span>📅</span> Task Board
+          </button>
+          <button className={`mobile-drawer-item ${currentView === "chat" ? "active" : ""}`}
+            onClick={() => { setCurrentView("chat"); setMobileMenuOpen(false); }}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>💬</span> Chat Workspace
+            </span>
+            {unreadChatCount > 0 && (
+              <span style={{
+                background: "var(--status-critical)",
+                color: "#fff",
+                borderRadius: "50%",
+                padding: "2px 6px",
+                fontSize: "0.7rem",
+                fontWeight: "700"
+              }}>
+                {unreadChatCount}
+              </span>
+            )}
           </button>
           <button className={`mobile-drawer-item ${currentView === "profile" ? "active" : ""}`}
             onClick={() => { setCurrentView("profile"); setMobileMenuOpen(false); }}>
@@ -597,20 +995,7 @@ export default function EmployeeDashboard() {
                   transition: "all 0.2s ease"
                 }}
               >
-                <div style={{
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "50%",
-                  background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "0.75rem",
-                  fontWeight: "bold",
-                  color: "#fff"
-                }}>
-                  {empDetails?.name ? empDetails.name.charAt(0).toUpperCase() : "E"}
-                </div>
+                {renderProfileAvatar(empDetails, "24px")}
                 <span style={{ fontSize: "0.8rem", color: "var(--text-primary)", fontWeight: "600" }}>
                   {empDetails?.name}
                 </span>
@@ -679,8 +1064,15 @@ export default function EmployeeDashboard() {
         </header>
 
         {/* Page Container */}
-        <div className="page-container emp-container">
+        <div className="page-container emp-container" style={{ overflowY: currentView === "chat" ? "hidden" : "auto" }}>
           
+          {/* VIEW: CHAT WORKSPACE */}
+          {currentView === "chat" && (
+            <div className="page-section active" style={{ height: "calc(100vh - 150px)", padding: 0 }}>
+              <ChatView user={user} />
+            </div>
+          )}
+
           {/* VIEW: TASK BOARD */}
           {currentView === "tasks" && (
             <div className="container-card fade-in">
@@ -728,6 +1120,7 @@ export default function EmployeeDashboard() {
                       <tbody>
                         {tasks
                           .filter(t => t.assignedTo === user.id)
+                          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
                           .map(t => {
                             let displayDuration = t.totalDuration || 0;
                             if (t.status === 'In Progress' && t.startedAt) {
@@ -797,6 +1190,23 @@ export default function EmployeeDashboard() {
                                         </button>
                                       </>
                                     )}
+                                    <button
+                                      className="btn-secondary"
+                                      style={{
+                                        padding: "4px 8px",
+                                        fontSize: "0.75rem",
+                                        fontWeight: "500",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "4px"
+                                      }}
+                                      onClick={() => {
+                                        setSelectedTaskDetails(t);
+                                        setShowTaskDetailsModal(true);
+                                      }}
+                                    >
+                                      👁️ View
+                                    </button>
                                     {t.status === 'Completed' && (
                                       <span style={{ color: "var(--text-muted)", fontSize: "0.8rem", fontStyle: "italic" }}>
                                         Done at {t.completedAt ? new Date(t.completedAt).toLocaleTimeString() : 'N/A'}
@@ -880,19 +1290,30 @@ export default function EmployeeDashboard() {
                   padding: "1.5rem"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
-                    <div style={{
-                      width: "60px",
-                      height: "60px",
-                      borderRadius: "50%",
-                      background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "1.5rem",
-                      fontWeight: "700",
-                      color: "#000"
-                    }}>
-                      {empDetails.name ? empDetails.name.charAt(0).toUpperCase() : "U"}
+                    <div 
+                      onClick={handleProfilePictureUpload}
+                      style={{ position: "relative", cursor: "pointer" }}
+                      title="Change Profile Picture"
+                    >
+                      {renderProfileAvatar(empDetails, "60px")}
+                      <div style={{
+                        position: "absolute",
+                        bottom: -2,
+                        right: -2,
+                        background: "var(--accent-cyan)",
+                        borderRadius: "50%",
+                        width: "18px",
+                        height: "18px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "9px",
+                        color: "#000",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
+                        border: "2px solid var(--bg-tertiary)"
+                      }}>
+                        📷
+                      </div>
                     </div>
                     <div>
                       <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: "700" }}>{empDetails.name}</h3>
@@ -1718,6 +2139,303 @@ export default function EmployeeDashboard() {
                 Yes, delete it!
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TASK DETAILS MODAL FOR EMPLOYEE DASHBOARD */}
+      <div className={`modal-overlay ${showTaskDetailsModal ? "active" : ""}`} style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.75)",
+        backdropFilter: "blur(6px)",
+        zIndex: 99999,
+        display: showTaskDetailsModal ? "flex" : "none",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px"
+      }}>
+        <div className="modal-content" style={{ 
+          maxWidth: "850px", 
+          width: "100%", 
+          maxHeight: "90vh", 
+          overflow: "hidden", 
+          display: "flex", 
+          flexDirection: "column",
+          borderRadius: "16px",
+          background: "var(--bg-tertiary)",
+          border: "1px solid var(--glass-border)",
+          boxShadow: "0 20px 50px rgba(0,0,0,0.5)"
+        }}>
+          <div className="modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.2rem 1.5rem", borderBottom: "1px solid var(--glass-border)" }}>
+            <h3 style={{ margin: 0, fontSize: "1.25rem", color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: "8px" }}>
+              📋 Task Details & Proof Attachments
+            </h3>
+            <button 
+              className="modal-close" 
+              onClick={() => { setShowTaskDetailsModal(false); setSelectedTaskDetails(null); }}
+              style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "1.5rem", cursor: "pointer" }}
+            >
+              &times;
+            </button>
+          </div>
+          
+          {selectedTaskDetails && (
+            <div className="modal-body" style={{ flexGrow: 1, overflowY: "auto", padding: "1.5rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem", background: "rgba(255,255,255,0.02)", padding: "1rem", borderRadius: "10px", border: "1px solid var(--glass-border)" }}>
+                <div>
+                  <label style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Title</label>
+                  <p style={{ margin: "2px 0 0 0", fontWeight: "600", fontSize: "1rem" }}>{selectedTaskDetails.title}</p>
+                </div>
+                <div>
+                  <label style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Status</label>
+                  <div>
+                    <span className={`status-badge badge-${selectedTaskDetails.status === 'In Progress' ? 'progress' : (selectedTaskDetails.status === 'Completed' ? 'resolved' : 'open')}`}>
+                      {selectedTaskDetails.status}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ gridColumn: "span 2" }}>
+                  <label style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Description</label>
+                  <p style={{ margin: "2px 0 0 0", fontSize: "0.9rem", color: "var(--text-secondary)", whiteSpace: "pre-wrap" }}>
+                    {selectedTaskDetails.description || "No description provided."}
+                  </p>
+                </div>
+              </div>
+
+              <h4 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "var(--text-primary)" }}>📁 Task Attachments & Proofs</h4>
+              {selectedTaskDetails.fileUrl ? (() => {
+                let urls = [];
+                try {
+                  if (selectedTaskDetails.fileUrl.startsWith('[')) {
+                    urls = JSON.parse(selectedTaskDetails.fileUrl);
+                  } else {
+                    urls = [selectedTaskDetails.fileUrl];
+                  }
+                } catch (e) {
+                  urls = [selectedTaskDetails.fileUrl];
+                }
+
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {urls.map((url, idx) => {
+                      const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(url);
+                      const isVideo = /\.(mp4|webm|ogg|mov|mkv|avi|m4v|3gp)$/i.test(url);
+                      const isAudio = /\.(mp3|wav|ogg|m4a|aac)$/i.test(url);
+                      const isPdf = /\.pdf$/i.test(url);
+
+                      return (
+                        <div key={idx} style={{ border: "1px solid var(--glass-border)", borderRadius: "10px", padding: "14px", background: "rgba(255,255,255,0.01)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                            <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "600" }}>
+                              {isVideo ? "🎥 Video Attachment" : isImage ? "🖼️ Image Attachment" : isAudio ? "🎙️ Audio Attachment" : "📄 File Attachment"} #{idx + 1}
+                            </span>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <button 
+                                onClick={() => setPreviewMediaUrl(url)}
+                                className="btn-primary"
+                                style={{ padding: "4px 10px", fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
+                              >
+                                👁️ View Fullscreen
+                              </button>
+                              <a 
+                                href={url} 
+                                download
+                                className="btn-secondary"
+                                style={{ padding: "4px 10px", fontSize: "0.75rem", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px" }}
+                              >
+                                📥 Download
+                              </a>
+                            </div>
+                          </div>
+
+                          {isImage ? (
+                            <div 
+                              style={{ display: "flex", justifyContent: "center", background: "rgba(0,0,0,0.3)", borderRadius: "8px", padding: "8px", cursor: "pointer" }}
+                              onClick={() => setPreviewMediaUrl(url)}
+                              title="Click to view fullscreen"
+                            >
+                              <img src={url} alt={`Attachment ${idx + 1}`} style={{ maxWidth: "100%", maxHeight: "400px", borderRadius: "6px", objectFit: "contain" }} />
+                            </div>
+                          ) : isVideo ? (
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(0,0,0,0.4)", borderRadius: "8px", padding: "8px" }}>
+                              <video src={url} controls preload="metadata" style={{ width: "100%", maxHeight: "400px", borderRadius: "6px", background: "#000" }} />
+                            </div>
+                          ) : isAudio ? (
+                            <div style={{ padding: "10px", background: "rgba(255,255,255,0.02)", borderRadius: "6px" }}>
+                              <audio controls src={url} style={{ width: "100%" }} />
+                            </div>
+                          ) : (
+                            <div 
+                              style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "rgba(255,255,255,0.02)", borderRadius: "6px", cursor: "pointer" }}
+                              onClick={() => setPreviewMediaUrl(url)}
+                            >
+                              <span style={{ fontSize: "1.8rem" }}>{isPdf ? "📕" : "📄"}</span>
+                              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+                                <span style={{ fontSize: "0.85rem", fontWeight: "500", wordBreak: "break-all" }}>{url.split('/').pop()}</span>
+                                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{isPdf ? "PDF Document — Click to preview" : "Document / File — Click to view"}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })() : (
+                <div style={{ textAlign: "center", padding: "2rem", border: "1px dashed var(--glass-border)", borderRadius: "10px" }}>
+                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.85rem" }}>No attachments uploaded for this task.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="modal-footer" style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--glass-border)", textAlign: "right" }}>
+            <button className="btn-secondary" onClick={() => { setShowTaskDetailsModal(false); setSelectedTaskDetails(null); }}>Close</button>
+          </div>
+        </div>
+      </div>
+
+      {/* IN-PAGE MEDIA LIGHTBOX VIEWER MODAL */}
+      {previewMediaUrl && (
+        <div 
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.88)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            zIndex: 999999,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px"
+          }}
+          onClick={() => setPreviewMediaUrl(null)}
+        >
+          {/* Top Control Bar */}
+          <div 
+            style={{
+              position: "absolute",
+              top: "20px",
+              right: "20px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              zIndex: 1000000
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <a 
+              href={previewMediaUrl} 
+              download
+              className="btn-secondary"
+              style={{
+                background: "rgba(255, 255, 255, 0.15)",
+                color: "#fff",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                textDecoration: "none",
+                fontSize: "0.85rem",
+                fontWeight: "600",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                border: "1px solid rgba(255,255,255,0.2)"
+              }}
+            >
+              📥 Download File
+            </a>
+            <button
+              onClick={() => setPreviewMediaUrl(null)}
+              style={{
+                background: "rgba(255, 255, 255, 0.2)",
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                color: "#fff",
+                fontSize: "1.4rem",
+                width: "40px",
+                height: "40px",
+                borderRadius: "50%",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "background 0.2s"
+              }}
+              title="Close Preview (Esc)"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Media Content Display */}
+          <div 
+            style={{
+              maxWidth: "92vw",
+              maxHeight: "88vh",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden"
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/\.(mp4|webm|ogg|mov|mkv|avi|m4v|3gp)$/i.test(previewMediaUrl) ? (
+              <video 
+                src={previewMediaUrl} 
+                controls 
+                autoPlay
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "85vh",
+                  borderRadius: "12px",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.8)",
+                  outline: "none"
+                }} 
+              />
+            ) : /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(previewMediaUrl) ? (
+              <img 
+                src={previewMediaUrl} 
+                alt="Media Preview" 
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "85vh",
+                  objectFit: "contain",
+                  borderRadius: "12px",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.8)"
+                }} 
+              />
+            ) : /\.pdf$/i.test(previewMediaUrl) ? (
+              <iframe 
+                src={previewMediaUrl} 
+                style={{
+                  width: "82vw",
+                  height: "82vh",
+                  border: "none",
+                  borderRadius: "12px",
+                  background: "#fff"
+                }}
+                title="PDF Document Preview"
+              />
+            ) : (
+              <div style={{ background: "#161b22", padding: "2.5rem", borderRadius: "16px", textAlign: "center", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <span style={{ fontSize: "3.5rem" }}>📄</span>
+                <h4 style={{ margin: "1rem 0 0.5rem 0" }}>File Preview</h4>
+                <p style={{ margin: "0 0 1.5rem 0", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+                  {previewMediaUrl.split('/').pop()}
+                </p>
+                <a href={previewMediaUrl} download className="btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  📥 Download Attachment
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}

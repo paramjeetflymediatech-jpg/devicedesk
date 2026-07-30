@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { getDbConnection } from '../db/db.js';
 
 // Whitelist of allowed extensions for security
-const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'xlsx', 'xls', 'csv', 'doc', 'docx', 'txt', 'mp4', 'webm', 'ogg', 'mov', 'm4v', 'avi', 'mkv'];
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'xlsx', 'xls', 'csv', 'doc', 'docx', 'txt', 'mp4', 'webm', 'ogg', 'mov', 'm4v', 'avi', 'mkv', 'mp3', 'wav', 'm4a', 'aac', 'caf', '3gp', 'amr'];
 
 /**
  * Checks if a filename has a whitelisted safe extension.
@@ -165,5 +165,51 @@ export async function downloadFile(filename) {
     // Local storage fallback
     const localFilePath = join(process.cwd(), 'uploads', safeFilename);
     return await fs.readFile(localFilePath);
+  }
+}
+
+/**
+ * Deletes a file from local disk or remote SFTP storage given its URL or filename.
+ * Silently ignores errors if the file doesn't exist.
+ */
+export async function deleteFile(fileUrlOrName) {
+  if (!fileUrlOrName) return;
+
+  // Extract just the filename from a full URL or path like /api/uploads/xxx or https://host/xxx
+  const safeFilename = basename(fileUrlOrName);
+  if (!safeFilename || !isSafeExtension(safeFilename)) return;
+
+  const provider = process.env.STORAGE_PROVIDER || 'local';
+
+  try {
+    if (provider === 'sftp') {
+      const sftp = new Client();
+      try {
+        const config = await getSftpConfig();
+        await sftp.connect(config);
+
+        const remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
+        const remoteFilePath = remoteDir.endsWith('/')
+          ? `${remoteDir}${safeFilename}`
+          : `${remoteDir}/${safeFilename}`;
+
+        const fileExists = await sftp.exists(remoteFilePath);
+        if (fileExists) {
+          await sftp.delete(remoteFilePath);
+        }
+      } finally {
+        await sftp.end();
+      }
+    } else {
+      const localFilePath = join(process.cwd(), 'uploads', safeFilename);
+      try {
+        await fs.unlink(localFilePath);
+      } catch (e) {
+        if (e.code !== 'ENOENT') throw e; // ignore "file not found"
+      }
+    }
+  } catch (err) {
+    // Non-fatal: log but don't crash the request
+    console.warn(`deleteFile: could not delete "${safeFilename}":`, err.message);
   }
 }

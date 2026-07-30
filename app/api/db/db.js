@@ -5,11 +5,9 @@ import { initialSystems, initialEmployees, initialTickets, initialDepartments } 
 // Coerce undefined → null so MySQL2 doesn't throw "undefined bind param"
 const n = v => (v === undefined ? null : v);
 
-let pool = null;
-
 export function getPool() {
-  if (!pool) {
-    pool = mysql.createPool({
+  if (!global.mysqlPool) {
+    global.mysqlPool = mysql.createPool({
       host:     process.env.DB_HOST || 'localhost',
       port:     parseInt(process.env.DB_PORT || '3306'),
       user:     process.env.DB_USER || 'root',
@@ -20,7 +18,7 @@ export function getPool() {
       queueLimit: 0
     });
   }
-  return pool;
+  return global.mysqlPool;
 }
 
 export async function getDbConnection() {
@@ -107,6 +105,40 @@ export async function getDbConnection() {
   }
 
   try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN avatarUrl VARCHAR(512) DEFAULT NULL`);
+  } catch (err) {
+    // Column already exists, ignore error
+  }
+
+  try {
+    await db.execute(`ALTER TABLE chat_groups ADD COLUMN avatarUrl VARCHAR(512) DEFAULT NULL`);
+  } catch (err) {
+    // Column already exists, ignore error
+  }
+
+  try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN lastSeen DATETIME DEFAULT NULL`);
+  } catch (err) {
+    // Column already exists, ignore error
+  }
+
+  try {
+    await db.execute(`ALTER TABLE chat_messages ADD COLUMN isEdited INT DEFAULT 0`);
+  } catch (err) {}
+
+  try {
+    await db.execute(`ALTER TABLE chat_messages ADD COLUMN editedAt VARCHAR(50) DEFAULT NULL`);
+  } catch (err) {}
+
+  try {
+    await db.execute(`ALTER TABLE chat_messages ADD COLUMN deletedForEveryone INT DEFAULT 0`);
+  } catch (err) {}
+
+  try {
+    await db.execute(`ALTER TABLE chat_messages ADD COLUMN deletedForUsers TEXT DEFAULT NULL`);
+  } catch (err) {}
+
+  try {
     await db.execute(`ALTER TABLE tasks ADD COLUMN fileUrl VARCHAR(512) DEFAULT NULL`);
   } catch (err) {
     // Column already exists, ignore error
@@ -180,6 +212,50 @@ export async function getDbConnection() {
       expiresAt VARCHAR(50) NOT NULL,
       used INT DEFAULT 0
     )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id VARCHAR(100) PRIMARY KEY,
+      senderId VARCHAR(50) NOT NULL,
+      senderName VARCHAR(100) NOT NULL,
+      receiverId VARCHAR(50) NOT NULL,
+      messageType VARCHAR(20) DEFAULT 'text',
+      content TEXT,
+      fileUrl TEXT DEFAULT NULL,
+      fileName VARCHAR(255) DEFAULT NULL,
+      fileSize VARCHAR(50) DEFAULT NULL,
+      timestamp VARCHAR(50) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // Create indexes if they don't exist
+  try {
+    await db.execute(`CREATE INDEX idx_chat_sender ON chat_messages(senderId)`);
+  } catch (err) {}
+  try {
+    await db.execute(`CREATE INDEX idx_chat_receiver ON chat_messages(receiverId)`);
+  } catch (err) {}
+  try {
+    await db.execute(`CREATE INDEX idx_chat_timestamp ON chat_messages(timestamp)`);
+  } catch (err) {}
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS chat_groups (
+      id VARCHAR(100) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      createdBy VARCHAR(50) NOT NULL,
+      createdAt VARCHAR(50) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS chat_group_members (
+      groupId VARCHAR(100) NOT NULL,
+      employeeId VARCHAR(50) NOT NULL,
+      PRIMARY KEY (groupId, employeeId),
+      FOREIGN KEY (groupId) REFERENCES chat_groups(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
   // Check if DB was already seeded

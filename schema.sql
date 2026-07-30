@@ -178,3 +178,38 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   expiresAt VARCHAR(50) NOT NULL,
   used INT DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 10. Chat Messages Table
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id VARCHAR(100) PRIMARY KEY,
+  senderId VARCHAR(50) NOT NULL,
+  senderName VARCHAR(100) NOT NULL,
+  receiverId VARCHAR(50) NOT NULL,
+  messageType VARCHAR(20) DEFAULT 'text',
+  content TEXT,
+  fileUrl TEXT DEFAULT NULL,
+  fileName VARCHAR(255) DEFAULT NULL,
+  fileSize VARCHAR(50) DEFAULT NULL,
+  timestamp VARCHAR(50) NOT NULL,
+  INDEX idx_chat_sender (senderId),
+  INDEX idx_chat_receiver (receiverId),
+  INDEX idx_chat_timestamp (timestamp)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 11. Chat Groups Table
+CREATE TABLE IF NOT EXISTS chat_groups (
+  id VARCHAR(100) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  createdBy VARCHAR(50) NOT NULL,
+  createdAt VARCHAR(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 12. Chat Group Members Table
+CREATE TABLE IF NOT EXISTS chat_group_members (
+  groupId VARCHAR(100) NOT NULL,
+  employeeId VARCHAR(50) NOT NULL,
+  PRIMARY KEY (groupId, employeeId),
+  FOREIGN KEY (groupId) REFERENCES chat_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+

@@ -24,7 +24,7 @@ export class Employee {
         }
 
         await conn.execute(
-          `INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status, avatarUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             e.id || null,
             e.name || null,
@@ -33,7 +33,8 @@ export class Employee {
             e.role || null,
             e.department || null,
             e.ticketLimit || 5,
-            e.status || 'Active'
+            e.status || 'Active',
+            e.avatarUrl || null
           ]
         );
       }
