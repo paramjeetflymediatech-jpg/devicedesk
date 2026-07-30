@@ -37,21 +37,37 @@ export function sanitizeFilename(filename) {
  * Verifies that the requester has a valid, active user account by reading cookies
  * and verifying against the database.
  */
-export async function checkAuth() {
+export async function checkAuth(req) {
   try {
-    const cookieStore = await cookies();
-    const authCookie = cookieStore.get('devicedesk_auth_user');
-    if (!authCookie || !authCookie.value) {
+    let userId = null;
+
+    // 1. Try reading cookie (Web App)
+    try {
+      const cookieStore = await cookies();
+      const authCookie = cookieStore.get('devicedesk_auth_user');
+      if (authCookie && authCookie.value) {
+        const parsed = JSON.parse(decodeURIComponent(authCookie.value));
+        userId = parsed?.id || null;
+      }
+    } catch (e) {}
+
+    // 2. Try reading x-user-id header (Mobile App)
+    if (!userId && req) {
+      if (typeof req.headers?.get === 'function') {
+        userId = req.headers.get('x-user-id') || req.headers.get('authorization');
+      } else if (req.headers) {
+        userId = req.headers['x-user-id'] || req.headers['authorization'];
+      }
+    }
+
+    if (!userId) {
       return null;
     }
-    const user = JSON.parse(decodeURIComponent(authCookie.value));
-    if (!user || !user.id) {
-      return null;
-    }
+
     const db = await getDbConnection();
     const [rows] = await db.execute(
       'SELECT id, name, email, role, status FROM employees WHERE id = ? LIMIT 1',
-      [user.id]
+      [userId]
     );
     if (rows.length === 0 || rows[0].status !== 'Active') {
       return null;

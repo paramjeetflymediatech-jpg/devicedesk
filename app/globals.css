@@ -1565,9 +1565,62 @@ textarea.form-control {
   border-bottom: none;
 }
 
-.searchable-select-item:hover {
-  background: rgba(0, 240, 255, 0.08);
-  color: var(--accent-cyan);
+/* ── Device Desk & Audit Logs Small-Screen Responsiveness ── */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 0.75rem !important;
+  }
+  
+  .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table th, 
+  .data-table td {
+    padding: 8px 10px !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap;
+  }
+
+  .system-spec-badge {
+    font-size: 0.75rem !important;
+    padding: 3px 8px !important;
+  }
+
+  .history-log-card,
+  .audit-log-item {
+    padding: 10px !important;
+    font-size: 0.8rem !important;
+  }
 }
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 1.25rem !important;
+  }
+
+  .stat-card {
+    padding: 0.75rem !important;
+  }
+
+  .stat-value {
+    font-size: 1.1rem !important;
+  }
+
+  .data-table th, 
+  .data-table td {
+    padding: 6px 8px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .filter-row,
+  .action-bar-responsive {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+}
+
 
 

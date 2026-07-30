@@ -20,6 +20,7 @@ import ManageTickets from './ManageTickets';
 import ManageHistory from './ManageHistory';
 import ManageDepartments from './ManageDepartments';
 import ManageTasks from './ManageTasks';
+import ChatScreen from '../ChatScreen';
 
 const SEVERITY_COLOR = {
   Critical: '#f85149',
@@ -222,6 +223,8 @@ export default function AdminDashboard({ user, onLogout }) {
         return <ManageDepartments currentUser={user} />;
       case 'tasks':
         return <ManageTasks currentUser={user} />;
+      case 'chat':
+        return <ChatScreen user={user} onBack={() => setActiveTab('overview')} />;
       case 'profile':
         return renderProfile();
       case 'overview':
@@ -477,6 +480,16 @@ export default function AdminDashboard({ user, onLogout }) {
           <Text style={styles.tabIcon}>🎫</Text>
           <Text style={[styles.tabLabel, activeTab === 'tickets' && styles.tabLabelActive]}>
             Tickets
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
+          onPress={() => setActiveTab('chat')}
+        >
+          <Text style={styles.tabIcon}>💬</Text>
+          <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>
+            Chat
           </Text>
         </TouchableOpacity>
 

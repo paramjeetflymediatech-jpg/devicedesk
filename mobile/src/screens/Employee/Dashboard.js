@@ -24,6 +24,7 @@ import {
 import { sweetAlert } from '../../utils/sweetAlert';
 import { playTicketSound } from '../../utils/sound';
 import EmployeeTasks from './EmployeeTasks';
+import ChatScreen from '../ChatScreen';
 
 export default function EmployeeDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records, profile
@@ -154,6 +155,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
     switch (activeTab) {
       case 'tasks':
         return <EmployeeTasks currentUser={user} />;
+      case 'chat':
+        return <ChatScreen user={user} onBack={() => setActiveTab('overview')} />;
       case 'file-complaint':
         return (
           <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -685,6 +688,16 @@ export default function EmployeeDashboard({ user, onLogout }) {
           <Text style={styles.tabIcon}>📅</Text>
           <Text style={[styles.tabLabel, activeTab === 'tasks' && styles.tabLabelActive]}>
             My Tasks
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
+          onPress={() => setActiveTab('chat')}
+        >
+          <Text style={styles.tabIcon}>💬</Text>
+          <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>
+            Chat
           </Text>
         </TouchableOpacity>
       </View>

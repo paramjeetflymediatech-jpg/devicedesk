@@ -3,9 +3,9 @@ import { getDbConnection } from '../db/db.js';
 import { checkAuth, deleteFile } from '../utils/storageManager.js';
 import { ChatMessage } from '../db/models/ChatMessage.js';
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const user = await checkAuth();
+    const user = await checkAuth(request);
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
@@ -41,7 +41,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const user = await checkAuth();
+    const user = await checkAuth(request);
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
