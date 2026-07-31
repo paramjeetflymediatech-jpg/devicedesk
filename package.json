@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NEXT_DISABLE_NATIVE_SWC=1 next dev --webpack",
+    "dev": "cross-env NEXT_DISABLE_NATIVE_SWC=1 next dev --webpack",
+    "migrate": "node scripts/migrate.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
-    "@next/swc-darwin-arm64": "^16.2.10",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "firebase-admin": "^14.2.0",
@@ -18,6 +18,7 @@
     "nodemailer": "^9.0.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-icons": "^5.7.0",
     "recharts": "^3.9.2",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
@@ -26,6 +27,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.10"
   }

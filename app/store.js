@@ -64,7 +64,10 @@ export async function syncWithServer() {
     // Dispatch global event so active client components refresh their state
     window.dispatchEvent(new CustomEvent('devicedesk_db_synced'));
   } catch (err) {
-    console.error('Failed to sync database with server:', err);
+    // Gracefully handle dev server reloads or transient network drops
+    if (typeof window !== 'undefined' && console && console.warn) {
+      console.warn('DB sync poll deferred (network offline or server reloading).');
+    }
   }
 }
 

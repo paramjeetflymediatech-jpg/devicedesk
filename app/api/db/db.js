@@ -11,7 +11,7 @@ export function getPool() {
       host:     process.env.DB_HOST || 'localhost',
       port:     parseInt(process.env.DB_PORT || '3306'),
       user:     process.env.DB_USER || 'root',
-      password: process.env.DB_PASS || 'Root@123',
+      password: process.env.DB_PASS || 'root',
       database: process.env.DB_NAME || 'system_tracking',
       waitForConnections: true,
       connectionLimit: 10,
@@ -255,6 +255,42 @@ export async function getDbConnection() {
       employeeId VARCHAR(50) NOT NULL,
       PRIMARY KEY (groupId, employeeId),
       FOREIGN KEY (groupId) REFERENCES chat_groups(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS attendance_records (
+      id VARCHAR(100) PRIMARY KEY,
+      employeeId VARCHAR(50) NOT NULL,
+      employeeName VARCHAR(100) NOT NULL,
+      date VARCHAR(20) NOT NULL,
+      punchInTime VARCHAR(50) NOT NULL,
+      punchOutTime VARCHAR(50) DEFAULT NULL,
+      status VARCHAR(50) DEFAULT 'Present',
+      totalWorkMinutes INT DEFAULT 0,
+      totalBreakMinutes INT DEFAULT 0,
+      netWorkMinutes INT DEFAULT 0,
+      ipAddress VARCHAR(45) DEFAULT NULL,
+      deviceInfo VARCHAR(255) DEFAULT NULL,
+      remarks TEXT DEFAULT NULL,
+      breakStatus VARCHAR(20) DEFAULT 'None',
+      modifiedBy VARCHAR(100) DEFAULT NULL,
+      modifiedReason TEXT DEFAULT NULL,
+      UNIQUE KEY uk_emp_date (employeeId, date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS attendance_breaks (
+      id VARCHAR(100) PRIMARY KEY,
+      attendanceId VARCHAR(100) NOT NULL,
+      employeeId VARCHAR(50) NOT NULL,
+      breakType VARCHAR(50) DEFAULT 'Tea Break',
+      startTime VARCHAR(50) NOT NULL,
+      endTime VARCHAR(50) DEFAULT NULL,
+      durationMinutes INT DEFAULT 0,
+      INDEX idx_att_id (attendanceId),
+      INDEX idx_emp_id (employeeId)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -11,6 +12,8 @@ function ResetPasswordForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
   const [tokenValid, setTokenValid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -142,30 +145,78 @@ function ResetPasswordForm() {
         <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.5rem", display: "block" }}>
           New Password
         </label>
-        <input
-          type="password"
-          className="form-control"
-          placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          disabled={isSubmitting}
-        />
+        <div style={{ position: "relative" }}>
+          <input
+            type={showPassword ? "text" : "password"}
+            className="form-control"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={isSubmitting}
+            style={{ paddingRight: "40px" }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            style={{
+              position: "absolute",
+              right: "12px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "none",
+              border: "none",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "4px"
+            }}
+          >
+            {showPassword ? <FiEyeOff style={{ fontSize: "1.1rem" }} /> : <FiEye style={{ fontSize: "1.1rem" }} />}
+          </button>
+        </div>
       </div>
 
       <div className="form-group" style={{ marginBottom: "1.5rem" }}>
         <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "0.5rem", display: "block" }}>
           Confirm New Password
         </label>
-        <input
-          type="password"
-          className="form-control"
-          placeholder="••••••••"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-          disabled={isSubmitting}
-        />
+        <div style={{ position: "relative" }}>
+          <input
+            type={showConfirmPassword ? "text" : "password"}
+            className="form-control"
+            placeholder="••••••••"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            disabled={isSubmitting}
+            style={{ paddingRight: "40px" }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+            style={{
+              position: "absolute",
+              right: "12px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "none",
+              border: "none",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "4px"
+            }}
+          >
+            {showConfirmPassword ? <FiEyeOff style={{ fontSize: "1.1rem" }} /> : <FiEye style={{ fontSize: "1.1rem" }} />}
+          </button>
+        </div>
       </div>
 
       {error && (

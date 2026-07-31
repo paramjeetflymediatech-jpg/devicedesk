@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../auth/AuthContext";
+import ThemeToggle from "../components/ThemeToggle.js";
+import Logo from "../components/Logo.js";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,6 +13,7 @@ export default function LoginPage() {
   
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -54,8 +58,12 @@ export default function LoginPage() {
         width: "100%",
         padding: "1.5rem",
         background: "var(--bg-primary)",
+        position: "relative"
       }}
     >
+      <div style={{ position: "fixed", top: "20px", right: "20px", zIndex: 100 }}>
+        <ThemeToggle />
+      </div>
       <div
         style={{
           width: "100%",
@@ -70,11 +78,7 @@ export default function LoginPage() {
       >
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.25rem" }}>
-            <img
-              src="/flymedia-logo-white.png"
-              alt="Fly Media Technology"
-              style={{ height: "48px", objectFit: "contain" }}
-            />
+            <Logo height="48px" />
           </div>
           <h2 style={{ fontSize: "1.75rem", fontWeight: "700", marginBottom: "0.25rem" }}>
             DeviceDesk
@@ -90,7 +94,7 @@ export default function LoginPage() {
             <input
               type="text"
               className="form-control"
-              placeholder="e.g. admin or Sarabjot"
+              placeholder="Enter your email or username"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -98,14 +102,38 @@ export default function LoginPage() {
           </div>
           <div className="form-group" style={{ marginBottom: "1.5rem" }}>
             <label>Password</label>
-            <input
-              type="password"
-              className="form-control"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                className="form-control"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{ paddingRight: "40px" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-secondary)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "4px"
+                }}
+              >
+                {showPassword ? <FiEyeOff style={{ fontSize: "1.1rem" }} /> : <FiEye style={{ fontSize: "1.1rem" }} />}
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -129,7 +157,8 @@ export default function LoginPage() {
             type="submit"
             className="btn-primary"
             disabled={loading}
-            style={{ width: "100%", padding: "12px", borderRadius: "10px", opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer" }}
+            style={{ width: "100%", padding: "12px", borderRadius: "10px", opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer", alignItems:"center", justifyContent:"center", display:"flex"
+            }}
           >
             {loading ? "Signing In..." : "Sign In"}
           </button>

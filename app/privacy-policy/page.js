@@ -1,7 +1,22 @@
 "use client";
 
+import React from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../auth/AuthContext";
+import ThemeToggle from "../components/ThemeToggle";
+import Logo from "../components/Logo";
+import {
+  FiShield,
+  FiArrowLeft,
+  FiInfo,
+  FiLock,
+  FiCheckCircle,
+  FiTrash2,
+  FiCpu,
+  FiUsers,
+  FiFileText,
+  FiClock
+} from "react-icons/fi";
 
 export default function PrivacyPolicyPage() {
   const router = useRouter();
@@ -11,7 +26,7 @@ export default function PrivacyPolicyPage() {
     if (typeof window !== "undefined" && window.history.length > 1) {
       window.history.back();
     } else if (user) {
-      if (user.role === "admin") {
+      if (user.role === "admin" || user.role === "management") {
         router.push("/");
       } else {
         router.push("/employee-dashboard");
@@ -24,122 +39,393 @@ export default function PrivacyPolicyPage() {
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
         minHeight: "100vh",
         width: "100%",
-        padding: "2rem 1.5rem",
         background: "var(--bg-primary)",
+        color: "var(--text-primary)",
+        padding: "2rem 1.5rem 4rem",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        position: "relative"
       }}
     >
+      {/* Top Header Controls */}
       <div
         style={{
           width: "100%",
-          maxWidth: "680px",
+          maxWidth: "840px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: "2rem"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <Logo height="36px" />
+        </div>
+        <ThemeToggle />
+      </div>
+
+      {/* Main Privacy Container Card */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "840px",
           background: "var(--bg-secondary)",
           backdropFilter: "blur(20px)",
           border: "1px solid var(--glass-border)",
           borderRadius: "24px",
-          padding: "2.5rem",
-          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4)",
+          padding: "3rem 2.5rem",
+          boxShadow: "0 20px 50px rgba(0, 0, 0, 0.1)"
         }}
       >
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: "2rem", borderBottom: "1px solid var(--glass-border)", paddingBottom: "1.5rem" }}>
-          <h1 style={{
-            fontSize: "2rem",
-            fontWeight: "800",
-            background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            marginBottom: "0.5rem"
-          }}>
-            Privacy Policy & Terms
-          </h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>
-            DeviceDesk Corporate Resource Management Standards
-          </p>
-        </div>
-
-        {/* Content sections */}
+        {/* Hero Banner Header */}
         <div
           style={{
-            maxHeight: "50vh",
-            overflowY: "auto",
-            paddingRight: "10px",
-            color: "var(--text-secondary)",
-            fontSize: "0.9rem",
-            lineHeight: "1.7",
+            textAlign: "center",
+            paddingBottom: "2rem",
             marginBottom: "2rem",
+            borderBottom: "1px solid var(--glass-border)"
           }}
         >
-          <section style={{ marginBottom: "1.75rem" }}>
-            <h3 style={{ color: "var(--text-primary)", fontSize: "1.1rem", fontWeight: "700", marginBottom: "0.5rem" }}>
-              1. Introduction & Overview
-            </h3>
-            <p>
-              Welcome to DeviceDesk. DeviceDesk is a corporate inventory tracking and maintenance coordination platform used to manage computer systems, assign assets to personnel, and coordinate support tickets. This Privacy Policy and Terms of Service document outlines the rules, collection scope, and conditions governing system usage.
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 14px",
+              borderRadius: "20px",
+              background: "var(--glass-glow)",
+              border: "1px solid var(--glass-border)",
+              color: "var(--accent-cyan)",
+              fontSize: "0.85rem",
+              fontWeight: "700",
+              marginBottom: "1rem"
+            }}
+          >
+            <FiShield style={{ fontSize: "1rem" }} />
+            Corporate Governance & Data Protection
+          </div>
+
+          <h1
+            style={{
+              fontSize: "2.2rem",
+              fontWeight: "800",
+              marginBottom: "0.5rem",
+              letterSpacing: "-0.5px"
+            }}
+          >
+            Privacy Policy & Terms of Service
+          </h1>
+
+          <p
+            style={{
+              color: "var(--text-secondary)",
+              fontSize: "0.95rem",
+              maxWidth: "560px",
+              margin: "0 auto"
+            }}
+          >
+            Standards governing device management, personnel inventory, complaint coordination, and corporate attendance tracking on DeviceDesk.
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "15px",
+              marginTop: "1.25rem",
+              fontSize: "0.8rem",
+              color: "var(--text-muted)"
+            }}
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+              <FiClock /> Last Updated: July 2026
+            </span>
+            <span>•</span>
+            <span
+              style={{
+                background: "var(--bg-tertiary)",
+                padding: "2px 8px",
+                borderRadius: "6px",
+                fontWeight: "600"
+              }}
+            >
+              v2.4 Enterprise Compliance
+            </span>
+          </div>
+        </div>
+
+        {/* Content Sections Grid */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+          
+          {/* Section 1 */}
+          <section
+            style={{
+              background: "var(--bg-tertiary)",
+              borderRadius: "16px",
+              padding: "1.5rem 1.75rem",
+              border: "1px solid var(--glass-border)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: "rgba(2, 132, 199, 0.12)",
+                  color: "var(--accent-cyan)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem"
+                }}
+              >
+                <FiInfo />
+              </div>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
+                1. Overview & Platform Purpose
+              </h2>
+            </div>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7" }}>
+              DeviceDesk is a private enterprise platform operated by Fly Media Technology to coordinate corporate computer inventories, hardware assignment logs, IT complaint resolution workflows, and employee attendance logs. Access is strictly restricted to authorized staff and contractors.
             </p>
           </section>
 
-          <section style={{ marginBottom: "1.75rem" }}>
-            <h3 style={{ color: "var(--text-primary)", fontSize: "1.1rem", fontWeight: "700", marginBottom: "0.5rem" }}>
-              2. Information Collection & Usage
-            </h3>
-            <p>
-              DeviceDesk operates strictly within the corporate firewall boundaries. We collect and cache the following information:
+          {/* Section 2 */}
+          <section
+            style={{
+              background: "var(--bg-tertiary)",
+              borderRadius: "16px",
+              padding: "1.5rem 1.75rem",
+              border: "1px solid var(--glass-border)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: "rgba(37, 99, 235, 0.12)",
+                  color: "var(--accent-blue)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem"
+                }}
+              >
+                <FiLock />
+              </div>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
+                2. Information Collection Scope
+              </h2>
+            </div>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "1rem" }}>
+              DeviceDesk captures minimal operational data required for asset inventory management, internal ticket routing, and attendance validation:
             </p>
-            <ul style={{ paddingLeft: "1.25rem", marginTop: "0.5rem" }}>
-              <li><strong>Hardware Metrics:</strong> CPU type, Graphic Card (GPU) specifications, RAM capacity, storage sizes, operating system versions, and machine system serial/model numbers.</li>
-              <li><strong>Employee Details:</strong> Account usernames, corporate email addresses, departmental assignments, and login validation credentials.</li>
-              <li><strong>Support Issues:</strong> IT complaint logs, status timelines, resolution remarks, and hardware history logs.</li>
-            </ul>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  padding: "1rem",
+                  borderRadius: "12px",
+                  border: "1px solid var(--glass-border)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-cyan)" }}>
+                  <FiCpu /> Hardware Specifications
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
+                  Processor CPU, Graphics GPU, RAM capacity, system serials, and OS build versions.
+                </p>
+              </div>
+
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  padding: "1rem",
+                  borderRadius: "12px",
+                  border: "1px solid var(--glass-border)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-blue)" }}>
+                  <FiUsers /> Account Credentials
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
+                  Employee names, usernames, corporate email addresses, and departmental roles.
+                </p>
+              </div>
+
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  padding: "1rem",
+                  borderRadius: "12px",
+                  border: "1px solid var(--glass-border)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-purple)" }}>
+                  <FiFileText /> Ticket Logs
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
+                  Hardware complaint reports, maintenance timelines, and technician resolution notes.
+                </p>
+              </div>
+
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  padding: "1rem",
+                  borderRadius: "12px",
+                  border: "1px solid var(--glass-border)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "#10b981" }}>
+                  <FiClock /> Attendance Logs
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
+                  Daily Punch In/Out timestamps, break durations, and work hour calculations.
+                </p>
+              </div>
+            </div>
           </section>
 
-          <section style={{ marginBottom: "1.75rem" }}>
-            <h3 style={{ color: "var(--text-primary)", fontSize: "1.1rem", fontWeight: "700", marginBottom: "0.5rem" }}>
-              3. Data Protection & Security
-            </h3>
-            <p>
-              Your data is secured locally on this application and synchronized periodically over an encrypted connection with the organization's dedicated host servers. We do not sell, license, share, or disclose your corporate usage habits or hardware details to external third-party advertisers or trackers.
+          {/* Section 3 */}
+          <section
+            style={{
+              background: "var(--bg-tertiary)",
+              borderRadius: "16px",
+              padding: "1.5rem 1.75rem",
+              border: "1px solid var(--glass-border)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: "rgba(16, 185, 129, 0.12)",
+                  color: "#10b981",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem"
+                }}
+              >
+                <FiShield />
+              </div>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
+                3. Enterprise Security & Encryption
+              </h2>
+            </div>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7" }}>
+              All captured data is stored within private encrypted databases protected behind corporate firewall security rules. We strictly prohibit selling, renting, or transferring corporate device metrics or personnel data to third-party commercial entities.
             </p>
           </section>
 
-          <section style={{ marginBottom: "1.75rem" }}>
-            <h3 style={{ color: "var(--text-primary)", fontSize: "1.1rem", fontWeight: "700", marginBottom: "0.5rem" }}>
-              4. Permissible System Terms
-            </h3>
-            <p>
-              By accessing this dashboard portal, you agree that you are an authorized employee or contractor of the managing organization. System resources must only be used to register and resolve legitimate computer issues. Attempts to bypass access rules, forge records, or modify other employees' assigned system configurations without direct authorization is strictly prohibited.
+          {/* Section 4 */}
+          <section
+            style={{
+              background: "var(--bg-tertiary)",
+              borderRadius: "16px",
+              padding: "1.5rem 1.75rem",
+              border: "1px solid var(--glass-border)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: "rgba(245, 158, 11, 0.12)",
+                  color: "#f59e0b",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem"
+                }}
+              >
+                <FiCheckCircle />
+              </div>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
+                4. Permissible System Conduct
+              </h2>
+            </div>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7" }}>
+              Users must submit accurate IT complaints and attendance entries. Any attempts to tamper with hardware serial numbers, alter system metrics, forge attendance logs, or access unauthorized administrative functions will trigger security flags and administrative review.
             </p>
           </section>
 
-          <section>
-            <h3 style={{ color: "var(--text-primary)", fontSize: "1.1rem", fontWeight: "700", marginBottom: "0.5rem" }}>
-              5. Account & History Deletion
-            </h3>
-            <p>
-              Employees are entitled to request account deletion. Deleting an account will unassign any active inventory systems, remove support logs, and clear active user session profiles. Administrator actions, system logs, and transfer history are audited and may be retained by your corporate IT manager in accordance with internal corporate retention guidelines.
+          {/* Section 5 */}
+          <section
+            style={{
+              background: "var(--bg-tertiary)",
+              borderRadius: "16px",
+              padding: "1.5rem 1.75rem",
+              border: "1px solid var(--glass-border)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: "rgba(239, 68, 68, 0.12)",
+                  color: "var(--status-critical)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem"
+                }}
+              >
+                <FiTrash2 />
+              </div>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
+                5. Data Retention & Account Deletion
+              </h2>
+            </div>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7" }}>
+              Personnel account removals unassign active hardware items and archive support history in compliance with organizational IT retention rules. Employees may contact their system administrator to request account data updates or complete profile purges.
             </p>
           </section>
         </div>
 
-        {/* Back Button */}
-        <div style={{ display: "flex", justifyContent: "center" }}>
+        {/* Action Footer */}
+        <div
+          style={{
+            marginTop: "2.5rem",
+            paddingTop: "1.5rem",
+            borderTop: "1px solid var(--glass-border)",
+            display: "flex",
+            justifyContent: "center"
+          }}
+        >
           <button
             onClick={handleBack}
             className="btn-primary"
             style={{
-              padding: "10px 24px",
-              borderRadius: "10px",
-              fontSize: "0.9rem",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "12px 28px",
+              borderRadius: "12px",
+              fontSize: "0.95rem",
               fontWeight: "700",
               cursor: "pointer",
-              width: "100%",
+              boxShadow: "0 4px 15px rgba(2, 132, 199, 0.25)",
+              transition: "all 0.2s ease"
             }}
           >
-            ← Back to Portal
+            <FiArrowLeft style={{ fontSize: "1.1rem" }} /> Return to Portal
           </button>
         </div>
       </div>

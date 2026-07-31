@@ -38,7 +38,12 @@ import {
   ResponsiveContainer, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend
 } from "recharts";
+import AttendanceTab from "./components/AttendanceTab.js";
+import AttendanceWidget from "./components/AttendanceWidget.js";
 import ChatView from "./components/ChatView.js";
+import ThemeToggle from "./components/ThemeToggle.js";
+import Logo from "./components/Logo.js";
+import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock } from "react-icons/fi";
 
 export default function Home() {
   const { user, logout } = useAuth();
@@ -54,6 +59,11 @@ export default function Home() {
   }, [user, router]);
 
   // Navigation & Role States
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const [currentView, setCurrentView] = useState("dashboard");
 
   useEffect(() => {
@@ -168,6 +178,7 @@ export default function Home() {
   const [newEmpName, setNewEmpName] = useState("");
   const [newEmpEmail, setNewEmpEmail] = useState("");
   const [newEmpPassword, setNewEmpPassword] = useState("");
+  const [showNewEmpPassword, setShowNewEmpPassword] = useState(false);
   const [newEmpRole, setNewEmpRole] = useState("Team Member");
   const [newEmpDept, setNewEmpDept] = useState("");
   const [newEmpLimit, setNewEmpLimit] = useState(100);
@@ -412,8 +423,7 @@ export default function Home() {
             height: size,
             borderRadius: "50%",
             objectFit: "cover",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-          }}
+            }}
         />
       );
     }
@@ -454,8 +464,7 @@ export default function Home() {
         fontWeight: "700",
         fontSize: size === "24px" || size === "28px" ? "0.7rem" : "1.4rem",
         color: "#fff",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-      }}>
+        }}>
         {getInitials(emp?.name || "")}
       </div>
     );
@@ -471,7 +480,7 @@ export default function Home() {
             title: "Adjust Profile Picture",
             html: `
               <div style="display:flex; flex-direction:column; align-items:center; gap:12px; margin: 10px 0;">
-                <div style="position:relative; width:180px; height:180px; border-radius:50%; overflow:hidden; border:3px solid var(--accent-cyan); background:#000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                <div style="position:relative; width:180px; height:180px; border-radius:50%; overflow:hidden; border:3px solid var(--accent-cyan); background:#000; ">
                   <canvas id="crop-canvas" width="180" height="180" style="cursor:move; display:block;"></canvas>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px; width:100%; max-width:200px; margin-top:8px;">
@@ -2022,11 +2031,7 @@ export default function Home() {
       {/* Sidebar Navigation (Desktop) */}
       <aside className="sidebar">
         <div className="logo-container">
-          <img
-            src="/flymedia-logo-white.png"
-            alt="Fly Media Technology"
-            style={{ height: "36px", objectFit: "contain" }}
-          />
+          <Logo height="36px" />
         </div>
         
         <nav style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -2034,30 +2039,33 @@ export default function Home() {
             {userRole === "admin" && (
               <>
                 <li className={`nav-item ${currentView === "dashboard" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("dashboard")}><span className="nav-icon">📊</span> Dashboard</button>
+                  <button onClick={() => setCurrentView("dashboard")}><span className="nav-icon"><FiGrid /></span> Dashboard</button>
                 </li>
                 <li className={`nav-item ${currentView === "systems" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("systems")}><span className="nav-icon">🖥️</span> Systems Inventory</button>
+                  <button onClick={() => setCurrentView("systems")}><span className="nav-icon"><FiServer /></span> Systems Inventory</button>
                 </li>
                 <li className={`nav-item ${currentView === "employees" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("employees")}><span className="nav-icon">👥</span> Team Member Directory</button>
+                  <button onClick={() => setCurrentView("employees")}><span className="nav-icon"><FiUsers /></span> Team Member Directory</button>
                 </li>
                 <li className={`nav-item ${currentView === "tickets" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("tickets")}><span className="nav-icon">📋</span> Raise Records</button>
+                  <button onClick={() => setCurrentView("tickets")}><span className="nav-icon"><FiTag /></span> Raise Records</button>
                 </li>
                 <li className={`nav-item ${currentView === "departments" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("departments")}><span className="nav-icon">🏢</span> Departments</button>
+                  <button onClick={() => setCurrentView("departments")}><span className="nav-icon"><FiBriefcase /></span> Departments</button>
                 </li>
                 <li className={`nav-item ${currentView === "history" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("history")}><span className="nav-icon">📜</span> System Logs</button>
+                  <button onClick={() => setCurrentView("history")}><span className="nav-icon"><FiFileText /></span> System Logs</button>
                 </li>
                 <li className={`nav-item ${currentView === "tasks" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("tasks")}><span className="nav-icon">📅</span> Task Board</button>
+                  <button onClick={() => setCurrentView("tasks")}><span className="nav-icon"><FiCheckSquare /></span> Task Board</button>
+                </li>
+                <li className={`nav-item ${currentView === "attendance" ? "active" : ""}`}>
+                  <button onClick={() => setCurrentView("attendance")}><span className="nav-icon"><FiClock /></span> Attendance</button>
                 </li>
                 <li className={`nav-item ${currentView === "chat" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("chat")}>
-                    <span className="nav-icon">💬</span> Chat Workspace
-                    {unreadChatCount > 0 && (
+                    <span className="nav-icon"><FiMessageSquare /></span> Chat Workspace
+                    {isMounted && unreadChatCount > 0 && (
                       <span style={{
                         background: "var(--status-critical)",
                         color: "#fff",
@@ -2073,18 +2081,18 @@ export default function Home() {
                   </button>
                 </li>
                 <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("profile")}><span className="nav-icon">👤</span> My Profile</button>
+                  <button onClick={() => setCurrentView("profile")}><span className="nav-icon"><FiUser /></span> My Profile</button>
                 </li>
-                {user?.dbRole === 'Admin' && (
+                {isMounted && user?.dbRole === 'Admin' && (
                   <li className={`nav-item ${currentView === "danger-zone" ? "active" : ""}`} style={{ marginTop: '8px' }}>
-                    <button onClick={() => setCurrentView("danger-zone")} style={{ color: 'var(--status-critical)' }}><span className="nav-icon">⚠️</span> Danger Zone</button>
+                    <button onClick={() => setCurrentView("danger-zone")} style={{ color: 'var(--status-critical)' }}><span className="nav-icon"><FiAlertTriangle /></span> Danger Zone</button>
                   </li>
                 )}
               </>
             )}
             {userRole === "employee" && (
               <li className={`nav-item ${currentView === "employee-portal" ? "active" : ""}`}>
-                <button onClick={() => setCurrentView("employee-portal")}><span className="nav-icon">🚨</span> Register Complaint</button>
+                <button onClick={() => setCurrentView("employee-portal")}><span className="nav-icon"><FiTag /></span> Register Complaint</button>
               </li>
             )}
           </ul>
@@ -2101,7 +2109,7 @@ export default function Home() {
       {/* Drawer */}
       <div className={`mobile-drawer ${mobileMenuOpen ? "open" : ""}`}>
         <div className="mobile-drawer-header">
-          <img src="/flymedia-logo-white.png" alt="Fly Media Technology" style={{ height: "32px", objectFit: "contain" }} />
+          <Logo height="32px" />
           <button className="mobile-drawer-close" onClick={() => setMobileMenuOpen(false)}>✕</button>
         </div>
 
@@ -2110,34 +2118,38 @@ export default function Home() {
             <>
               <button className={`mobile-drawer-item ${currentView === "dashboard" ? "active" : ""}`}
                 onClick={() => { setCurrentView("dashboard"); setMobileMenuOpen(false); }}>
-                <span>📊</span> Dashboard
+                <span style={{ display: "inline-flex" }}><FiGrid /></span> Dashboard
               </button>
               <button className={`mobile-drawer-item ${currentView === "systems" ? "active" : ""}`}
                 onClick={() => { setCurrentView("systems"); setMobileMenuOpen(false); }}>
-                <span>🖥️</span> Systems Inventory
+                <span style={{ display: "inline-flex" }}><FiServer /></span> Systems Inventory
               </button>
               <button className={`mobile-drawer-item ${currentView === "employees" ? "active" : ""}`}
                 onClick={() => { setCurrentView("employees"); setMobileMenuOpen(false); }}>
-                <span>👥</span> Team Members
+                <span style={{ display: "inline-flex" }}><FiUsers /></span> Team Members
               </button>
               <button className={`mobile-drawer-item ${currentView === "tickets" ? "active" : ""}`}
                 onClick={() => { setCurrentView("tickets"); setMobileMenuOpen(false); }}>
-                <span>📋</span> Tickets
+                <span style={{ display: "inline-flex" }}><FiTag /></span> Tickets
               </button>
               <button className={`mobile-drawer-item ${currentView === "departments" ? "active" : ""}`}
                 onClick={() => { setCurrentView("departments"); setMobileMenuOpen(false); }}>
-                <span>🏢</span> Departments
+                <span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments
               </button>
               <button className={`mobile-drawer-item ${currentView === "tasks" ? "active" : ""}`}
                 onClick={() => { setCurrentView("tasks"); setMobileMenuOpen(false); }}>
-                <span>📅</span> Task Board
+                <span style={{ display: "inline-flex" }}><FiCheckSquare /></span> Task Board
+              </button>
+              <button className={`mobile-drawer-item ${currentView === "attendance" ? "active" : ""}`}
+                onClick={() => { setCurrentView("attendance"); setMobileMenuOpen(false); }}>
+                <span style={{ display: "inline-flex" }}><FiClock /></span> Attendance
               </button>
               <button className={`mobile-drawer-item ${currentView === "chat" ? "active" : ""}`}
                 onClick={() => { setCurrentView("chat"); setMobileMenuOpen(false); }}
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span>💬</span> Chat Workspace
+                  <span style={{ display: "inline-flex" }}><FiMessageSquare /></span> Chat Workspace
                 </span>
                 {unreadChatCount > 0 && (
                   <span style={{
@@ -2154,7 +2166,7 @@ export default function Home() {
               </button>
               <button className={`mobile-drawer-item ${currentView === "profile" ? "active" : ""}`}
                 onClick={() => { setCurrentView("profile"); setMobileMenuOpen(false); }}>
-                <span>👤</span> My Profile
+                <span style={{ display: "inline-flex" }}><FiUser /></span> My Profile
               </button>
             </>
           )}
@@ -2162,8 +2174,10 @@ export default function Home() {
 
         <div className="mobile-drawer-footer">
           <button className="mobile-drawer-logout"
-            onClick={() => { logout(); router.push("/login"); }}>
-            🚪 Sign Out
+            onClick={() => { logout(); router.push("/login"); }}
+            style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
+          >
+            <FiLogOut /> Sign Out
           </button>
         </div>
       </div>
@@ -2183,13 +2197,10 @@ export default function Home() {
           </button>
 
           <div className="header-title" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <img
-              src="/flymedia-logo-white.png"
-              alt="Fly Media Technology"
-              style={{ height: "30px", objectFit: "contain" }}
-            />
+            <Logo height="30px" />
           </div>
           <div className="alert-widget" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <ThemeToggle />
             {/* Clickable User Capsule & Dropdown */}
             <div style={{ position: "relative" }}>
               <div 
@@ -2231,12 +2242,11 @@ export default function Home() {
                     top: "42px",
                     right: "0",
                     width: "200px",
-                    background: "rgba(20, 20, 30, 0.95)",
+                    background: "var(--bg-secondary)",
                     backdropFilter: "blur(20px)",
                     border: "1px solid var(--glass-border)",
                     borderRadius: "12px",
-                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5)",
-                    padding: "12px",
+                                        padding: "12px",
                     zIndex: 1000,
                     display: "flex",
                     flexDirection: "column",
@@ -2272,7 +2282,7 @@ export default function Home() {
                     onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
                     onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                   >
-                    <span>👤</span> My Profile
+                    <FiUser style={{ fontSize: "1rem", flexShrink: 0 }} /> My Profile
                   </button>
 
                   <button 
@@ -2298,7 +2308,7 @@ export default function Home() {
                     onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
                     onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                   >
-                    <span>🔒</span> Privacy & Terms
+                    <FiShield style={{ fontSize: "1rem", flexShrink: 0 }} /> Privacy & Terms
                   </button>
 
                   <button 
@@ -2327,7 +2337,7 @@ export default function Home() {
                     onMouseEnter={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"}
                     onMouseLeave={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.12)"}
                   >
-                    <span>🚪</span> Sign Out
+                    <FiLogOut style={{ fontSize: "1rem", flexShrink: 0 }} /> Sign Out
                   </button>
                 </div>
               )}
@@ -2345,6 +2355,13 @@ export default function Home() {
         {/* Page Container */}
         <main className="page-container" style={{ overflowY: currentView === "chat" ? "hidden" : "auto" }}>
 
+          {/* ================= VIEW: ATTENDANCE ================= */}
+          {currentView === "attendance" && (
+            <div className="page-section active">
+              <AttendanceTab user={user} />
+            </div>
+          )}
+
           {/* ================= VIEW: CHAT ================= */}
           {currentView === "chat" && (
             <div className="page-section active" style={{ height: "calc(100vh - 150px)", padding: 0 }}>
@@ -2355,7 +2372,7 @@ export default function Home() {
           {/* ================= VIEW: PROFILE ================= */}
           {currentView === "profile" && (
             <div className="page-section active">
-              <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", marginBottom: "1.5rem" }}>👤 Admin Profile Details</h2>
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "10px" }}><FiUser /> Admin Profile Details</h2>
               
               <div style={{ display: "flex", flexWrap: "wrap", gap: "2rem", marginBottom: "2rem" }}>
                 {/* User card info */}
@@ -2389,8 +2406,7 @@ export default function Home() {
                             justifyContent: "center",
                             fontSize: "9px",
                             color: "#000",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
-                            border: "2px solid var(--bg-tertiary)"
+                                                        border: "2px solid var(--bg-tertiary)"
                           }}>
                             📷
                           </div>
@@ -2536,7 +2552,7 @@ export default function Home() {
                     padding: '12px 28px', borderRadius: '10px', border: 'none',
                     background: 'var(--status-critical)', color: '#fff',
                     fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem',
-                    boxShadow: '0 4px 20px rgba(220,38,38,0.4)'
+                    boxShadow: 'none'
                   }}>
                   ☢️ Wipe All Data — Full Reset
                 </button>
@@ -2546,7 +2562,10 @@ export default function Home() {
 
           {/* ================= VIEW: DASHBOARD ================= */}
           {currentView === "dashboard" && userRole === "admin" && (
-            <div className="page-section active">
+            <div className="page-section active space-y-6">
+              
+              {/* Quick Attendance Widget */}
+              <AttendanceWidget user={user} />
               
               {/* Test Mode Banner */}
               <div className="test-mode-banner">
@@ -2984,7 +3003,7 @@ export default function Home() {
                      <div className="mobile-card" key={emp.id}>
                        <div className="mobile-card-header">
                          <span className="mobile-card-title">
-                           👤 {emp.name}
+                           <FiUser style={{ fontSize: "0.85rem", verticalAlign: "middle", marginRight: "4px" }} /> {emp.name}
                            {emp.status === 'Paused' && (
                              <span className="status-tag open" style={{ marginLeft: "6px", fontSize: "0.65rem", padding: "1px 5px", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }}>Paused</span>
                            )}
@@ -3017,9 +3036,9 @@ export default function Home() {
                        </div>
                       <div className="mobile-card-row"><span className="mobile-card-label">Ticket Limit</span><span className="mobile-card-value">{emp.ticketLimit || 5}</span></div>
                       <div className="mobile-card-actions">
-                        <button className="btn-action start" onClick={() => handleOpenAssignModal(emp)}>🖥️ Assign</button>
-                        <button className="btn-action start" style={{ background: "rgba(59,130,246,0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>✏️ Edit</button>
-                        <button className="btn-action start" style={{ background: "rgba(139,92,246,0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }} onClick={() => handleOpenEmpReportModal(emp)}>📊 Report</button>
+                        <button className="btn-action start" onClick={() => handleOpenAssignModal(emp)}>Assign</button>
+                        <button className="btn-action start" style={{ background: "rgba(59,130,246,0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>Edit</button>
+                        <button className="btn-action start" style={{ background: "rgba(139,92,246,0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }} onClick={() => handleOpenEmpReportModal(emp)}>Report</button>
                         {!['Admin'].includes(emp.role) && (
                            <>
                              <button 
@@ -3031,9 +3050,9 @@ export default function Home() {
                                }} 
                                onClick={() => handleToggleEmployeeStatus(emp)}
                              >
-                               {emp.status === 'Paused' ? '🔓 Activate' : '🔒 Pause'}
+                               {emp.status === 'Paused' ? 'Activate' : 'Pause'}
                              </button>
-                             <button className="btn-action resolve" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>🗑️ Remove</button>
+                             <button className="btn-action resolve" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>Remove</button>
                            </>
                         )}
                       </div>
@@ -3081,7 +3100,7 @@ export default function Home() {
                   className="btn-action start" 
                   style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px" }}
                 >
-                  📥 Export Reports
+                  Export Reports
                 </button>
               </div>
 
@@ -3179,7 +3198,7 @@ export default function Home() {
                               <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
                                 {isOpen ? <button className="btn-action start" onClick={() => handleStartTicket(ticket.id)}>Start Work</button>
                                   : ticket.status === "In Progress" ? <button className="btn-action resolve" onClick={() => handleOpenResolveModal(ticket.id)}>Resolve</button>
-                                  : <span style={{ color: "var(--status-resolved)", fontSize: "0.85rem", fontWeight: "600" }}>✓ Resolved</span>}
+                                  : <span style={{ color: "var(--status-resolved)", fontSize: "0.85rem", fontWeight: "600" }}>Resolved</span>}
                               </div>
                             </td>
                           </tr>
@@ -3202,7 +3221,7 @@ export default function Home() {
                     return (
                       <div className="mobile-card" key={ticket.id}>
                         <div className="mobile-card-header">
-                          <span className="mobile-card-title">🎫 {emp ? emp.name : "Unknown"}</span>
+                          <span className="mobile-card-title">{emp ? emp.name : "Unknown"}</span>
                           <span className={`status-tag ${ticket.status.toLowerCase().replace(" ", "")}`}>{ticket.status}</span>
                         </div>
                         <div className="mobile-card-row"><span className="mobile-card-label">System</span><span className="mobile-card-value" style={{ color: "var(--accent-cyan)", fontWeight: 600 }}>{sys ? sys.systemNumber : "N/A"}</span></div>
@@ -3212,11 +3231,11 @@ export default function Home() {
                         {ticket.notes && <div className="mobile-card-row"><span className="mobile-card-label">Notes</span><span className="mobile-card-value" style={{ fontStyle: "italic", color: "var(--text-secondary)" }}>{ticket.notes}</span></div>}
                         <div className="mobile-card-actions">
                           {isOpen ? (
-                            <button className="btn-action start" onClick={() => handleStartTicket(ticket.id)}>▶ Start Work</button>
+                            <button className="btn-action start" onClick={() => handleStartTicket(ticket.id)}>Start Work</button>
                           ) : ticket.status === "In Progress" ? (
-                            <button className="btn-action resolve" onClick={() => handleOpenResolveModal(ticket.id)}>✓ Resolve</button>
+                            <button className="btn-action resolve" onClick={() => handleOpenResolveModal(ticket.id)}>Resolve</button>
                           ) : (
-                            <span style={{ color: "var(--status-resolved)", fontWeight: 600, padding: "6px 0" }}>✓ Resolved</span>
+                            <span style={{ color: "var(--status-resolved)", fontWeight: 600, padding: "6px 0" }}>Resolved</span>
                           )}
                         </div>
                       </div>
@@ -3258,7 +3277,7 @@ export default function Home() {
           {currentView === "departments" && userRole === "admin" && (
             <div className="page-section active">
               <div className="section-header">
-                <h2 style={{ fontSize: "1.4rem" }}>🏢 Department Settings</h2>
+                <h2 style={{ fontSize: "1.4rem" }}>Department Settings</h2>
               </div>
 
               <div className="dashboard-split" style={{ gridTemplateColumns: "1fr 1fr" }}>
@@ -3298,7 +3317,7 @@ export default function Home() {
                       </div>
                     )}
                     <button type="submit" className="btn-primary" style={{ width: "100%", justifyContent: "center" }}>
-                      + Add Department
+                      Add Department
                     </button>
                   </form>
                 </div>
@@ -3330,7 +3349,7 @@ export default function Home() {
                                     onClick={() => { setSelectedViewDept(dept.name); setDeptModalTab("members"); }}
                                     title={`View details of ${dept.name} department`}
                                   >
-                                    🏢 {dept.name}
+                                    {dept.name}
                                   </span>
                                   <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "8px" }}>({count} employees)</span>
                                 </td>
@@ -3377,13 +3396,13 @@ export default function Home() {
           {currentView === "history" && userRole === "admin" && (
             <div className="page-section active">
               <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2 style={{ fontSize: "1.4rem", margin: 0 }}>📜 System Tracking & Audit Logs</h2>
+                <h2 style={{ fontSize: "1.4rem", margin: 0 }}>System Tracking & Audit Logs</h2>
                 <button 
                   onClick={handleExportHistoryToExcel} 
                   className="btn-action start" 
                   style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px" }}
                 >
-                  📥 Export Audit Logs
+                  Export Audit Logs
                 </button>
               </div>
 
@@ -3484,10 +3503,10 @@ export default function Home() {
                     else if (act.includes('updated') || act.includes('update')) statusClass = 'open';
                     else if (act.includes('removed') || act.includes('delete') || act.includes('unassigned')) statusClass = 'critical';
 
-                    let title = "📜 Audit Log";
-                    if (log.systemNumber) title = `🖥️ ${log.systemNumber}`;
-                    else if (act.includes('employee')) title = `👤 Employee Log`;
-                    else if (act.includes('department')) title = `🏢 Department Log`;
+                    let title = "Audit Log";
+                    if (log.systemNumber) title = log.systemNumber;
+                    else if (act.includes('employee')) title = "Employee Log";
+                    else if (act.includes('department')) title = "Department Log";
 
                     return (
                       <div className="mobile-card" key={log.id}>
@@ -4729,8 +4748,7 @@ export default function Home() {
                                     maxHeight: "500px", 
                                     borderRadius: "8px", 
                                     border: "1px solid rgba(255, 255, 255, 0.05)",
-                                    objectFit: "contain",
-                                    boxShadow: "0 4px 12px rgba(0,0,0,0.5)"
+                                    objectFit: "contain"
                                   }} 
                                 />
                               </div>
@@ -4745,8 +4763,7 @@ export default function Home() {
                                     maxHeight: "450px", 
                                     borderRadius: "8px", 
                                     background: "#000",
-                                    boxShadow: "0 4px 12px rgba(0,0,0,0.5)" 
-                                  }} 
+                                                                      }} 
                                 />
                               </div>
                             ) : isAudio ? (
@@ -4839,14 +4856,38 @@ export default function Home() {
             
             <div className="form-group">
               <label>Password</label>
-              <input 
-                type="password" 
-                className="form-control" 
-                value={newEmpPassword}
-                onChange={(e) => setNewEmpPassword(e.target.value)}
-                placeholder="e.g. password123" 
-                required
-              />
+              <div style={{ position: "relative" }}>
+                <input 
+                  type={showNewEmpPassword ? "text" : "password"} 
+                  className="form-control" 
+                  value={newEmpPassword}
+                  onChange={(e) => setNewEmpPassword(e.target.value)}
+                  placeholder="e.g. password123" 
+                  required
+                  style={{ paddingRight: "40px" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewEmpPassword(!showNewEmpPassword)}
+                  aria-label={showNewEmpPassword ? "Hide password" : "Show password"}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "4px"
+                  }}
+                >
+                  {showNewEmpPassword ? <FiEyeOff style={{ fontSize: "1.1rem" }} /> : <FiEye style={{ fontSize: "1.1rem" }} />}
+                </button>
+              </div>
             </div>
 
             <div className="form-group">
@@ -5363,8 +5404,7 @@ export default function Home() {
             padding: "24px",
             width: "100%",
             maxWidth: "420px",
-            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)",
-            textAlign: "center",
+                        textAlign: "center",
           }}>
             <div style={{
               width: "60px",
@@ -5435,7 +5475,7 @@ export default function Home() {
         <div style={{
           background: "var(--bg-secondary)", border: "1px solid var(--glass-border)",
           borderRadius: "16px", padding: "28px", width: "100%", maxWidth: "760px",
-          boxShadow: "0 24px 60px rgba(0,0,0,0.6)", maxHeight: "90vh", overflowY: "auto"
+          maxHeight: "90vh", overflowY: "auto"
         }}>
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
@@ -5597,7 +5637,7 @@ export default function Home() {
         <div style={{
           background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)',
           borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '780px',
-          boxShadow: '0 24px 60px rgba(0,0,0,0.6)', maxHeight: '90vh', overflowY: 'auto'
+          maxHeight: '90vh', overflowY: 'auto'
         }}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -6087,8 +6127,7 @@ export default function Home() {
                   maxWidth: "100%",
                   maxHeight: "85vh",
                   borderRadius: "12px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.8)",
-                  outline: "none"
+                                    outline: "none"
                 }} 
               />
             ) : /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(previewMediaUrl) ? (
@@ -6100,8 +6139,7 @@ export default function Home() {
                   maxHeight: "85vh",
                   objectFit: "contain",
                   borderRadius: "12px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.8)"
-                }} 
+                                  }} 
               />
             ) : /\.pdf$/i.test(previewMediaUrl) ? (
               <iframe 

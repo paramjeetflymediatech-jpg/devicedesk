@@ -437,7 +437,7 @@ export default function ChatView({ user }) {
         }
       }
     } catch (err) {
-      console.error("Error polling chat history:", err);
+      // Gracefully handle transient network drops during background polling
     }
   };
 
@@ -618,7 +618,7 @@ export default function ChatView({ user }) {
             title: isGroup ? "Adjust Group Icon" : "Adjust Profile Picture",
             html: `
               <div style="display:flex; flex-direction:column; align-items:center; gap:12px; margin: 10px 0;">
-                <div style="position:relative; width:180px; height:180px; border-radius:${isGroup ? '12px' : '50%'}; overflow:hidden; border:3px solid var(--accent-cyan); background:#000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                <div style="position:relative; width:180px; height:180px; border-radius:${isGroup ? '12px' : '50%'}; overflow:hidden; border:3px solid var(--accent-cyan); background:#000; ">
                   <canvas id="crop-canvas" width="180" height="180" style="cursor:move; display:block;"></canvas>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px; width:100%; max-width:200px; margin-top:8px;">
@@ -1326,8 +1326,7 @@ export default function ChatView({ user }) {
               height: "100%",
               borderRadius: finalRadius,
               objectFit: "cover",
-              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)"
-            }}
+              }}
           />
         </div>
       );
@@ -1345,7 +1344,6 @@ export default function ChatView({ user }) {
         fontWeight: "700",
         fontSize: size === "60px" ? "1.4rem" : (size === "20px" || size === "28px") ? "0.65rem" : "0.85rem",
         color: "#fff",
-        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
         flexShrink: 0
       }}>
         {getInitials(item?.name || "")}
@@ -1810,7 +1808,7 @@ export default function ChatView({ user }) {
         style={{
           width: "320px",
           borderRight: "1px solid var(--glass-border)",
-          background: "rgba(10, 11, 16, 0.5)",
+          background: "var(--bg-secondary)",
           display: showMobileSidebar ? "flex" : "none",
         flexDirection: "column",
         height: "100%",
@@ -1859,7 +1857,7 @@ export default function ChatView({ user }) {
               borderRadius: "10px",
               background: "var(--bg-tertiary)",
               border: "1px solid var(--glass-border)",
-              color: "#fff",
+              color: "var(--text-primary)",
               outline: "none",
               fontSize: "0.85rem",
               fontFamily: "var(--font-main)"
@@ -1883,7 +1881,7 @@ export default function ChatView({ user }) {
                 margin: "2px 0",
                 borderRadius: "10px",
                 cursor: "pointer",
-                background: activeChatId === "general" ? "rgba(255, 255, 255, 0.05)" : "transparent",
+                background: activeChatId === "general" ? "var(--bg-tertiary)" : "transparent",
                 border: activeChatId === "general" ? "1px solid var(--glass-border)" : "1px solid transparent",
                 transition: "background 0.2s"
               }}
@@ -1913,7 +1911,7 @@ export default function ChatView({ user }) {
                   margin: "2px 0",
                   borderRadius: "10px",
                   cursor: "pointer",
-                  background: activeChatId === `dept_${currentDept}` ? "rgba(255, 255, 255, 0.05)" : "transparent",
+                  background: activeChatId === `dept_${currentDept}` ? "var(--bg-tertiary)" : "transparent",
                   border: activeChatId === `dept_${currentDept}` ? "1px solid var(--glass-border)" : "1px solid transparent",
                   transition: "background 0.2s"
                 }}
@@ -1969,7 +1967,7 @@ export default function ChatView({ user }) {
                       margin: "2px 0",
                       borderRadius: "10px",
                       cursor: "pointer",
-                      background: activeChatId === group.id ? "rgba(255, 255, 255, 0.05)" : "transparent",
+                      background: activeChatId === group.id ? "var(--bg-tertiary)" : "transparent",
                       border: activeChatId === group.id ? "1px solid var(--glass-border)" : "1px solid transparent",
                       transition: "background 0.2s"
                     }}
@@ -2030,7 +2028,7 @@ export default function ChatView({ user }) {
                       margin: "2px 0",
                       borderRadius: "10px",
                       cursor: "pointer",
-                      background: activeChatId === emp.id ? "rgba(255, 255, 255, 0.05)" : "transparent",
+                      background: activeChatId === emp.id ? "var(--bg-tertiary)" : "transparent",
                       border: activeChatId === emp.id ? "1px solid var(--glass-border)" : "1px solid transparent",
                       transition: "background 0.2s"
                     }}
@@ -2091,7 +2089,7 @@ export default function ChatView({ user }) {
         display: !showMobileSidebar || window.innerWidth > 768 ? "flex" : "none",
         flexDirection: "row",
         height: "100%",
-        background: "rgba(18, 20, 32, 0.3)",
+        background: "var(--bg-primary)",
         position: "relative"
       }}>
         {/* Middle Column: Chat Feed */}
@@ -2110,7 +2108,7 @@ export default function ChatView({ user }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          background: "rgba(10, 11, 16, 0.4)"
+          background: "var(--bg-secondary)"
         }}>
           <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
             {/* Mobile Back Button (only shown when sidebar is closed) */}
@@ -2295,7 +2293,7 @@ export default function ChatView({ user }) {
                             <div style={{
                               padding: "8px 12px",
                               borderRadius: "10px",
-                              background: "rgba(255,255,255,0.03)",
+                              background: "var(--bg-tertiary)",
                               border: "1px solid var(--glass-border)",
                               color: "var(--text-muted)",
                               fontSize: "0.8rem",
@@ -2308,13 +2306,13 @@ export default function ChatView({ user }) {
                             </div>
                           ) : editingMessageId === msg.id ? (
                             /* Inline Edit Box */
-                            <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%", minWidth: "220px", background: "rgba(0,0,0,0.4)", padding: "8px", borderRadius: "8px", border: "1px solid var(--accent-cyan)" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%", minWidth: "220px", background: "var(--bg-tertiary)", padding: "8px", borderRadius: "8px", border: "1px solid var(--accent-cyan)" }}>
                               <input 
                                 type="text" 
                                 value={editingText} 
                                 onChange={(e) => setEditingText(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEditMessage(msg.id); if (e.key === 'Escape') setEditingMessageId(null); }}
-                                style={{ background: "rgba(0,0,0,0.5)", border: "1px solid var(--glass-border)", borderRadius: "4px", color: "#fff", padding: "6px", fontSize: "0.85rem", width: "100%" }}
+                                style={{ background: "var(--bg-secondary)", border: "1px solid var(--glass-border)", borderRadius: "4px", color: "var(--text-primary)", padding: "6px", fontSize: "0.85rem", width: "100%" }}
                                 autoFocus
                               />
                               <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
@@ -2331,10 +2329,9 @@ export default function ChatView({ user }) {
                                 ? "linear-gradient(135deg, var(--accent-blue), var(--accent-purple))" 
                                 : "var(--bg-card)",
                               border: isOwn ? "none" : "1px solid var(--glass-border)",
-                              color: "#fff",
+                              color: isOwn ? "#ffffff" : "var(--text-primary)",
                               fontSize: "0.85rem",
-                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                              wordBreak: "break-word"
+                                                            wordBreak: "break-word"
                             }}>
                               {/* Render based on message type */}
                               {msg.messageType === "text" && (
@@ -2454,8 +2451,7 @@ export default function ChatView({ user }) {
                                     background: "#161b22",
                                     border: "1px solid var(--glass-border)",
                                     borderRadius: "10px",
-                                    boxShadow: "0 8px 28px rgba(0,0,0,0.8)",
-                                    zIndex: 999,
+                                                                        zIndex: 999,
                                     minWidth: "160px",
                                     padding: "6px 0",
                                     display: "flex",
@@ -2573,7 +2569,7 @@ export default function ChatView({ user }) {
         {recordedUrl && (
           <div style={{
             padding: "1rem",
-            background: "rgba(30, 32, 50, 0.95)",
+            background: "var(--bg-secondary)",
             borderTop: "1px solid var(--glass-border)",
             display: "flex",
             alignItems: "center",
@@ -2680,7 +2676,7 @@ export default function ChatView({ user }) {
         <div style={{
           padding: "1.25rem",
           borderTop: "1px solid var(--glass-border)",
-          background: "rgba(10, 11, 16, 0.4)"
+          background: "var(--bg-secondary)"
         }}>
           <form onSubmit={handleSendMessage} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {/* Pick file input */}
@@ -2779,7 +2775,7 @@ export default function ChatView({ user }) {
                 borderRadius: "10px",
                 background: "var(--bg-tertiary)",
                 border: "1px solid var(--glass-border)",
-                color: "#fff",
+                color: "var(--text-primary)",
                 outline: "none",
                 fontSize: "0.85rem",
                 fontFamily: "var(--font-main)"
@@ -2818,7 +2814,7 @@ export default function ChatView({ user }) {
           <div style={{
             width: "320px",
             height: "100%",
-            background: "rgba(15, 17, 26, 0.95)",
+            background: "var(--bg-secondary)",
             borderLeft: "1px solid var(--glass-border)",
             display: "flex",
             flexDirection: "column",
@@ -2832,7 +2828,7 @@ export default function ChatView({ user }) {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              background: "rgba(10, 11, 16, 0.4)"
+              background: "var(--bg-secondary)"
             }}>
               <h4 style={{ margin: 0, fontSize: "0.9rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
                 ℹ️ Chat Details
@@ -2862,7 +2858,7 @@ export default function ChatView({ user }) {
             }}>
               {/* SECTION 1: Room Details Card */}
               <div style={{
-                background: "rgba(255, 255, 255, 0.03)",
+                background: "var(--bg-tertiary)",
                 border: "1px solid var(--glass-border)",
                 borderRadius: "12px",
                 padding: "1rem",
@@ -2897,8 +2893,7 @@ export default function ChatView({ user }) {
                             justifyContent: "center",
                             fontSize: "10px",
                             color: "#000",
-                            boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
-                            border: "2px solid var(--bg-tertiary)"
+                                                        border: "2px solid var(--bg-tertiary)"
                           }}>
                             📷
                           </div>
@@ -2987,7 +2982,7 @@ export default function ChatView({ user }) {
                   })()
                 ) : activeChatId.startsWith("dept_") || activeChatId === "general" ? (
                   <>
-                    <div style={{ width: "60px", height: "60px", borderRadius: "12px", background: activeChatId === "general" ? "linear-gradient(135deg, #4f46e5, #06b6d4)" : "linear-gradient(135deg, #7c3aed, #ec4899)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", marginBottom: "0.75rem", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+                    <div style={{ width: "60px", height: "60px", borderRadius: "12px", background: activeChatId === "general" ? "linear-gradient(135deg, #4f46e5, #06b6d4)" : "linear-gradient(135deg, #7c3aed, #ec4899)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", marginBottom: "0.75rem" }}>
                       {activeChatId === "general" ? "🏢" : "💻"}
                     </div>
                     <h5 style={{ margin: "0 0 4px 0", fontSize: "0.95rem", fontWeight: "700" }}>{selectedChatName}</h5>
@@ -3060,8 +3055,7 @@ export default function ChatView({ user }) {
                               justifyContent: "center",
                               fontSize: "10px",
                               color: "#000",
-                              boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
-                              border: "2px solid var(--bg-tertiary)"
+                                                            border: "2px solid var(--bg-tertiary)"
                             }}>
                               📷
                             </div>
@@ -3394,8 +3388,7 @@ export default function ChatView({ user }) {
             maxHeight: "85vh",
             display: "flex",
             flexDirection: "column",
-            boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
-            animation: "scale-up 0.3s ease"
+                        animation: "scale-up 0.3s ease"
           }}>
             {/* Header */}
             <div style={{ padding: "1.25rem", borderBottom: "1px solid var(--glass-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -3522,8 +3515,7 @@ export default function ChatView({ user }) {
             maxHeight: "85vh",
             display: "flex",
             flexDirection: "column",
-            boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
-            animation: "scale-up 0.3s ease"
+                        animation: "scale-up 0.3s ease"
           }}>
             {/* Header */}
             <div style={{ padding: "1.25rem", borderBottom: "1px solid var(--glass-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -3664,8 +3656,7 @@ export default function ChatView({ user }) {
             width: "100%",
             maxWidth: "480px",
             overflow: "hidden",
-            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.5)",
-            display: "flex",
+                        display: "flex",
             flexDirection: "column"
           }}>
             {/* Modal Header */}
@@ -3836,8 +3827,7 @@ export default function ChatView({ user }) {
             width: "100%",
             maxWidth: "600px",
             overflow: "hidden",
-            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.5)",
-            display: "flex",
+                        display: "flex",
             flexDirection: "column"
           }}>
             {/* Modal Header */}
@@ -4009,8 +3999,7 @@ export default function ChatView({ user }) {
                   maxWidth: "100%",
                   maxHeight: "85vh",
                   borderRadius: "12px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.8)",
-                  outline: "none"
+                                    outline: "none"
                 }} 
               />
             ) : /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(previewMediaUrl) ? (
@@ -4022,8 +4011,7 @@ export default function ChatView({ user }) {
                   maxHeight: "85vh",
                   objectFit: "contain",
                   borderRadius: "12px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.8)"
-                }} 
+                                  }} 
               />
             ) : /\.pdf$/i.test(previewMediaUrl) ? (
               <iframe 

@@ -52,8 +52,7 @@ export default function EmailToast() {
         border: "1px solid var(--accent-cyan)",
         borderRadius: "16px",
         padding: "1.25rem",
-        boxShadow: "0 10px 30px rgba(0, 240, 255, 0.15)",
-        zIndex: 99999,
+                zIndex: 99999,
         maxWidth: "360px",
         color: "var(--text-primary)",
         fontFamily: "var(--font-main)"

@@ -21,25 +21,22 @@ import {
   isSoundEnabled
 } from "../store";
 import ChatView from "../components/ChatView.js";
+import AttendanceTab from "../components/AttendanceTab.js";
+import AttendanceWidget from "../components/AttendanceWidget.js";
+import ThemeToggle from "../components/ThemeToggle.js";
+import Logo from "../components/Logo.js";
+import { FiGrid, FiClock, FiAlertCircle, FiClipboard, FiMessageSquare, FiCheckSquare, FiUser, FiLogOut, FiShield } from "react-icons/fi";
 
 export default function EmployeeDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
 
+  // Prevent SSR/client hydration mismatch — render nothing until mounted
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const audioCtxRef = useRef(null);
-  const [soundOn, setSoundOn] = useState(true);
-
-  useEffect(() => {
-    setSoundOn(isSoundEnabled());
-
-    const enableAudio = () => {
-      initAudio();
-    };
-    window.addEventListener('click', enableAudio, { once: true });
-    return () => {
-      window.removeEventListener('click', enableAudio);
-    };
-  }, []);
+  const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
 
   const initAudio = () => {
     if (!audioCtxRef.current) {
@@ -50,6 +47,16 @@ export default function EmployeeDashboard() {
     }
     return audioCtxRef.current;
   };
+
+  useEffect(() => {
+    const enableAudio = () => {
+      initAudio();
+    };
+    window.addEventListener('click', enableAudio, { once: true });
+    return () => {
+      window.removeEventListener('click', enableAudio);
+    };
+  }, []);
 
   const playBeep = (frequency = 800, duration = 0.15, type = "sine") => {
     if (!soundOn) return;
@@ -84,28 +91,25 @@ export default function EmployeeDashboard() {
   }, [user, router]);
 
   // States
+  // Always start with "overview" on the server; restore from localStorage after mount
   const [currentView, setCurrentView] = useState("overview");
+  useEffect(() => {
+    const saved = localStorage.getItem("devicedesk_employee_view");
+    if (saved) setCurrentView(saved);
+  }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("devicedesk_employee_view");
-      if (saved) setCurrentView(saved);
-    }
+    localStorage.setItem("devicedesk_employee_view", currentView);
+  }, [currentView]);
+
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  useEffect(() => {
+    const stored = localStorage.getItem("devicedesk_unread_chat_count");
+    if (stored) setUnreadChatCount(Number(stored));
   }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("devicedesk_employee_view", currentView);
-    }
-  }, [currentView]);
-
-  const [unreadChatCount, setUnreadChatCount] = useState(0);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("devicedesk_unread_chat_count");
-      if (stored) setUnreadChatCount(Number(stored));
-
       const handleUnreadChange = (e) => {
         setUnreadChatCount(Number(e.detail || 0));
       };
@@ -121,7 +125,7 @@ export default function EmployeeDashboard() {
   const [employees, setEmployees] = useState([]);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   
   // Performance report states
@@ -259,8 +263,9 @@ export default function EmployeeDashboard() {
     const from = fromDate ? new Date(fromDate + "T00:00:00") : null;
     const to = toDate ? new Date(toDate + "T23:59:59") : null;
     
+    const userId = user?.id || '';
     const empLogs = assignmentHistory.filter(h => {
-      if (h.employeeId !== user.id) return false;
+      if (h.employeeId !== userId) return false;
       if (!h.timestamp) return false;
       const ts = new Date(h.timestamp);
       if (from && ts < from) return false;
@@ -269,7 +274,7 @@ export default function EmployeeDashboard() {
     });
 
     const empTickets = tickets.filter(t => {
-      const matchEmp = t.raisedBy === user.id || t.employeeId === user.id;
+      const matchEmp = t.raisedBy === userId || t.employeeId === userId;
       if (!matchEmp) return false;
       if (!t.createdAt) return false;
       const ts = new Date(t.createdAt);
@@ -279,7 +284,7 @@ export default function EmployeeDashboard() {
     });
 
     const empTasks = tasks.filter(t => {
-      if (t.assignedTo !== user.id) return false;
+      if (t.assignedTo !== userId) return false;
       if (!t.createdAt) return false;
       const ts = new Date(t.createdAt);
       if (from && ts < from) return false;
@@ -288,14 +293,14 @@ export default function EmployeeDashboard() {
     });
 
     const csvRows = [];
-    csvRows.push(`MY PERFORMANCE & ACTIVITY REPORT,${user.name}`);
-    csvRows.push(`Role,${user.role || "Team Member"}`);
+    csvRows.push(`MY PERFORMANCE & ACTIVITY REPORT,${user?.name || 'Employee'}`);
+    csvRows.push(`Role,${user?.role || "Team Member"}`);
     csvRows.push(`Report Range,${fromDate || "Start"} to ${toDate || "End"}`);
     csvRows.push("");
 
     csvRows.push("CURRENT ASSIGNED DEVICES");
     csvRows.push("System ID,System Number,Model,OS,Status");
-    const currentDevices = systems.filter(s => s.assignedTo === user.id);
+    const currentDevices = systems.filter(s => s.assignedTo === userId);
     currentDevices.forEach(s => {
       csvRows.push(`${s.id},${s.systemNumber},${s.model || "N/A"},${s.os || "N/A"},${s.status || "Active"}`);
     });
@@ -412,23 +417,130 @@ export default function EmployeeDashboard() {
   };
 
   useEffect(() => {
-    refreshData();
+    requestAnimationFrame(() => refreshData());
     window.addEventListener('devicedesk_db_synced', refreshData);
     return () => {
       window.removeEventListener('devicedesk_db_synced', refreshData);
     };
   }, []);
 
-  if (!user || user.role === "admin") {
+  // Show animated loader while hydrating OR while user session is resolving
+  if (!mounted || !user || user.role === "admin") {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "var(--bg-primary)" }}>
-        <p style={{ color: "var(--text-secondary)" }}>Loading session...</p>
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        background: "var(--bg-primary)",
+        zIndex: 9999,
+      }}>
+        <style>{`
+          @keyframes _spin {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          @keyframes _pulse-ring {
+            0%   { transform: scale(0.85); opacity: 0.6; }
+            50%  { transform: scale(1.1);  opacity: 0.15; }
+            100% { transform: scale(0.85); opacity: 0.6; }
+          }
+          @keyframes _dot-bounce {
+            0%, 80%, 100% { transform: translateY(0);   opacity: 0.3; }
+            40%            { transform: translateY(-8px); opacity: 1; }
+          }
+          @keyframes _fade-in-up {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+          ._session-loader { animation: _fade-in-up 0.5s ease both; }
+          ._spinner-outer {
+            position: relative;
+            width: 72px; height: 72px;
+            display: flex; align-items: center; justify-content: center;
+          }
+          ._spinner-pulse {
+            position: absolute;
+            inset: -6px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            animation: _pulse-ring 1.8s ease-in-out infinite;
+          }
+          ._spinner-ring {
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            border: 4px solid transparent;
+            border-top-color: var(--accent-cyan);
+            border-right-color: var(--accent-cyan);
+            animation: _spin 0.9s linear infinite;
+            position: relative; z-index: 1;
+          }
+          ._spinner-inner {
+            position: absolute;
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            border-bottom-color: var(--accent-purple, #7c3aed);
+            border-left-color:  var(--accent-purple, #7c3aed);
+            animation: _spin 1.4s linear infinite reverse;
+            z-index: 2;
+          }
+          ._dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-cyan); margin: 0 4px; animation: _dot-bounce 1.4s ease-in-out infinite; }
+          ._dot:nth-child(1) { animation-delay: 0s; }
+          ._dot:nth-child(2) { animation-delay: 0.2s; }
+          ._dot:nth-child(3) { animation-delay: 0.4s; }
+        `}</style>
+
+        <div className="_session-loader" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "28px" }}>
+
+          {/* Brand mark */}
+          <div style={{
+            width: 48, height: 48,
+            borderRadius: 14,
+            background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple, #7c3aed))",
+            display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: -1,
+          }}>D</div>
+
+          {/* Dual-ring spinner */}
+          <div className="_spinner-outer">
+            <div className="_spinner-pulse" />
+            <div className="_spinner-ring" />
+            <div className="_spinner-inner" />
+          </div>
+
+          {/* Text + bouncing dots */}
+          <div style={{ textAlign: "center" }}>
+            <p style={{
+              color: "var(--text-primary)",
+              fontWeight: 600,
+              fontSize: "1.05rem",
+              margin: "0 0 10px",
+              letterSpacing: "0.02em",
+            }}>Loading session</p>
+            <div>
+              <span className="_dot" />
+              <span className="_dot" />
+              <span className="_dot" />
+            </div>
+          </div>
+
+        </div>
       </div>
     );
   }
 
   // Get current employee details
-  const empDetails = employees.find(e => e.id === user.id) || { name: user.name, ticketLimit: 5 };
+  const empDetails = (user?.id && employees.find(e => e.id === user.id)) || {
+    id: user?.id || '',
+    name: user?.name || 'Employee',
+    email: user?.email || '',
+    department: user?.department || 'General',
+    role: user?.role || 'Team Member',
+    ticketLimit: 5
+  };
 
   // Guard for suspended/paused accounts
   if (empDetails && empDetails.status === 'Paused') {
@@ -451,9 +563,9 @@ export default function EmployeeDashboard() {
       </div>
     );
   }
-  const employeeTickets = tickets.filter(t => t.employeeId === user.id);
-  const activeSystems = systems.filter(s => s.assignedTo === user.id);
-  const empHistory = assignmentHistory.filter(h => h.employeeId === user.id);
+  const employeeTickets = user?.id ? tickets.filter(t => t.employeeId === user.id || t.raisedBy === user.id) : [];
+  const activeSystems = user?.id ? systems.filter(s => s.assignedTo === user.id) : [];
+  const empHistory = user?.id ? assignmentHistory.filter(h => h.employeeId === user.id) : [];
 
   // Filtered employee tickets
   const filteredTickets = employeeTickets.filter(t => {
@@ -489,7 +601,7 @@ export default function EmployeeDashboard() {
             height: size,
             borderRadius: "50%",
             objectFit: "cover",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+            
           }}
         />
       );
@@ -531,7 +643,7 @@ export default function EmployeeDashboard() {
         fontWeight: "700",
         fontSize: size === "24px" || size === "28px" ? "0.7rem" : "1.4rem",
         color: "#fff",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+        
       }}>
         {getInitials(emp?.name || "")}
       </div>
@@ -548,7 +660,7 @@ export default function EmployeeDashboard() {
             title: "Adjust Profile Picture",
             html: `
               <div style="display:flex; flex-direction:column; align-items:center; gap:12px; margin: 10px 0;">
-                <div style="position:relative; width:180px; height:180px; border-radius:50%; overflow:hidden; border:3px solid var(--accent-cyan); background:#000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                <div style="position:relative; width:180px; height:180px; border-radius:50%; overflow:hidden; border:3px solid var(--accent-cyan); background:#000; ">
                   <canvas id="crop-canvas" width="180" height="180" style="cursor:move; display:block;"></canvas>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px; width:100%; max-width:200px; margin-top:8px;">
@@ -845,30 +957,29 @@ export default function EmployeeDashboard() {
       {/* Sidebar Navigation (Desktop) */}
       <aside className="sidebar">
         <div className="logo-container">
-          <img
-            src="/flymedia-logo-white.png"
-            alt="Fly Media Technology"
-            style={{ height: "36px", objectFit: "contain" }}
-          />
+          <Logo height="36px" />
         </div>
         
         <nav style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <ul className="nav-links">
             <li className={`nav-item ${currentView === "overview" ? "active" : ""}`}>
-              <button onClick={() => setCurrentView("overview")}><span className="nav-icon">📊</span> Overview</button>
+              <button onClick={() => setCurrentView("overview")}><span className="nav-icon"><FiGrid /></span> Overview</button>
+            </li>
+            <li className={`nav-item ${currentView === "attendance" ? "active" : ""}`}>
+              <button onClick={() => setCurrentView("attendance")}><span className="nav-icon"><FiClock /></span> Attendance</button>
             </li>
             <li className={`nav-item ${currentView === "file-complaint" ? "active" : ""}`}>
-              <button onClick={() => setCurrentView("file-complaint")}><span className="nav-icon">🚨</span> File Complaint</button>
+              <button onClick={() => setCurrentView("file-complaint")}><span className="nav-icon"><FiAlertCircle /></span> File Complaint</button>
             </li>
             <li className={`nav-item ${currentView === "records" ? "active" : ""}`}>
-              <button onClick={() => setCurrentView("records")}><span className="nav-icon">📋</span> My Records</button>
+              <button onClick={() => setCurrentView("records")}><span className="nav-icon"><FiClipboard /></span> My Records</button>
             </li>
             <li className={`nav-item ${currentView === "tasks" ? "active" : ""}`}>
-              <button onClick={() => setCurrentView("tasks")}><span className="nav-icon">📅</span> Task Board</button>
+              <button onClick={() => setCurrentView("tasks")}><span className="nav-icon"><FiCheckSquare /></span> Task Board</button>
             </li>
             <li className={`nav-item ${currentView === "chat" ? "active" : ""}`}>
               <button onClick={() => setCurrentView("chat")}>
-                <span className="nav-icon">💬</span> Chat Workspace
+                <span className="nav-icon"><FiMessageSquare /></span> Chat Workspace
                 {unreadChatCount > 0 && (
                   <span style={{
                     background: "var(--status-critical)",
@@ -885,7 +996,7 @@ export default function EmployeeDashboard() {
               </button>
             </li>
             <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
-              <button onClick={() => setCurrentView("profile")}><span className="nav-icon">👤</span> My Profile</button>
+              <button onClick={() => setCurrentView("profile")}><span className="nav-icon"><FiUser /></span> My Profile</button>
             </li>
           </ul>
         </nav>
@@ -898,7 +1009,7 @@ export default function EmployeeDashboard() {
       />
       <div className={`mobile-drawer ${mobileMenuOpen ? "open" : ""}`}>
         <div className="mobile-drawer-header">
-          <img src="/flymedia-logo-white.png" alt="Fly Media Technology" style={{ height: "32px", objectFit: "contain" }} />
+          <Logo height="32px" />
           <button className="mobile-drawer-close" onClick={() => setMobileMenuOpen(false)}>✕</button>
         </div>
         <div style={{ padding: "0.5rem 0 1rem", borderBottom: "1px solid var(--glass-border)", marginBottom: "0.5rem" }}>
@@ -909,26 +1020,30 @@ export default function EmployeeDashboard() {
         <nav className="mobile-drawer-nav">
           <button className={`mobile-drawer-item ${currentView === "overview" ? "active" : ""}`}
             onClick={() => { setCurrentView("overview"); setMobileMenuOpen(false); }}>
-            <span>📊</span> Overview
+            <span style={{ display: "inline-flex" }}><FiGrid /></span> Overview
+          </button>
+          <button className={`mobile-drawer-item ${currentView === "attendance" ? "active" : ""}`}
+            onClick={() => { setCurrentView("attendance"); setMobileMenuOpen(false); }}>
+            <span style={{ display: "inline-flex" }}><FiClock /></span> Attendance
           </button>
           <button className={`mobile-drawer-item ${currentView === "file-complaint" ? "active" : ""}`}
             onClick={() => { setCurrentView("file-complaint"); setMobileMenuOpen(false); }}>
-            <span>🚨</span> File Complaint
+            <span style={{ display: "inline-flex" }}><FiAlertCircle /></span> File Complaint
           </button>
           <button className={`mobile-drawer-item ${currentView === "records" ? "active" : ""}`}
             onClick={() => { setCurrentView("records"); setMobileMenuOpen(false); }}>
-            <span>📋</span> My Records
+            <span style={{ display: "inline-flex" }}><FiClipboard /></span> My Records
           </button>
           <button className={`mobile-drawer-item ${currentView === "tasks" ? "active" : ""}`}
             onClick={() => { setCurrentView("tasks"); setMobileMenuOpen(false); }}>
-            <span>📅</span> Task Board
+            <span style={{ display: "inline-flex" }}><FiCheckSquare /></span> Task Board
           </button>
           <button className={`mobile-drawer-item ${currentView === "chat" ? "active" : ""}`}
             onClick={() => { setCurrentView("chat"); setMobileMenuOpen(false); }}
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}
           >
             <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>💬</span> Chat Workspace
+              <span style={{ display: "inline-flex" }}><FiMessageSquare /></span> Chat Workspace
             </span>
             {unreadChatCount > 0 && (
               <span style={{
@@ -945,13 +1060,13 @@ export default function EmployeeDashboard() {
           </button>
           <button className={`mobile-drawer-item ${currentView === "profile" ? "active" : ""}`}
             onClick={() => { setCurrentView("profile"); setMobileMenuOpen(false); }}>
-            <span>👤</span> My Profile
+            <span style={{ display: "inline-flex" }}><FiUser /></span> My Profile
           </button>
 
         </nav>
         <div className="mobile-drawer-footer">
-          <button className="mobile-drawer-logout" onClick={() => { logout(); router.push("/login"); }}>
-            🚪 Sign Out
+          <button className="mobile-drawer-logout" onClick={() => { logout(); router.push("/login"); }} style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            <FiLogOut /> Sign Out
           </button>
         </div>
       </div>
@@ -968,13 +1083,10 @@ export default function EmployeeDashboard() {
             <span /><span /><span />
           </button>
           <div className="header-title" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <img
-              src="/flymedia-logo-white.png"
-              alt="Fly Media Technology"
-              style={{ height: "28px", objectFit: "contain" }}
-            />
+            <Logo height="28px" />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <ThemeToggle />
             {/* Clickable User Capsule & Dropdown */}
             <div style={{ position: "relative" }}>
               <div
@@ -986,8 +1098,8 @@ export default function EmployeeDashboard() {
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
-                  background: userDropdownOpen ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.03)",
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  background: userDropdownOpen ? "var(--bg-tertiary)" : "var(--bg-secondary)",
+                  border: "1px solid var(--glass-border)",
                   padding: "6px 14px",
                   borderRadius: "20px",
                   cursor: "pointer",
@@ -1013,12 +1125,11 @@ export default function EmployeeDashboard() {
                     top: "42px",
                     right: "0",
                     width: "200px",
-                    background: "rgba(20, 20, 30, 0.95)",
+                    background: "var(--bg-secondary)",
                     backdropFilter: "blur(20px)",
                     border: "1px solid var(--glass-border)",
                     borderRadius: "12px",
-                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5)",
-                    padding: "12px",
+                                        padding: "12px",
                     zIndex: 1000,
                     display: "flex",
                     flexDirection: "column",
@@ -1037,7 +1148,7 @@ export default function EmployeeDashboard() {
                     onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
                     onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                   >
-                    <span>👤</span> My Profile
+                    <FiUser style={{ fontSize: "1rem", flexShrink: 0 }} /> My Profile
                   </button>
 
                   <button
@@ -1046,7 +1157,7 @@ export default function EmployeeDashboard() {
                     onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
                     onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                   >
-                    <span>🔒</span> Privacy & Terms
+                    <FiShield style={{ fontSize: "1rem", flexShrink: 0 }} /> Privacy & Terms
                   </button>
 
                   <button
@@ -1055,7 +1166,7 @@ export default function EmployeeDashboard() {
                     onMouseEnter={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.2)"}
                     onMouseLeave={(e) => e.currentTarget.style.background = "rgba(239,68,68,0.12)"}
                   >
-                    <span>🚪</span> Sign Out
+                    <FiLogOut style={{ fontSize: "1rem", flexShrink: 0 }} /> Sign Out
                   </button>
                 </div>
               )}
@@ -1066,6 +1177,13 @@ export default function EmployeeDashboard() {
         {/* Page Container */}
         <div className="page-container emp-container" style={{ overflowY: currentView === "chat" ? "hidden" : "auto" }}>
           
+          {/* VIEW: ATTENDANCE */}
+          {currentView === "attendance" && (
+            <div className="container-card fade-in">
+              <AttendanceTab user={user} />
+            </div>
+          )}
+
           {/* VIEW: CHAT WORKSPACE */}
           {currentView === "chat" && (
             <div className="page-section active" style={{ height: "calc(100vh - 150px)", padding: 0 }}>
@@ -1278,7 +1396,7 @@ export default function EmployeeDashboard() {
           {/* VIEW: PROFILE */}
           {currentView === "profile" && (
             <div className="container-card">
-              <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", marginBottom: "1.5rem" }}>👤 My Profile Details</h2>
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "10px" }}><FiUser /> My Profile Details</h2>
               
               <div style={{ display: "flex", flexWrap: "wrap", gap: "2rem", marginBottom: "2rem" }}>
                 {/* User card info */}
@@ -1309,8 +1427,7 @@ export default function EmployeeDashboard() {
                         justifyContent: "center",
                         fontSize: "9px",
                         color: "#000",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
-                        border: "2px solid var(--bg-tertiary)"
+                                                border: "2px solid var(--bg-tertiary)"
                       }}>
                         📷
                       </div>
@@ -1424,7 +1541,10 @@ export default function EmployeeDashboard() {
 
           {/* VIEW: OVERVIEW */}
           {currentView === "overview" && (
-            <div className="page-section active emp-overview-grid">
+            <div className="page-section active space-y-6">
+              <AttendanceWidget user={user} />
+              
+              <div className="emp-overview-grid">
               
               {/* Active System Details */}
               <div className="emp-card">
@@ -1532,6 +1652,7 @@ export default function EmployeeDashboard() {
                 </div>
               </div>
             </div>
+          </div>
           )}
 
           {/* VIEW: FILE COMPLAINT */}
@@ -2082,8 +2203,7 @@ export default function EmployeeDashboard() {
             padding: "24px",
             width: "100%",
             maxWidth: "420px",
-            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.5)",
-            textAlign: "center",
+                        textAlign: "center",
           }}>
             <div style={{
               width: "60px",
@@ -2168,8 +2288,7 @@ export default function EmployeeDashboard() {
           borderRadius: "16px",
           background: "var(--bg-tertiary)",
           border: "1px solid var(--glass-border)",
-          boxShadow: "0 20px 50px rgba(0,0,0,0.5)"
-        }}>
+                  }}>
           <div className="modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.2rem 1.5rem", borderBottom: "1px solid var(--glass-border)" }}>
             <h3 style={{ margin: 0, fontSize: "1.25rem", color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: "8px" }}>
               📋 Task Details & Proof Attachments
@@ -2396,8 +2515,7 @@ export default function EmployeeDashboard() {
                   maxWidth: "100%",
                   maxHeight: "85vh",
                   borderRadius: "12px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.8)",
-                  outline: "none"
+                                    outline: "none"
                 }} 
               />
             ) : /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(previewMediaUrl) ? (
@@ -2409,8 +2527,7 @@ export default function EmployeeDashboard() {
                   maxHeight: "85vh",
                   objectFit: "contain",
                   borderRadius: "12px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.8)"
-                }} 
+                                  }} 
               />
             ) : /\.pdf$/i.test(previewMediaUrl) ? (
               <iframe 
