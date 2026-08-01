@@ -32,7 +32,13 @@ export async function GET(request) {
       [user.id]
     );
 
-    return NextResponse.json({ success: true, messages, groups });
+    // 4. Fetch Blocked Users list involving current user
+    const [blockedUsers] = await db.execute(
+      'SELECT blockerId, blockedId FROM blocked_users WHERE blockerId = ? OR blockedId = ?',
+      [user.id, user.id]
+    );
+
+    return NextResponse.json({ success: true, messages, groups, blockedUsers });
   } catch (err) {
     console.error('Fetch Chat API Error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -48,6 +54,39 @@ export async function POST(request) {
 
     const body = await request.json();
     const { action } = body;
+
+    // Action: Block User
+    if (action === 'blockUser') {
+      const { targetId } = body;
+      if (!targetId) {
+        return NextResponse.json({ success: false, error: 'Target user ID is required' }, { status: 400 });
+      }
+      if (String(targetId).toLowerCase() === String(user.id).toLowerCase()) {
+        return NextResponse.json({ success: false, error: 'You cannot block yourself' }, { status: 400 });
+      }
+
+      const db = await getDbConnection();
+      await db.execute(
+        'INSERT IGNORE INTO blocked_users (blockerId, blockedId) VALUES (?, ?)',
+        [user.id, targetId]
+      );
+      return NextResponse.json({ success: true, message: 'User blocked successfully' });
+    }
+
+    // Action: Unblock User
+    if (action === 'unblockUser') {
+      const { targetId } = body;
+      if (!targetId) {
+        return NextResponse.json({ success: false, error: 'Target user ID is required' }, { status: 400 });
+      }
+
+      const db = await getDbConnection();
+      await db.execute(
+        'DELETE FROM blocked_users WHERE blockerId = ? AND blockedId = ?',
+        [user.id, targetId]
+      );
+      return NextResponse.json({ success: true, message: 'User unblocked successfully' });
+    }
 
     // Check if creating a custom group
     if (action === 'createGroup') {
@@ -288,8 +327,19 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'Receiver ID is required' }, { status: 400 });
     }
 
-    // Initialize DB connection
-    await getDbConnection();
+    const db = await getDbConnection();
+
+    // Check if blocked before sending (only for Direct Messages)
+    if (!receiverId.startsWith('group_') && !receiverId.startsWith('dept_') && receiverId !== 'general') {
+      const [blockRows] = await db.execute(
+        `SELECT * FROM blocked_users 
+         WHERE (blockerId = ? AND blockedId = ?) OR (blockerId = ? AND blockedId = ?)`,
+        [user.id, receiverId, receiverId, user.id]
+      );
+      if (blockRows.length > 0) {
+        return NextResponse.json({ success: false, error: 'Cannot send message. This user has blocked you, or you have blocked them.' }, { status: 400 });
+      }
+    }
 
     const timestamp = new Date().toISOString();
     const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);

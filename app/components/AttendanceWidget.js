@@ -58,9 +58,66 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     };
   }, [statusData?.punchedIn, statusData?.onBreak]);
 
+  const getCoordinates = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by your browser."));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (error) => {
+          let msg = "Failed to get location.";
+          if (error.code === error.PERMISSION_DENIED) {
+            msg = "Location permission denied. Please allow location access to punch in/out.";
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            msg = "Location information is unavailable.";
+          } else if (error.code === error.TIMEOUT) {
+            msg = "Location request timed out.";
+          }
+          reject(new Error(msg));
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+  };
+
   const handlePunch = async (action, extraData = {}) => {
     if (submitting) return;
     setSubmitting(true);
+
+    let locationData = {};
+    if (action === "PUNCH_IN" || action === "PUNCH_OUT") {
+      Swal.fire({
+        title: "Fetching location...",
+        text: "Please allow location access if prompted.",
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+        background: "#161b22",
+        color: "#f0f6fc"
+      });
+      try {
+        locationData = await getCoordinates();
+        Swal.close();
+      } catch (err) {
+        Swal.fire({
+          icon: "error",
+          title: "Location Error",
+          text: err.message,
+          background: "#161b22",
+          color: "#f0f6fc"
+        });
+        setSubmitting(false);
+        return;
+      }
+    }
 
     try {
       const res = await fetch("/api/attendance/punch", {
@@ -70,6 +127,8 @@ export default function AttendanceWidget({ user, onStatusChange }) {
           employeeId: user.id,
           employeeName: user.name,
           action,
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
           ...extraData,
         }),
       });

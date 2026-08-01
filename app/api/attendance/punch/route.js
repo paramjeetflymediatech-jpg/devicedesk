@@ -4,6 +4,23 @@ import { getPool } from '../../db/db.js';
 // In-memory concurrency locks per employee ID to block double-clicks & duplicate browser tab hits
 const activeLocks = new Set();
 
+// Office Geolocation Settings (Flymedia Technology Ludhiana, Punjab, India)
+const OFFICE_LAT = parseFloat(process.env.OFFICE_LAT || '30.8795221');
+const OFFICE_LNG = parseFloat(process.env.OFFICE_LNG || '75.820214');
+const OFFICE_RADIUS = parseFloat(process.env.OFFICE_RADIUS_METERS || '100'); // 100 meters
+
+function getHaversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Radius of Earth in meters
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // meters
+}
+
 function formatLocalDate(d) {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -19,10 +36,33 @@ export async function POST(request) {
     return NextResponse.json({ success: false, message: 'Invalid JSON payload' }, { status: 400 });
   }
 
-  const { employeeId, employeeName, action, breakType, remarks } = body;
+  const { employeeId, employeeName, action, breakType, remarks, latitude, longitude } = body;
 
   if (!employeeId || !action) {
     return NextResponse.json({ success: false, message: 'employeeId and action are required' }, { status: 400 });
+  }
+
+  // Location validation for punch in and punch out
+  if (action === 'PUNCH_IN' || action === 'PUNCH_OUT') {
+    if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
+      return NextResponse.json({ success: false, message: 'Location access is required to punch in or out. Please enable GPS/Location settings.' }, { status: 400 });
+    }
+
+    if (action === 'PUNCH_IN') {
+      const distance = getHaversineDistance(
+        parseFloat(latitude),
+        parseFloat(longitude),
+        OFFICE_LAT,
+        OFFICE_LNG
+      );
+
+      if (distance > OFFICE_RADIUS) {
+        return NextResponse.json({
+          success: false,
+          message: `Punch-in rejected. You must be within the office area (100 meters). You are currently ${Math.round(distance)} meters away.`
+        }, { status: 400 });
+      }
+    }
   }
 
   // Lock per employee ID to handle concurrency
@@ -77,8 +117,8 @@ export async function POST(request) {
 
       await connection.execute(
         `INSERT INTO attendance_records 
-         (id, employeeId, employeeName, date, punchInTime, status, ipAddress, deviceInfo, remarks, breakStatus)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, employeeId, employeeName, date, punchInTime, status, ipAddress, deviceInfo, remarks, breakStatus, punchInLatitude, punchInLongitude)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           recordId,
           employeeId,
@@ -89,7 +129,9 @@ export async function POST(request) {
           ipAddress.split(',')[0].trim(),
           deviceInfo.substring(0, 255),
           remarks || null,
-          'None'
+          'None',
+          latitude ? parseFloat(latitude) : null,
+          longitude ? parseFloat(longitude) : null
         ]
       );
 
@@ -241,9 +283,20 @@ export async function POST(request) {
           totalBreakMinutes = ?, 
           netWorkMinutes = ?, 
           status = ?, 
-          breakStatus = 'Completed' 
+          breakStatus = 'Completed',
+          punchOutLatitude = ?,
+          punchOutLongitude = ?
          WHERE id = ?`,
-        [nowIso, totalWorkMins, finalBreakMins, netWorkMins, finalStatus, activeRecord.id]
+        [
+          nowIso,
+          totalWorkMins,
+          finalBreakMins,
+          netWorkMins,
+          finalStatus,
+          latitude ? parseFloat(latitude) : null,
+          longitude ? parseFloat(longitude) : null,
+          activeRecord.id
+        ]
       );
 
       await connection.commit();

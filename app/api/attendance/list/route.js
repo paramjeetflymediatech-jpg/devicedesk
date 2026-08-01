@@ -6,6 +6,7 @@ export async function GET(request) {
   const employeeId = searchParams.get('employeeId');
   const date = searchParams.get('date');
   const month = searchParams.get('month'); // YYYY-MM
+  const year = searchParams.get('year');   // YYYY
   const startDate = searchParams.get('startDate');
   const endDate = searchParams.get('endDate');
   const status = searchParams.get('status');
@@ -27,6 +28,9 @@ export async function GET(request) {
     } else if (month) {
       query += ` AND date LIKE ?`;
       params.push(`${month}%`);
+    } else if (year) {
+      query += ` AND date LIKE ?`;
+      params.push(`${year}%`);
     } else if (startDate && endDate) {
       query += ` AND date BETWEEN ? AND ?`;
       params.push(startDate, endDate);

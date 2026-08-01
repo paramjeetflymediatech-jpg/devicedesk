@@ -8,6 +8,7 @@ export default function ChatView({ user }) {
   const [employees, setEmployees] = useState([]);
   const [messages, setMessages] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [blockedUsers, setBlockedUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeChatId, setActiveChatId] = useState("general"); // 'general', 'dept_DepartmentName', group ID, or employee ID
   const [messageText, setMessageText] = useState("");
@@ -431,6 +432,9 @@ export default function ChatView({ user }) {
             }
             return prev;
           });
+
+          // Update blockedUsers list
+          setBlockedUsers(data.blockedUsers || []);
 
           // Always recalculate unread counts on fresh fetch
           recalculateUnread(data.messages);
@@ -1294,6 +1298,83 @@ export default function ChatView({ user }) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const isUserBlocked = (targetId) => {
+    const currentUserId = String(user?.id || "").toLowerCase();
+    const targetIdLower = String(targetId).toLowerCase();
+    return blockedUsers.some(
+      (b) => String(b.blockerId).toLowerCase() === currentUserId && String(b.blockedId).toLowerCase() === targetIdLower
+    );
+  };
+
+  const isUserBlockingMe = (targetId) => {
+    const currentUserId = String(user?.id || "").toLowerCase();
+    const targetIdLower = String(targetId).toLowerCase();
+    return blockedUsers.some(
+      (b) => String(b.blockerId).toLowerCase() === targetIdLower && String(b.blockedId).toLowerCase() === currentUserId
+    );
+  };
+
+  const handleToggleBlockUser = async () => {
+    const targetId = activeChatId;
+    if (!targetId || targetId.startsWith("group_") || targetId.startsWith("dept_") || targetId === "general") return;
+
+    const emp = employees.find(e => String(e.id).toLowerCase() === String(targetId).toLowerCase());
+    const isCurrentlyBlocked = isUserBlocked(targetId);
+
+    const result = await Swal.fire({
+      title: isCurrentlyBlocked ? "Unblock User?" : "Block User?",
+      text: isCurrentlyBlocked 
+        ? `Are you sure you want to unblock ${emp?.name || "this user"}? You will be able to message each other again.`
+        : `Are you sure you want to block ${emp?.name || "this user"}? You will no longer be able to send or receive messages in this chat.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: isCurrentlyBlocked ? "Yes, Unblock" : "Yes, Block",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: isCurrentlyBlocked ? "var(--status-resolved)" : "var(--status-critical)",
+      cancelButtonColor: "#6e7881",
+      background: "#161b22",
+      color: "#f0f6fc"
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: isCurrentlyBlocked ? "unblockUser" : "blockUser",
+            targetId
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          Swal.fire({
+            icon: "success",
+            title: isCurrentlyBlocked ? "Unblocked" : "Blocked",
+            text: data.message,
+            timer: 1500,
+            showConfirmButton: false,
+            background: "#161b22",
+            color: "#f0f6fc"
+          });
+          fetchChatHistory();
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Action Failed",
+            text: data.error || "Failed to complete request",
+            background: "#161b22",
+            color: "#f0f6fc"
+          });
+        }
+      } catch (err) {
+        console.error("Toggle block error:", err);
+        Swal.fire("Error", "Network error. Failed to toggle block state.", "error");
+      }
+    }
+  };
+
   const getInitials = (name) => {
     if (!name) return "?";
     return name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase();
@@ -1372,11 +1453,13 @@ export default function ChatView({ user }) {
 
   const filteredEmployees = employees.filter(emp => {
     if (String(emp.id).toLowerCase() === String(user?.id || "").toLowerCase()) return false;
+    if (isUserBlocked(emp.id) || isUserBlockingMe(emp.id)) return false;
     return emp.name.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   const filteredEmployeesForGroup = employees.filter(emp => {
     if (String(emp.id).toLowerCase() === String(user?.id || "").toLowerCase()) return false;
+    if (isUserBlocked(emp.id) || isUserBlockingMe(emp.id)) return false;
     return emp.name.toLowerCase().includes(groupSearchQuery.toLowerCase());
   });
 
@@ -2080,6 +2163,96 @@ export default function ChatView({ user }) {
               })
             )}
           </div>
+
+          {/* Section: Blocked Contacts */}
+          {(() => {
+            const myBlockedEmployees = employees.filter(emp => isUserBlocked(emp.id));
+            if (myBlockedEmployees.length === 0) return null;
+            return (
+              <div style={{ marginTop: "1rem", borderTop: "1px solid var(--glass-border)", paddingTop: "0.75rem" }}>
+                <div style={{ padding: "0.5rem 0.75rem", fontSize: "0.75rem", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase" }}>Blocked Contacts</div>
+                {myBlockedEmployees.map(emp => (
+                  <div 
+                    key={emp.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 12px",
+                      margin: "4px 0",
+                      borderRadius: "10px",
+                      background: "rgba(218, 54, 55, 0.05)"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                      {renderAvatar("employee", emp, "28px")}
+                      <span style={{ fontSize: "0.8rem", fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
+                        {emp.name}
+                      </span>
+                    </div>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const targetId = emp.id;
+                        const confirm = await Swal.fire({
+                          title: "Unblock User?",
+                          text: `Are you sure you want to unblock ${emp.name}?`,
+                          icon: "warning",
+                          showCancelButton: true,
+                          confirmButtonText: "Yes, Unblock",
+                          cancelButtonText: "Cancel",
+                          confirmButtonColor: "var(--status-resolved)",
+                          cancelButtonColor: "#6e7881",
+                          background: "#161b22",
+                          color: "#f0f6fc"
+                        });
+
+                        if (confirm.isConfirmed) {
+                          try {
+                            const res = await fetch("/api/chat", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                action: "unblockUser",
+                                targetId
+                              })
+                            });
+                            const data = await res.json();
+                            if (res.ok && data.success) {
+                              Swal.fire({
+                                icon: "success",
+                                title: "Unblocked",
+                                text: data.message,
+                                timer: 1500,
+                                showConfirmButton: false,
+                                background: "#161b22",
+                                color: "#f0f6fc"
+                              });
+                              fetchChatHistory();
+                            }
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }
+                      }}
+                      style={{
+                        background: "rgba(46, 160, 67, 0.12)",
+                        border: "1px solid rgba(46, 160, 67, 0.25)",
+                        color: "var(--status-resolved)",
+                        padding: "4px 8px",
+                        borderRadius: "6px",
+                        fontSize: "0.75rem",
+                        fontWeight: "700",
+                        cursor: "pointer"
+                      }}
+                    >
+                      Unblock
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -2678,134 +2851,188 @@ export default function ChatView({ user }) {
           borderTop: "1px solid var(--glass-border)",
           background: "var(--bg-secondary)"
         }}>
-          <form onSubmit={handleSendMessage} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            {/* Pick file input */}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              style={{ display: "none" }} 
-              onChange={handleFileChange}
-            />
-
-            {/* Media Options buttons */}
-            <div style={{ display: "flex", gap: "6px" }}>
-              {/* Attachment */}
+          {isUserBlocked(activeChatId) || isUserBlockingMe(activeChatId) ? (
+            <div style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "12px",
+              padding: "4px 0"
+            }}>
+              {isUserBlocked(activeChatId) && (
+                <button
+                  onClick={handleToggleBlockUser}
+                  style={{
+                    background: "rgba(46, 160, 67, 0.12)",
+                    border: "1px solid rgba(46, 160, 67, 0.25)",
+                    color: "var(--status-resolved)",
+                    padding: "10px 20px",
+                    borderRadius: "10px",
+                    fontSize: "0.85rem",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    transition: "background 0.2s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(46, 160, 67, 0.22)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "rgba(46, 160, 67, 0.12)"}
+                >
+                  🛡️ Unblock User
+                </button>
+              )}
               <button
-                type="button"
-                onClick={triggerFileSelect}
-                title="Attach Document/Media"
-                disabled={isRecording || uploading}
+                onClick={handleClearChatDisplay}
                 style={{
-                  background: "var(--bg-tertiary)",
-                  border: "1px solid var(--glass-border)",
-                  color: "var(--text-primary)",
-                  width: "40px",
-                  height: "40px",
+                  background: "rgba(218, 54, 55, 0.12)",
+                  border: "1px solid rgba(218, 54, 55, 0.25)",
+                  color: "#ff6b6b",
+                  padding: "10px 20px",
                   borderRadius: "10px",
+                  fontSize: "0.85rem",
+                  fontWeight: "700",
+                  cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "1.1rem",
-                  cursor: "pointer",
+                  gap: "6px",
                   transition: "background 0.2s"
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(218, 54, 55, 0.22)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "rgba(218, 54, 55, 0.12)"}
               >
-                📎
-              </button>
-
-              {/* Camera snap */}
-              <button
-                type="button"
-                onClick={openCamera}
-                title="Snap Live Photo"
-                disabled={isRecording || uploading}
-                style={{
-                  background: "var(--bg-tertiary)",
-                  border: "1px solid var(--glass-border)",
-                  color: "var(--text-primary)",
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "10px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "1.1rem",
-                  cursor: "pointer",
-                  transition: "background 0.2s"
-                }}
-              >
-                📷
-              </button>
-
-              {/* Audio Note recorder */}
-              <button
-                type="button"
-                onClick={startRecording}
-                title="Record Voice Note"
-                disabled={isRecording || uploading}
-                style={{
-                  background: "var(--bg-tertiary)",
-                  border: "1px solid var(--glass-border)",
-                  color: "var(--text-primary)",
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "10px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "1.1rem",
-                  cursor: "pointer",
-                  transition: "background 0.2s"
-                }}
-              >
-                🎙️
+                🧹 Clear Chat Display
               </button>
             </div>
+          ) : (
+            <form onSubmit={handleSendMessage} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {/* Pick file input */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                style={{ display: "none" }} 
+                onChange={handleFileChange}
+              />
 
-            {/* Input field */}
-            <input
-              type="text"
-              placeholder={isRecording ? "Finish recording to send..." : "Type a message..."}
-              value={messageText}
-              disabled={isRecording || uploading}
-              onChange={(e) => setMessageText(e.target.value)}
-              style={{
-                flexGrow: 1,
-                padding: "12px 16px",
-                borderRadius: "10px",
-                background: "var(--bg-tertiary)",
-                border: "1px solid var(--glass-border)",
-                color: "var(--text-primary)",
-                outline: "none",
-                fontSize: "0.85rem",
-                fontFamily: "var(--font-main)"
-              }}
-            />
+              {/* Media Options buttons */}
+              <div style={{ display: "flex", gap: "6px" }}>
+                {/* Attachment */}
+                <button
+                  type="button"
+                  onClick={triggerFileSelect}
+                  title="Attach Document/Media"
+                  disabled={isRecording || uploading}
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-primary)",
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1.1rem",
+                    cursor: "pointer",
+                    transition: "background 0.2s"
+                  }}
+                >
+                  📎
+                </button>
 
-            {/* Send Message Button */}
-            <button
-              type="submit"
-              disabled={isRecording || uploading || !messageText.trim()}
-              style={{
-                background: messageText.trim() 
-                  ? "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))" 
-                  : "var(--bg-tertiary)",
-                border: messageText.trim() ? "none" : "1px solid var(--glass-border)",
-                color: messageText.trim() ? "#000" : "var(--text-muted)",
-                width: "50px",
-                height: "40px",
-                borderRadius: "10px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "1.1rem",
-                cursor: messageText.trim() ? "pointer" : "not-allowed",
-                transition: "all 0.2s"
-              }}
-            >
-              🚀
-            </button>
-          </form>
+                {/* Camera snap */}
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  title="Snap Live Photo"
+                  disabled={isRecording || uploading}
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-primary)",
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1.1rem",
+                    cursor: "pointer",
+                    transition: "background 0.2s"
+                  }}
+                >
+                  📷
+                </button>
+
+                {/* Audio Note recorder */}
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  title="Record Voice Note"
+                  disabled={isRecording || uploading}
+                  style={{
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-primary)",
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1.1rem",
+                    cursor: "pointer",
+                    transition: "background 0.2s"
+                  }}
+                >
+                  🎙️
+                </button>
+              </div>
+
+              {/* Input field */}
+              <input
+                type="text"
+                placeholder={isRecording ? "Finish recording to send..." : "Type a message..."}
+                value={messageText}
+                disabled={isRecording || uploading}
+                onChange={(e) => setMessageText(e.target.value)}
+                style={{
+                  flexGrow: 1,
+                  padding: "12px 16px",
+                  borderRadius: "10px",
+                  background: "var(--bg-tertiary)",
+                  border: "1px solid var(--glass-border)",
+                  color: "var(--text-primary)",
+                  outline: "none",
+                  fontSize: "0.85rem",
+                  fontFamily: "var(--font-main)"
+                }}
+              />
+
+              {/* Send Message Button */}
+              <button
+                type="submit"
+                disabled={isRecording || uploading || !messageText.trim()}
+                style={{
+                  background: messageText.trim() 
+                    ? "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))" 
+                    : "var(--bg-tertiary)",
+                  border: messageText.trim() ? "none" : "1px solid var(--glass-border)",
+                  color: messageText.trim() ? "#000" : "var(--text-muted)",
+                  width: "50px",
+                  height: "40px",
+                  borderRadius: "10px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem",
+                  cursor: messageText.trim() ? "pointer" : "not-allowed",
+                  transition: "all 0.2s"
+                }}
+              >
+                🚀
+              </button>
+            </form>
+          )}
         </div>
         </div>
 
@@ -3129,6 +3356,31 @@ export default function ChatView({ user }) {
                 >
                   🧹 Clear Chat Display
                 </button>
+
+                {/* Block / Unblock User Button */}
+                {!activeChatId.startsWith("group_") && !activeChatId.startsWith("dept_") && activeChatId !== "general" && String(activeChatId).toLowerCase() !== String(user?.id || "").toLowerCase() && (
+                  <button 
+                    onClick={handleToggleBlockUser}
+                    style={{
+                      width: "100%",
+                      background: isUserBlocked(activeChatId) ? "rgba(46, 160, 67, 0.12)" : "rgba(218, 54, 55, 0.12)",
+                      border: isUserBlocked(activeChatId) ? "1px solid rgba(46, 160, 67, 0.3)" : "1px solid rgba(218, 54, 55, 0.3)",
+                      color: isUserBlocked(activeChatId) ? "var(--status-resolved)" : "#ff6b6b",
+                      cursor: "pointer",
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                      fontSize: "0.8rem",
+                      fontWeight: "600",
+                      marginTop: "10px"
+                    }}
+                  >
+                    {isUserBlocked(activeChatId) ? "🛡️ Unblock User" : "🚫 Block User"}
+                  </button>
+                )}
               </div>
 
               {/* SECTION 2: Shared Files & Media Gallery */}

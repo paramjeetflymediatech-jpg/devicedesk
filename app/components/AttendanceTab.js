@@ -12,13 +12,27 @@ export default function AttendanceTab({ user }) {
   const [loading, setLoading] = useState(true);
 
   // Filters
+  const [filterType, setFilterType] = useState("monthly"); // daily | weekly | monthly | yearly
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  });
+  const [selectedWeekDate, setSelectedWeekDate] = useState(() => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  });
+  const [selectedYear, setSelectedYear] = useState(() => {
+    return String(new Date().getFullYear());
+  });
+
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [searchEmployee, setSearchEmployee] = useState("");
-  const [selectedDay, setSelectedDay] = useState(""); // e.g. "2025-07-31"
 
   // Regularize Modal State
   const [showRegModal, setShowRegModal] = useState(false);
@@ -35,10 +49,38 @@ export default function AttendanceTab({ user }) {
   });
   const [regSubmitting, setRegSubmitting] = useState(false);
 
+  const getWeekRange = (dateStr) => {
+    if (!dateStr) return { startDate: "", endDate: "" };
+    const curr = new Date(dateStr);
+    const day = curr.getDay();
+    const firstday = new Date(curr.getTime() - day * 24 * 60 * 60 * 1000);
+    const lastday = new Date(firstday.getTime() + 6 * 24 * 60 * 60 * 1000);
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const formatDate = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+    return {
+      startDate: formatDate(firstday),
+      endDate: formatDate(lastday)
+    };
+  };
+
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      let url = `/api/attendance/list?month=${selectedMonth}&status=${statusFilter}`;
+      let url = `/api/attendance/list?status=${statusFilter}`;
+      
+      if (filterType === "daily") {
+        url += `&date=${selectedDate}`;
+      } else if (filterType === "weekly") {
+        const { startDate, endDate } = getWeekRange(selectedWeekDate);
+        url += `&startDate=${startDate}&endDate=${endDate}`;
+      } else if (filterType === "monthly") {
+        url += `&month=${selectedMonth}`;
+      } else if (filterType === "yearly") {
+        url += `&year=${selectedYear}`;
+      }
+
       if (!isAdmin && user?.id) {
         url += `&employeeId=${encodeURIComponent(user.id)}`;
       }
@@ -59,7 +101,7 @@ export default function AttendanceTab({ user }) {
 
   useEffect(() => {
     requestAnimationFrame(() => fetchLogs());
-  }, [selectedMonth, statusFilter, user?.id, isAdmin]);
+  }, [selectedMonth, selectedDate, selectedWeekDate, selectedYear, filterType, statusFilter, user?.id, isAdmin]);
 
   const handleRegularizeSubmit = async (e) => {
     e.preventDefault();
@@ -156,8 +198,6 @@ export default function AttendanceTab({ user }) {
   };
 
   const filteredRecords = records.filter(r => {
-    // Day filter
-    if (selectedDay && r.date !== selectedDay) return false;
     // Employee search
     if (!searchEmployee) return true;
     const term = searchEmployee.toLowerCase();
@@ -268,36 +308,46 @@ export default function AttendanceTab({ user }) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+            {/* Period Type Selector */}
             <div>
               <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
-                Month
+                Filter Period
               </label>
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => { setSelectedMonth(e.target.value); setSelectedDay(""); }}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--glass-border)",
-                  background: "var(--bg-secondary)",
-                  color: "var(--text-primary)",
-                  fontSize: "0.85rem",
-                  fontFamily: "var(--font-main)"
-                }}
-              />
+              <div style={{ display: "flex", background: "rgba(0, 0, 0, 0.2)", borderRadius: "8px", padding: "2px", border: "1px solid var(--glass-border)" }}>
+                {["daily", "weekly", "monthly", "yearly"].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setFilterType(type)}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      background: filterType === type ? "var(--accent-purple)" : "transparent",
+                      color: filterType === type ? "#fff" : "var(--text-secondary)",
+                      border: "none",
+                      fontSize: "0.8rem",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      textTransform: "capitalize",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Day filter */}
-            <div>
-              <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
-                Day
-              </label>
-              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            {/* Daily Picker */}
+            {filterType === "daily" && (
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                  Select Date
+                </label>
                 <input
                   type="date"
-                  value={selectedDay}
-                  onChange={(e) => setSelectedDay(e.target.value)}
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
                   style={{
                     padding: "8px 12px",
                     borderRadius: "8px",
@@ -308,24 +358,99 @@ export default function AttendanceTab({ user }) {
                     fontFamily: "var(--font-main)"
                   }}
                 />
-                {selectedDay && (
-                  <button
-                    title="Clear day filter"
-                    onClick={() => setSelectedDay("")}
-                    style={{
-                      background: "none",
-                      border: "1px solid var(--glass-border)",
-                      borderRadius: "6px",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                      padding: "6px 8px",
-                      fontSize: "0.9rem",
-                      lineHeight: 1
-                    }}
-                  >✕</button>
-                )}
               </div>
-            </div>
+            )}
+
+            {/* Weekly Picker */}
+            {filterType === "weekly" && (
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                  Select Week (via Date)
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input
+                    type="date"
+                    value={selectedWeekDate}
+                    onChange={(e) => setSelectedWeekDate(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid var(--glass-border)",
+                      background: "var(--bg-secondary)",
+                      color: "var(--text-primary)",
+                      fontSize: "0.85rem",
+                      fontFamily: "var(--font-main)"
+                    }}
+                  />
+                  {selectedWeekDate && (
+                    <span style={{
+                      fontSize: "0.8rem",
+                      color: "var(--accent-cyan)",
+                      background: "rgba(0, 240, 255, 0.08)",
+                      border: "1px solid rgba(0, 240, 255, 0.2)",
+                      padding: "6px 14px",
+                      borderRadius: "20px",
+                      fontWeight: "600",
+                      whiteSpace: "nowrap",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}>
+                      📅 {getWeekRange(selectedWeekDate).startDate} to {getWeekRange(selectedWeekDate).endDate}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Monthly Picker */}
+            {filterType === "monthly" && (
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                  Select Month
+                </label>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--glass-border)",
+                    background: "var(--bg-secondary)",
+                    color: "var(--text-primary)",
+                    fontSize: "0.85rem",
+                    fontFamily: "var(--font-main)"
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Yearly Picker */}
+            {filterType === "yearly" && (
+              <div>
+                <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                  Select Year
+                </label>
+                <input
+                  type="number"
+                  min="2020"
+                  max="2100"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--glass-border)",
+                    background: "var(--bg-secondary)",
+                    color: "var(--text-primary)",
+                    fontSize: "0.85rem",
+                    fontFamily: "var(--font-main)",
+                    width: "90px"
+                  }}
+                />
+              </div>
+            )}
 
             <div>
               <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
@@ -480,10 +605,32 @@ export default function AttendanceTab({ user }) {
                         </td>
                       )}
                       <td style={{ padding: "14px 16px", fontFamily: "monospace" }}>
-                        {inTimeStr}
+                        <div>{inTimeStr}</div>
+                        {r.punchInLatitude && (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${r.punchInLatitude},${r.punchInLongitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: "0.72rem", color: "var(--accent-cyan)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "2px", marginTop: "4px" }}
+                            title={`Lat: ${r.punchInLatitude}, Lng: ${r.punchInLongitude}`}
+                          >
+                            📍 Map Pin
+                          </a>
+                        )}
                       </td>
                       <td style={{ padding: "14px 16px", fontFamily: "monospace" }}>
-                        {outTimeStr}
+                        <div>{outTimeStr}</div>
+                        {r.punchOutLatitude && (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${r.punchOutLatitude},${r.punchOutLongitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: "0.72rem", color: "var(--accent-cyan)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "2px", marginTop: "4px" }}
+                            title={`Lat: ${r.punchOutLatitude}, Lng: ${r.punchOutLongitude}`}
+                          >
+                            📍 Map Pin
+                          </a>
+                        )}
                       </td>
                       <td style={{ padding: "14px 16px" }}>
                         <span

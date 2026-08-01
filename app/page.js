@@ -43,7 +43,7 @@ import AttendanceWidget from "./components/AttendanceWidget.js";
 import ChatView from "./components/ChatView.js";
 import ThemeToggle from "./components/ThemeToggle.js";
 import Logo from "./components/Logo.js";
-import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock } from "react-icons/fi";
+import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock, FiCalendar, FiCheck, FiX } from "react-icons/fi";
 
 export default function Home() {
   const { user, logout } = useAuth();
@@ -229,6 +229,138 @@ export default function Home() {
   const [portalCategory, setPortalCategory] = useState("RAM/Speed");
   const [portalSeverity, setPortalSeverity] = useState("Medium");
   const [portalDesc, setPortalDesc] = useState("");
+
+  // Leave requests states
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [leaveSummary, setLeaveSummary] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [leaveFilterStatus, setLeaveFilterStatus] = useState("ALL");
+  const [leaveActionLoading, setLeaveActionLoading] = useState(null);
+
+  const fetchLeaveRequests = async () => {
+    try {
+      const res = await fetch(`/api/leave/list?status=${leaveFilterStatus}`);
+      const data = await res.json();
+      if (data.success) {
+        setLeaveRequests(data.requests || []);
+        setLeaveSummary(data.summary || { total: 0, pending: 0, approved: 0, rejected: 0 });
+      }
+    } catch (err) {
+      console.error("Error fetching leave requests:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchLeaveRequests();
+  }, [leaveFilterStatus]);
+
+  const handleReviewLeave = async (leaveId, action) => {
+    let rejectionReason = "";
+    if (action === 'Rejected') {
+      const { value: reasonText } = await Swal.fire({
+        title: 'Reject Leave Request',
+        input: 'textarea',
+        inputLabel: 'Reason for rejection',
+        inputPlaceholder: 'Enter reason here...',
+        inputAttributes: {
+          'aria-label': 'Type rejection reason'
+        },
+        showCancelButton: true,
+        confirmButtonColor: 'var(--status-critical)',
+        cancelButtonColor: '#30363d',
+        background: '#161b22',
+        color: '#f0f6fc',
+        inputValidator: (value) => {
+          if (!value || !value.trim()) {
+            return 'You need to write a reason for rejection!';
+          }
+        }
+      });
+      if (reasonText === undefined) return;
+      rejectionReason = reasonText;
+    } else {
+      const confirm = await Swal.fire({
+        title: 'Approve Leave Request',
+        text: 'Are you sure you want to approve this leave request?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Approve',
+        confirmButtonColor: 'var(--status-resolved)',
+        cancelButtonColor: '#30363d',
+        background: '#161b22',
+        color: '#f0f6fc'
+      });
+      if (!confirm.isConfirmed) return;
+    }
+
+    setLeaveActionLoading(leaveId);
+    try {
+      const res = await fetch('/api/leave/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leaveId,
+          action,
+          rejectionReason,
+          reviewerName: user?.name || 'Admin'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Success',
+          text: `Leave request ${action.toLowerCase()} successfully!`,
+          background: '#161b22',
+          color: '#f0f6fc'
+        });
+        fetchLeaveRequests();
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Failed',
+          text: data.message || 'Failed to review leave request.',
+          background: '#161b22',
+          color: '#f0f6fc'
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Network/server error.', background: '#161b22', color: '#f0f6fc' });
+    } finally {
+      setLeaveActionLoading(null);
+    }
+  };
+
+  const handleViewLeave = (req) => {
+    const emp = employees.find(e => e.id === req.employeeId);
+    Swal.fire({
+      title: 'Leave Application Details',
+      html: `
+        <div style="text-align: left; font-family: var(--font-main); color: var(--text-primary); font-size: 0.9rem; line-height: 1.6; padding: 5px;">
+          <div style="margin-bottom: 8px;"><strong>Employee Name:</strong> ${req.employeeName}</div>
+          <div style="margin-bottom: 8px;"><strong>Role & Department:</strong> ${emp ? `${emp.role} • ${emp.department}` : 'N/A'}</div>
+          <div style="margin-bottom: 8px;"><strong>Leave Type:</strong> ${req.leaveType}</div>
+          <div style="margin-bottom: 8px;"><strong>Duration:</strong> ${req.fromDate} to ${req.toDate} (${req.totalDays} ${req.totalDays === 1 ? 'day' : 'days'})</div>
+          <div style="margin-bottom: 8px;"><strong>Reason for Leave:</strong></div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; max-height: 100px; overflow-y: auto; font-style: italic;">
+            ${req.reason || "No reason provided."}
+          </div>
+          <div style="margin-bottom: 8px;"><strong>Status:</strong> <span class="status-badge badge-${req.status === 'Approved' ? 'resolved' : (req.status === 'Rejected' ? 'critical' : 'progress')}" style="padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 0.75rem;">${req.status}</span></div>
+          ${req.status !== 'Pending' ? `
+            <div style="border-top: 1px solid var(--glass-border); margin-top: 12px; padding-top: 12px;">
+              <div style="margin-bottom: 4px;"><strong>Reviewed By:</strong> ${req.reviewedBy}</div>
+              <div style="margin-bottom: 4px;"><strong>Reviewed At:</strong> ${new Date(req.reviewedAt).toLocaleString()}</div>
+              ${req.status === 'Rejected' && req.rejectionReason ? `<div style="margin-top: 6px; color: var(--status-critical);"><strong>Rejection Reason:</strong> "${req.rejectionReason}"</div>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      `,
+      confirmButtonText: 'Close',
+      confirmButtonColor: 'var(--accent-cyan)',
+      background: '#161b22',
+      color: '#f0f6fc'
+    });
+  };
   
   // Audio Context Ref
   const audioCtxRef = useRef(null);
@@ -247,6 +379,7 @@ export default function Home() {
       if (depts.length > 0) {
         setNewEmpDept(prev => prev || depts[0].name);
       }
+      fetchLeaveRequests();
     };
     
     loadData();
@@ -2080,6 +2213,24 @@ export default function Home() {
                     )}
                   </button>
                 </li>
+                <li className={`nav-item ${currentView === "leave-requests" ? "active" : ""}`}>
+                  <button onClick={() => setCurrentView("leave-requests")}>
+                    <span className="nav-icon"><FiCalendar /></span> Leave Requests
+                    {isMounted && leaveRequests.filter(r => r.status === 'Pending').length > 0 && (
+                      <span style={{
+                        background: "var(--status-critical)",
+                        color: "#fff",
+                        borderRadius: "50%",
+                        padding: "2px 6px",
+                        fontSize: "0.7rem",
+                        fontWeight: "700",
+                        marginLeft: "8px"
+                      }}>
+                        {leaveRequests.filter(r => r.status === 'Pending').length}
+                      </span>
+                    )}
+                  </button>
+                </li>
                 <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("profile")}><span className="nav-icon"><FiUser /></span> My Profile</button>
                 </li>
@@ -2161,6 +2312,23 @@ export default function Home() {
                     fontWeight: "700"
                   }}>
                     {unreadChatCount}
+                  </span>
+                )}
+              </button>
+              <button className={`mobile-drawer-item ${currentView === "leave-requests" ? "active" : ""}`}
+                onClick={() => { setCurrentView("leave-requests"); setMobileMenuOpen(false); }}>
+                <span style={{ display: "inline-flex" }}><FiCalendar /></span> Leave Requests
+                {leaveRequests.filter(r => r.status === 'Pending').length > 0 && (
+                  <span style={{
+                    background: "var(--status-critical)",
+                    color: "#fff",
+                    borderRadius: "50%",
+                    padding: "2px 6px",
+                    fontSize: "0.7rem",
+                    fontWeight: "700",
+                    marginLeft: "8px"
+                  }}>
+                    {leaveRequests.filter(r => r.status === 'Pending').length}
                   </span>
                 )}
               </button>
@@ -3790,7 +3958,7 @@ export default function Home() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                     {/* Seed / Clear demo buttons */}
-                    <button
+                    {/* <button
                       onClick={seedDummyTasks}
                       title="Inject demo tasks for all employees across all time periods"
                       style={{
@@ -3849,7 +4017,7 @@ export default function Home() {
                       onMouseLeave={e => e.currentTarget.style.background = "rgba(239,68,68,0.06)"}
                     >
                       🗑️ Clear Demo
-                    </button>
+                    </button> */}
                     {/* Tab Switcher */}
                     <div style={{ display: "flex", gap: "6px", background: "rgba(255,255,255,0.04)", padding: "4px", borderRadius: "10px", border: "1px solid var(--glass-border)" }}>
                       {["daily", "weekly", "monthly", "yearly"].map(tab => (
@@ -4066,6 +4234,228 @@ export default function Home() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ================= VIEW: LEAVE REQUESTS (ADMIN) ================= */}
+          {currentView === "leave-requests" && userRole === "admin" && (
+            <div className="page-section active">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                <div>
+                  <h2 style={{ fontSize: "1.4rem", margin: 0 }}>📅 Leave Requests Management</h2>
+                  <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginTop: "4px" }}>Manage and review team member leave applications</p>
+                </div>
+              </div>
+
+              {/* Leave Statistics Summary Grid */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                gap: "1rem",
+                marginBottom: "2rem"
+              }}>
+                <div style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--glass-border)", padding: "1.25rem", borderRadius: "12px", textAlign: "center" }}>
+                  <p style={{ color: "var(--text-secondary)", fontSize: "0.8rem", margin: "0 0 4px 0" }}>Total Applications</p>
+                  <p style={{ fontSize: "1.8rem", fontWeight: "700", color: "var(--text-primary)", margin: 0 }}>{leaveSummary.total}</p>
+                </div>
+                <div style={{ background: "rgba(240, 136, 62, 0.1)", border: "1px solid rgba(240, 136, 62, 0.2)", padding: "1.25rem", borderRadius: "12px", textAlign: "center" }}>
+                  <p style={{ color: "#f0883e", fontSize: "0.8rem", margin: "0 0 4px 0" }}>Pending Review</p>
+                  <p style={{ fontSize: "1.8rem", fontWeight: "700", color: "#f0883e", margin: 0 }}>{leaveSummary.pending}</p>
+                </div>
+                <div style={{ background: "rgba(46, 160, 67, 0.1)", border: "1px solid rgba(46, 160, 67, 0.2)", padding: "1.25rem", borderRadius: "12px", textAlign: "center" }}>
+                  <p style={{ color: "var(--status-resolved)", fontSize: "0.8rem", margin: "0 0 4px 0" }}>Approved Leaves</p>
+                  <p style={{ fontSize: "1.8rem", fontWeight: "700", color: "var(--status-resolved)", margin: 0 }}>{leaveSummary.approved}</p>
+                </div>
+                <div style={{ background: "rgba(248, 81, 73, 0.1)", border: "1px solid rgba(248, 81, 73, 0.2)", padding: "1.25rem", borderRadius: "12px", textAlign: "center" }}>
+                  <p style={{ color: "var(--status-critical)", fontSize: "0.8rem", margin: "0 0 4px 0" }}>Rejected Leaves</p>
+                  <p style={{ fontSize: "1.8rem", fontWeight: "700", color: "var(--status-critical)", margin: 0 }}>{leaveSummary.rejected}</p>
+                </div>
+              </div>
+
+              {/* Toolbar & Filter */}
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "rgba(255, 255, 255, 0.01)",
+                border: "1px solid var(--glass-border)",
+                padding: "12px 18px",
+                borderRadius: "10px",
+                marginBottom: "1rem"
+              }}>
+                <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>
+                  Showing {leaveRequests.length} leave application(s)
+                </span>
+                
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>Status Filter:</span>
+                  <select
+                    value={leaveFilterStatus}
+                    onChange={(e) => setLeaveFilterStatus(e.target.value)}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "8px",
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--glass-border)",
+                      color: "var(--text-primary)",
+                      outline: "none",
+                      fontSize: "0.85rem"
+                    }}
+                  >
+                    <option value="ALL">All Status</option>
+                    <option value="Pending">Pending Review</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Table Wrapper */}
+              {leaveRequests.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "4rem", background: "rgba(255,255,255,0.01)", borderRadius: "12px", border: "1px dashed var(--glass-border)", color: "var(--text-muted)" }}>
+                  <p style={{ fontSize: "1rem", margin: 0 }}>No leave applications found matching the filter.</p>
+                </div>
+              ) : (
+                <div className="table-wrapper">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Team Member</th>
+                        <th>Leave Type</th>
+                        <th>Dates & Duration</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: "right" }}>Actions / Review</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leaveRequests.map(req => {
+                        const emp = employees.find(e => e.id === req.employeeId);
+                        return (
+                          <tr key={req.id}>
+                            <td>
+                              <strong>{req.employeeName}</strong>
+                              {emp && (
+                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                                  {emp.role} • {emp.department}
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{req.leaveType}</span>
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: "500" }}>{req.fromDate} to {req.toDate}</div>
+                              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                                Total: {req.totalDays} {req.totalDays === 1 ? 'day' : 'days'}
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{
+                                maxWidth: "250px",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "normal",
+                                fontSize: "0.85rem",
+                                color: "var(--text-secondary)"
+                              }}>
+                                {req.reason}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`status-badge badge-${req.status === 'Approved' ? 'resolved' : (req.status === 'Rejected' ? 'critical' : 'progress')}`}>
+                                {req.status}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: "right" }}>
+                              {req.status === 'Pending' ? (
+                                <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                                  <button
+                                    onClick={() => handleViewLeave(req)}
+                                    className="btn-action"
+                                    title="View Details"
+                                    style={{
+                                      padding: "6px 10px",
+                                      background: "rgba(0, 240, 255, 0.15)",
+                                      color: "var(--accent-cyan)",
+                                      borderColor: "var(--accent-cyan)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center"
+                                    }}
+                                  >
+                                    <FiEye style={{ fontSize: "1rem" }} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleReviewLeave(req.id, 'Approved')}
+                                    disabled={leaveActionLoading === req.id}
+                                    className="btn-action resolve"
+                                    title="Approve"
+                                    style={{
+                                      padding: "6px 10px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center"
+                                    }}
+                                  >
+                                    <FiCheck style={{ fontSize: "1.05rem" }} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleReviewLeave(req.id, 'Rejected')}
+                                    disabled={leaveActionLoading === req.id}
+                                    className="btn-action"
+                                    title="Reject"
+                                    style={{
+                                      padding: "6px 10px",
+                                      background: "rgba(239, 68, 68, 0.15)",
+                                      color: "var(--status-critical)",
+                                      borderColor: "var(--status-critical)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center"
+                                    }}
+                                  >
+                                    <FiX style={{ fontSize: "1.05rem" }} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "flex-end" }}>
+                                  <button
+                                    onClick={() => handleViewLeave(req)}
+                                    className="btn-action"
+                                    title="View Details"
+                                    style={{
+                                      padding: "6px 10px",
+                                      background: "rgba(0, 240, 255, 0.15)",
+                                      color: "var(--accent-cyan)",
+                                      borderColor: "var(--accent-cyan)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center"
+                                    }}
+                                  >
+                                    <FiEye style={{ fontSize: "1rem" }} />
+                                  </button>
+                                  <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "right" }}>
+                                    {req.status === 'Rejected' && req.rejectionReason && (
+                                      <div style={{ color: "var(--status-critical)", fontSize: "0.75rem", fontStyle: "italic", marginBottom: "2px", maxWidth: "200px" }}>
+                                        Reason: "{req.rejectionReason}"
+                                      </div>
+                                    )}
+                                    <div>
+                                      By {req.reviewedBy} on {new Date(req.reviewedAt).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 

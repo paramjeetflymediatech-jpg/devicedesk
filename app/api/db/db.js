@@ -123,6 +123,19 @@ export async function getDbConnection() {
   }
 
   try {
+    await db.execute(`ALTER TABLE attendance_records ADD COLUMN punchInLatitude DECIMAL(10, 8) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE attendance_records ADD COLUMN punchInLongitude DECIMAL(11, 8) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE attendance_records ADD COLUMN punchOutLatitude DECIMAL(10, 8) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE attendance_records ADD COLUMN punchOutLongitude DECIMAL(11, 8) DEFAULT NULL`);
+  } catch (err) {}
+
+  try {
     await db.execute(`ALTER TABLE chat_messages ADD COLUMN isEdited INT DEFAULT 0`);
   } catch (err) {}
 
@@ -291,6 +304,38 @@ export async function getDbConnection() {
       durationMinutes INT DEFAULT 0,
       INDEX idx_att_id (attendanceId),
       INDEX idx_emp_id (employeeId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS leave_requests (
+      id VARCHAR(100) PRIMARY KEY,
+      employeeId VARCHAR(50) NOT NULL,
+      employeeName VARCHAR(100) NOT NULL,
+      leaveType VARCHAR(50) NOT NULL,
+      fromDate VARCHAR(20) NOT NULL,
+      toDate VARCHAR(20) NOT NULL,
+      totalDays INT DEFAULT 1,
+      reason TEXT,
+      status VARCHAR(20) DEFAULT 'Pending',
+      appliedAt VARCHAR(50) NOT NULL,
+      reviewedBy VARCHAR(100) DEFAULT NULL,
+      reviewedAt VARCHAR(50) DEFAULT NULL,
+      rejectionReason TEXT DEFAULT NULL,
+      INDEX idx_leave_emp (employeeId),
+      INDEX idx_leave_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS blocked_users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      blockerId VARCHAR(50) NOT NULL,
+      blockedId VARCHAR(50) NOT NULL,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_blocker_blocked (blockerId, blockedId),
+      INDEX idx_blocker (blockerId),
+      INDEX idx_blocked (blockedId)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
