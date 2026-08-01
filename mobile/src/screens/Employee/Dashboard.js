@@ -25,6 +25,8 @@ import { sweetAlert } from '../../utils/sweetAlert';
 import { playTicketSound } from '../../utils/sound';
 import EmployeeTasks from './EmployeeTasks';
 import ChatScreen from '../ChatScreen';
+import AttendanceWidget from '../../components/AttendanceWidget';
+import AttendanceLogs from './AttendanceLogs';
 
 export default function EmployeeDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records, profile
@@ -155,6 +157,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
     switch (activeTab) {
       case 'tasks':
         return <EmployeeTasks currentUser={user} />;
+      case 'attendance':
+        return <AttendanceLogs user={user} />;
       case 'chat':
         return <ChatScreen user={user} onBack={() => setActiveTab('overview')} />;
       case 'file-complaint':
@@ -364,6 +368,9 @@ export default function EmployeeDashboard({ user, onLogout }) {
               <Text style={styles.profileMeta}>Department: {user.department || 'Operations'}</Text>
               <Text style={styles.profileMeta}>Ticket Limit Status: {totalRaised} / {ticketLimit} used</Text>
             </View>
+
+            {/* Attendance Punch Section */}
+            <AttendanceWidget user={user} />
 
             {/* Assigned Hardware */}
             <Text style={styles.subTitle}>Assigned Hardware Inventory</Text>
@@ -594,6 +601,14 @@ export default function EmployeeDashboard({ user, onLogout }) {
               </TouchableOpacity>
 
               <TouchableOpacity 
+                style={[styles.drawerItem, activeTab === 'attendance' && styles.drawerItemActive]} 
+                onPress={() => { setActiveTab('attendance'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>🕒</Text>
+                <Text style={styles.drawerItemLabel}>My Attendance Logs</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
                 style={[styles.drawerItem, activeTab === 'profile' && styles.drawerItemActive]} 
                 onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
               >
@@ -678,6 +693,16 @@ export default function EmployeeDashboard({ user, onLogout }) {
           <Text style={styles.tabIcon}>📋</Text>
           <Text style={[styles.tabLabel, activeTab === 'records' && styles.tabLabelActive]}>
             My Tickets
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'attendance' && styles.tabItemActive]}
+          onPress={() => setActiveTab('attendance')}
+        >
+          <Text style={styles.tabIcon}>🕒</Text>
+          <Text style={[styles.tabLabel, activeTab === 'attendance' && styles.tabLabelActive]}>
+            Attendance
           </Text>
         </TouchableOpacity>
 

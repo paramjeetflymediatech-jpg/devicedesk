@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 const API_URL_KEY = 'devicedesk_api_url';
 
 // Default URLs: 10.0.2.2 for Android Emulator, localhost for iOS simulator
-//  const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
+ const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+// const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
 
 let currentApiUrl = DEFAULT_URL;
 
@@ -159,3 +159,68 @@ export async function requestForgotPasswordLink(email) {
   }
 }
 
+export async function fetchAttendanceStatus(employeeId) {
+  const url = `${currentApiUrl}/api/attendance/status?employeeId=${encodeURIComponent(employeeId)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP Error ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch attendance status failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchAttendanceRecords(employeeId, month, status = 'ALL') {
+  let url = `${currentApiUrl}/api/attendance/list?month=${month}&status=${status}`;
+  if (employeeId) {
+    url += `&employeeId=${encodeURIComponent(employeeId)}`;
+  }
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP Error ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch attendance records failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function postAttendancePunch(employeeId, employeeName, action, breakType = '', remarks = '') {
+  const url = `${currentApiUrl}/api/attendance/punch`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        employeeId,
+        employeeName,
+        action,
+        breakType,
+        remarks,
+      }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    console.error(`Post attendance punch failed at ${url}:`, err);
+    throw err;
+  }
+}
