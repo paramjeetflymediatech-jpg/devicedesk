@@ -3,11 +3,38 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
 
+def getNodePath() {
+    def environmentNode = System.getenv("NODE_BINARY")
+    if (environmentNode != null && file(environmentNode).exists()) {
+        return environmentNode
+    }
+    def homeDir = System.getProperty("user.home")
+    def possiblePaths = [
+        "/opt/homebrew/bin/node",
+        "/usr/local/bin/node"
+    ]
+    def nvmDir = file("$homeDir/.nvm/versions/node")
+    if (nvmDir.exists() && nvmDir.isDirectory()) {
+        def versions = nvmDir.list()
+        if (versions != null && versions.length > 0) {
+            versions.sort()
+            possiblePaths.add(0, "$homeDir/.nvm/versions/node/${versions[-1]}/bin/node")
+        }
+    }
+    for (path in possiblePaths) {
+        if (path != null && file(path).exists()) {
+            return path
+        }
+    }
+    return "node"
+}
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
 react {
+    nodeExecutableAndArgs = [getNodePath()]
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
     // root = file("../../")
@@ -27,22 +54,6 @@ react {
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
     // nodeExecutableAndArgs = ["node"]
-    //
-    //   The command to run when bundling. By default is 'bundle'
-    // bundleCommand = "ram-bundle"
-    //
-    //   The path to the CLI configuration file. Default is empty.
-    // bundleConfig = file(../rn-cli.config.js)
-    //
-    //   The name of the generated asset file containing your JS bundle
-    // bundleAssetName = "MyApplication.android.bundle"
-    //
-    //   The entry file for bundle generation. Default is 'index.android.js' or 'index.js'
-    // entryFile = file("../js/MyApplication.android.js")
-    //
-    //   A list of extra flags to pass to the 'bundle' commands.
-    //   See https://github.com/react-native-community/cli/blob/main/docs/commands.md#bundle
-    // extraPackagerArgs = []
 
     /* Hermes Commands */
     //   The hermes compiler command to run. By default it is 'hermesc'
@@ -83,8 +94,8 @@ android {
         applicationId "com.devicedesk.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 11
-        versionName "1.1"
+        versionCode 12
+        versionName "1.2"
     }
     signingConfigs {
         debug {
