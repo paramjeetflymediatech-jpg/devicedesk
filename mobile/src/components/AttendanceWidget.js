@@ -8,7 +8,9 @@ import {
   Modal,
   ActivityIndicator,
   Platform,
+  PermissionsAndroid,
 } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import {
   fetchAttendanceStatus,
   postAttendancePunch,
@@ -96,6 +98,61 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     };
   }, [statusData]);
 
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission Required',
+            message: 'Device Desk requires location permission to verify your presence at the office during punch in and punch out.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.error('Error requesting location permission:', err);
+        return false;
+      }
+    } else if (Platform.OS === 'ios') {
+      try {
+        Geolocation.requestAuthorization();
+        return true;
+      } catch (err) {
+        console.error('Error requesting iOS location permission:', err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const getCurrentLocation = () => {
+    return new Promise((resolve, reject) => {
+      Geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          let msg = 'Failed to fetch location.';
+          if (error.code === 1) {
+            msg = 'Location permission denied. Please allow location access in your device settings to punch in or punch out.';
+          } else if (error.code === 2) {
+            msg = 'Location position unavailable. Please ensure GPS/Location is enabled on your device.';
+          } else if (error.code === 3) {
+            msg = 'Location request timed out. Please ensure GPS signal is available and try again.';
+          }
+          reject(new Error(msg));
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    });
+  };
+
   const handlePunchAction = async (action, extraData = {}) => {
     if (submitting) return;
 
@@ -116,13 +173,45 @@ export default function AttendanceWidget({ user, onStatusChange }) {
 
     setSubmitting(true);
 
+    let lat = null;
+    let lng = null;
+
+    if (action === 'PUNCH_IN' || action === 'PUNCH_OUT') {
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        setSubmitting(false);
+        sweetAlert({
+          title: 'Location Permission Denied',
+          text: 'Location access is required to punch in or punch out. Please enable location permissions in device settings.',
+          type: 'error',
+        });
+        return;
+      }
+
+      try {
+        const coords = await getCurrentLocation();
+        lat = coords.latitude;
+        lng = coords.longitude;
+      } catch (locErr) {
+        setSubmitting(false);
+        sweetAlert({
+          title: 'Location Required',
+          text: locErr.message || 'Unable to retrieve location coordinates. Please enable GPS and try again.',
+          type: 'error',
+        });
+        return;
+      }
+    }
+
     try {
       const data = await postAttendancePunch(
         user.id,
         user.name,
         action,
         extraData.breakType || '',
-        extraData.remarks || ''
+        extraData.remarks || '',
+        lat,
+        lng
       );
 
       if (data.success) {

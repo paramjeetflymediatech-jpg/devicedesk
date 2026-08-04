@@ -37,7 +37,7 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app requires location permission to identify nearby office desks and monitor system tracking devices in your workspace.</string>
+	<string>This app requires location permission to verify your presence at the office when punching in or out.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

@@ -200,7 +200,7 @@ export async function fetchAttendanceRecords(employeeId, month, status = 'ALL') 
   }
 }
 
-export async function postAttendancePunch(employeeId, employeeName, action, breakType = '', remarks = '') {
+export async function postAttendancePunch(employeeId, employeeName, action, breakType = '', remarks = '', latitude = null, longitude = null) {
   const url = `${currentApiUrl}/api/attendance/punch`;
   try {
     const response = await fetch(url, {
@@ -215,6 +215,8 @@ export async function postAttendancePunch(employeeId, employeeName, action, brea
         action,
         breakType,
         remarks,
+        latitude,
+        longitude,
       }),
     });
     const data = await response.json();
