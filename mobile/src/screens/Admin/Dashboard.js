@@ -9,8 +9,11 @@ import {
   Image,
   Modal,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../../utils/ThemeContext';
+import AppIcon from '../../components/AppIcon';
 import { getStats, syncWithServer, getTickets, subscribe, removeEmployee } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { playTicketSound } from '../../utils/sound';
@@ -47,6 +50,7 @@ function getRelativeTime(isoString) {
 }
 
 export default function AdminDashboard({ user, onLogout }) {
+  const { theme, isDark, toggleTheme, themeColors } = useTheme();
   const [activeTab, setActiveTab] = useState('overview'); // overview, systems, employees, tickets, profile
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -246,8 +250,12 @@ export default function AdminDashboard({ user, onLogout }) {
             <Text style={styles.hamburgerIcon}>☰</Text>
           </TouchableOpacity>
           <View style={{ marginLeft: 10 }}>
-            <Text style={styles.headerTitle}>DeviceDesk</Text>
-            <Text style={styles.headerSub}>Admin Console</Text>
+            <Image
+              source={isDark ? require('../../assets/flymedia-logo-white.png') : require('../../assets/flymedia-logo.png')}
+              style={{ width: 130, height: 32 }}
+              resizeMode="contain"
+            />
+            <Text style={[styles.headerSub, { color: themeColors.textSecondary, fontSize: 10 }]}>Admin Console</Text>
           </View>
         </View>
         <TouchableOpacity 
@@ -279,46 +287,58 @@ export default function AdminDashboard({ user, onLogout }) {
             activeOpacity={1} 
             onPress={() => setIsDrawerOpen(false)}
           />
-          <View style={styles.drawerContent}>
-            <View style={styles.drawerHeader}>
+          <View style={[styles.drawerContent, { backgroundColor: themeColors.drawerBg, borderColor: themeColors.border }]}>
+            <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border }]}>
               <View style={styles.drawerAvatarContainer}>
                 <Text style={styles.drawerAvatarText}>A</Text>
               </View>
-              <Text style={styles.drawerName}>{user.name || 'Administrator'}</Text>
-              <Text style={styles.drawerEmail}>{user.email || 'admin@devicedesk.com'}</Text>
+              <Text style={[styles.drawerName, { color: themeColors.textPrimary }]}>{user.name || 'Administrator'}</Text>
+              <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]}>{user.email || 'admin@devicedesk.com'}</Text>
             </View>
 
             <View style={styles.drawerItemsContainer}>
               <TouchableOpacity 
-                style={[styles.drawerItem, activeTab === 'overview' && styles.drawerItemActive]} 
+                style={[
+                  styles.drawerItem, 
+                  activeTab === 'overview' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]} 
                 onPress={() => { setActiveTab('overview'); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>📊</Text>
-                <Text style={styles.drawerItemLabel}>Overview Dashboard</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Overview Dashboard</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.drawerItem, activeTab === 'profile' && styles.drawerItemActive]} 
+                style={[
+                  styles.drawerItem, 
+                  activeTab === 'profile' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]} 
                 onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>👤</Text>
-                <Text style={styles.drawerItemLabel}>Admin Profile</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Admin Profile</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.drawerItem, activeTab === 'departments' && styles.drawerItemActive]} 
+                style={[
+                  styles.drawerItem, 
+                  activeTab === 'departments' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]} 
                 onPress={() => { setActiveTab('departments'); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>🏢</Text>
-                <Text style={styles.drawerItemLabel}>Manage Departments</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Manage Departments</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.drawerItem, activeTab === 'tasks' && styles.drawerItemActive]} 
+                style={[
+                  styles.drawerItem, 
+                  activeTab === 'tasks' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]} 
                 onPress={() => { setActiveTab('tasks'); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>📅</Text>
-                <Text style={styles.drawerItemLabel}>Manage Tasks</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Manage Tasks</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -326,7 +346,40 @@ export default function AdminDashboard({ user, onLogout }) {
                 onPress={() => { setShowSettingsModal(true); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>⚙️</Text>
-                <Text style={styles.drawerItemLabel}>Privacy & Terms</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Privacy & Terms</Text>
+              </TouchableOpacity>
+
+              {/* Theme Toggle Button */}
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  {
+                    justifyContent: 'space-between',
+                    marginTop: 8,
+                    marginBottom: 8,
+                    backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#475569' : '#e2e8f0',
+                  }
+                ]}
+                activeOpacity={0.8}
+                onPress={toggleTheme}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 12 }} />
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText, fontWeight: '700' }]}>
+                    {isDark ? 'Dark Mode' : 'Light Mode'}
+                  </Text>
+                </View>
+                <Switch
+                  value={isDark}
+                  onValueChange={toggleTheme}
+                  trackColor={{ false: themeColors.switchTrackFalse, true: themeColors.switchTrackTrue }}
+                  thumbColor={themeColors.switchThumb}
+                />
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -348,7 +401,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 }}
               >
                 <Text style={styles.drawerItemIcon}>⚠️</Text>
-                <Text style={styles.drawerItemLabel}>Delete User Account</Text>
+                <Text style={[styles.drawerItemLabel, { color: '#dc2626' }]}>Delete User Account</Text>
               </TouchableOpacity>
             </View>
 

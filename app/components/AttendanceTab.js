@@ -30,6 +30,17 @@ export default function AttendanceTab({ user }) {
   const [selectedYear, setSelectedYear] = useState(() => {
     return String(new Date().getFullYear());
   });
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  });
+  const [toDate, setToDate] = useState(() => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  });
 
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [searchEmployee, setSearchEmployee] = useState("");
@@ -79,6 +90,8 @@ export default function AttendanceTab({ user }) {
         url += `&month=${selectedMonth}`;
       } else if (filterType === "yearly") {
         url += `&year=${selectedYear}`;
+      } else if (filterType === "custom") {
+        url += `&startDate=${fromDate}&endDate=${toDate}`;
       }
 
       if (!isAdmin && user?.id) {
@@ -101,7 +114,7 @@ export default function AttendanceTab({ user }) {
 
   useEffect(() => {
     requestAnimationFrame(() => fetchLogs());
-  }, [selectedMonth, selectedDate, selectedWeekDate, selectedYear, filterType, statusFilter, user?.id, isAdmin]);
+  }, [selectedMonth, selectedDate, selectedWeekDate, selectedYear, fromDate, toDate, filterType, statusFilter, user?.id, isAdmin]);
 
   const handleRegularizeSubmit = async (e) => {
     e.preventDefault();
@@ -314,7 +327,7 @@ export default function AttendanceTab({ user }) {
                 Filter Period
               </label>
               <div style={{ display: "flex", background: "rgba(0, 0, 0, 0.2)", borderRadius: "8px", padding: "2px", border: "1px solid var(--glass-border)" }}>
-                {["daily", "weekly", "monthly", "yearly"].map((type) => (
+                {["daily", "weekly", "monthly", "yearly", "custom"].map((type) => (
                   <button
                     key={type}
                     type="button"
@@ -337,6 +350,51 @@ export default function AttendanceTab({ user }) {
                 ))}
               </div>
             </div>
+
+            {/* Custom Date Range Picker */}
+            {filterType === "custom" && (
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div>
+                  <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                    From Date 📅
+                  </label>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid var(--glass-border)",
+                      background: "var(--bg-secondary)",
+                      color: "var(--text-primary)",
+                      fontSize: "0.85rem",
+                      fontFamily: "var(--font-main)"
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                    To Date 📅
+                  </label>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid var(--glass-border)",
+                      background: "var(--bg-secondary)",
+                      color: "var(--text-primary)",
+                      fontSize: "0.85rem",
+                      fontFamily: "var(--font-main)"
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Daily Picker */}
             {filterType === "daily" && (

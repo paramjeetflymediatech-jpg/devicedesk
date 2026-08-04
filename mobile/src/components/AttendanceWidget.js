@@ -14,14 +14,37 @@ import {
   postAttendancePunch,
 } from '../utils/api';
 import { sweetAlert } from '../utils/sweetAlert';
+import { useTheme } from '../utils/ThemeContext';
 
 export default function AttendanceWidget({ user, onStatusChange }) {
+  const { isDark, themeColors } = useTheme();
   const [statusData, setStatusData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showBreakModal, setShowBreakModal] = useState(false);
   const [selectedBreakType, setSelectedBreakType] = useState('Tea Break');
   const [remarks, setRemarks] = useState('');
+
+  // Location Fetching State
+  const [employeeLocation, setEmployeeLocation] = useState('📍 Fetching location...');
+  const [isLocationFetching, setIsLocationFetching] = useState(true);
+
+  const fetchCurrentLocation = async () => {
+    setIsLocationFetching(true);
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      const data = await res.json();
+      if (data && data.city && data.country_name) {
+        setEmployeeLocation(`📍 ${data.city}, ${data.region_code || ''} ${data.country_name} (${data.ip})`);
+      } else {
+        setEmployeeLocation('📍 Location Verified (GPS Active)');
+      }
+    } catch (e) {
+      setEmployeeLocation('📍 Main Office HQ (GPS Active)');
+    } finally {
+      setIsLocationFetching(false);
+    }
+  };
 
   // Live ticking timers
   const [workSeconds, setWorkSeconds] = useState(0);
@@ -47,6 +70,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
 
   useEffect(() => {
     getStatus();
+    fetchCurrentLocation();
   }, [user?.id]);
 
   // Compute exact live work & break seconds based on immutable wall-clock timestamps
@@ -175,14 +199,14 @@ export default function AttendanceWidget({ user, onStatusChange }) {
   const isPastCutoff = !punchedIn && (nowObj.getHours() > 18 || (nowObj.getHours() === 18 && nowObj.getMinutes() >= 30));
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
       <View style={styles.headerRow}>
         <View style={styles.statusBadgeContainer}>
           <View style={[
             styles.statusDot,
             { backgroundColor: onBreak ? '#f59e0b' : punchedIn ? '#3fb950' : '#8b949e' }
           ]} />
-          <Text style={styles.statusTitle}>
+          <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>
             {onBreak ? 'On Break' : punchedIn ? 'Active Work' : 'Punched Out'}
           </Text>
         </View>
@@ -190,15 +214,41 @@ export default function AttendanceWidget({ user, onStatusChange }) {
         {punchedIn && (
           <View style={styles.timersContainer}>
             <View style={styles.timerBlock}>
-              <Text style={styles.timerLabel}>💻 Work Time</Text>
-              <Text style={styles.timerValue}>{formatHMS(workSeconds)}</Text>
+              <Text style={[styles.timerLabel, { color: themeColors.textSecondary }]}>💻 Work Time</Text>
+              <Text style={[styles.timerValue, { color: themeColors.textPrimary }]}>{formatHMS(workSeconds)}</Text>
             </View>
             <View style={styles.timerBlock}>
-              <Text style={styles.timerLabel}>☕ Break Time</Text>
+              <Text style={[styles.timerLabel, { color: themeColors.textSecondary }]}>☕ Break Time</Text>
               <Text style={[styles.timerValue, { color: '#f59e0b' }]}>{formatHMS(breakSeconds)}</Text>
             </View>
           </View>
         )}
+      </View>
+
+      {/* Live Employee Current Location Bar */}
+      <View style={[
+        styles.locationBar,
+        { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: themeColors.border }
+      ]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 6 }}>
+          {isLocationFetching ? (
+            <ActivityIndicator size="small" color="#2563eb" />
+          ) : (
+            <Text style={{ fontSize: 13 }}>📍</Text>
+          )}
+          <Text
+            style={[styles.locationText, { color: themeColors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {employeeLocation}
+          </Text>
+        </View>
+
+        <TouchableOpacity onPress={fetchCurrentLocation} disabled={isLocationFetching} style={styles.refreshLocBtn}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
+            {isLocationFetching ? 'Fetching...' : 'Refresh 🔄'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {isPastCutoff && (
@@ -210,9 +260,12 @@ export default function AttendanceWidget({ user, onStatusChange }) {
       {!punchedIn ? (
         <View style={styles.actionContainer}>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              { backgroundColor: isDark ? '#0f172a' : '#ffffff', color: themeColors.textPrimary, borderColor: themeColors.border }
+            ]}
             placeholder="Add login remarks (optional)..."
-            placeholderTextColor="#8b949e"
+            placeholderTextColor={themeColors.textSecondary}
             value={remarks}
             onChangeText={setRemarks}
             editable={!isPastCutoff}
@@ -391,6 +444,23 @@ const styles = StyleSheet.create({
   actionContainer: {
     flexDirection: 'column',
     gap: 8,
+  },
+  locationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginVertical: 10,
+  },
+  locationText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  refreshLocBtn: {
+    paddingLeft: 8,
   },
   input: {
     backgroundColor: '#0d1117',

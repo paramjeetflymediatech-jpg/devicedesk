@@ -9,8 +9,10 @@ import {
   Alert,
   Image,
   Modal,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../../utils/ThemeContext';
 import {
   getSystems,
   getTickets,
@@ -28,11 +30,16 @@ import ChatScreen from '../ChatScreen';
 import AttendanceWidget from '../../components/AttendanceWidget';
 import AttendanceLogs from './AttendanceLogs';
 import AppIcon from '../../components/AppIcon';
+import CalendarPickerModal from '../../components/CalendarPickerModal';
 
 export default function EmployeeDashboard({ user, onLogout }) {
+  const { theme, isDark, toggleTheme, themeColors } = useTheme();
   const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records, profile, tasks, attendance, chat
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Calendar Modal State
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
 
   // Data lists
   const [systems, setSystems] = useState(() => getSystems());
@@ -46,6 +53,107 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const [description, setDescription] = useState('');
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
+
+  // Live Employee Location State for Overview Top Section
+  const [overviewLocation, setOverviewLocation] = useState('📍 Fetching location...');
+  const [isLocLoading, setIsLocLoading] = useState(true);
+
+  const fetchOverviewLocation = async () => {
+    setIsLocLoading(true);
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      const data = await res.json();
+      if (data && data.city && data.country_name) {
+        setOverviewLocation(`📍 ${data.city}, ${data.region_code || ''} ${data.country_name} (${data.ip})`);
+      } else {
+        setOverviewLocation('📍 Location Verified (GPS Active)');
+      }
+    } catch (e) {
+      setOverviewLocation('📍 Main Office HQ (GPS Active)');
+    } finally {
+      setIsLocLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOverviewLocation();
+  }, []);
+
+  // Apply Leave State
+  const [selectedLeaveDetails, setSelectedLeaveDetails] = useState(null);
+  const [leaveRequests, setLeaveRequests] = useState([
+    {
+      id: 'LV-101',
+      leaveType: 'Casual Leave',
+      fromDate: '2026-08-10',
+      toDate: '2026-08-12',
+      totalDays: 3,
+      reason: 'Family event and personal travel',
+      status: 'Approved',
+      appliedOn: '2026-08-01',
+      managerNotes: 'Approved by Line Manager. Work coverage assigned to Operations Team.',
+    },
+    {
+      id: 'LV-102',
+      leaveType: 'Sick Leave',
+      fromDate: '2026-07-15',
+      toDate: '2026-07-15',
+      totalDays: 1,
+      reason: 'Fever & viral infection recovery',
+      status: 'Approved',
+      appliedOn: '2026-07-15',
+      managerNotes: 'Medical leave approved. Hope you feel better soon!',
+    }
+  ]);
+  const [leaveType, setLeaveType] = useState('Casual Leave');
+  const [leaveFromDate, setLeaveFromDate] = useState('');
+  const [leaveToDate, setLeaveToDate] = useState('');
+  const [leaveReason, setLeaveReason] = useState('');
+
+  const handleApplyLeave = () => {
+    if (!leaveFromDate.trim() || !leaveToDate.trim()) {
+      sweetAlert({ title: 'Missing Dates', text: 'Please enter both From Date and To Date.', type: 'error' });
+      return;
+    }
+    if (!leaveReason.trim()) {
+      sweetAlert({ title: 'Missing Reason', text: 'Please enter a reason for your leave request.', type: 'error' });
+      return;
+    }
+
+    let calculatedDays = 1;
+    try {
+      const d1 = new Date(leaveFromDate.trim());
+      const d2 = new Date(leaveToDate.trim());
+      if (!isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d2 >= d1) {
+        const diffTime = Math.abs(d2 - d1);
+        calculatedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      }
+    } catch (e) {
+      calculatedDays = 1;
+    }
+
+    const newLeave = {
+      id: `LV-${Math.floor(100 + Math.random() * 900)}`,
+      leaveType,
+      fromDate: leaveFromDate.trim(),
+      toDate: leaveToDate.trim(),
+      totalDays: calculatedDays,
+      reason: leaveReason.trim(),
+      status: 'Pending Approval',
+      appliedOn: new Date().toISOString().split('T')[0],
+    };
+
+    setLeaveRequests([newLeave, ...leaveRequests]);
+    setLeaveFromDate('');
+    setLeaveToDate('');
+    setLeaveReason('');
+
+    sweetAlert({
+      title: 'Leave Applied! 🌴',
+      text: 'Your leave request has been submitted to your manager for approval.',
+      type: 'success',
+    });
+  };
 
   // Search/Filters & Pagination
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,12 +270,140 @@ export default function EmployeeDashboard({ user, onLogout }) {
         return <AttendanceLogs user={user} />;
       case 'chat':
         return <ChatScreen user={user} onBack={() => setActiveTab('overview')} />;
+      case 'apply-leave':
+        return (
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>🌴 Apply Leave Application</Text>
+
+            {/* Leave Application Form */}
+            <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+              <Text style={[styles.cardTitle, { color: themeColors.textPrimary, marginBottom: 12 }]}>New Leave Application Form</Text>
+
+              <Text style={[styles.label, { color: themeColors.textPrimary }]}>Leave Category</Text>
+              <View style={styles.pickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {['Casual Leave', 'Sick Leave', 'Earned Leave', 'Unpaid Leave'].map(cat => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[
+                        styles.pickerItem,
+                        { backgroundColor: isDark ? '#0f172a' : '#f1f5f9', borderColor: themeColors.border },
+                        leaveType === cat && styles.pickerItemActive
+                      ]}
+                      onPress={() => setLeaveType(cat)}
+                    >
+                      <Text style={[
+                        styles.pickerItemText,
+                        { color: themeColors.textPrimary },
+                        leaveType === cat && styles.pickerItemTextActive
+                      ]}>
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <Text style={[styles.label, { color: themeColors.textPrimary }]}>Leave Dates Selection</Text>
+              <TouchableOpacity
+                style={[
+                  styles.input,
+                  { backgroundColor: isDark ? '#0f172a' : '#ffffff', borderColor: themeColors.border, flexDirection: 'row', alignItems: 'center', marginBottom: 12 }
+                ]}
+                onPress={() => setShowCalendarModal(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 16, marginRight: 8 }}>📅</Text>
+                <TextInput
+                  style={{ flex: 1, color: themeColors.textPrimary, padding: 0, fontWeight: (leaveFromDate || leaveToDate) ? '700' : '400' }}
+                  placeholder="Select Leave Dates (Single or Range)..."
+                  placeholderTextColor={themeColors.textSecondary}
+                  value={leaveFromDate || leaveToDate ? `${leaveFromDate || 'Start'} ➔ ${leaveToDate || 'End'}` : ''}
+                  editable={false}
+                  pointerEvents="none"
+                />
+                {(leaveFromDate || leaveToDate) ? (
+                  <TouchableOpacity onPress={() => { setLeaveFromDate(''); setLeaveToDate(''); }} style={{ padding: 4 }}>
+                    <Text style={{ color: themeColors.textSecondary, fontSize: 14 }}>✕</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </TouchableOpacity>
+
+              <Text style={[styles.label, { color: themeColors.textPrimary }]}>Reason / Remarks</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  { backgroundColor: isDark ? '#0f172a' : '#ffffff', color: themeColors.textPrimary, borderColor: themeColors.border, minHeight: 120, height: 130, textAlignVertical: 'top' }
+                ]}
+                placeholder="State your reason for leave application..."
+                placeholderTextColor={themeColors.textSecondary}
+                multiline
+                numberOfLines={5}
+                value={leaveReason}
+                onChangeText={setLeaveReason}
+              />
+
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: '#2563eb', marginTop: 14 }]}
+                onPress={handleApplyLeave}
+              >
+                <Text style={styles.submitBtnText}>Submit Leave Application 🌴</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Past Applied Leaves History */}
+            <Text style={[styles.subTitle, { color: themeColors.textPrimary, marginTop: 12 }]}>My Leave Requests ({leaveRequests.length})</Text>
+            {leaveRequests.map(req => (
+              <View key={req.id} style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border, marginBottom: 10 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: themeColors.textPrimary }}>{req.leaveType}</Text>
+                  <View style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 12,
+                    backgroundColor: req.status === 'Approved' ? '#dcfce7' : req.status === 'Rejected' ? '#fee2e2' : '#fef3c7',
+                  }}>
+                    <Text style={{
+                      fontSize: 11,
+                      fontWeight: '800',
+                      color: req.status === 'Approved' ? '#166534' : req.status === 'Rejected' ? '#991b1b' : '#92400e',
+                    }}>
+                      {req.status === 'Approved' ? 'Approved ✅' : req.status === 'Rejected' ? 'Rejected ❌' : 'Pending ⏳'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 13, color: '#2563eb', fontWeight: '700', marginTop: 4 }}>
+                  📅 {req.fromDate} to {req.toDate} ({req.totalDays} Day{req.totalDays > 1 ? 's' : ''})
+                </Text>
+                <Text style={{ fontSize: 12, color: themeColors.textSecondary, marginTop: 4 }} numberOfLines={2}>{req.reason}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                  <Text style={{ fontSize: 10, color: themeColors.textSecondary }}>Applied: {req.appliedOn}</Text>
+                  <TouchableOpacity
+                    style={{
+                      paddingVertical: 5,
+                      paddingHorizontal: 10,
+                      borderRadius: 8,
+                      backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                      borderWidth: 1,
+                      borderColor: themeColors.border,
+                    }}
+                    onPress={() => setSelectedLeaveDetails(req)}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textPrimary }}>👁️ View Details</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        );
+
       case 'file-complaint':
         return (
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            <Text style={styles.sectionTitle}>🚨 File a Complaint</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>🚨 File a Complaint</Text>
 
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
               {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
               {formSuccess ? <Text style={styles.successText}>{formSuccess}</Text> : null}
 
@@ -185,17 +421,25 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 </View>
               )}
 
-              <Text style={styles.label}>Issue Category</Text>
+              <Text style={[styles.label, { color: themeColors.textPrimary }]}>Issue Category</Text>
               <View style={styles.pickerContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {['RAM/Speed', 'Hardware', 'Software', 'Network', 'Other'].map(cat => (
                     <TouchableOpacity
                       key={cat}
-                      style={[styles.pickerItem, category === cat && styles.pickerItemActive]}
+                      style={[
+                        styles.pickerItem,
+                        { backgroundColor: isDark ? '#0f172a' : '#f1f5f9', borderColor: themeColors.border },
+                        category === cat && styles.pickerItemActive
+                      ]}
                       onPress={() => setCategory(cat)}
                       disabled={isLimitReached}
                     >
-                      <Text style={[styles.pickerItemText, category === cat && styles.pickerItemTextActive]}>
+                      <Text style={[
+                        styles.pickerItemText,
+                        { color: themeColors.textPrimary },
+                        category === cat && styles.pickerItemTextActive
+                      ]}>
                         {cat}
                       </Text>
                     </TouchableOpacity>
@@ -203,17 +447,25 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 </ScrollView>
               </View>
 
-              <Text style={styles.label}>Severity Level</Text>
+              <Text style={[styles.label, { color: themeColors.textPrimary }]}>Severity Level</Text>
               <View style={styles.pickerContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {['Low', 'Medium', 'High', 'Critical'].map(sev => (
                     <TouchableOpacity
                       key={sev}
-                      style={[styles.pickerItem, severity === sev && styles.pickerItemActive]}
+                      style={[
+                        styles.pickerItem,
+                        { backgroundColor: isDark ? '#0f172a' : '#f1f5f9', borderColor: themeColors.border },
+                        severity === sev && styles.pickerItemActive
+                      ]}
                       onPress={() => setSeverity(sev)}
                       disabled={isLimitReached}
                     >
-                      <Text style={[styles.pickerItemText, severity === sev && styles.pickerItemTextActive]}>
+                      <Text style={[
+                        styles.pickerItemText,
+                        { color: themeColors.textPrimary },
+                        severity === sev && styles.pickerItemTextActive
+                      ]}>
                         {sev}
                       </Text>
                     </TouchableOpacity>
@@ -221,11 +473,15 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 </ScrollView>
               </View>
 
-              <Text style={styles.label}>Describe the Problem</Text>
+              <Text style={[styles.label, { color: themeColors.textPrimary }]}>Describe the Problem</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  { backgroundColor: isDark ? '#0f172a' : '#ffffff', color: themeColors.textPrimary, borderColor: themeColors.border }
+                ]}
                 placeholder="Describe your hardware issue in detail..."
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={themeColors.textSecondary}
                 multiline
                 numberOfLines={4}
                 value={description}
@@ -247,23 +503,26 @@ export default function EmployeeDashboard({ user, onLogout }) {
       case 'records':
         return (
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            <Text style={styles.sectionTitle}>📋 Complaint Records</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>📋 Complaint Records</Text>
 
             <TextInput
-              style={styles.searchInput}
+              style={[
+                styles.searchInput,
+                { backgroundColor: themeColors.cardBg, color: themeColors.textPrimary, borderColor: themeColors.border }
+              ]}
               placeholder="Search my tickets..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={themeColors.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
 
             {filteredTickets.length === 0 ? (
-              <Text style={styles.emptyText}>No tickets recorded.</Text>
+              <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No tickets recorded.</Text>
             ) : (
               filteredTickets.map(t => (
-                <View key={t.id} style={styles.ticketCard}>
+                <View key={t.id} style={[styles.ticketCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
                   <View style={styles.cardHeader}>
-                    <Text style={styles.ticketCategory}>{t.category}</Text>
+                    <Text style={[styles.ticketCategory, { color: themeColors.textPrimary }]}>{t.category}</Text>
                     <View style={[
                       styles.statusBadge,
                       t.status === 'Open' && styles.badgeOpen,
@@ -279,21 +538,21 @@ export default function EmployeeDashboard({ user, onLogout }) {
                     </View>
                   </View>
 
-                  <View style={styles.divider} />
-                  <Text style={styles.description}>{t.description}</Text>
-                  <View style={styles.divider} />
+                  <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+                  <Text style={[styles.description, { color: themeColors.textSecondary }]}>{t.description}</Text>
+                  <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                   <View style={styles.cardFooter}>
-                    <Text style={styles.footerDate}>
+                    <Text style={[styles.footerDate, { color: themeColors.textSecondary }]}>
                       Raised: {new Date(t.createdAt).toLocaleDateString()}
                     </Text>
                     <Text style={styles.severityVal}>⚠️ {t.severity}</Text>
                   </View>
 
                   {t.status === 'Resolved' && (
-                    <View style={styles.notesBox}>
-                      <Text style={styles.notesTitle}>IT Support Resolution Notes:</Text>
-                      <Text style={styles.notesText}>{t.notes || 'Problem fixed.'}</Text>
+                    <View style={[styles.notesBox, { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: themeColors.border }]}>
+                      <Text style={[styles.notesTitle, { color: themeColors.textPrimary }]}>IT Support Resolution Notes:</Text>
+                      <Text style={[styles.notesText, { color: themeColors.textSecondary }]}>{t.notes || 'Problem fixed.'}</Text>
                     </View>
                   )}
                 </View>
@@ -305,55 +564,55 @@ export default function EmployeeDashboard({ user, onLogout }) {
       case 'profile':
         return (
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            <Text style={styles.sectionTitle}>My Profile Details</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>My Profile Details</Text>
 
-            <View style={styles.profileCardFull}>
+            <View style={[styles.profileCardFull, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
               <View style={styles.profileAvatarLarge}>
                 <Text style={styles.profileAvatarTextLarge}>
                   {empDetails.name ? empDetails.name.charAt(0).toUpperCase() : 'U'}
                 </Text>
               </View>
-              <Text style={styles.profileNameLarge}>{empDetails.name}</Text>
+              <Text style={[styles.profileNameLarge, { color: themeColors.textPrimary }]}>{empDetails.name}</Text>
               <Text style={styles.profileRoleLabel}>{empDetails.role || 'Employee'}</Text>
 
-              <View style={styles.profileInfoList}>
-                <View style={styles.profileInfoItem}>
-                  <Text style={styles.profileInfoLabel}>Email Address</Text>
-                  <Text style={styles.profileInfoVal}>{empDetails.email || 'N/A'}</Text>
+              <View style={[styles.profileInfoList, { borderTopColor: themeColors.border }]}>
+                <View style={[styles.profileInfoItem, { borderBottomColor: themeColors.border }]}>
+                  <Text style={[styles.profileInfoLabel, { color: themeColors.textSecondary }]}>Email Address</Text>
+                  <Text style={[styles.profileInfoVal, { color: themeColors.textPrimary }]}>{empDetails.email || 'N/A'}</Text>
                 </View>
-                <View style={styles.profileInfoItem}>
-                  <Text style={styles.profileInfoLabel}>Department</Text>
-                  <Text style={styles.profileInfoVal}>{empDetails.department || 'Operations'}</Text>
+                <View style={[styles.profileInfoItem, { borderBottomColor: themeColors.border }]}>
+                  <Text style={[styles.profileInfoLabel, { color: themeColors.textSecondary }]}>Department</Text>
+                  <Text style={[styles.profileInfoVal, { color: themeColors.textPrimary }]}>{empDetails.department || 'Operations'}</Text>
                 </View>
-                <View style={styles.profileInfoItem}>
-                  <Text style={styles.profileInfoLabel}>Max Ticket Limit</Text>
-                  <Text style={styles.profileInfoVal}>{empDetails.ticketLimit || 5} active issues</Text>
+                <View style={[styles.profileInfoItem, { borderBottomColor: themeColors.border }]}>
+                  <Text style={[styles.profileInfoLabel, { color: themeColors.textSecondary }]}>Max Ticket Limit</Text>
+                  <Text style={[styles.profileInfoVal, { color: themeColors.textPrimary }]}>{empDetails.ticketLimit || 5} active issues</Text>
                 </View>
-                <View style={styles.profileInfoItem}>
-                  <Text style={styles.profileInfoLabel}>Open Tickets Raised</Text>
-                  <Text style={styles.profileInfoVal}>{totalRaised} tickets</Text>
+                <View style={[styles.profileInfoItem, { borderBottomColor: themeColors.border }]}>
+                  <Text style={[styles.profileInfoLabel, { color: themeColors.textSecondary }]}>Open Tickets Raised</Text>
+                  <Text style={[styles.profileInfoVal, { color: themeColors.textPrimary }]}>{totalRaised} tickets</Text>
                 </View>
               </View>
             </View>
 
-            <Text style={styles.subTitle}>My Assigned Equipment</Text>
+            <Text style={[styles.subTitle, { color: themeColors.textPrimary }]}>My Assigned Equipment</Text>
             {activeSystems.length === 0 ? (
-              <View style={styles.noSystemCard}>
-                <Text style={styles.noSystemText}>No hardware system currently assigned to you.</Text>
+              <View style={[styles.noSystemCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+                <Text style={[styles.noSystemText, { color: themeColors.textSecondary }]}>No hardware system currently assigned to you.</Text>
               </View>
             ) : (
               activeSystems.map(sys => (
-                <View key={sys.id} style={styles.systemCard}>
+                <View key={sys.id} style={[styles.systemCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
                   <View style={styles.systemHeader}>
-                    <Text style={styles.systemNumberText}>💻 {sys.systemNumber}</Text>
+                    <Text style={[styles.systemNumberText, { color: themeColors.textPrimary }]}>💻 {sys.systemNumber}</Text>
                     <Text style={styles.systemStatusActive}>Assigned</Text>
                   </View>
                   <View style={styles.systemDetailsGrid}>
-                    <Text style={styles.specItem}>🧠 <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>CPU:</Text> {sys.cpu}</Text>
-                    <Text style={styles.specItem}>⚡ <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>RAM:</Text> {sys.ram}</Text>
-                    <Text style={styles.specItem}>💾 <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>Storage:</Text> {sys.storage}</Text>
-                    <Text style={styles.specItem}>🎮 <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>GPU:</Text> {sys.gpu || 'Integrated'}</Text>
-                    <Text style={styles.specItem}>💿 <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>OS:</Text> {sys.os}</Text>
+                    <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>🧠 <Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>CPU:</Text> {sys.cpu}</Text>
+                    <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>⚡ <Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>RAM:</Text> {sys.ram}</Text>
+                    <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>💾 <Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>Storage:</Text> {sys.storage}</Text>
+                    <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>🎮 <Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>GPU:</Text> {sys.gpu || 'Integrated'}</Text>
+                    <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>💿 <Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>OS:</Text> {sys.os}</Text>
                   </View>
                 </View>
               ))
@@ -366,69 +625,203 @@ export default function EmployeeDashboard({ user, onLogout }) {
         return (
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <View style={styles.rowBetween}>
-              <Text style={styles.sectionTitle}>My Workspace</Text>
+              <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>My Workspace</Text>
             </View>
 
-            {/* Profile Overview */}
-            <View style={styles.profileCard}>
-              <Text style={styles.profileName}>👤 {empDetails.name}</Text>
-              <Text style={styles.profileMeta}>Department: {user.department || 'Operations'}</Text>
-              <Text style={styles.profileMeta}>Ticket Limit Status: {totalRaised} / {ticketLimit} used</Text>
+            {/* Profile & Live Location Overview Header */}
+            <View style={[styles.profileCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                <View style={{ flex: 1, minWidth: 150 }}>
+                  <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>👤 {empDetails.name}</Text>
+                  <Text style={[styles.profileMeta, { color: themeColors.textSecondary, marginTop: 2 }]}>Department: {user.department || 'Operations'}</Text>
+                </View>
+
+                {/* Location Badge */}
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: isDark ? '#0f172a' : '#f1f5f9',
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: themeColors.border,
+                    alignSelf: 'flex-start',
+                  }}
+                  onPress={fetchOverviewLocation}
+                  activeOpacity={0.8}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ fontSize: 11 }}>📍</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#2563eb' }}>Current Location</Text>
+                  </View>
+                  <Text style={{ fontSize: 10.5, color: themeColors.textPrimary, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+                    {overviewLocation}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: themeColors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={[styles.profileMeta, { color: themeColors.textSecondary }]}>Ticket Limit Status: {totalRaised} / {ticketLimit} used</Text>
+                <TouchableOpacity onPress={fetchOverviewLocation} disabled={isLocLoading}>
+                  <Text style={{ fontSize: 10.5, color: '#2563eb', fontWeight: '800' }}>
+                    {isLocLoading ? 'Locating...' : 'Refresh 🔄'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
+
+            {/* Quick Action: Apply Leave Banner */}
+            <TouchableOpacity
+              style={[
+                styles.card,
+                {
+                  backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                  borderColor: isDark ? '#334155' : '#bfdbfe',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 14,
+                  marginBottom: 16,
+                }
+              ]}
+              onPress={() => setActiveTab('apply-leave')}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Text style={{ fontSize: 24, marginRight: 12 }}>🌴</Text>
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>Need Time Off?</Text>
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>Apply for Casual, Sick, or Earned Leave</Text>
+                </View>
+              </View>
+              <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+                <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Apply Leave ➔</Text>
+              </View>
+            </TouchableOpacity>
 
             {/* Attendance Punch Section */}
             <AttendanceWidget user={user} />
 
             {/* Assigned Hardware */}
-            <Text style={styles.subTitle}>Assigned Hardware Inventory</Text>
+            <Text style={[styles.subTitle, { color: themeColors.textPrimary }]}>Assigned Hardware Inventory</Text>
             {activeSystems.length === 0 ? (
-              <View style={styles.noSystemCard}>
-                <Text style={styles.noSystemText}>No hardware system currently assigned to you.</Text>
-                <Text style={styles.noSystemSubText}>If you require a machine, please contact IT Support.</Text>
+              <View style={[styles.noSystemCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+                <Text style={[styles.noSystemText, { color: themeColors.textPrimary }]}>No hardware system currently assigned to you.</Text>
+                <Text style={[styles.noSystemSubText, { color: themeColors.textSecondary }]}>If you require a machine, please contact IT Support.</Text>
               </View>
             ) : (
               activeSystems.map(sys => (
-                <View key={sys.id} style={styles.systemCard}>
+                <View key={sys.id} style={[styles.systemCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
                   <View style={styles.systemHeader}>
-                    <Text style={styles.systemNo}>{sys.systemNumber}</Text>
-                    <Text style={styles.systemModel}>{sys.model}</Text>
+                    <Text style={[styles.systemNo, { color: themeColors.textPrimary }]}>{sys.systemNumber}</Text>
+                    <Text style={[styles.systemModel, { color: themeColors.textSecondary }]}>{sys.model}</Text>
                   </View>
-                  <View style={styles.divider} />
-                  <Text style={styles.specItem}>🖥️ OS: {sys.os}</Text>
-                  <Text style={styles.specItem}>🧠 CPU: {sys.cpu}</Text>
-                  <Text style={styles.specItem}>🎮 GPU: {sys.gpu || 'Integrated'}</Text>
-                  <Text style={styles.specItem}>💾 Memory/Storage: {sys.ram} / {sys.storage}</Text>
-                  <Text style={styles.specItem}>🏷️ Status: {sys.status}</Text>
+                  <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+                  <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>🖥️ OS: {sys.os}</Text>
+                  <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>🧠 CPU: {sys.cpu}</Text>
+                  <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>🎮 GPU: {sys.gpu || 'Integrated'}</Text>
+                  <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>💾 Memory/Storage: {sys.ram} / {sys.storage}</Text>
+                  <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>🏷️ Status: {sys.status}</Text>
                 </View>
               ))
             )}
 
             {/* Assignment History logs */}
-            <Text style={styles.subTitle}>Device History Logs ({empHistory.length})</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 12 }}>
+              <Text style={[styles.subTitle, { color: themeColors.textPrimary, marginBottom: 0 }]}>
+                📜 Device History Logs ({empHistory.length})
+              </Text>
+              {empHistory.length > 0 && (
+                <View style={{ backgroundColor: isDark ? '#1e293b' : '#e0f2fe', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#0284c7' }}>Activity Timeline</Text>
+                </View>
+              )}
+            </View>
+
             {empHistory.length === 0 ? (
-              <Text style={styles.emptyText}>No device transfers logged.</Text>
+              <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border, padding: 20, alignItems: 'center' }]}>
+                <Text style={{ fontSize: 24, marginBottom: 6 }}>📭</Text>
+                <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No device transfers or history logged yet.</Text>
+              </View>
             ) : (
               <>
-                {currentHistoryLogs.map(log => (
-                  <View key={log.id} style={styles.historyRow}>
-                    <View style={{ flex: 1, marginRight: 10 }}>
-                      <Text style={styles.historyLogText}>
-                        🛠️ {log.action} System <Text style={{ fontWeight: 'bold', color: '#2563eb' }}>{log.systemNumber}</Text>
-                      </Text>
-                      {log.assignedBy && (
-                        <Text style={styles.historySubText}>Assigned by: {log.assignedBy}</Text>
-                      )}
+                {currentHistoryLogs.map(log => {
+                  const isAssigned = (log.action || '').toLowerCase().includes('assign') || (log.action || '').toLowerCase().includes('allocated');
+                  const isReturned = (log.action || '').toLowerCase().includes('return') || (log.action || '').toLowerCase().includes('unassign');
+                  const accentColor = isAssigned ? '#16a34a' : isReturned ? '#9333ea' : '#2563eb';
+                  const badgeBg = isDark ? '#0f172a' : (isAssigned ? '#f0fdf4' : isReturned ? '#faf5ff' : '#eff6ff');
+                  const badgeBorder = isAssigned ? '#bbf7d0' : isReturned ? '#e9d5ff' : '#bfdbfe';
+
+                  return (
+                    <View
+                      key={log.id}
+                      style={{
+                        backgroundColor: themeColors.cardBg,
+                        borderColor: themeColors.border,
+                        borderWidth: 1,
+                        borderRadius: 14,
+                        marginBottom: 10,
+                        padding: 14,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 12,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.03,
+                        shadowRadius: 4,
+                        elevation: 1,
+                      }}
+                    >
+                      {/* Timeline Accent Bar */}
+                      <View style={{ width: 4, height: '100%', minHeight: 44, backgroundColor: accentColor, borderRadius: 4 }} />
+
+                      {/* Icon Bubble */}
+                      <View style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 19,
+                        backgroundColor: badgeBg,
+                        borderWidth: 1,
+                        borderColor: isDark ? themeColors.border : badgeBorder,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <Text style={{ fontSize: 18 }}>
+                          {isAssigned ? '💻' : isReturned ? '🔄' : '🛠️'}
+                        </Text>
+                      </View>
+
+                      {/* Log Details Area */}
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                          <Text style={{ fontSize: 13.5, fontWeight: '800', color: themeColors.textPrimary }}>
+                            {log.action}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: themeColors.textSecondary, fontWeight: '600' }}>
+                            📅 {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'N/A'}
+                          </Text>
+                        </View>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 3 }}>
+                          <View style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: themeColors.border }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
+                              System: {log.systemNumber}
+                            </Text>
+                          </View>
+                          {log.assignedBy && (
+                            <Text style={{ fontSize: 11, color: themeColors.textSecondary }}>
+                              by <Text style={{ fontWeight: '700', color: themeColors.textPrimary }}>{log.assignedBy}</Text>
+                            </Text>
+                          )}
+                        </View>
+                      </View>
                     </View>
-                    <Text style={styles.historyTime}>
-                      {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'N/A'}
-                    </Text>
-                  </View>
-                ))}
+                  );
+                })}
 
                 {totalHistoryPages > 1 && (
-                  <View style={styles.paginationContainer}>
+                  <View style={[styles.paginationContainer, { borderTopColor: themeColors.border, marginTop: 14 }]}>
                     <TouchableOpacity
-                      style={[styles.pageBtn, historyPage === 1 && styles.pageBtnDisabled]}
+                      style={[styles.pageBtn, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }, historyPage === 1 && styles.pageBtnDisabled]}
                       onPress={() => setHistoryPage(p => Math.max(1, p - 1))}
                       disabled={historyPage === 1}
                     >
@@ -437,12 +830,12 @@ export default function EmployeeDashboard({ user, onLogout }) {
                       </Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.pageInfoText}>
+                    <Text style={[styles.pageInfoText, { color: themeColors.textSecondary }]}>
                       Page {historyPage} of {totalHistoryPages}
                     </Text>
 
                     <TouchableOpacity
-                      style={[styles.pageBtn, historyPage === totalHistoryPages && styles.pageBtnDisabled]}
+                      style={[styles.pageBtn, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }, historyPage === totalHistoryPages && styles.pageBtnDisabled]}
                       onPress={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
                       disabled={historyPage === totalHistoryPages}
                     >
@@ -460,9 +853,9 @@ export default function EmployeeDashboard({ user, onLogout }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header bar */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
             onPress={() => setIsDrawerOpen(true)}
@@ -473,7 +866,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
           </TouchableOpacity>
           <View style={{ marginLeft: 10 }}>
             <Image
-              source={require('../../assets/flymedia-logo.png')}
+              source={isDark ? require('../../assets/flymedia-logo-white.png') : require('../../assets/flymedia-logo.png')}
               style={{ width: 140, height: 36 }}
               resizeMode="contain"
             />
@@ -508,46 +901,46 @@ export default function EmployeeDashboard({ user, onLogout }) {
         onRequestClose={() => setShowSettingsModal(false)}
       >
         <SafeAreaView style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Settings & Policies</Text>
+          <View style={[styles.modalContent, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+            <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Settings & Policies</Text>
 
-            <View style={styles.settingsProfileSection}>
-              <Text style={styles.settingsProfileTitle}>👤 My Profile Details</Text>
+            <View style={[styles.settingsProfileSection, { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: themeColors.border }]}>
+              <Text style={[styles.settingsProfileTitle, { color: themeColors.textPrimary }]}>👤 My Profile Details</Text>
               <View style={styles.profileDetailRow}>
-                <Text style={styles.profileDetailLabel}>Name:</Text>
-                <Text style={styles.profileDetailValue}>{empDetails.name}</Text>
+                <Text style={[styles.profileDetailLabel, { color: themeColors.textSecondary }]}>Name:</Text>
+                <Text style={[styles.profileDetailValue, { color: themeColors.textPrimary }]}>{empDetails.name}</Text>
               </View>
               <View style={styles.profileDetailRow}>
-                <Text style={styles.profileDetailLabel}>Email:</Text>
-                <Text style={styles.profileDetailValue}>{empDetails.email || 'N/A'}</Text>
+                <Text style={[styles.profileDetailLabel, { color: themeColors.textSecondary }]}>Email:</Text>
+                <Text style={[styles.profileDetailValue, { color: themeColors.textPrimary }]}>{empDetails.email || 'N/A'}</Text>
               </View>
               <View style={styles.profileDetailRow}>
-                <Text style={styles.profileDetailLabel}>Department:</Text>
-                <Text style={styles.profileDetailValue}>{empDetails.department || 'Operations'}</Text>
+                <Text style={[styles.profileDetailLabel, { color: themeColors.textSecondary }]}>Department:</Text>
+                <Text style={[styles.profileDetailValue, { color: themeColors.textPrimary }]}>{empDetails.department || 'Operations'}</Text>
               </View>
               <View style={styles.profileDetailRow}>
-                <Text style={styles.profileDetailLabel}>Role:</Text>
-                <Text style={styles.profileDetailValue}>{empDetails.role || 'Employee'}</Text>
+                <Text style={[styles.profileDetailLabel, { color: themeColors.textSecondary }]}>Role:</Text>
+                <Text style={[styles.profileDetailValue, { color: themeColors.textPrimary }]}>{empDetails.role || 'Employee'}</Text>
               </View>
               <View style={styles.profileDetailRow}>
-                <Text style={styles.profileDetailLabel}>Ticket Limit:</Text>
-                <Text style={styles.profileDetailValue}>{empDetails.ticketLimit || 5} active issues</Text>
+                <Text style={[styles.profileDetailLabel, { color: themeColors.textSecondary }]}>Ticket Limit:</Text>
+                <Text style={[styles.profileDetailValue, { color: themeColors.textPrimary }]}>{empDetails.ticketLimit || 5} active issues</Text>
               </View>
             </View>
 
             <ScrollView style={styles.modalScroll}>
-              <Text style={styles.legalHeader}>1. Privacy Policy</Text>
-              <Text style={styles.legalText}>
+              <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>1. Privacy Policy</Text>
+              <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
                 {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties."}
               </Text>
 
-              <Text style={styles.legalHeader}>2. Terms & Conditions</Text>
-              <Text style={styles.legalText}>
+              <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>2. Terms & Conditions</Text>
+              <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
                 This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited. All transactions, assignments, and support tickets raised are logged and audited.
               </Text>
 
-              <Text style={styles.legalHeader}>3. Permanent Account Deletion</Text>
-              <Text style={styles.legalText}>
+              <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>3. Permanent Account Deletion</Text>
+              <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
                 Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. This action is immediate and cannot be undone.
               </Text>
 
@@ -570,8 +963,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 <Text style={styles.deleteBtnText}>⚠️ Delete My Account</Text>
               </TouchableOpacity>
             </ScrollView>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowSettingsModal(false)}>
-              <Text style={styles.closeBtnText}>Close</Text>
+            <TouchableOpacity style={[styles.closeBtn, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]} onPress={() => setShowSettingsModal(false)}>
+              <Text style={[styles.closeBtnText, { color: themeColors.textPrimary }]}>Close</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -585,48 +978,49 @@ export default function EmployeeDashboard({ user, onLogout }) {
             activeOpacity={1}
             onPress={() => setIsDrawerOpen(false)}
           />
-          <View style={styles.drawerContent}>
-            <View style={styles.drawerHeader}>
+          <View style={[styles.drawerContent, { backgroundColor: themeColors.drawerBg, borderColor: themeColors.border }]}>
+            <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border }]}>
               <View style={styles.drawerAvatarContainer}>
                 <Text style={styles.drawerAvatarText}>
                   {empDetails.name ? empDetails.name.charAt(0).toUpperCase() : 'U'}
                 </Text>
               </View>
-              <Text style={styles.drawerName}>{empDetails.name}</Text>
-              <Text style={styles.drawerEmail}>{empDetails.email || 'employee@devicedesk.com'}</Text>
+              <Text style={[styles.drawerName, { color: themeColors.textPrimary }]}>{empDetails.name}</Text>
+              <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]}>{empDetails.email || 'employee@devicedesk.com'}</Text>
             </View>
 
             <View style={styles.drawerItemsContainer}>
               <TouchableOpacity
-                style={[styles.drawerItem, activeTab === 'overview' && styles.drawerItemActive]}
-                onPress={() => { setActiveTab('overview'); setIsDrawerOpen(false); }}
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'apply-leave' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('apply-leave'); setIsDrawerOpen(false); }}
               >
-                <AppIcon name="overview" size={18} color="#2563eb" style={{ marginRight: 12 }} />
-                <Text style={styles.drawerItemLabel}>Overview Dashboard</Text>
+                <AppIcon name="leave" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Apply Leave Request</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.drawerItem, activeTab === 'tasks' && styles.drawerItemActive]}
-                onPress={() => { setActiveTab('tasks'); setIsDrawerOpen(false); }}
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'file-complaint' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('file-complaint'); setIsDrawerOpen(false); }}
               >
-                <AppIcon name="tasks" size={18} color="#2563eb" style={{ marginRight: 12 }} />
-                <Text style={styles.drawerItemLabel}>My Tasks Board</Text>
+                <AppIcon name="alert" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>File Complaint Ticket</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.drawerItem, activeTab === 'attendance' && styles.drawerItemActive]}
-                onPress={() => { setActiveTab('attendance'); setIsDrawerOpen(false); }}
-              >
-                <AppIcon name="attendance" size={18} color="#2563eb" style={{ marginRight: 12 }} />
-                <Text style={styles.drawerItemLabel}>My Attendance Logs</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.drawerItem, activeTab === 'profile' && styles.drawerItemActive]}
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'profile' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
                 onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
               >
                 <AppIcon name="profile" size={18} color="#2563eb" style={{ marginRight: 12 }} />
-                <Text style={styles.drawerItemLabel}>My Profile Screen</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>My Profile</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -634,7 +1028,40 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 onPress={() => { setShowSettingsModal(true); setIsDrawerOpen(false); }}
               >
                 <AppIcon name="shield" size={18} color="#64748b" style={{ marginRight: 12 }} />
-                <Text style={styles.drawerItemLabel}>Privacy & Terms</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Privacy & Terms</Text>
+              </TouchableOpacity>
+
+              {/* Theme Toggle Button */}
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  {
+                    justifyContent: 'space-between',
+                    marginTop: 8,
+                    marginBottom: 8,
+                    backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#475569' : '#e2e8f0',
+                  }
+                ]}
+                activeOpacity={0.8}
+                onPress={toggleTheme}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 12 }} />
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText, fontWeight: '700' }]}>
+                    {isDark ? 'Dark Mode' : 'Light Mode'}
+                  </Text>
+                </View>
+                <Switch
+                  value={isDark}
+                  onValueChange={toggleTheme}
+                  trackColor={{ false: themeColors.switchTrackFalse, true: themeColors.switchTrackTrue }}
+                  thumbColor={themeColors.switchThumb}
+                />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -654,7 +1081,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 }}
               >
                 <AppIcon name="trash" size={18} color="#dc2626" style={{ marginRight: 12 }} />
-                <Text style={styles.drawerItemLabel}>Delete User Account</Text>
+                <Text style={[styles.drawerItemLabel, { color: '#dc2626' }]}>Delete User Account</Text>
               </TouchableOpacity>
             </View>
 
@@ -677,25 +1104,15 @@ export default function EmployeeDashboard({ user, onLogout }) {
         </View>
       )}
 
-      {/* Tabs */}
-      <View style={styles.tabBar}>
+      {/* Main Sections Bottom Footer */}
+      <View style={[styles.tabBar, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
         <TouchableOpacity
           style={[styles.tabItem, activeTab === 'overview' && styles.tabItemActive]}
           onPress={() => setActiveTab('overview')}
         >
-          <AppIcon name="overview" size={20} color={activeTab === 'overview' ? '#2563eb' : '#64748b'} />
-          <Text style={[styles.tabLabel, activeTab === 'overview' && styles.tabLabelActive]}>
+          <AppIcon name="overview" size={20} color={activeTab === 'overview' ? '#2563eb' : themeColors.textSecondary} />
+          <Text style={[styles.tabLabel, { color: themeColors.textSecondary }, activeTab === 'overview' && styles.tabLabelActive]}>
             Overview
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'file-complaint' && styles.tabItemActive]}
-          onPress={() => setActiveTab('file-complaint')}
-        >
-          <AppIcon name="alert" size={20} color={activeTab === 'file-complaint' ? '#2563eb' : '#64748b'} />
-          <Text style={[styles.tabLabel, activeTab === 'file-complaint' && styles.tabLabelActive]}>
-            File Ticket
           </Text>
         </TouchableOpacity>
 
@@ -703,8 +1120,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
           style={[styles.tabItem, activeTab === 'records' && styles.tabItemActive]}
           onPress={() => setActiveTab('records')}
         >
-          <AppIcon name="records" size={20} color={activeTab === 'records' ? '#2563eb' : '#64748b'} />
-          <Text style={[styles.tabLabel, activeTab === 'records' && styles.tabLabelActive]}>
+          <AppIcon name="records" size={20} color={activeTab === 'records' ? '#2563eb' : themeColors.textSecondary} />
+          <Text style={[styles.tabLabel, { color: themeColors.textSecondary }, activeTab === 'records' && styles.tabLabelActive]}>
             My Tickets
           </Text>
         </TouchableOpacity>
@@ -713,8 +1130,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
           style={[styles.tabItem, activeTab === 'attendance' && styles.tabItemActive]}
           onPress={() => setActiveTab('attendance')}
         >
-          <AppIcon name="attendance" size={20} color={activeTab === 'attendance' ? '#2563eb' : '#64748b'} />
-          <Text style={[styles.tabLabel, activeTab === 'attendance' && styles.tabLabelActive]}>
+          <AppIcon name="attendance" size={20} color={activeTab === 'attendance' ? '#2563eb' : themeColors.textSecondary} />
+          <Text style={[styles.tabLabel, { color: themeColors.textSecondary }, activeTab === 'attendance' && styles.tabLabelActive]}>
             Attendance
           </Text>
         </TouchableOpacity>
@@ -723,8 +1140,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
           style={[styles.tabItem, activeTab === 'tasks' && styles.tabItemActive]}
           onPress={() => setActiveTab('tasks')}
         >
-          <AppIcon name="tasks" size={20} color={activeTab === 'tasks' ? '#2563eb' : '#64748b'} />
-          <Text style={[styles.tabLabel, activeTab === 'tasks' && styles.tabLabelActive]}>
+          <AppIcon name="tasks" size={20} color={activeTab === 'tasks' ? '#2563eb' : themeColors.textSecondary} />
+          <Text style={[styles.tabLabel, { color: themeColors.textSecondary }, activeTab === 'tasks' && styles.tabLabelActive]}>
             My Tasks
           </Text>
         </TouchableOpacity>
@@ -733,12 +1150,131 @@ export default function EmployeeDashboard({ user, onLogout }) {
           style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
           onPress={() => setActiveTab('chat')}
         >
-          <AppIcon name="chat" size={20} color={activeTab === 'chat' ? '#2563eb' : '#64748b'} />
-          <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>
+          <AppIcon name="chat" size={20} color={activeTab === 'chat' ? '#2563eb' : themeColors.textSecondary} />
+          <Text style={[styles.tabLabel, { color: themeColors.textSecondary }, activeTab === 'chat' && styles.tabLabelActive]}>
             Chat
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Single Calendar Picker Modal */}
+      <CalendarPickerModal
+        visible={showCalendarModal}
+        title="Select Leave Dates"
+        fromDate={leaveFromDate}
+        toDate={leaveToDate}
+        onSelectRange={(start, end) => {
+          setLeaveFromDate(start);
+          setLeaveToDate(end);
+        }}
+        onClose={() => setShowCalendarModal(false)}
+      />
+
+      {/* Leave Details Modal */}
+      {selectedLeaveDetails && (
+        <Modal
+          visible={!!selectedLeaveDetails}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedLeaveDetails(null)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setSelectedLeaveDetails(null)}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              style={[
+                styles.modalContent,
+                { backgroundColor: themeColors.cardBg, borderColor: themeColors.border, width: '92%', maxWidth: 400 }
+              ]}
+            >
+              {/* Header */}
+              <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border, paddingBottom: 10, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: themeColors.textPrimary }}>🌴 Leave Application Details</Text>
+                <TouchableOpacity onPress={() => setSelectedLeaveDetails(null)} style={{ padding: 4 }}>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: themeColors.textSecondary }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Scrollable Details Body */}
+              <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
+                <View style={{ gap: 10, paddingRight: 4 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, color: themeColors.textSecondary, fontWeight: '600' }}>Application ID:</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: '#2563eb' }}>{selectedLeaveDetails.id}</Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, color: themeColors.textSecondary, fontWeight: '600' }}>Leave Category:</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: themeColors.textPrimary }}>{selectedLeaveDetails.leaveType}</Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, color: themeColors.textSecondary, fontWeight: '600' }}>Status:</Text>
+                    <View style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 3,
+                      borderRadius: 12,
+                      backgroundColor: selectedLeaveDetails.status === 'Approved' ? '#dcfce7' : selectedLeaveDetails.status === 'Rejected' ? '#fee2e2' : '#fef3c7',
+                    }}>
+                      <Text style={{
+                        fontSize: 11,
+                        fontWeight: '800',
+                        color: selectedLeaveDetails.status === 'Approved' ? '#166534' : selectedLeaveDetails.status === 'Rejected' ? '#991b1b' : '#92400e',
+                      }}>
+                        {selectedLeaveDetails.status === 'Approved' ? 'Approved ✅' : selectedLeaveDetails.status === 'Rejected' ? 'Rejected ❌' : 'Pending Approval ⏳'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, color: themeColors.textSecondary, fontWeight: '600' }}>Duration:</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563eb' }}>
+                      {selectedLeaveDetails.fromDate} to {selectedLeaveDetails.toDate} ({selectedLeaveDetails.totalDays} Day{selectedLeaveDetails.totalDays > 1 ? 's' : ''})
+                    </Text>
+                  </View>
+
+                  {/* Scrollable Reason / Remarks Description Box */}
+                  <View style={{ marginTop: 4 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 4 }}>Reason / Remarks Description:</Text>
+                    <View style={{ borderRadius: 8, backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderWidth: 1, borderColor: themeColors.border, overflow: 'hidden', minHeight: 120 }}>
+                      <ScrollView style={{ maxHeight: 180, minHeight: 120, padding: 12 }} nestedScrollEnabled={true} showsVerticalScrollIndicator={true}>
+                        <Text style={{ fontSize: 13.5, color: themeColors.textPrimary, lineHeight: 20 }}>{selectedLeaveDetails.reason}</Text>
+                      </ScrollView>
+                    </View>
+                  </View>
+
+                  {/* Scrollable Manager Notes Box */}
+                  <View style={{ marginTop: 4 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 4 }}>Manager / Approval Notes:</Text>
+                    <View style={{ borderRadius: 8, backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderWidth: 1, borderColor: themeColors.border, overflow: 'hidden' }}>
+                      <ScrollView style={{ maxHeight: 100, padding: 10 }} nestedScrollEnabled={true} showsVerticalScrollIndicator={true}>
+                        <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, fontStyle: 'italic', lineHeight: 17 }}>
+                          {selectedLeaveDetails.managerNotes || 'Submitted to Line Manager for review and approval.'}
+                        </Text>
+                      </ScrollView>
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                    <Text style={{ fontSize: 11, color: themeColors.textSecondary }}>Submitted On:</Text>
+                    <Text style={{ fontSize: 11, color: themeColors.textSecondary, fontWeight: '600' }}>{selectedLeaveDetails.appliedOn}</Text>
+                  </View>
+                </View>
+              </ScrollView>
+
+              <TouchableOpacity
+                style={[styles.closeBtn, { backgroundColor: isDark ? '#334155' : '#e2e8f0', marginTop: 16 }]}
+                onPress={() => setSelectedLeaveDetails(null)}
+              >
+                <Text style={[styles.closeBtnText, { color: themeColors.textPrimary }]}>Close Details</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }

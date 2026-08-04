@@ -16,8 +16,10 @@ import { getTasks, addTask, updateTask, deleteTask, startTask, stopTask, complet
 import { pick } from '@react-native-documents/picker';
 import { getApiUrl } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
+import { useTheme } from '../../utils/ThemeContext';
 
 export default function EmployeeTasks({ currentUser }) {
+  const { isDark, themeColors } = useTheme();
   const [tasks, setTasks] = useState(() => getTasks().filter(t => t.assignedTo === currentUser?.id));
   const [now, setNow] = useState(() => Date.now());
 
@@ -230,12 +232,12 @@ export default function EmployeeTasks({ currentUser }) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View>
-            <Text style={styles.headerTitle}>📌 My Tasks</Text>
-            <Text style={styles.headerSub}>Manage assigned duties and track working time</Text>
+            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>📌 My Tasks</Text>
+            <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>Manage assigned duties and track working time</Text>
           </View>
 
           <TouchableOpacity 
@@ -249,16 +251,16 @@ export default function EmployeeTasks({ currentUser }) {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {tasks.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No tasks currently assigned to you.</Text>
+          <View style={[styles.emptyContainer, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+            <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No tasks currently assigned to you.</Text>
           </View>
         ) : (
           tasks.map(task => {
             const isSelfTask = task.assignedBy === currentUser?.id;
             return (
-              <View key={task.id} style={styles.taskCard}>
+              <View key={task.id} style={[styles.taskCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
                 <View style={styles.taskHeader}>
-                  <Text style={styles.taskTitle}>{task.title}</Text>
+                  <Text style={[styles.taskTitle, { color: themeColors.textPrimary }]}>{task.title}</Text>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <View style={[

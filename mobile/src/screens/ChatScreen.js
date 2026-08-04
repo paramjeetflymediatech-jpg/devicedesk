@@ -20,8 +20,10 @@ import SoundPlayer from 'react-native-sound-player';
 import { getEmployees, getSystems, subscribe } from '../store/store';
 import { getApiUrl } from '../utils/api';
 import { pick } from '@react-native-documents/picker';
+import { useTheme } from '../utils/ThemeContext';
 
 export default function ChatScreen({ user, onBack }) {
+  const { isDark, themeColors } = useTheme();
   const [activeChatId, setActiveChatId] = useState('general');
   const [showActiveChat, setShowActiveChat] = useState(false); // Mobile toggle between list & room
   const [messages, setMessages] = useState([]);
@@ -852,23 +854,23 @@ export default function ChatScreen({ user, onBack }) {
   const activeMessages = getActiveConversationMessages();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {!showActiveChat ? (
         /* CONVERSATION LIST VIEW */
-        <View style={styles.listContainer}>
+        <View style={[styles.listContainer, { backgroundColor: themeColors.background }]}>
           {/* Large Prominent Search Bar with Clear Icon */}
-          <View style={styles.largeSearchContainer}>
+          <View style={[styles.largeSearchContainer, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput
-              style={styles.largeSearchInput}
+              style={[styles.largeSearchInput, { color: themeColors.textPrimary }]}
               placeholder="Search chats or team members..."
-              placeholderTextColor="#8696a0"
+              placeholderTextColor={themeColors.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
-                <Text style={styles.clearSearchText}>✕</Text>
+                <Text style={[styles.clearSearchText, { color: themeColors.textSecondary }]}>✕</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -884,9 +886,17 @@ export default function ChatScreen({ user, onBack }) {
               <TouchableOpacity
                 key={f.id}
                 onPress={() => setActiveFilter(f.id)}
-                style={[styles.filterChip, activeFilter === f.id && styles.filterChipActive]}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderColor: themeColors.border },
+                  activeFilter === f.id && styles.filterChipActive
+                ]}
               >
-                <Text style={[styles.filterChipText, activeFilter === f.id && styles.filterChipTextActive]}>
+                <Text style={[
+                  styles.filterChipText,
+                  { color: themeColors.textSecondary },
+                  activeFilter === f.id && styles.filterChipTextActive
+                ]}>
                   {f.label}
                 </Text>
               </TouchableOpacity>
@@ -895,10 +905,14 @@ export default function ChatScreen({ user, onBack }) {
 
           <ScrollView style={styles.scrollList}>
             {/* Channels Section */}
-            <Text style={styles.sectionHeader}>Channels</Text>
+            <Text style={[styles.sectionHeader, { color: themeColors.textSecondary }]}>Channels</Text>
 
             <TouchableOpacity
-              style={[styles.chatItem, activeChatId === 'general' && styles.chatItemActive]}
+              style={[
+                styles.chatItem,
+                { backgroundColor: themeColors.cardBg, borderBottomColor: themeColors.border },
+                activeChatId === 'general' && [styles.chatItemActive, { backgroundColor: isDark ? '#334155' : '#eff6ff', borderColor: isDark ? '#475569' : '#bfdbfe' }]
+              ]}
               onPress={() => { setActiveChatId('general'); setShowActiveChat(true); }}
             >
               <View style={[styles.avatarBox, { backgroundColor: '#4f46e5' }]}>
@@ -906,23 +920,27 @@ export default function ChatScreen({ user, onBack }) {
               </View>
               <View style={styles.itemContent}>
                 <View style={styles.itemRow}>
-                  <Text style={styles.itemName}>General Office Chat</Text>
+                  <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>General Office Chat</Text>
                   {isPinned('general') && <Text style={styles.pinBadge}>📌</Text>}
                 </View>
-                <Text style={styles.itemSub}>Company-wide channel</Text>
+                <Text style={[styles.itemSub, { color: themeColors.textSecondary }]}>Company-wide channel</Text>
               </View>
             </TouchableOpacity>
 
             {/* Custom Groups Section */}
             {sortedGroups.length > 0 && (
               <>
-                <Text style={styles.sectionHeader}>Group Chats</Text>
+                <Text style={[styles.sectionHeader, { color: themeColors.textSecondary }]}>Group Chats</Text>
                 {sortedGroups.map(group => {
                   const lastInfo = getLastMessageInfo(group.id);
                   return (
                     <TouchableOpacity
                       key={group.id}
-                      style={[styles.chatItem, activeChatId === group.id && styles.chatItemActive]}
+                      style={[
+                        styles.chatItem,
+                        { backgroundColor: themeColors.cardBg, borderBottomColor: themeColors.border },
+                        activeChatId === group.id && [styles.chatItemActive, { backgroundColor: isDark ? '#334155' : '#eff6ff', borderColor: isDark ? '#475569' : '#bfdbfe' }]
+                      ]}
                       onPress={() => { setActiveChatId(group.id); setShowActiveChat(true); }}
                     >
                       <View style={[styles.avatarBox, { backgroundColor: '#7c3aed' }]}>
@@ -930,12 +948,12 @@ export default function ChatScreen({ user, onBack }) {
                       </View>
                       <View style={styles.itemContent}>
                         <View style={styles.itemRow}>
-                          <Text style={styles.itemName}>{group.name}</Text>
+                          <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>{group.name}</Text>
                           <TouchableOpacity onPress={() => togglePinChat(group.id)}>
                             <Text style={styles.pinIcon}>{isPinned(group.id) ? '📍' : '📌'}</Text>
                           </TouchableOpacity>
                         </View>
-                        <Text style={styles.itemSub} numberOfLines={1}>
+                        <Text style={[styles.itemSub, { color: themeColors.textSecondary }]} numberOfLines={1}>
                           {lastInfo.content || 'Group channel'}
                         </Text>
                       </View>
@@ -946,13 +964,17 @@ export default function ChatScreen({ user, onBack }) {
             )}
 
             {/* Direct Messages Section */}
-            <Text style={styles.sectionHeader}>Direct Messages</Text>
+            <Text style={[styles.sectionHeader, { color: themeColors.textSecondary }]}>Direct Messages</Text>
             {sortedEmployees.map(emp => {
               const lastInfo = getLastMessageInfo(emp.id);
               return (
                 <TouchableOpacity
                   key={emp.id}
-                  style={[styles.chatItem, activeChatId === emp.id && styles.chatItemActive]}
+                  style={[
+                    styles.chatItem,
+                    { backgroundColor: themeColors.cardBg, borderBottomColor: themeColors.border },
+                    activeChatId === emp.id && [styles.chatItemActive, { backgroundColor: isDark ? '#334155' : '#eff6ff', borderColor: isDark ? '#475569' : '#bfdbfe' }]
+                  ]}
                   onPress={() => { setActiveChatId(emp.id); setShowActiveChat(true); }}
                 >
                   <View style={[styles.avatarBox, { backgroundColor: '#06b6d4' }]}>
@@ -962,17 +984,17 @@ export default function ChatScreen({ user, onBack }) {
                   </View>
                   <View style={styles.itemContent}>
                     <View style={styles.itemRow}>
-                      <Text style={styles.itemName}>{emp.name}</Text>
+                      <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>{emp.name}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         {lastInfo.timeFormatted ? (
-                          <Text style={styles.itemTime}>{lastInfo.timeFormatted}</Text>
+                          <Text style={[styles.itemTime, { color: themeColors.textSecondary }]}>{lastInfo.timeFormatted}</Text>
                         ) : null}
                         <TouchableOpacity onPress={() => togglePinChat(emp.id)}>
                           <Text style={styles.pinIcon}>{isPinned(emp.id) ? '📍' : '📌'}</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
-                    <Text style={styles.itemSub} numberOfLines={1}>
+                    <Text style={[styles.itemSub, { color: themeColors.textSecondary }]} numberOfLines={1}>
                       {lastInfo.content || `${emp.role} • ${emp.department}`}
                     </Text>
                   </View>
@@ -983,7 +1005,7 @@ export default function ChatScreen({ user, onBack }) {
         </View>
       ) : (
         /* ACTIVE CHAT ROOM VIEW */
-        <View style={styles.roomContainer}>
+        <View style={[styles.roomContainer, { backgroundColor: themeColors.background }]}>
           {selectedMessages.length > 0 ? (
             /* WHATSAPP MULTI-SELECTION HEADER BAR */
             <View style={styles.selectionHeader}>
@@ -1053,12 +1075,12 @@ export default function ChatScreen({ user, onBack }) {
             </View>
           ) : (
             /* STANDARD ROOM HEADER */
-            <View style={styles.roomHeader}>
+            <View style={[styles.roomHeader, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
               <TouchableOpacity onPress={() => setShowActiveChat(false)} style={styles.backBtn}>
                 <Text style={styles.backBtnText}>⬅️</Text>
               </TouchableOpacity>
               <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.roomTitle} numberOfLines={1}>{activeChatTitle}</Text>
+                <Text style={[styles.roomTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{activeChatTitle}</Text>
               </View>
               <TouchableOpacity onPress={() => togglePinChat(activeChatId)} style={styles.headerActionBtn}>
                 <Text style={{ fontSize: 16 }}>{isPinned(activeChatId) ? '📍' : '📌'}</Text>
@@ -1081,7 +1103,7 @@ export default function ChatScreen({ user, onBack }) {
             {activeMessages.length === 0 ? (
               <View style={styles.emptyMessages}>
                 <Text style={{ fontSize: 32, marginBottom: 8 }}>💬</Text>
-                <Text style={{ color: '#8b949e', fontSize: 13 }}>No messages yet. Say hello!</Text>
+                <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No messages yet. Say hello!</Text>
               </View>
             ) : (
               activeMessages.map(msg => {
@@ -1127,17 +1149,19 @@ export default function ChatScreen({ user, onBack }) {
                         isOwn ? { alignItems: 'flex-end' } : { alignItems: 'flex-start' },
                       ]}
                     >
-                      {!isOwn && <Text style={styles.senderName}>{msg.senderName}</Text>}
+                      {!isOwn && <Text style={[styles.senderName, { color: isDark ? '#60a5fa' : '#2563eb' }]}>{msg.senderName}</Text>}
 
                       <View
                         style={[
                           styles.msgBubble,
-                          isOwn ? styles.ownBubble : styles.otherBubble,
+                          isOwn
+                            ? [styles.ownBubble, { backgroundColor: isDark ? '#1e3a8a' : '#eff6ff', borderColor: isDark ? '#1d4ed8' : '#bfdbfe' }]
+                            : [styles.otherBubble, { backgroundColor: isDark ? '#1e293b' : '#ffffff', borderColor: themeColors.border }],
                           isSelected && styles.selectedBubble,
                         ]}
                       >
                         {msg.deletedForEveryone ? (
-                          <Text style={styles.deletedText}>🚫 This message was deleted</Text>
+                          <Text style={[styles.deletedText, { color: themeColors.textSecondary }]}>🚫 This message was deleted</Text>
                         ) : (
                           <>
                             {/* Grouped Media Album Grid Render */}
@@ -1196,7 +1220,7 @@ export default function ChatScreen({ user, onBack }) {
                                     </View>
 
                                     {msg.content ? (
-                                      <Text style={[styles.msgText, { marginTop: 6 }]}>
+                                      <Text style={[styles.msgText, { color: themeColors.textPrimary, marginTop: 6 }]}>
                                         {msg.content}
                                       </Text>
                                     ) : null}
@@ -1289,7 +1313,7 @@ export default function ChatScreen({ user, onBack }) {
                               </TouchableOpacity>
                             ) : (
                               /* Standard Text Message */
-                              <Text style={styles.msgText}>
+                              <Text style={[styles.msgText, { color: themeColors.textPrimary }]}>
                                 {msg.content}
                               </Text>
                             )}
@@ -1298,7 +1322,7 @@ export default function ChatScreen({ user, onBack }) {
                             <View style={styles.bubbleFooter}>
                               {isMessagePinned(msg.id) && <Text style={{ fontSize: 11, color: '#ffd700', marginRight: 4 }}>📌</Text>}
                               {msg.isEdited ? <Text style={styles.editedTag}>edited • </Text> : null}
-                              <Text style={isOwn ? styles.ownMsgTime : styles.otherMsgTime}>
+                              <Text style={[isOwn ? styles.ownMsgTime : styles.otherMsgTime, { color: themeColors.textSecondary }]}>
                                 {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                               </Text>
                               {isOwn && <Text style={styles.checkTicks}>  ✓✓</Text>}
@@ -1323,7 +1347,7 @@ export default function ChatScreen({ user, onBack }) {
           </ScrollView>
 
           {/* WhatsApp Action Input Bar */}
-          <View style={styles.inputBar}>
+          <View style={[styles.inputBar, { backgroundColor: themeColors.headerBg, borderTopColor: themeColors.border }]}>
             {isRecording ? (
               /* VOICE RECORDING MODE */
               <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6 }}>
@@ -1355,9 +1379,12 @@ export default function ChatScreen({ user, onBack }) {
                 </TouchableOpacity>
 
                 <TextInput
-                  style={styles.textInput}
+                  style={[
+                    styles.textInput,
+                    { backgroundColor: isDark ? '#0f172a' : '#f8fafc', color: themeColors.textPrimary, borderColor: themeColors.border }
+                  ]}
                   placeholder="Type a message..."
-                  placeholderTextColor="#8696a0"
+                  placeholderTextColor={themeColors.textSecondary}
                   value={inputText}
                   onChangeText={setInputText}
                 />
@@ -1942,7 +1969,7 @@ export default function ChatScreen({ user, onBack }) {
           </View>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -2017,8 +2044,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 48,
     marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 14,
+    marginTop: 6,
+    marginBottom: 6,
     borderWidth: 1,
     borderColor: '#cbd5e1',
     shadowColor: '#000000',
