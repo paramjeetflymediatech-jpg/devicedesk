@@ -10,8 +10,11 @@ import {
   Platform,
 } from 'react-native';
 import { fetchAttendanceRecords } from '../../utils/api';
+import { useTheme } from '../../utils/ThemeContext';
+import CalendarPickerModal from '../../components/CalendarPickerModal';
 
 export default function AttendanceLogs({ user }) {
+  const { isDark, themeColors } = useTheme();
   const [records, setRecords] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,8 +24,12 @@ export default function AttendanceLogs({ user }) {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
-  const [selectedDay, setSelectedDay] = useState(''); // "YYYY-MM-DD"
+  const [fromDate, setFromDate] = useState(''); // "YYYY-MM-DD"
+  const [toDate, setToDate] = useState('');     // "YYYY-MM-DD"
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Calendar Modal State
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
 
   const statuses = ['ALL', 'Present', 'Late', 'Half Day', 'Completed', 'Overtime', 'Auto Closed'];
 
@@ -45,9 +52,10 @@ export default function AttendanceLogs({ user }) {
     getLogs();
   }, [selectedMonth, statusFilter]);
 
-  // Apply Day Filter client-side
+  // Apply Date Range Filter (From Date to To Date) client-side
   const filteredRecords = records.filter((r) => {
-    if (selectedDay && r.date !== selectedDay) return false;
+    if (fromDate && r.date < fromDate) return false;
+    if (toDate && r.date > toDate) return false;
     return true;
   });
 
@@ -84,30 +92,30 @@ export default function AttendanceLogs({ user }) {
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.sectionTitle}>📅 Attendance Logs & Summary</Text>
+      <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>📅 Attendance Logs & Summary</Text>
 
       {/* Summary Stat Cards Grid */}
       <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Present Days</Text>
+        <View style={[styles.statCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+          <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Present Days</Text>
           <Text style={[styles.statValue, { color: '#059669' }]}>
             {summary?.presentCount || 0}
           </Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Late Days</Text>
+        <View style={[styles.statCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+          <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Late Days</Text>
           <Text style={[styles.statValue, { color: '#d97706' }]}>
             {summary?.lateCount || 0}
           </Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total Hours</Text>
+        <View style={[styles.statCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+          <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Total Hours</Text>
           <Text style={[styles.statValue, { color: '#2563eb' }]}>
             {summary?.totalWorkHours || 0} hrs
           </Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Overtime</Text>
+        <View style={[styles.statCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+          <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Overtime</Text>
           <Text style={[styles.statValue, { color: '#7e22ce' }]}>
             {summary?.overtimeCount || 0}
           </Text>
@@ -115,51 +123,78 @@ export default function AttendanceLogs({ user }) {
       </View>
 
       {/* Month Selector Bar */}
-      <Text style={styles.filterSectionTitle}>Select Month</Text>
+      <Text style={[styles.filterSectionTitle, { color: themeColors.textPrimary }]}>Select Month</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScrollContainer}>
         {getMonthsList().map((m) => (
           <TouchableOpacity
             key={m.val}
-            style={[styles.monthChip, selectedMonth === m.val && styles.monthChipActive]}
+            style={[
+              styles.monthChip,
+              { backgroundColor: isDark ? '#0f172a' : '#f1f5f9', borderColor: themeColors.border },
+              selectedMonth === m.val && styles.monthChipActive
+            ]}
             onPress={() => setSelectedMonth(m.val)}
           >
-            <Text style={[styles.monthChipText, selectedMonth === m.val && styles.monthChipTextActive]}>
+            <Text style={[
+              styles.monthChipText,
+              { color: themeColors.textPrimary },
+              selectedMonth === m.val && styles.monthChipTextActive
+            ]}>
               {m.label}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Specific Date Filter Input */}
+      {/* Single Calendar Date Range Filter */}
       <View style={styles.dateInputRow}>
-        <Text style={styles.filterSectionTitle}>Filter by Specific Day (YYYY-MM-DD):</Text>
-        <View style={styles.dateInputContainer}>
+        <Text style={[styles.filterSectionTitle, { color: themeColors.textPrimary }]}>Filter by Date Range:</Text>
+        <TouchableOpacity
+          style={[
+            styles.dateInputContainer,
+            { backgroundColor: isDark ? '#0f172a' : '#ffffff', borderColor: themeColors.border, paddingRight: 4 }
+          ]}
+          onPress={() => setShowCalendarModal(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={{ fontSize: 16, marginLeft: 10 }}>📅</Text>
           <TextInput
-            style={styles.dateInput}
-            placeholder="e.g. 2026-08-04"
-            placeholderTextColor="#94a3b8"
-            value={selectedDay}
-            onChangeText={setSelectedDay}
-            maxLength={10}
+            style={[
+              styles.dateInput,
+              { color: themeColors.textPrimary, fontWeight: (fromDate || toDate) ? '700' : '400' }
+            ]}
+            placeholder="Select Date Range..."
+            placeholderTextColor={themeColors.textSecondary}
+            value={fromDate || toDate ? `${fromDate || 'Start'} ➔ ${toDate || 'End'}` : ''}
+            editable={false}
+            pointerEvents="none"
           />
-          {selectedDay ? (
-            <TouchableOpacity onPress={() => setSelectedDay('')} style={styles.clearBtn}>
+          {(fromDate || toDate) ? (
+            <TouchableOpacity onPress={() => { setFromDate(''); setToDate(''); }} style={styles.clearBtn}>
               <Text style={styles.clearBtnText}>✕</Text>
             </TouchableOpacity>
           ) : null}
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Status Filter Chips */}
-      <Text style={styles.filterSectionTitle}>Status Filter</Text>
+      <Text style={[styles.filterSectionTitle, { color: themeColors.textPrimary }]}>Status Filter</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScrollContainer}>
         {statuses.map((st) => (
           <TouchableOpacity
             key={st}
-            style={[styles.statusChip, statusFilter === st && styles.statusChipActive]}
+            style={[
+              styles.statusChip,
+              { backgroundColor: isDark ? '#0f172a' : '#f1f5f9', borderColor: themeColors.border },
+              statusFilter === st && styles.statusChipActive
+            ]}
             onPress={() => setStatusFilter(st)}
           >
-            <Text style={[styles.statusChipText, statusFilter === st && styles.statusChipTextActive]}>
+            <Text style={[
+              styles.statusChipText,
+              { color: themeColors.textPrimary },
+              statusFilter === st && styles.statusChipTextActive
+            ]}>
               {st}
             </Text>
           </TouchableOpacity>
@@ -170,19 +205,19 @@ export default function AttendanceLogs({ user }) {
       {loading ? (
         <View style={styles.spinnerContainer}>
           <ActivityIndicator color="#2563eb" size="large" />
-          <Text style={styles.spinnerText}>Loading attendance records...</Text>
+          <Text style={[styles.spinnerText, { color: themeColors.textSecondary }]}>Loading attendance records...</Text>
         </View>
       ) : filteredRecords.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>No attendance records found for this period.</Text>
+        <View style={[styles.emptyCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+          <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No attendance records found for this period.</Text>
         </View>
       ) : (
         filteredRecords.map((r) => {
           const colors = getStatusColor(r.status);
           return (
-            <View key={r.id || r.date} style={styles.recordCard}>
+            <View key={r.id || r.date} style={[styles.recordCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
               <View style={styles.recordHeader}>
-                <Text style={styles.recordDate}>📆 {r.date}</Text>
+                <Text style={[styles.recordDate, { color: themeColors.textPrimary }]}>📆 {r.date}</Text>
                 <View
                   style={[
                     styles.statusBadge,
@@ -195,23 +230,23 @@ export default function AttendanceLogs({ user }) {
                 </View>
               </View>
 
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
               <View style={styles.recordDetailsRow}>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>IN TIME</Text>
-                  <Text style={styles.detailValue}>{r.punchInTimeFormatted || 'N/A'}</Text>
+                  <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>IN TIME</Text>
+                  <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.punchInTimeFormatted || 'N/A'}</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>OUT TIME</Text>
-                  <Text style={styles.detailValue}>{r.punchOutTimeFormatted || '--:--'}</Text>
+                  <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>OUT TIME</Text>
+                  <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.punchOutTimeFormatted || '--:--'}</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>BREAKS</Text>
-                  <Text style={styles.detailValue}>{r.totalBreakMinutes || 0}m</Text>
+                  <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>BREAKS</Text>
+                  <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.totalBreakMinutes || 0}m</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>NET WORK</Text>
+                  <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>NET WORK</Text>
                   <Text style={[styles.detailValue, { color: '#2563eb', fontWeight: '800' }]}>
                     {r.netWorkHoursFormatted || '00:00:00'}
                   </Text>
@@ -221,6 +256,19 @@ export default function AttendanceLogs({ user }) {
           );
         })
       )}
+
+      {/* Single Calendar Picker Modal */}
+      <CalendarPickerModal
+        visible={showCalendarModal}
+        title="Select Date Range"
+        fromDate={fromDate}
+        toDate={toDate}
+        onSelectRange={(start, end) => {
+          setFromDate(start);
+          setToDate(end);
+        }}
+        onClose={() => setShowCalendarModal(false)}
+      />
     </ScrollView>
   );
 }

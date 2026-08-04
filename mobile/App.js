@@ -15,12 +15,15 @@ import { getOrCreateDeviceId, registerDeviceToken, deregisterDeviceToken } from 
 import SweetAlertModal from './src/components/SweetAlertModal';
 import { sweetAlertRef } from './src/utils/sweetAlert';
 
-export default function App() {
+import { ThemeProvider, useTheme } from './src/utils/ThemeContext';
+
+function MainAppContent() {
   const [currentScreen, setCurrentScreen] = useState('welcome'); // welcome, login, forgot, admin, employee
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [, setTick] = useState(0);
+  const { themeColors } = useTheme();
 
   useEffect(() => {
     async function initApp() {
@@ -186,13 +189,21 @@ export default function App() {
   };
 
   return (
-    <SafeAreaProvider style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0d1117" />
+    <SafeAreaProvider style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <StatusBar barStyle={themeColors.statusBar} backgroundColor={themeColors.headerBg} />
       
       {!loading && renderScreen()}
       
       <SweetAlertModal ref={sweetAlertRef} />
     </SafeAreaProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <MainAppContent />
+    </ThemeProvider>
   );
 }
 
