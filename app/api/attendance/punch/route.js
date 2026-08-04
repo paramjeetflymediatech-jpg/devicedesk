@@ -28,6 +28,72 @@ function formatLocalDate(d) {
   return `${year}-${month}-${day}`;
 }
 
+async function autoClosePreviousOpenSessions(connection, employeeId, todayStr) {
+  try {
+    const [openRows] = await connection.execute(
+      `SELECT * FROM attendance_records 
+       WHERE employeeId = ? AND punchOutTime IS NULL AND date < ? 
+       ORDER BY punchInTime ASC FOR UPDATE`,
+      [employeeId, todayStr]
+    );
+
+    for (const record of openRows) {
+      const recordDateStr = record.date;
+      const autoPunchOutIso = `${recordDateStr}T23:59:59.000Z`;
+      const autoPunchOutMs = new Date(autoPunchOutIso).getTime();
+      const punchInMs = new Date(record.punchInTime).getTime();
+
+      // Close open break if any
+      await connection.execute(
+        `UPDATE attendance_breaks SET endTime = ? WHERE attendanceId = ? AND endTime IS NULL`,
+        [autoPunchOutIso, record.id]
+      );
+
+      // Calculate break seconds
+      const [breakRows] = await connection.execute(
+        `SELECT startTime, endTime FROM attendance_breaks WHERE attendanceId = ?`,
+        [record.id]
+      );
+
+      let totalBreakSecs = 0;
+      for (const b of breakRows) {
+        if (b.startTime && b.endTime) {
+          const s = new Date(b.startTime).getTime();
+          const e = new Date(b.endTime).getTime();
+          totalBreakSecs += Math.max(0, Math.floor((e - s) / 1000));
+        }
+      }
+
+      const totalWorkSecs = Math.max(0, Math.floor((autoPunchOutMs - punchInMs) / 1000));
+      const netWorkSecs = Math.max(0, totalWorkSecs - totalBreakSecs);
+
+      const totalWorkMins = Math.floor(totalWorkSecs / 60);
+      const totalBreakMins = Math.floor(totalBreakSecs / 60);
+      const netWorkMins = Math.floor(netWorkSecs / 60);
+
+      let finalStatus = record.status;
+      if (finalStatus === 'Present' || finalStatus === 'Late') {
+        finalStatus = 'Auto Closed';
+      }
+
+      await connection.execute(
+        `UPDATE attendance_records SET 
+          punchOutTime = ?, 
+          totalWorkMinutes = ?, 
+          totalBreakMinutes = ?, 
+          netWorkMinutes = ?, 
+          status = ?, 
+          breakStatus = 'Completed',
+          remarks = COALESCE(CONCAT(remarks, ' | Auto punched-out at 11:59 PM'), 'Auto punched-out at 11:59 PM')
+         WHERE id = ?`,
+        [autoPunchOutIso, totalWorkMins, totalBreakMins, netWorkMins, finalStatus, record.id]
+      );
+    }
+  } catch (err) {
+    console.error('Error auto closing previous sessions during punch:', err);
+  }
+}
+
 export async function POST(request) {
   let body;
   try {
@@ -87,6 +153,9 @@ export async function POST(request) {
     const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
     const deviceInfo = request.headers.get('user-agent') || 'Unknown Browser';
 
+    // Auto-close any forgotten open sessions from previous days before processing punch actions
+    await autoClosePreviousOpenSessions(connection, employeeId, todayStr);
+
     // 1. Fetch any open or today's attendance record
     const [existingRows] = await connection.execute(
       `SELECT * FROM attendance_records WHERE employeeId = ? AND (date = ? OR (punchOutTime IS NULL AND date <= ?)) ORDER BY punchInTime DESC LIMIT 1 FOR UPDATE`,
@@ -96,6 +165,18 @@ export async function POST(request) {
     const activeRecord = existingRows.length > 0 ? existingRows[0] : null;
 
     if (action === 'PUNCH_IN') {
+      // Rule 1: Shift Cutoff Check - Unable to punch in after 06:30 PM (18:30)
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+
+      if (hours > 18 || (hours === 18 && minutes >= 30)) {
+        await connection.rollback();
+        return NextResponse.json({
+          success: false,
+          message: 'Punch-in restricted. Shift cutoff time (06:30 PM) has passed for today.'
+        }, { status: 400 });
+      }
+
       if (activeRecord) {
         if (!activeRecord.punchOutTime) {
           await connection.rollback();

@@ -9,13 +9,17 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Image,
   Modal,
+  StatusBar,
+  Dimensions,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiUrl, setApiUrl, initApiUrl } from '../utils/api';
 import { findEmployeeByCredentials, isAdminCredentials, syncWithServer } from '../store/store';
 import { sweetAlert } from '../utils/sweetAlert';
+
+const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
   const [identifier, setIdentifier] = useState('');
@@ -29,7 +33,6 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
   const [testing, setTesting] = useState(false);
 
   useEffect(() => {
-    // Load current API host settings
     initApiUrl().then(url => {
       setApiUrlState(url);
     });
@@ -46,7 +49,6 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
     if (success) {
       sweetAlert({ title: 'Success', text: 'API Server URL updated successfully!', type: 'success' });
       setShowConfig(false);
-      // Attempt to sync after config change
       setLoading(true);
       const syncResult = await syncWithServer();
       setLoading(false);
@@ -98,14 +100,12 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
     }
 
     setLoading(true);
-
     const cleanUsername = identifier.trim();
     const baseUrl = getApiUrl();
 
-    // 1. Attempt server-side login (to support bcrypt hashes)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
       const response = await fetch(`${baseUrl}/api/login`, {
         method: 'POST',
@@ -116,10 +116,9 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
       clearTimeout(timeoutId);
 
       const data = await response.json();
-      
+
       if (response.ok && data.success) {
-        // Sync cache in background
-        syncWithServer().catch(() => {});
+        syncWithServer().catch(() => { });
         setLoading(false);
 
         sweetAlert({
@@ -144,8 +143,6 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
       console.log('Server login failed or timed out, trying offline fallback:', err.message);
     }
 
-    // 2. Offline Fallback (if server is unreachable or offline)
-    // Check admin credentials offline
     if (isAdminCredentials(cleanUsername, password)) {
       setLoading(false);
       const adminUser = {
@@ -165,7 +162,6 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
       return;
     }
 
-    // Check employee credentials offline
     const employee = findEmployeeByCredentials(cleanUsername, password);
     setLoading(false);
 
@@ -178,9 +174,9 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
         });
         return;
       }
-      const isEmployeeAdmin = 
-        employee.role === 'Admin' || 
-        employee.role === 'Management' || 
+      const isEmployeeAdmin =
+        employee.role === 'Admin' ||
+        employee.role === 'Management' ||
         employee.role === 'IT Engineer';
 
       const empUser = {
@@ -206,18 +202,36 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0b0f19" />
+
+      {/* Decorative Glow Elements */}
+      <View style={styles.glowCyan} />
+      <View style={styles.glowPurple} />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Header & Logo Image */}
           <View style={styles.headerContainer}>
-            <Text style={styles.title}>DeviceDesk</Text>
+            <Image
+              source={require('../assets/flymedia-logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+
+            <View style={styles.subTagPill}>
+              <Text style={styles.subTagPillText}>✨ ENTERPRISE PORTAL</Text>
+            </View>
+
+            {/* <Text style={styles.title}>DeviceDesk</Text> */}
             <Text style={styles.subtitle}>System Tracking & Support Portal</Text>
           </View>
 
+          {/* Form Glass Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Sign In</Text>
+            <Text style={styles.cardTitle}>Sign In to Account</Text>
 
             {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
             {successMsg ? <Text style={styles.successText}>{successMsg}</Text> : null}
@@ -225,19 +239,24 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
             <Text style={styles.label}>Username or Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="enter here"
-              placeholderTextColor="#888"
+              placeholder="e.g. sarabjot@devicedesk.com"
+              placeholderTextColor="#edf1f7ff"
               value={identifier}
               onChangeText={setIdentifier}
               autoCapitalize="none"
               autoCorrect={false}
             />
 
-            <Text style={styles.label}>Password</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.label}>Password</Text>
+              <TouchableOpacity onPress={onNavigateToForgot} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.forgotBtnText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={styles.input}
               placeholder="••••••••"
-              placeholderTextColor="#888"
+              placeholderTextColor="#e0e7f0ff"
               secureTextEntry
               value={password}
               onChangeText={setPassword}
@@ -245,77 +264,84 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
               autoCorrect={false}
             />
 
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>
+            <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading} activeOpacity={0.88}>
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#0b0f19" />
               ) : (
-                <Text style={styles.loginButtonText}>Sign In</Text>
+                <Text style={styles.loginButtonText}>Sign In </Text>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.forgotBtn} onPress={onNavigateToForgot}>
-              <Text style={styles.forgotBtnText}>Forgot Password?</Text>
+            <TouchableOpacity 
+              style={{ alignItems: 'center', marginTop: 16, paddingVertical: 8 }} 
+              onPress={onNavigateToForgot}
+            >
+              <Text style={{ color: '#00f0ff', fontSize: 13.5, fontWeight: '700' }}>
+                Forgot Password?
+              </Text>
             </TouchableOpacity>
           </View>
 
-        {/* Server Config Modal */}
-        <Modal
-          visible={showConfig}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setShowConfig(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>🌐 Server Settings</Text>
-              <Text style={styles.configDesc}>
-                Set the IP/URL of your corporate Next.js deployment server.
-              </Text>
+          {/* Server Config Modal */}
+          <Modal
+            visible={showConfig}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowConfig(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>🌐 Server Settings</Text>
+                <Text style={styles.configDesc}>
+                  Set the IP/URL of your corporate Next.js deployment server.
+                </Text>
 
-              <Text style={styles.label}>API Base URL</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="https://api.yourdomain.com"
-                placeholderTextColor="#888"
-                value={apiUrl}
-                onChangeText={setApiUrlState}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+                <Text style={styles.label}>API Base URL</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="https://api.yourdomain.com"
+                  placeholderTextColor="#64748b"
+                  value={apiUrl}
+                  onChangeText={setApiUrlState}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
 
-              <TouchableOpacity 
-                style={styles.testBtn} 
-                onPress={handleTestConnection}
-                disabled={testing}
-              >
-                {testing ? (
-                  <ActivityIndicator color="#58a6ff" />
-                ) : (
-                  <Text style={styles.testBtnText}>⚡ Test Connection</Text>
-                )}
-              </TouchableOpacity>
-
-              <View style={styles.modalButtonsRow}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowConfig(false)}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                <TouchableOpacity
+                  style={styles.testBtn}
+                  onPress={handleTestConnection}
+                  disabled={testing}
+                >
+                  {testing ? (
+                    <ActivityIndicator color="#00f0ff" />
+                  ) : (
+                    <Text style={styles.testBtnText}>⚡ Test Connection</Text>
+                  )}
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveConfig}>
-                  <Text style={styles.saveBtnText}>Save & Apply</Text>
-                </TouchableOpacity>
+
+                <View style={styles.modalButtonsRow}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowConfig(false)}>
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.saveBtn} onPress={handleSaveConfig}>
+                    <Text style={styles.saveBtnText}>Save & Apply</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        </Modal>
+          </Modal>
 
+          {/* Footer */}
           <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>DeviceDesk</Text>
-            <TouchableOpacity style={{ marginTop: 8 }} onPress={() => setShowLegalModal(true)}>
+            <Text style={styles.footerText}>Secured by DeviceDesk Enterprise v2.4</Text>
+            <TouchableOpacity style={{ marginTop: 6 }} onPress={() => setShowLegalModal(true)}>
               <Text style={styles.footerLinkText}>Privacy Policy & Terms of Service</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* Legal Modal */}
       <Modal
         visible={showLegalModal}
         animationType="slide"
@@ -328,17 +354,17 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
             <ScrollView style={styles.modalScroll}>
               <Text style={styles.legalHeader}>1. Privacy Policy</Text>
               <Text style={styles.legalText}>
-                {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties."}
+                {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server."}
               </Text>
-              
+
               <Text style={styles.legalHeader}>2. Terms & Conditions</Text>
               <Text style={styles.legalText}>
-                This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited. All transactions, assignments, and support tickets raised are logged and audited.
+                This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited.
               </Text>
-              
+
               <Text style={styles.legalHeader}>3. Data & Account Deletion</Text>
               <Text style={styles.legalText}>
-                In compliance with App Store guidelines, users have the right to request full account profile and data deletion. Account deletion will permanently erase your employee record, delete your raised tickets, and unassign any active inventory assets. To delete your account, please log in and navigate to the Account Settings menu on your dashboard.
+                In compliance with App Store guidelines, users have the right to request full account profile and data deletion.
               </Text>
             </ScrollView>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setShowLegalModal(false)}>
@@ -354,226 +380,272 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d1117', // Dark theme background
+    backgroundColor: '#ffffffff',
+    position: 'relative',
+  },
+  glowCyan: {
+    position: 'absolute',
+    top: -60,
+    right: -60,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(88, 136, 139, 0.07)',
+  },
+  glowPurple: {
+    position: 'absolute',
+    bottom: -60,
+    left: -60,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(168, 85, 247, 0.07)',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: 22,
+    paddingVertical: 25,
   },
   headerContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#58a6ff', // Theme blue accent
+  logoImage: {
+    width: 220,
+    height: 75,
+    marginBottom: 12,
+    alignSelf: 'center',
+  },
+  subTagPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 240, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 240, 255, 0.25)',
+    marginBottom: 10,
+  },
+  subTagPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#00f0ff',
     letterSpacing: 1,
   },
+  title: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#000000ff',
+    letterSpacing: -0.5,
+  },
   subtitle: {
-    fontSize: 14,
-    color: '#8b949e',
-    marginTop: 5,
+    fontSize: 13.5,
+    color: '#3a3e44ff',
+    marginTop: 4,
   },
   card: {
-    backgroundColor: '#161b22',
+    backgroundColor: 'rgba(20, 29, 46, 0.85)',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+    borderRadius: 22,
+    padding: 22,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
     elevation: 8,
+    marginBottom: 20,
   },
   cardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
-    marginBottom: 20,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#e9e9e9ff',
+    marginBottom: 18,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#c9d1d9',
+    color: '#cbd5e1',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#0d1117',
+    backgroundColor: '#0b0f19',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#f0f6fc',
-    marginBottom: 15,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 14.5,
+    color: '#ffffff',
+    marginBottom: 16,
   },
   loginButton: {
-    backgroundColor: '#1f6feb',
-    borderRadius: 8,
-    paddingVertical: 12,
+    backgroundColor: '#00f0ff',
+    borderRadius: 14,
+    paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 6,
+    shadowColor: '#00f0ff',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
   loginButtonText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontWeight: '800',
+    color: '#050914',
+    letterSpacing: 0.5,
   },
-  forgotBtn: {
+  linksRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 15,
+    marginTop: 16,
   },
   forgotBtnText: {
-    color: '#58a6ff',
-    fontSize: 14,
+    color: '#00f0ff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   gearButton: {
-    marginTop: 15,
-    backgroundColor: '#21262d',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    alignSelf: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
   },
   gearIcon: {
-    color: '#8b949e',
-    fontSize: 13,
-    fontWeight: 'bold',
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
   },
   configDesc: {
-    color: '#8b949e',
+    color: '#94a3b8',
     fontSize: 13,
-    marginBottom: 20,
+    marginBottom: 18,
     lineHeight: 18,
     textAlign: 'center',
   },
   testBtn: {
     borderWidth: 1,
-    borderColor: '#58a6ff',
-    backgroundColor: 'rgba(88, 166, 255, 0.1)',
-    borderRadius: 8,
+    borderColor: '#00f0ff',
+    backgroundColor: 'rgba(0, 240, 255, 0.1)',
+    borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
     marginBottom: 15,
   },
   testBtnText: {
-    color: '#58a6ff',
-    fontWeight: 'bold',
-    fontSize: 14,
+    color: '#00f0ff',
+    fontWeight: '700',
+    fontSize: 13.5,
   },
   modalButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    gap: 10,
     marginTop: 10,
   },
   cancelBtn: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#30363d',
-    backgroundColor: '#21262d',
-    marginRight: 10,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   cancelBtnText: {
-    color: '#c9d1d9',
+    color: '#94a3b8',
     fontWeight: '600',
   },
   saveBtn: {
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#238636',
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: '#00f0ff',
   },
   saveBtnText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
+    color: '#050914',
+    fontWeight: '800',
   },
   errorText: {
     color: '#f85149',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 15,
+    fontSize: 13.5,
+    fontWeight: '600',
+    marginBottom: 14,
     textAlign: 'center',
   },
   successText: {
-    color: '#3fb950',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 15,
+    color: '#39db6d',
+    fontSize: 13.5,
+    fontWeight: '600',
+    marginBottom: 14,
     textAlign: 'center',
   },
   footerContainer: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
   },
   footerText: {
-    color: '#8b949e',
-    fontSize: 12,
+    color: '#64748b',
+    fontSize: 11.5,
+    fontWeight: '500',
   },
   footerLinkText: {
-    color: '#58a6ff',
+    color: '#00f0ff',
     fontSize: 12,
     textDecorationLine: 'underline',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(13, 17, 23, 0.95)',
+    backgroundColor: 'rgba(5, 8, 16, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#141d2e',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 16,
-    padding: 20,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+    borderRadius: 20,
+    padding: 22,
     width: '100%',
     maxHeight: '85%',
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#58a6ff',
-    marginBottom: 15,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#00f0ff',
+    marginBottom: 14,
     textAlign: 'center',
   },
   modalScroll: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   legalHeader: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
-    marginTop: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginTop: 12,
     marginBottom: 6,
   },
   legalText: {
-    fontSize: 13,
-    color: '#8b949e',
+    fontSize: 12.5,
+    color: '#94a3b8',
     lineHeight: 18,
-    textAlign: 'justify',
   },
   closeBtn: {
-    backgroundColor: '#21262d',
-    borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
+    backgroundColor: '#00f0ff',
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
   closeBtnText: {
-    color: '#f0f6fc',
-    fontSize: 15,
-    fontWeight: 'bold',
+    color: '#050914',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

@@ -8,7 +8,12 @@ import {
   SafeAreaView,
   Dimensions,
   Animated,
+  StatusBar,
+  Image,
 } from 'react-native';
+import AppIcon from '../components/AppIcon';
+
+const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen({ onGetStarted }) {
   // Animation values
@@ -17,7 +22,7 @@ export default function WelcomeScreen({ onGetStarted }) {
   const buttonScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Trigger visual entry animations
+    // Visual entry animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -50,13 +55,26 @@ export default function WelcomeScreen({ onGetStarted }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Top Header */}
-        <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>DD</Text>
-          </View>
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* Company Brand Logo Image */}
+          <Image
+            source={require('../assets/flymedia-logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+
           <Text style={styles.title}>Welcome to</Text>
           <Text style={styles.brandTitle}>DeviceDesk</Text>
           <Text style={styles.subtitle}>
@@ -68,8 +86,8 @@ export default function WelcomeScreen({ onGetStarted }) {
         <Animated.View style={[styles.featuresContainer, { opacity: fadeAnim }]}>
           {/* Card 1 */}
           <View style={styles.card}>
-            <View style={[styles.iconWrapper, { backgroundColor: 'rgba(0, 240, 255, 0.1)' }]}>
-              <Text style={styles.cardIcon}>🖥️</Text>
+            <View style={[styles.iconWrapper, { backgroundColor: '#eff6ff' }]}>
+              <AppIcon name="monitor" size={22} color="#2563eb" />
             </View>
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>Asset Inventory</Text>
@@ -81,8 +99,8 @@ export default function WelcomeScreen({ onGetStarted }) {
 
           {/* Card 2 */}
           <View style={styles.card}>
-            <View style={[styles.iconWrapper, { backgroundColor: 'rgba(171, 112, 255, 0.1)' }]}>
-              <Text style={styles.cardIcon}>🛠️</Text>
+            <View style={[styles.iconWrapper, { backgroundColor: '#f3e8ff' }]}>
+              <AppIcon name="wrench" size={22} color="#7e22ce" />
             </View>
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>IT Support Desk</Text>
@@ -94,8 +112,8 @@ export default function WelcomeScreen({ onGetStarted }) {
 
           {/* Card 3 */}
           <View style={styles.card}>
-            <View style={[styles.iconWrapper, { backgroundColor: 'rgba(57, 219, 109, 0.1)' }]}>
-              <Text style={styles.cardIcon}>🔔</Text>
+            <View style={[styles.iconWrapper, { backgroundColor: '#ecfdf5' }]}>
+              <AppIcon name="bell" size={22} color="#059669" />
             </View>
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>Push Notifications</Text>
@@ -106,7 +124,7 @@ export default function WelcomeScreen({ onGetStarted }) {
           </View>
         </Animated.View>
 
-        {/* Call to Actions */}
+        {/* Call to Action Button */}
         <Animated.View style={[styles.actionContainer, { opacity: fadeAnim }]}>
           <TouchableOpacity
             activeOpacity={0.9}
@@ -115,93 +133,81 @@ export default function WelcomeScreen({ onGetStarted }) {
             onPress={onGetStarted}
           >
             <Animated.View style={[styles.btnPrimary, { transform: [{ scale: buttonScale }] }]}>
-              <Text style={styles.btnPrimaryText}>Get Started</Text>
+              <Text style={styles.btnPrimaryText}>Get Started ➔</Text>
             </Animated.View>
           </TouchableOpacity>
-        </Animated.View>
 
+          <Text style={styles.footerNote}>Secured by DeviceDesk Enterprise</Text>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const { width } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: '#ffffff',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'space-between',
-    padding: 24,
+    paddingHorizontal: 24,
     paddingTop: 45,
-    paddingBottom: 35,
+    paddingBottom: 30,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  logoBadge: {
-    width: 64,
+  logoImage: {
+    width: 180,
     height: 64,
-    borderRadius: 18,
-    backgroundColor: '#161b22',
-    borderWidth: 1.5,
-    borderColor: '#00f0ff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#00f0ff',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#00f0ff',
+    marginBottom: 14,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '500',
-    color: '#8b949e',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#64748b',
     letterSpacing: 0.5,
   },
   brandTitle: {
     fontSize: 38,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    letterSpacing: 0.5,
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -0.5,
     marginTop: 2,
   },
   subtitle: {
     fontSize: 14,
-    color: '#8b949e',
+    color: '#475569',
     textAlign: 'center',
     lineHeight: 20,
     marginTop: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
   },
   featuresContainer: {
-    marginVertical: 20,
+    marginVertical: 16,
   },
   card: {
     flexDirection: 'row',
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: '#e2e8f0',
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
     alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   iconWrapper: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -213,13 +219,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 15.5,
     fontWeight: '700',
-    color: '#ffffff',
+    color: '#0f172a',
   },
   cardDescription: {
     fontSize: 12.5,
-    color: '#8b949e',
+    color: '#475569',
     marginTop: 4,
     lineHeight: 17,
   },
@@ -229,21 +235,27 @@ const styles = StyleSheet.create({
   },
   btnPrimary: {
     width: width - 48,
-    backgroundColor: '#1f6feb',
-    borderRadius: 12,
-    paddingVertical: 15,
+    backgroundColor: '#2563eb',
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1f6feb',
+    shadowColor: '#2563eb',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
   },
   btnPrimaryText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: '#ffffff',
     letterSpacing: 0.5,
+  },
+  footerNote: {
+    fontSize: 11.5,
+    color: '#94a3b8',
+    marginTop: 14,
+    fontWeight: '500',
   },
 });

@@ -341,8 +341,8 @@ export default function Home() {
           <div style="margin-bottom: 8px;"><strong>Role & Department:</strong> ${emp ? `${emp.role} • ${emp.department}` : 'N/A'}</div>
           <div style="margin-bottom: 8px;"><strong>Leave Type:</strong> ${req.leaveType}</div>
           <div style="margin-bottom: 8px;"><strong>Duration:</strong> ${req.fromDate} to ${req.toDate} (${req.totalDays} ${req.totalDays === 1 ? 'day' : 'days'})</div>
-          <div style="margin-bottom: 8px;"><strong>Reason for Leave:</strong></div>
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; max-height: 100px; overflow-y: auto; font-style: italic;">
+          <div style="margin-bottom: 6px; margin-top: 10px;"><strong>Full Reason for Leave:</strong></div>
+          <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); padding: 12px 14px; border-radius: 8px; margin-bottom: 12px; max-height: 320px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; font-style: normal; text-align: left; font-size: 0.88rem; color: #e6edf3;">
             ${req.reason || "No reason provided."}
           </div>
           <div style="margin-bottom: 8px;"><strong>Status:</strong> <span class="status-badge badge-${req.status === 'Approved' ? 'resolved' : (req.status === 'Rejected' ? 'critical' : 'progress')}" style="padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 0.75rem;">${req.status}</span></div>

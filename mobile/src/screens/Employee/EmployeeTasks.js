@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Linking,
   TextInput,
+  Platform,
 } from 'react-native';
 import { getTasks, addTask, updateTask, deleteTask, startTask, stopTask, completeTask, subscribe } from '../../store/store';
 import { pick } from '@react-native-documents/picker';
@@ -96,10 +97,6 @@ export default function EmployeeTasks({ currentUser }) {
     });
   };
 
-  const loadData = () => {
-    setTasks(getTasks().filter(t => t.assignedTo === currentUser?.id));
-  };
-
   useEffect(() => {
     const unsubscribe = subscribe(() => {
       setTasks(getTasks().filter(t => t.assignedTo === currentUser?.id));
@@ -144,194 +141,226 @@ export default function EmployeeTasks({ currentUser }) {
   const handleSelectFile = async () => {
     try {
       const selected = await pick({
-        type: ['*/*'], // Accept all file formats
+        type: ['*/*'],
         allowMultiSelection: true
       });
       if (selected && selected.length > 0) {
-        setSelectedFiles(selected);
+        setSelectedFiles(prev => [...prev, ...selected]);
       }
     } catch (err) {
-      console.log('Picker cancelled/failed', err);
+      if (err.code !== 'DOCUMENT_PICKER_CANCELED') {
+        Alert.alert('File Picker Error', err.message || 'Could not pick file');
+      }
     }
+  };
+
+  const handleRemoveFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmitCompletion = async () => {
-    let uploadedUrl = null;
-    if (selectedFiles && selectedFiles.length > 0) {
-      setUploading(true);
-      try {
+    if (!activeCompletingId) return;
+
+    setUploading(true);
+    let uploadedUrls = [];
+
+    try {
+      if (selectedFiles.length > 0) {
         const formData = new FormData();
-        selectedFiles.forEach(file => {
+        selectedFiles.forEach((file) => {
           formData.append('files', {
-            uri: file.uri,
-            name: file.name || 'attachment',
-            type: file.type || 'application/octet-stream'
+            uri: Platform.OS === 'android' ? file.uri : file.uri.replace('file://', ''),
+            type: file.type || 'application/octet-stream',
+            name: file.name || `file_${Date.now()}`
           });
         });
 
-        const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+        const baseUrl = getApiUrl();
+        const res = await fetch(`${baseUrl}/api/upload`, {
           method: 'POST',
+          body: formData,
           headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          body: formData
+            'Accept': 'application/json',
+          }
         });
-        const uploadData = await uploadRes.json();
-        if (uploadRes.ok && uploadData.success) {
-          uploadedUrl = JSON.stringify(uploadData.fileUrls);
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          uploadedUrls = data.fileUrls || [];
         } else {
-          Alert.alert('Upload Failed', uploadData.error || 'Failed to upload work files.');
-          setUploading(false);
-          return;
+          throw new Error(data.message || 'Failed to upload attachment files.');
         }
-      } catch (err) {
-        Alert.alert('Upload Error', err.message);
-        setUploading(false);
-        return;
       }
+
+      completeTask(activeCompletingId, currentUser.name, uploadedUrls);
+
+      setCompleteModalVisible(false);
+      setActiveCompletingId(null);
+      setSelectedFiles([]);
+      sweetAlert({
+        title: 'Success',
+        text: 'Task marked as completed with files attached!',
+        type: 'success'
+      });
+    } catch (err) {
+      sweetAlert({
+        title: 'Upload Error',
+        text: err.message || 'Error uploading task completion proof files.',
+        type: 'error'
+      });
+    } finally {
       setUploading(false);
     }
-
-    completeTask(activeCompletingId, currentUser.name, uploadedUrl);
-    setSelectedFiles([]);
-    setActiveCompletingId(null);
-    setCompleteModalVisible(false);
-    Alert.alert('Completed', 'Task marked as completed successfully!');
   };
 
-  const formatDuration = (secs) => {
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    const s = secs % 60;
-    return `${h}h ${m}m ${s}s`;
+  const formatHMS = (ms) => {
+    const totalSecs = Math.floor(ms / 1000);
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const calculateTotalDuration = (task) => {
+    let duration = task.accumulatedTime || 0;
+    if (task.isRunning && task.lastStartedAt) {
+      duration += Math.max(0, now - new Date(task.lastStartedAt).getTime());
+    }
+    return duration;
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <Text style={styles.headerTitle}>📅 My Tasks</Text>
-            <Text style={styles.headerSub}>Track and manage your work hours</Text>
+          <View>
+            <Text style={styles.headerTitle}>📌 My Tasks</Text>
+            <Text style={styles.headerSub}>Manage assigned duties and track working time</Text>
           </View>
+
           <TouchableOpacity 
-            style={styles.createTaskBtn} 
+            style={styles.createTaskBtn}
             onPress={() => setShowSelfModal(true)}
           >
-            <Text style={styles.createTaskBtnText}>+ Create Self Task</Text>
+            <Text style={styles.createTaskBtnText}>+ Add Task</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {tasks.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No tasks assigned to you yet.</Text>
+            <Text style={styles.emptyText}>No tasks currently assigned to you.</Text>
           </View>
         ) : (
-          tasks.map(t => {
-            let displayDuration = t.totalDuration || 0;
-            if (t.status === 'In Progress' && t.startedAt) {
-              const elapsed = Math.floor((now - new Date(t.startedAt).getTime()) / 1000);
-              displayDuration += Math.max(0, elapsed);
-            }
-
+          tasks.map(task => {
+            const isSelfTask = task.assignedBy === currentUser?.id;
             return (
-              <View key={t.id} style={styles.taskCard}>
+              <View key={task.id} style={styles.taskCard}>
                 <View style={styles.taskHeader}>
-                  <Text style={styles.taskTitle}>{t.title}</Text>
-                  <View style={[styles.statusBadge, t.status === 'Completed' ? styles.badgeSuccess : (t.status === 'In Progress' ? styles.badgeProgress : styles.badgePending)]}>
-                    <Text style={styles.statusText}>{t.status}</Text>
+                  <Text style={styles.taskTitle}>{task.title}</Text>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={[
+                      styles.statusBadge,
+                      task.status === 'Completed' ? styles.badgeSuccess :
+                      task.isRunning ? styles.badgeProgress : styles.badgePending
+                    ]}>
+                      <Text style={[
+                        styles.statusText,
+                        task.status === 'Completed' && { color: '#059669' },
+                        task.isRunning && { color: '#2563eb' },
+                        task.status !== 'Completed' && !task.isRunning && { color: '#d97706' }
+                      ]}>
+                        {task.status === 'Completed' ? 'Completed' : task.isRunning ? 'Running' : task.status}
+                      </Text>
+                    </View>
+
+                    {isSelfTask && task.status !== 'Completed' && (
+                      <View style={{ flexDirection: 'row', gap: 4 }}>
+                        <TouchableOpacity
+                          style={[styles.smallBtn, { backgroundColor: '#38bdf8' }]}
+                          onPress={() => {
+                            setEditTaskId(task.id);
+                            setEditTitle(task.title);
+                            setEditDesc(task.description || '');
+                            setEditStatus(task.status);
+                            setEditModalVisible(true);
+                          }}
+                        >
+                          <Text style={styles.smallBtnText}>✏️</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.smallBtn, { backgroundColor: '#ef4444' }]}
+                          onPress={() => handleDeleteSelfTask(task)}
+                        >
+                          <Text style={styles.smallBtnText}>🗑️</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 </View>
-                
-                {t.description ? <Text style={styles.taskDesc}>{t.description}</Text> : null}
-                
+
+                {task.description ? (
+                  <Text style={styles.taskDesc}>{task.description}</Text>
+                ) : null}
+
                 <View style={styles.divider} />
-                
+
                 <View style={styles.durationRow}>
-                  <Text style={styles.durationLabel}>Time Worked:</Text>
-                  <Text style={styles.durationValue}>{formatDuration(displayDuration)}</Text>
+                  <Text style={styles.durationLabel}>Time Logged:</Text>
+                  <Text style={styles.durationValue}>
+                    {formatHMS(calculateTotalDuration(task))}
+                  </Text>
                 </View>
 
-                {t.fileUrl && (() => {
-                  let urls = [];
-                  try {
-                    if (t.fileUrl.startsWith('[')) {
-                      urls = JSON.parse(t.fileUrl);
-                    } else {
-                      urls = [t.fileUrl];
-                    }
-                  } catch (e) {
-                    urls = [t.fileUrl];
-                  }
-
-                  return (
-                    <View style={{ marginBottom: 10 }}>
-                      <Text style={{ color: '#8b949e', fontSize: 12 }}>📎 Attachments ({urls.length}):</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                        {urls.map((url, idx) => (
-                          <TouchableOpacity 
-                            key={idx}
-                            onPress={() => Linking.openURL(url.startsWith('http') ? url : `${getApiUrl()}${url}`)}
-                          >
-                            <Text style={{ color: '#58a6ff', fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline' }}>
-                              File {urls.length > 1 ? `#${idx + 1}` : ''}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  );
-                })()}
+                {task.attachments && task.attachments.length > 0 && (
+                  <View style={{ marginBottom: 10 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#64748b', marginBottom: 4 }}>Proof Attachments:</Text>
+                    {task.attachments.map((url, idx) => (
+                      <TouchableOpacity 
+                        key={idx} 
+                        onPress={() => Linking.openURL(url)}
+                        style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2 }}
+                      >
+                        <Text style={{ fontSize: 12, color: '#2563eb', textDecorationLine: 'underline' }}>
+                          📎 Attachment #{idx + 1}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
 
                 <View style={styles.actionsRow}>
-                  <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1, alignItems: 'center' }}>
-                    {t.status === 'Pending' && (
-                      <TouchableOpacity style={styles.startBtn} onPress={() => handleStart(t.id)}>
-                        <Text style={styles.btnText}>▶️ Start Work</Text>
-                      </TouchableOpacity>
-                    )}
-                    {t.status === 'In Progress' && (
-                      <>
-                        <TouchableOpacity style={styles.stopBtn} onPress={() => handleStop(t.id)}>
-                          <Text style={styles.btnText}>⏸️ Stop Work</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={styles.completeBtn} 
-                          onPress={() => handleCompletePress(t.id)}
+                  {task.status !== 'Completed' ? (
+                    <>
+                      {!task.isRunning ? (
+                        <TouchableOpacity
+                          style={styles.startBtn}
+                          onPress={() => handleStart(task.id)}
                         >
-                          <Text style={styles.btnText}>✅ Complete</Text>
+                          <Text style={styles.btnTextStart}>▶ Start Timer</Text>
                         </TouchableOpacity>
-                      </>
-                    )}
-                    {t.status === 'Completed' && (
-                      <Text style={styles.completedText}>
-                        Completed at {t.completedAt ? new Date(t.completedAt).toLocaleTimeString() : 'N/A'}
-                      </Text>
-                    )}
-                  </View>
-                  {t.assignedBy === currentUser?.id && (
-                    <View style={{ flexDirection: 'row', gap: 8, marginLeft: 'auto' }}>
-                      <TouchableOpacity 
-                        style={[styles.smallBtn, { backgroundColor: '#2188ff' }]} 
-                        onPress={() => {
-                          setEditTaskId(t.id);
-                          setEditTitle(t.title);
-                          setEditDesc(t.description || '');
-                          setEditStatus(t.status);
-                          setEditModalVisible(true);
-                        }}
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.stopBtn}
+                          onPress={() => handleStop(task.id)}
+                        >
+                          <Text style={styles.btnTextStop}>⏸ Pause Timer</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      <TouchableOpacity
+                        style={styles.completeBtn}
+                        onPress={() => handleCompletePress(task.id)}
                       >
-                        <Text style={styles.smallBtnText}>✏️ Edit</Text>
+                        <Text style={styles.btnTextComplete}>✓ Complete</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={[styles.smallBtn, { backgroundColor: '#da3637' }]} 
-                        onPress={() => handleDeleteSelfTask(t)}
-                      >
-                        <Text style={styles.smallBtnText}>🗑️ Delete</Text>
-                      </TouchableOpacity>
-                    </View>
+                    </>
+                  ) : (
+                    <Text style={styles.completedText}>
+                      ✓ Completed on {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : 'N/A'}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -340,91 +369,95 @@ export default function EmployeeTasks({ currentUser }) {
         )}
       </ScrollView>
 
-      {/* MODAL: TASK COMPLETION FILE UPLOAD */}
+      {/* Complete Task Modal */}
       <Modal
         visible={completeModalVisible}
-        animationType="fade"
         transparent={true}
+        animationType="fade"
         onRequestClose={() => setCompleteModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Complete Work & Upload Proof</Text>
+            <Text style={styles.modalTitle}>🎉 Complete Task</Text>
             <Text style={styles.modalLabel}>
-              You can select and upload multiple files/images of any format to submit as proof of completion for this task.
+              Optional: Attach completion proof (screenshots, files, or documents).
             </Text>
 
-            <TouchableOpacity style={styles.fileSelectBtn} onPress={handleSelectFile} disabled={uploading}>
-              <Text style={styles.fileSelectText}>
-                {selectedFiles.length > 0 ? `📎 ${selectedFiles.length} files selected` : '📁 Choose Files / Take Photos'}
-              </Text>
+            <TouchableOpacity 
+              style={styles.fileSelectBtn} 
+              onPress={handleSelectFile}
+              disabled={uploading}
+            >
+              <Text style={styles.fileSelectText}>📎 Select Proof Files</Text>
             </TouchableOpacity>
 
             {selectedFiles.length > 0 && (
-              <ScrollView style={{ maxHeight: 80, marginBottom: 15 }}>
+              <View style={{ marginBottom: 16 }}>
                 {selectedFiles.map((file, idx) => (
-                  <Text key={idx} style={{ color: '#8b949e', fontSize: 12, marginBottom: 3 }}>
-                    - {file.name}
-                  </Text>
+                  <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Text style={{ color: '#334155', fontSize: 12, flex: 1 }} numberOfLines={1}>
+                      📄 {file.name}
+                    </Text>
+                    <TouchableOpacity onPress={() => handleRemoveFile(idx)}>
+                      <Text style={{ color: '#dc2626', fontSize: 12, marginLeft: 8 }}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
                 ))}
-              </ScrollView>
-            )}
-
-            {uploading ? (
-              <View style={{ marginVertical: 15, alignItems: 'center' }}>
-                <ActivityIndicator size="small" color="#58a6ff" />
-                <Text style={{ color: '#8b949e', fontSize: 12, marginTop: 6 }}>Uploading attachment...</Text>
               </View>
-            ) : null}
+            )}
 
             <View style={styles.modalFooter}>
               <TouchableOpacity 
                 style={styles.cancelBtn} 
-                onPress={() => setCompleteModalVisible(false)} 
+                onPress={() => setCompleteModalVisible(false)}
                 disabled={uploading}
               >
-                <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Cancel</Text>
+                <Text style={{ color: '#64748b', fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
+
               <TouchableOpacity 
                 style={styles.submitBtn} 
                 onPress={handleSubmitCompletion}
                 disabled={uploading}
               >
-                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Submit & Complete</Text>
+                {uploading ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text style={{ color: '#ffffff', fontWeight: '800' }}>Submit & Finish</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-      {/* Modal: Create Self Task */}
+
+      {/* Add Self Task Modal */}
       <Modal
         visible={showSelfModal}
-        animationType="slide"
         transparent={true}
+        animationType="fade"
         onRequestClose={() => setShowSelfModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Create Self Task</Text>
-            <Text style={styles.modalLabel}>
-              Enter the title and description to assign a new task to yourself.
-            </Text>
+            <Text style={styles.modalTitle}>➕ Create New Task</Text>
             
-            <Text style={styles.inputLabel}>Task Title *</Text>
+            <Text style={styles.inputLabel}>Task Title</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="e.g. Code Review & Testing"
-              placeholderTextColor="#8b949e"
+              placeholder="e.g. Update Client Proposal"
+              placeholderTextColor="#94a3b8"
               value={selfTitle}
               onChangeText={setSelfTitle}
             />
-            
-            <Text style={styles.inputLabel}>Description</Text>
+
+            <Text style={styles.inputLabel}>Description (Optional)</Text>
             <TextInput
-              style={[styles.textInput, { height: 100, textAlignVertical: 'top' }]}
-              placeholder="Provide context or description of the task..."
-              placeholderTextColor="#8b949e"
-              multiline={true}
+              style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
+              placeholder="Task details..."
+              placeholderTextColor="#94a3b8"
+              multiline
+              numberOfLines={3}
               value={selfDesc}
               onChangeText={setSelfDesc}
             />
@@ -434,50 +467,52 @@ export default function EmployeeTasks({ currentUser }) {
                 style={styles.cancelBtn} 
                 onPress={() => setShowSelfModal(false)}
               >
-                <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Cancel</Text>
+                <Text style={{ color: '#64748b', fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.submitBtn} 
                 onPress={handleCreateSelfTask}
               >
-                <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Create</Text>
+                <Text style={{ color: '#ffffff', fontWeight: '800' }}>Create Task</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-      {/* Modal: Edit Self Task */}
+
+      {/* Edit Self Task Modal */}
       <Modal
         visible={editModalVisible}
-        animationType="slide"
         transparent={true}
+        animationType="fade"
         onRequestClose={() => setEditModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>✏️ Edit Task Details</Text>
+            <Text style={styles.modalTitle}>✏️ Edit Task</Text>
             
-            <Text style={styles.inputLabel}>Task Title *</Text>
+            <Text style={styles.inputLabel}>Task Title</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="e.g. Code Review & Testing"
-              placeholderTextColor="#8b949e"
+              placeholder="Task title..."
+              placeholderTextColor="#94a3b8"
               value={editTitle}
               onChangeText={setEditTitle}
             />
-            
+
             <Text style={styles.inputLabel}>Description</Text>
             <TextInput
-              style={[styles.textInput, { height: 100, textAlignVertical: 'top' }]}
-              placeholder="Provide context or description of the task..."
-              placeholderTextColor="#8b949e"
-              multiline={true}
+              style={[styles.textInput, { height: 70, textAlignVertical: 'top' }]}
+              placeholder="Task details..."
+              placeholderTextColor="#94a3b8"
+              multiline
+              numberOfLines={3}
               value={editDesc}
               onChangeText={setEditDesc}
             />
 
             <Text style={styles.inputLabel}>Status</Text>
-            <View style={[styles.pickerContainer, { height: 80, marginTop: 5, marginBottom: 15 }]}>
+            <View style={styles.pickerContainer}>
               <ScrollView nestedScrollEnabled={true}>
                 {['Pending', 'In Progress', 'Completed'].map(st => (
                   <TouchableOpacity
@@ -498,13 +533,13 @@ export default function EmployeeTasks({ currentUser }) {
                 style={styles.cancelBtn} 
                 onPress={() => setEditModalVisible(false)}
               >
-                <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Cancel</Text>
+                <Text style={{ color: '#64748b', fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.submitBtn} 
                 onPress={handleEditSelfTask}
               >
-                <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Save</Text>
+                <Text style={{ color: '#ffffff', fontWeight: '800' }}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -517,42 +552,54 @@ export default function EmployeeTasks({ currentUser }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: '#f8fafc',
   },
   header: {
-    padding: 20,
-    backgroundColor: '#161b22',
+    padding: 18,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#30363d',
+    borderColor: '#e2e8f0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 3,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#58a6ff',
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -0.3,
   },
   headerSub: {
     fontSize: 12,
-    color: '#8b949e',
+    color: '#64748b',
     marginTop: 4,
   },
   scrollContent: {
-    padding: 15,
+    padding: 18,
   },
   emptyContainer: {
     padding: 40,
     alignItems: 'center',
   },
   emptyText: {
-    color: '#8b949e',
-    fontSize: 15,
+    color: '#64748b',
+    fontSize: 14.5,
+    fontStyle: 'italic',
   },
   taskCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
+    borderColor: '#e2e8f0',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   taskHeader: {
     flexDirection: 'row',
@@ -561,22 +608,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   taskTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#0f172a',
     flex: 1,
     marginRight: 10,
   },
   taskDesc: {
     fontSize: 13,
-    color: '#8b949e',
+    color: '#475569',
     lineHeight: 18,
     marginBottom: 10,
   },
   divider: {
     height: 1,
-    backgroundColor: '#30363d',
-    marginVertical: 8,
+    backgroundColor: '#f1f5f9',
+    marginVertical: 10,
   },
   durationRow: {
     flexDirection: 'row',
@@ -584,14 +631,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   durationLabel: {
-    color: '#8b949e',
+    color: '#64748b',
     fontSize: 13,
   },
   durationValue: {
-    color: '#58a6ff',
-    fontWeight: 'bold',
+    color: '#2563eb',
+    fontWeight: '800',
     fontSize: 13,
-    fontFamily: 'monospace',
   },
   actionsRow: {
     flexDirection: 'row',
@@ -600,102 +646,116 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   startBtn: {
-    backgroundColor: 'rgba(88, 166, 255, 0.15)',
+    backgroundColor: '#eff6ff',
     borderWidth: 1,
-    borderColor: '#58a6ff',
-    borderRadius: 8,
+    borderColor: '#bfdbfe',
+    borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
+  },
+  btnTextStart: {
+    color: '#2563eb',
+    fontSize: 13,
+    fontWeight: '700',
   },
   stopBtn: {
-    backgroundColor: 'rgba(240, 136, 62, 0.15)',
+    backgroundColor: '#fffbeb',
     borderWidth: 1,
-    borderColor: '#f0883e',
-    borderRadius: 8,
+    borderColor: '#fde68a',
+    borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
+  },
+  btnTextStop: {
+    color: '#d97706',
+    fontSize: 13,
+    fontWeight: '700',
   },
   completeBtn: {
-    backgroundColor: 'rgba(56, 139, 60, 0.15)',
+    backgroundColor: '#ecfdf5',
     borderWidth: 1,
-    borderColor: '#3fb950',
-    borderRadius: 8,
+    borderColor: '#a7f3d0',
+    borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
-  btnText: {
-    color: '#f0f6fc',
+  btnTextComplete: {
+    color: '#059669',
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   completedText: {
-    color: '#8b949e',
+    color: '#64748b',
     fontSize: 12,
     fontStyle: 'italic',
   },
   statusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 1,
   },
   badgePending: {
-    backgroundColor: 'rgba(210, 153, 34, 0.15)',
-    borderColor: '#d29922',
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
   },
   badgeProgress: {
-    backgroundColor: 'rgba(88, 166, 255, 0.15)',
-    borderColor: '#58a6ff',
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
   },
   badgeSuccess: {
-    backgroundColor: 'rgba(56, 139, 60, 0.15)',
-    borderColor: '#3fb950',
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
   },
   statusText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
+    fontSize: 10.5,
+    fontWeight: '800',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#161b22',
-    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#30363d',
-    padding: 20,
+    borderColor: '#e2e8f0',
+    padding: 22,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#58a6ff',
+    fontWeight: '800',
+    color: '#2563eb',
     marginBottom: 10,
     textAlign: 'center',
   },
   modalLabel: {
-    color: '#8b949e',
+    color: '#64748b',
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 20,
     textAlign: 'center',
   },
   fileSelectBtn: {
-    backgroundColor: '#0d1117',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#58a6ff',
-    borderRadius: 8,
+    borderColor: '#2563eb',
+    borderRadius: 12,
     padding: 20,
     alignItems: 'center',
     marginBottom: 20,
   },
   fileSelectText: {
-    color: '#58a6ff',
-    fontWeight: 'bold',
+    color: '#2563eb',
+    fontWeight: '800',
     fontSize: 14,
   },
   modalFooter: {
@@ -706,78 +766,78 @@ const styles = StyleSheet.create({
   cancelBtn: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#21262d',
+    borderRadius: 10,
+    backgroundColor: '#f1f5f9',
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: '#cbd5e1',
   },
   submitBtn: {
     paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#238636',
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: '#2563eb',
   },
   createTaskBtn: {
-    backgroundColor: '#238636',
-    borderRadius: 6,
+    backgroundColor: '#2563eb',
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   createTaskBtnText: {
     color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 12.5,
+    fontWeight: '800',
   },
   inputLabel: {
-    color: '#8b949e',
+    color: '#334155',
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
   },
   textInput: {
-    backgroundColor: '#0d1117',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
-    color: '#c9d1d9',
-    padding: 10,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    color: '#0f172a',
+    padding: 12,
     fontSize: 14,
     marginBottom: 16,
   },
   smallBtn: {
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 6,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   smallBtnText: {
     color: '#ffffff',
     fontSize: 11,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   pickerContainer: {
     height: 120,
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
-    backgroundColor: '#0d1117',
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
     padding: 5,
   },
   pickerItem: {
     padding: 8,
-    borderRadius: 6,
+    borderRadius: 8,
     marginBottom: 4,
   },
   pickerItemActive: {
-    backgroundColor: '#1f6feb',
+    backgroundColor: '#2563eb',
   },
   pickerItemText: {
-    color: '#c9d1d9',
+    color: '#475569',
     fontSize: 13,
   },
   pickerItemTextActive: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontWeight: '800',
   },
 });

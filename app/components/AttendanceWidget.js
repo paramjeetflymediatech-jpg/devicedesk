@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Swal from "sweetalert2";
-import { FiClock, FiCoffee, FiLogIn, FiPlayCircle, FiStopCircle, FiPlay, FiX } from "react-icons/fi";
+import { FiClock, FiCoffee, FiLogIn, FiPlayCircle, FiStopCircle, FiPlay, FiX, FiAlertCircle } from "react-icons/fi";
 
 export default function AttendanceWidget({ user, onStatusChange }) {
   const [statusData, setStatusData] = useState(null);
@@ -24,8 +24,6 @@ export default function AttendanceWidget({ user, onStatusChange }) {
       const data = await res.json();
       if (data.success) {
         setStatusData(data);
-        setWorkSeconds(data.elapsedWorkSeconds || 0);
-        setBreakSeconds(data.elapsedBreakSeconds || 0);
         if (onStatusChange) onStatusChange(data);
       }
     } catch (err) {
@@ -39,24 +37,60 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     requestAnimationFrame(() => fetchStatus());
   }, [user?.id]);
 
-  // Live timer interval (ticks every second when punched in)
+  // Compute exact live work & break seconds based on immutable wall-clock timestamps
+  const updateLiveTimers = () => {
+    if (!statusData || !statusData.punchedIn || !statusData.activeRecord) {
+      setWorkSeconds(0);
+      setBreakSeconds(0);
+      return;
+    }
+
+    const nowMs = Date.now();
+    const punchInMs = new Date(statusData.activeRecord.punchInTime).getTime();
+    const completedBreakSecs = statusData.completedBreakSeconds || 0;
+
+    let activeBreakSecs = 0;
+    if (statusData.onBreak && statusData.activeBreak?.startTime) {
+      const breakStartMs = new Date(statusData.activeBreak.startTime).getTime();
+      activeBreakSecs = Math.max(0, Math.floor((nowMs - breakStartMs) / 1000));
+    }
+
+    const totalBreakSecs = completedBreakSecs + activeBreakSecs;
+    const totalElapsedSecs = Math.max(0, Math.floor((nowMs - punchInMs) / 1000));
+    const netWorkSecs = Math.max(0, totalElapsedSecs - totalBreakSecs);
+
+    setWorkSeconds(netWorkSecs);
+    setBreakSeconds(totalBreakSecs);
+  };
+
+  // Live timer interval (ticks every second and on tab visibility change)
   useEffect(() => {
+    updateLiveTimers();
+
     if (timerRef.current) clearInterval(timerRef.current);
 
     if (statusData?.punchedIn) {
       timerRef.current = setInterval(() => {
-        if (statusData.onBreak) {
-          setBreakSeconds((prev) => prev + 1);
-        } else {
-          setWorkSeconds((prev) => prev + 1);
-        }
+        updateLiveTimers();
       }, 1000);
     }
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchStatus();
+        updateLiveTimers();
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
     };
-  }, [statusData?.punchedIn, statusData?.onBreak]);
+  }, [statusData]);
 
   const getCoordinates = () => {
     return new Promise((resolve, reject) => {
@@ -89,6 +123,24 @@ export default function AttendanceWidget({ user, onStatusChange }) {
 
   const handlePunch = async (action, extraData = {}) => {
     if (submitting) return;
+
+    // Check shift cutoff time (06:30 PM) for punch-in
+    if (action === "PUNCH_IN") {
+      const now = new Date();
+      const hrs = now.getHours();
+      const mins = now.getMinutes();
+      if (hrs > 18 || (hrs === 18 && mins >= 30)) {
+        Swal.fire({
+          icon: "error",
+          title: "Punch-in Restricted",
+          text: "Shift cutoff time (06:30 PM) has passed for today. You cannot punch in for today's shift.",
+          background: "#161b22",
+          color: "#f0f6fc"
+        });
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     let locationData = {};
@@ -205,6 +257,9 @@ export default function AttendanceWidget({ user, onStatusChange }) {
   const onBreak = statusData?.onBreak;
   const activeRecord = statusData?.activeRecord;
 
+  const nowObj = new Date();
+  const isPastCutoff = !punchedIn && (nowObj.getHours() > 18 || (nowObj.getHours() === 18 && nowObj.getMinutes() >= 30));
+
   return (
     <div
       style={{
@@ -214,7 +269,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
         border: "1px solid var(--glass-border)",
         borderRadius: "16px",
         padding: "1.25rem 1.5rem",
-                marginBottom: "1.5rem"
+        marginBottom: "1.5rem"
       }}
     >
       <div
@@ -254,7 +309,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
           </div>
 
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               <span style={{ fontWeight: "700", fontSize: "1rem", color: "var(--text-primary)" }}>
                 Daily Attendance
               </span>
@@ -288,6 +343,12 @@ export default function AttendanceWidget({ user, onStatusChange }) {
                   ? "Working"
                   : "Not Punched In"}
               </span>
+
+              {isPastCutoff && (
+                <span style={{ fontSize: "0.75rem", color: "var(--status-critical)", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  <FiAlertCircle /> Shift Cutoff Passed (6:30 PM)
+                </span>
+              )}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "15px", marginTop: "4px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
@@ -314,21 +375,22 @@ export default function AttendanceWidget({ user, onStatusChange }) {
           {!punchedIn ? (
             <button
               onClick={() => handlePunch("PUNCH_IN")}
-              disabled={submitting}
+              disabled={submitting || isPastCutoff}
+              title={isPastCutoff ? "Shift cutoff time (06:30 PM) has passed for today" : "Punch In"}
               style={{
-                background: "linear-gradient(135deg, #10b981, #059669)",
-                color: "#ffffff",
-                border: "none",
+                background: isPastCutoff ? "var(--bg-tertiary)" : "linear-gradient(135deg, #10b981, #059669)",
+                color: isPastCutoff ? "var(--text-muted)" : "#ffffff",
+                border: isPastCutoff ? "1px solid var(--glass-border)" : "none",
                 padding: "10px 20px",
                 borderRadius: "10px",
                 fontWeight: "700",
                 fontSize: "0.9rem",
-                cursor: submitting ? "not-allowed" : "pointer",
+                cursor: submitting || isPastCutoff ? "not-allowed" : "pointer",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "8px",
-                                transition: "all 0.2s ease",
-                opacity: submitting ? 0.6 : 1
+                transition: "all 0.2s ease",
+                opacity: submitting || isPastCutoff ? 0.6 : 1
               }}
             >
               <FiPlayCircle style={{ fontSize: "1.1rem" }} /> Punch In
@@ -351,7 +413,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "6px",
-                                        transition: "all 0.2s ease"
+                    transition: "all 0.2s ease"
                   }}
                 >
                   <FiPlay style={{ fontSize: "1rem" }} /> Resume Work
@@ -394,7 +456,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "6px",
-                                    transition: "all 0.2s ease"
+                  transition: "all 0.2s ease"
                 }}
               >
                 <FiStopCircle style={{ fontSize: "1rem" }} /> Punch Out
@@ -404,7 +466,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
         </div>
       </div>
 
-      {/* BREAK TYPE SELECTION MODAL (Rendered on document.body via Portal to prevent card clipping/overlapping) */}
+      {/* BREAK TYPE SELECTION MODAL */}
       {showBreakModal && typeof window !== "undefined" && createPortal(
         <div
           style={{
@@ -433,7 +495,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
               padding: "1.75rem",
               maxWidth: "420px",
               width: "100%",
-                            color: "var(--text-primary)"
+              color: "var(--text-primary)"
             }}
             onClick={(e) => e.stopPropagation()}
           >

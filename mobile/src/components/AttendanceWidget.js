@@ -34,8 +34,6 @@ export default function AttendanceWidget({ user, onStatusChange }) {
       const data = await fetchAttendanceStatus(user.id);
       if (data.success) {
         setStatusData(data);
-        setWorkSeconds(data.elapsedWorkSeconds || 0);
-        setBreakSeconds(data.elapsedBreakSeconds || 0);
         if (onStatusChange) {
           onStatusChange(data);
         }
@@ -51,19 +49,43 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     getStatus();
   }, [user?.id]);
 
-  // Live timer ticking
+  // Compute exact live work & break seconds based on immutable wall-clock timestamps
+  const updateLiveTimers = () => {
+    if (!statusData || !statusData.punchedIn || !statusData.activeRecord) {
+      setWorkSeconds(0);
+      setBreakSeconds(0);
+      return;
+    }
+
+    const nowMs = Date.now();
+    const punchInMs = new Date(statusData.activeRecord.punchInTime).getTime();
+    const completedBreakSecs = statusData.completedBreakSeconds || 0;
+
+    let activeBreakSecs = 0;
+    if (statusData.onBreak && statusData.activeBreak?.startTime) {
+      const breakStartMs = new Date(statusData.activeBreak.startTime).getTime();
+      activeBreakSecs = Math.max(0, Math.floor((nowMs - breakStartMs) / 1000));
+    }
+
+    const totalBreakSecs = completedBreakSecs + activeBreakSecs;
+    const totalElapsedSecs = Math.max(0, Math.floor((nowMs - punchInMs) / 1000));
+    const netWorkSecs = Math.max(0, totalElapsedSecs - totalBreakSecs);
+
+    setWorkSeconds(netWorkSecs);
+    setBreakSeconds(totalBreakSecs);
+  };
+
+  // Live timer interval (ticks every second)
   useEffect(() => {
+    updateLiveTimers();
+
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
 
     if (statusData?.punchedIn) {
       timerRef.current = setInterval(() => {
-        if (statusData.onBreak) {
-          setBreakSeconds((prev) => prev + 1);
-        } else {
-          setWorkSeconds((prev) => prev + 1);
-        }
+        updateLiveTimers();
       }, 1000);
     }
 
@@ -72,10 +94,26 @@ export default function AttendanceWidget({ user, onStatusChange }) {
         clearInterval(timerRef.current);
       }
     };
-  }, [statusData?.punchedIn, statusData?.onBreak]);
+  }, [statusData]);
 
   const handlePunchAction = async (action, extraData = {}) => {
     if (submitting) return;
+
+    // Shift Cutoff Check: 06:30 PM (18:30)
+    if (action === 'PUNCH_IN') {
+      const now = new Date();
+      const hrs = now.getHours();
+      const mins = now.getMinutes();
+      if (hrs > 18 || (hrs === 18 && mins >= 30)) {
+        sweetAlert({
+          title: 'Punch-in Restricted',
+          text: 'Shift cutoff time (06:30 PM) has passed for today. You cannot punch in for today\'s shift.',
+          type: 'error',
+        });
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
@@ -133,6 +171,9 @@ export default function AttendanceWidget({ user, onStatusChange }) {
   const punchedIn = statusData?.punchedIn;
   const onBreak = statusData?.onBreak;
 
+  const nowObj = new Date();
+  const isPastCutoff = !punchedIn && (nowObj.getHours() > 18 || (nowObj.getHours() === 18 && nowObj.getMinutes() >= 30));
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -160,6 +201,12 @@ export default function AttendanceWidget({ user, onStatusChange }) {
         )}
       </View>
 
+      {isPastCutoff && (
+        <View style={styles.cutoffWarningBadge}>
+          <Text style={styles.cutoffWarningText}>⚠️ Shift Cutoff Passed (6:30 PM)</Text>
+        </View>
+      )}
+
       {!punchedIn ? (
         <View style={styles.actionContainer}>
           <TextInput
@@ -168,11 +215,12 @@ export default function AttendanceWidget({ user, onStatusChange }) {
             placeholderTextColor="#8b949e"
             value={remarks}
             onChangeText={setRemarks}
+            editable={!isPastCutoff}
           />
           <TouchableOpacity
-            style={styles.punchBtn}
+            style={[styles.punchBtn, (submitting || isPastCutoff) && styles.punchBtnDisabled]}
             onPress={() => handlePunchAction('PUNCH_IN', { remarks })}
-            disabled={submitting}
+            disabled={submitting || isPastCutoff}
           >
             <Text style={styles.punchBtnText}>📥 Punch In</Text>
           </TouchableOpacity>
@@ -220,7 +268,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
             <Text style={styles.modalTitle}>☕ Select Break Type</Text>
             
             <View style={styles.breakOptions}>
-              {['Tea Break', 'Lunch Break', 'Smoke Break', 'Other'].map((type) => (
+              {['Tea Break', 'Lunch Break', 'Personal Break', 'Other'].map((type) => (
                 <TouchableOpacity
                   key={type}
                   style={[
@@ -250,7 +298,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
                 style={styles.modalConfirmBtn}
                 onPress={() => handlePunchAction('START_BREAK', { breakType: selectedBreakType })}
               >
-                <Text style={styles.modalConfirmText}>Start</Text>
+                <Text style={styles.modalConfirmText}>Start Break</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -265,31 +313,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#161b22',
     borderWidth: 1,
     borderColor: '#30363d',
-    borderRadius: 12,
-    padding: 15,
-    marginVertical: 10,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
   },
   loadingContainer: {
     backgroundColor: '#161b22',
     borderWidth: 1,
     borderColor: '#30363d',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
+    marginBottom: 16,
   },
   loadingText: {
     color: '#8b949e',
     marginLeft: 10,
-    fontSize: 14,
+    fontSize: 13,
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
-    flexWrap: 'wrap',
   },
   statusBadgeContainer: {
     flexDirection: 'row',
@@ -303,52 +351,73 @@ const styles = StyleSheet.create({
   },
   statusTitle: {
     color: '#f0f6fc',
-    fontWeight: 'bold',
     fontSize: 15,
+    fontWeight: '700',
+  },
+  cutoffWarningBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  cutoffWarningText: {
+    color: '#f85149',
+    fontSize: 12,
+    fontWeight: '700',
   },
   timersContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   timerBlock: {
+    marginLeft: 12,
     alignItems: 'flex-end',
-    marginLeft: 15,
   },
   timerLabel: {
-    fontSize: 10,
     color: '#8b949e',
-    marginBottom: 2,
+    fontSize: 10,
+    fontWeight: '600',
   },
   timerValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     color: '#58a6ff',
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   actionContainer: {
-    marginTop: 5,
+    flexDirection: 'column',
+    gap: 8,
   },
   input: {
     backgroundColor: '#0d1117',
     borderWidth: 1,
     borderColor: '#30363d',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     color: '#f0f6fc',
     fontSize: 13,
-    marginBottom: 10,
+    marginBottom: 6,
   },
   punchBtn: {
     backgroundColor: '#238636',
-    borderRadius: 8,
-    paddingVertical: 10,
+    borderRadius: 10,
+    paddingVertical: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  punchBtnDisabled: {
+    backgroundColor: '#30363d',
+    opacity: 0.5,
   },
   punchBtnText: {
     color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '700',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -356,17 +425,16 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    borderRadius: 8,
-    paddingVertical: 10,
+    borderRadius: 10,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionBtnText: {
     color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '700',
   },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -378,71 +446,73 @@ const styles = StyleSheet.create({
     backgroundColor: '#161b22',
     borderWidth: 1,
     borderColor: '#30363d',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 20,
-    width: '90%',
-    maxWidth: 320,
+    width: '100%',
+    maxWidth: 360,
   },
   modalTitle: {
-    color: '#f0f6fc',
+    color: '#58a6ff',
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 15,
+    fontWeight: '700',
+    marginBottom: 16,
     textAlign: 'center',
   },
   breakOptions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 20,
     gap: 8,
+    marginBottom: 20,
+    justifyContent: 'center',
   },
   breakOptionBtn: {
-    width: '48%',
-    backgroundColor: '#21262d',
+    backgroundColor: '#0d1117',
     borderWidth: 1,
     borderColor: '#30363d',
-    borderRadius: 8,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     paddingVertical: 10,
+    minWidth: '45%',
     alignItems: 'center',
   },
   breakOptionBtnActive: {
-    borderColor: '#f59e0b',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderColor: '#58a6ff',
+    backgroundColor: 'rgba(88, 166, 255, 0.15)',
   },
   breakOptionText: {
-    color: '#c9d1d9',
+    color: '#8b949e',
     fontSize: 13,
     fontWeight: '600',
   },
   breakOptionTextActive: {
-    color: '#f59e0b',
+    color: '#58a6ff',
+    fontWeight: '700',
   },
   modalButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
+    gap: 10,
   },
   modalCancelBtn: {
-    width: '45%',
-    borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: '#21262d',
   },
   modalCancelText: {
-    color: '#8b949e',
+    color: '#c9d1d9',
+    fontSize: 13,
     fontWeight: '600',
   },
   modalConfirmBtn: {
-    width: '45%',
-    backgroundColor: '#f59e0b',
-    borderRadius: 8,
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: '#238636',
   },
   modalConfirmText: {
     color: '#ffffff',
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

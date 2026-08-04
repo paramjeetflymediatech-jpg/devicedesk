@@ -24,12 +24,11 @@ export default function AttendanceLogs({ user }) {
   const [selectedDay, setSelectedDay] = useState(''); // "YYYY-MM-DD"
   const [statusFilter, setStatusFilter] = useState('ALL');
 
-  const statuses = ['ALL', 'Present', 'Late', 'Half Day', 'Completed', 'Overtime'];
+  const statuses = ['ALL', 'Present', 'Late', 'Half Day', 'Completed', 'Overtime', 'Auto Closed'];
 
   const getLogs = async () => {
     setLoading(true);
     try {
-      // employeeId is user.id, status filter is statusFilter
       const data = await fetchAttendanceRecords(user.id, selectedMonth, statusFilter);
       if (data.success) {
         setRecords(data.records || []);
@@ -55,23 +54,24 @@ export default function AttendanceLogs({ user }) {
   const getStatusColor = (status) => {
     switch (status) {
       case 'Late':
-        return { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' };
+        return { bg: '#fffbeb', text: '#d97706', border: '#fde68a' };
       case 'Half Day':
-        return { bg: 'rgba(239, 68, 68, 0.15)', text: '#f85149', border: 'rgba(239, 68, 68, 0.3)' };
+        return { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5' };
+      case 'Auto Closed':
+        return { bg: '#f1f5f9', text: '#64748b', border: '#cbd5e1' };
       case 'Overtime':
-        return { bg: 'rgba(139, 92, 246, 0.15)', text: '#a371f7', border: 'rgba(139, 92, 246, 0.3)' };
+        return { bg: '#f3e8ff', text: '#7e22ce', border: '#d8b4fe' };
       case 'Completed':
       case 'Present':
       default:
-        return { bg: 'rgba(56, 139, 253, 0.15)', text: '#58a6ff', border: 'rgba(56, 139, 253, 0.3)' };
+        return { bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' };
     }
   };
 
-  // Generate last 6 months list for easy horizontal clicking
   const getMonthsList = () => {
     const list = [];
     const d = new Date();
-    d.setDate(1); // Avoid overflow bug on 31st of the month
+    d.setDate(1);
     for (let i = 0; i < 6; i++) {
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -83,144 +83,115 @@ export default function AttendanceLogs({ user }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent}>
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <Text style={styles.sectionTitle}>📅 Attendance Logs & Summary</Text>
 
-      {/* Summary Stat Cards */}
+      {/* Summary Stat Cards Grid */}
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Present Days</Text>
-          <Text style={[styles.statValue, { color: '#58a6ff' }]}>
+          <Text style={[styles.statValue, { color: '#059669' }]}>
             {summary?.presentCount || 0}
           </Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Late Days</Text>
-          <Text style={[styles.statValue, { color: '#f59e0b' }]}>
+          <Text style={[styles.statValue, { color: '#d97706' }]}>
             {summary?.lateCount || 0}
           </Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total Work Hours</Text>
-          <Text style={[styles.statValue, { color: '#a371f7' }]}>
-            {(() => {
-              const mins = summary?.totalNetMinutes ?? Math.round((parseFloat(summary?.totalWorkHours || 0)) * 60);
-              const h = Math.floor(mins / 60);
-              const m = mins % 60;
-              return `${h}h ${m}m`;
-            })()}
+          <Text style={styles.statLabel}>Total Hours</Text>
+          <Text style={[styles.statValue, { color: '#2563eb' }]}>
+            {summary?.totalWorkHours || 0} hrs
+          </Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Overtime</Text>
+          <Text style={[styles.statValue, { color: '#7e22ce' }]}>
+            {summary?.overtimeCount || 0}
           </Text>
         </View>
       </View>
 
-      {/* Month horizontal scroll filter */}
-      <Text style={styles.filterTitle}>Select Month</Text>
-      <View style={styles.monthScrollContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {getMonthsList().map((m) => (
-            <TouchableOpacity
-              key={m.val}
-              style={[
-                styles.monthBtn,
-                selectedMonth === m.val && styles.monthBtnActive
-              ]}
-              onPress={() => {
-                setSelectedMonth(m.val);
-                setSelectedDay('');
-              }}
-            >
-              <Text style={[
-                styles.monthText,
-                selectedMonth === m.val && styles.monthTextActive
-              ]}>
-                {m.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+      {/* Month Selector Bar */}
+      <Text style={styles.filterSectionTitle}>Select Month</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScrollContainer}>
+        {getMonthsList().map((m) => (
+          <TouchableOpacity
+            key={m.val}
+            style={[styles.monthChip, selectedMonth === m.val && styles.monthChipActive]}
+            onPress={() => setSelectedMonth(m.val)}
+          >
+            <Text style={[styles.monthChipText, selectedMonth === m.val && styles.monthChipTextActive]}>
+              {m.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-      {/* Day Filter */}
-      <View style={styles.dayFilterRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.filterTitle}>Filter by Specific Day</Text>
-          <View style={styles.dayInputContainer}>
-            <TextInput
-              style={styles.dayInput}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#8b949e"
-              value={selectedDay}
-              onChangeText={setSelectedDay}
-            />
-            {selectedDay ? (
-              <TouchableOpacity
-                onPress={() => setSelectedDay('')}
-                style={styles.clearBtn}
-              >
-                <Text style={styles.clearBtnText}>✕</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
+      {/* Specific Date Filter Input */}
+      <View style={styles.dateInputRow}>
+        <Text style={styles.filterSectionTitle}>Filter by Specific Day (YYYY-MM-DD):</Text>
+        <View style={styles.dateInputContainer}>
+          <TextInput
+            style={styles.dateInput}
+            placeholder="e.g. 2026-08-04"
+            placeholderTextColor="#94a3b8"
+            value={selectedDay}
+            onChangeText={setSelectedDay}
+            maxLength={10}
+          />
+          {selectedDay ? (
+            <TouchableOpacity onPress={() => setSelectedDay('')} style={styles.clearBtn}>
+              <Text style={styles.clearBtnText}>✕</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
-      {/* Status Chips */}
-      <Text style={styles.filterTitle}>Filter by Status</Text>
-      <View style={styles.statusScrollContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {statuses.map((status) => (
-            <TouchableOpacity
-              key={status}
-              style={[
-                styles.statusChip,
-                statusFilter === status && styles.statusChipActive
-              ]}
-              onPress={() => setStatusFilter(status)}
-            >
-              <Text style={[
-                styles.statusChipText,
-                statusFilter === status && styles.statusChipTextActive
-              ]}>
-                {status === 'ALL' ? 'All Statuses' : status}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+      {/* Status Filter Chips */}
+      <Text style={styles.filterSectionTitle}>Status Filter</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScrollContainer}>
+        {statuses.map((st) => (
+          <TouchableOpacity
+            key={st}
+            style={[styles.statusChip, statusFilter === st && styles.statusChipActive]}
+            onPress={() => setStatusFilter(st)}
+          >
+            <Text style={[styles.statusChipText, statusFilter === st && styles.statusChipTextActive]}>
+              {st}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-      {/* Logs Table / List */}
-      <Text style={styles.subTitle}>Records ({filteredRecords.length})</Text>
-
+      {/* Record List */}
       {loading ? (
         <View style={styles.spinnerContainer}>
-          <ActivityIndicator size="small" color="#58a6ff" />
+          <ActivityIndicator color="#2563eb" size="large" />
           <Text style={styles.spinnerText}>Loading attendance records...</Text>
         </View>
       ) : filteredRecords.length === 0 ? (
-        <Text style={styles.emptyText}>No records found for this criteria.</Text>
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>No attendance records found for this period.</Text>
+        </View>
       ) : (
         filteredRecords.map((r) => {
           const colors = getStatusColor(r.status);
-          const netMins = r.netWorkMinutes || 0;
-          const h = Math.floor(netMins / 60);
-          const m = netMins % 60;
-
-          const inTime = r.punchInTime
-            ? new Date(r.punchInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : '-';
-          const outTime = r.punchOutTime
-            ? new Date(r.punchOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : r.punchInTime ? 'Active' : '-';
-
           return (
-            <View key={r.id} style={styles.recordCard}>
+            <View key={r.id || r.date} style={styles.recordCard}>
               <View style={styles.recordHeader}>
-                <Text style={styles.recordDate}>{r.date}</Text>
-                <View style={[
-                  styles.statusBadge,
-                  { backgroundColor: colors.bg, borderColor: colors.border }
-                ]}>
-                  <Text style={[styles.statusText, { color: colors.text }]}>{r.status}</Text>
+                <Text style={styles.recordDate}>📆 {r.date}</Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    { backgroundColor: colors.bg, borderColor: colors.border },
+                  ]}
+                >
+                  <Text style={[styles.statusText, { color: colors.text }]}>
+                    {r.status || 'Present'}
+                  </Text>
                 </View>
               </View>
 
@@ -228,21 +199,21 @@ export default function AttendanceLogs({ user }) {
 
               <View style={styles.recordDetailsRow}>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Punch In</Text>
-                  <Text style={styles.detailValue}>{inTime}</Text>
+                  <Text style={styles.detailLabel}>IN TIME</Text>
+                  <Text style={styles.detailValue}>{r.punchInTimeFormatted || 'N/A'}</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Punch Out</Text>
-                  <Text style={styles.detailValue}>{outTime}</Text>
+                  <Text style={styles.detailLabel}>OUT TIME</Text>
+                  <Text style={styles.detailValue}>{r.punchOutTimeFormatted || '--:--'}</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Break Time</Text>
+                  <Text style={styles.detailLabel}>BREAKS</Text>
                   <Text style={styles.detailValue}>{r.totalBreakMinutes || 0}m</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <Text style={styles.detailLabel}>Net Work</Text>
-                  <Text style={[styles.detailValue, { color: '#58a6ff', fontWeight: 'bold' }]}>
-                    {h}h {m}m
+                  <Text style={styles.detailLabel}>NET WORK</Text>
+                  <Text style={[styles.detailValue, { color: '#2563eb', fontWeight: '800' }]}>
+                    {r.netWorkHoursFormatted || '00:00:00'}
                   </Text>
                 </View>
               </View>
@@ -256,151 +227,161 @@ export default function AttendanceLogs({ user }) {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    padding: 15,
-    paddingBottom: 40,
+    padding: 18,
+    paddingBottom: 30,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#58a6ff',
-    marginBottom: 15,
-  },
-  subTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
-    marginTop: 20,
-    marginBottom: 10,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 16,
+    letterSpacing: -0.3,
   },
   statsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
     marginBottom: 20,
-    gap: 8,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#161b22',
+    minWidth: '45%',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   statLabel: {
-    fontSize: 10,
-    color: '#8b949e',
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
     marginBottom: 4,
-    textAlign: 'center',
   },
   statValue: {
-    fontSize: 15,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '800',
   },
-  filterTitle: {
+  filterSectionTitle: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#8b949e',
+    fontWeight: '700',
+    color: '#334155',
     marginBottom: 8,
-    marginTop: 10,
   },
   monthScrollContainer: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  monthBtn: {
-    backgroundColor: '#161b22',
+  monthChip: {
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
-    paddingHorizontal: 16,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     marginRight: 8,
   },
-  monthBtnActive: {
-    borderColor: '#58a6ff',
-    backgroundColor: 'rgba(88, 166, 255, 0.1)',
+  monthChipActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
   },
-  monthText: {
-    color: '#c9d1d9',
-    fontSize: 13,
+  monthChipText: {
+    color: '#475569',
+    fontSize: 12.5,
     fontWeight: '600',
   },
-  monthTextActive: {
-    color: '#58a6ff',
+  monthChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '800',
   },
-  dayFilterRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
+  dateInputRow: {
+    marginBottom: 16,
   },
-  dayInputContainer: {
+  dateInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161b22',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
   },
-  dayInput: {
+  dateInput: {
     flex: 1,
-    color: '#f0f6fc',
-    fontSize: 13,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    color: '#0f172a',
+    fontSize: 13.5,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   clearBtn: {
     paddingHorizontal: 12,
   },
   clearBtnText: {
-    color: '#8b949e',
+    color: '#64748b',
     fontSize: 14,
   },
   statusScrollContainer: {
-    marginBottom: 15,
+    marginBottom: 16,
   },
   statusChip: {
-    backgroundColor: '#21262d',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: '#cbd5e1',
     borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 7,
     marginRight: 8,
   },
   statusChipActive: {
-    backgroundColor: '#58a6ff',
-    borderColor: '#58a6ff',
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
   },
   statusChipText: {
-    color: '#c9d1d9',
+    color: '#475569',
     fontSize: 12,
     fontWeight: '600',
   },
   statusChipTextActive: {
-    color: '#0d1117',
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontWeight: '800',
   },
   spinnerContainer: {
     alignItems: 'center',
-    padding: 30,
+    padding: 35,
   },
   spinnerText: {
-    color: '#8b949e',
+    color: '#64748b',
     fontSize: 13,
-    marginTop: 8,
+    marginTop: 10,
+  },
+  emptyCard: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 14,
+    padding: 30,
+    alignItems: 'center',
   },
   emptyText: {
-    color: '#8b949e',
+    color: '#64748b',
     fontStyle: 'italic',
     textAlign: 'center',
-    padding: 30,
   },
   recordCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
+    padding: 15,
+    marginBottom: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   recordHeader: {
     flexDirection: 'row',
@@ -408,24 +389,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   recordDate: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#0f172a',
   },
   statusBadge: {
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
   },
   statusText: {
-    fontSize: 10,
-    fontWeight: 'bold',
+    fontSize: 10.5,
+    fontWeight: '800',
   },
   divider: {
     height: 1,
-    backgroundColor: '#30363d',
-    marginVertical: 10,
+    backgroundColor: '#f1f5f9',
+    marginVertical: 12,
   },
   recordDetailsRow: {
     flexDirection: 'row',
@@ -435,12 +416,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   detailLabel: {
-    fontSize: 9,
-    color: '#8b949e',
+    fontSize: 9.5,
+    color: '#64748b',
     marginBottom: 4,
+    fontWeight: '700',
   },
   detailValue: {
-    fontSize: 12,
-    color: '#c9d1d9',
+    fontSize: 12.5,
+    color: '#334155',
+    fontWeight: '600',
   },
 });

@@ -27,18 +27,19 @@ import EmployeeTasks from './EmployeeTasks';
 import ChatScreen from '../ChatScreen';
 import AttendanceWidget from '../../components/AttendanceWidget';
 import AttendanceLogs from './AttendanceLogs';
+import AppIcon from '../../components/AppIcon';
 
 export default function EmployeeDashboard({ user, onLogout }) {
-  const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records, profile
+  const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records, profile, tasks, attendance, chat
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  
+
   // Data lists
   const [systems, setSystems] = useState(() => getSystems());
   const [tickets, setTickets] = useState(() => getTickets());
   const [employees, setEmployees] = useState(() => getEmployees());
   const [assignmentHistory, setAssignmentHistory] = useState(() => getAssignmentHistory());
-  
+
   // Complaint form states
   const [category, setCategory] = useState('RAM/Speed');
   const [severity, setSeverity] = useState('Medium');
@@ -124,7 +125,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
     const systemId = activeSystems.length > 0 ? activeSystems[0].id : 'sys_none';
 
     createTicket(user.id, systemId, category, description.trim(), severity);
-    
+
     setDescription('');
     setFormSuccess('Complaint ticket raised successfully!');
     sweetAlert({
@@ -132,7 +133,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
       text: 'Complaint ticket raised successfully!',
       type: 'success',
     });
-    
+
     // Auto redirect to records tab
     setTimeout(() => {
       setActiveTab('records');
@@ -165,7 +166,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
         return (
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <Text style={styles.sectionTitle}>🚨 File a Complaint</Text>
-            
+
             <View style={styles.card}>
               {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
               {formSuccess ? <Text style={styles.successText}>{formSuccess}</Text> : null}
@@ -224,7 +225,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Describe your hardware issue in detail..."
-                placeholderTextColor="#666"
+                placeholderTextColor="#94a3b8"
                 multiline
                 numberOfLines={4}
                 value={description}
@@ -251,7 +252,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
             <TextInput
               style={styles.searchInput}
               placeholder="Search my tickets..."
-              placeholderTextColor="#8b949e"
+              placeholderTextColor="#94a3b8"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -263,12 +264,18 @@ export default function EmployeeDashboard({ user, onLogout }) {
                 <View key={t.id} style={styles.ticketCard}>
                   <View style={styles.cardHeader}>
                     <Text style={styles.ticketCategory}>{t.category}</Text>
-                    <View style={[styles.statusBadge, 
+                    <View style={[
+                      styles.statusBadge,
                       t.status === 'Open' && styles.badgeOpen,
                       t.status === 'In Progress' && styles.badgeProgress,
                       t.status === 'Resolved' && styles.badgeResolved
                     ]}>
-                      <Text style={styles.statusText}>{t.status}</Text>
+                      <Text style={[
+                        styles.statusText,
+                        t.status === 'Open' && { color: '#dc2626' },
+                        t.status === 'In Progress' && { color: '#d97706' },
+                        t.status === 'Resolved' && { color: '#059669' }
+                      ]}>{t.status}</Text>
                     </View>
                   </View>
 
@@ -299,7 +306,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
         return (
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <Text style={styles.sectionTitle}>My Profile Details</Text>
-            
+
             <View style={styles.profileCardFull}>
               <View style={styles.profileAvatarLarge}>
                 <Text style={styles.profileAvatarTextLarge}>
@@ -308,7 +315,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
               </View>
               <Text style={styles.profileNameLarge}>{empDetails.name}</Text>
               <Text style={styles.profileRoleLabel}>{empDetails.role || 'Employee'}</Text>
-              
+
               <View style={styles.profileInfoList}>
                 <View style={styles.profileInfoItem}>
                   <Text style={styles.profileInfoLabel}>Email Address</Text>
@@ -342,11 +349,11 @@ export default function EmployeeDashboard({ user, onLogout }) {
                     <Text style={styles.systemStatusActive}>Assigned</Text>
                   </View>
                   <View style={styles.systemDetailsGrid}>
-                    <Text style={styles.specItem}>🧠 <Text style={{fontWeight: 'bold', color: '#f0f6fc'}}>CPU:</Text> {sys.cpu}</Text>
-                    <Text style={styles.specItem}>⚡ <Text style={{fontWeight: 'bold', color: '#f0f6fc'}}>RAM:</Text> {sys.ram}</Text>
-                    <Text style={styles.specItem}>💾 <Text style={{fontWeight: 'bold', color: '#f0f6fc'}}>Storage:</Text> {sys.storage}</Text>
-                    <Text style={styles.specItem}>🎮 <Text style={{fontWeight: 'bold', color: '#f0f6fc'}}>GPU:</Text> {sys.gpu || 'Integrated'}</Text>
-                    <Text style={styles.specItem}>💿 <Text style={{fontWeight: 'bold', color: '#f0f6fc'}}>OS:</Text> {sys.os}</Text>
+                    <Text style={styles.specItem}>🧠 <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>CPU:</Text> {sys.cpu}</Text>
+                    <Text style={styles.specItem}>⚡ <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>RAM:</Text> {sys.ram}</Text>
+                    <Text style={styles.specItem}>💾 <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>Storage:</Text> {sys.storage}</Text>
+                    <Text style={styles.specItem}>🎮 <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>GPU:</Text> {sys.gpu || 'Integrated'}</Text>
+                    <Text style={styles.specItem}>💿 <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>OS:</Text> {sys.os}</Text>
                   </View>
                 </View>
               ))
@@ -406,7 +413,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                   <View key={log.id} style={styles.historyRow}>
                     <View style={{ flex: 1, marginRight: 10 }}>
                       <Text style={styles.historyLogText}>
-                        🛠️ {log.action} System <Text style={{ fontWeight: 'bold', color: '#58a6ff' }}>{log.systemNumber}</Text>
+                        🛠️ {log.action} System <Text style={{ fontWeight: 'bold', color: '#2563eb' }}>{log.systemNumber}</Text>
                       </Text>
                       {log.assignedBy && (
                         <Text style={styles.historySubText}>Assigned by: {log.assignedBy}</Text>
@@ -457,20 +464,23 @@ export default function EmployeeDashboard({ user, onLogout }) {
       {/* Header bar */}
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => setIsDrawerOpen(true)}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             style={styles.hamburgerBtn}
           >
-            <Text style={styles.hamburgerIcon}>☰</Text>
+            <AppIcon name="menu" size={22} color="#2563eb" />
           </TouchableOpacity>
           <View style={{ marginLeft: 10 }}>
-            <Text style={styles.headerTitle}>DeviceDesk</Text>
-            <Text style={styles.headerSub}>Employee Dashboard</Text>
+            <Image
+              source={require('../../assets/flymedia-logo.png')}
+              style={{ width: 140, height: 36 }}
+              resizeMode="contain"
+            />
           </View>
         </View>
-        <TouchableOpacity 
-          style={styles.logoutBtn} 
+        <TouchableOpacity
+          style={styles.logoutBtn}
           onPress={() => {
             sweetAlert({
               title: 'Log Out',
@@ -481,7 +491,10 @@ export default function EmployeeDashboard({ user, onLogout }) {
             });
           }}
         >
-          <Text style={styles.logoutBtnText}>Log Out 🚪</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <AppIcon name="logout" size={15} color="#dc2626" />
+            <Text style={styles.logoutBtnText}>Log Out</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -497,7 +510,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
         <SafeAreaView style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Settings & Policies</Text>
-            
+
             <View style={styles.settingsProfileSection}>
               <Text style={styles.settingsProfileTitle}>👤 My Profile Details</Text>
               <View style={styles.profileDetailRow}>
@@ -527,19 +540,19 @@ export default function EmployeeDashboard({ user, onLogout }) {
               <Text style={styles.legalText}>
                 {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties."}
               </Text>
-              
+
               <Text style={styles.legalHeader}>2. Terms & Conditions</Text>
               <Text style={styles.legalText}>
                 This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited. All transactions, assignments, and support tickets raised are logged and audited.
               </Text>
-              
+
               <Text style={styles.legalHeader}>3. Permanent Account Deletion</Text>
               <Text style={styles.legalText}>
                 Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. This action is immediate and cannot be undone.
               </Text>
-              
-              <TouchableOpacity 
-                style={styles.deleteBtn} 
+
+              <TouchableOpacity
+                style={styles.deleteBtn}
                 onPress={() => {
                   sweetAlert({
                     title: 'Are you sure?',
@@ -567,9 +580,9 @@ export default function EmployeeDashboard({ user, onLogout }) {
       {/* Hamburger Drawer Overlay */}
       {isDrawerOpen && (
         <View style={styles.drawerOverlay}>
-          <TouchableOpacity 
-            style={styles.drawerBackdrop} 
-            activeOpacity={1} 
+          <TouchableOpacity
+            style={styles.drawerBackdrop}
+            activeOpacity={1}
             onPress={() => setIsDrawerOpen(false)}
           />
           <View style={styles.drawerContent}>
@@ -584,48 +597,48 @@ export default function EmployeeDashboard({ user, onLogout }) {
             </View>
 
             <View style={styles.drawerItemsContainer}>
-              <TouchableOpacity 
-                style={[styles.drawerItem, activeTab === 'overview' && styles.drawerItemActive]} 
+              <TouchableOpacity
+                style={[styles.drawerItem, activeTab === 'overview' && styles.drawerItemActive]}
                 onPress={() => { setActiveTab('overview'); setIsDrawerOpen(false); }}
               >
-                <Text style={styles.drawerItemIcon}>📊</Text>
+                <AppIcon name="overview" size={18} color="#2563eb" style={{ marginRight: 12 }} />
                 <Text style={styles.drawerItemLabel}>Overview Dashboard</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={[styles.drawerItem, activeTab === 'tasks' && styles.drawerItemActive]} 
+              <TouchableOpacity
+                style={[styles.drawerItem, activeTab === 'tasks' && styles.drawerItemActive]}
                 onPress={() => { setActiveTab('tasks'); setIsDrawerOpen(false); }}
               >
-                <Text style={styles.drawerItemIcon}>📅</Text>
+                <AppIcon name="tasks" size={18} color="#2563eb" style={{ marginRight: 12 }} />
                 <Text style={styles.drawerItemLabel}>My Tasks Board</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={[styles.drawerItem, activeTab === 'attendance' && styles.drawerItemActive]} 
+              <TouchableOpacity
+                style={[styles.drawerItem, activeTab === 'attendance' && styles.drawerItemActive]}
                 onPress={() => { setActiveTab('attendance'); setIsDrawerOpen(false); }}
               >
-                <Text style={styles.drawerItemIcon}>🕒</Text>
+                <AppIcon name="attendance" size={18} color="#2563eb" style={{ marginRight: 12 }} />
                 <Text style={styles.drawerItemLabel}>My Attendance Logs</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={[styles.drawerItem, activeTab === 'profile' && styles.drawerItemActive]} 
+              <TouchableOpacity
+                style={[styles.drawerItem, activeTab === 'profile' && styles.drawerItemActive]}
                 onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
               >
-                <Text style={styles.drawerItemIcon}>👤</Text>
+                <AppIcon name="profile" size={18} color="#2563eb" style={{ marginRight: 12 }} />
                 <Text style={styles.drawerItemLabel}>My Profile Screen</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.drawerItem} 
+              <TouchableOpacity
+                style={styles.drawerItem}
                 onPress={() => { setShowSettingsModal(true); setIsDrawerOpen(false); }}
               >
-                <Text style={styles.drawerItemIcon}>⚙️</Text>
+                <AppIcon name="shield" size={18} color="#64748b" style={{ marginRight: 12 }} />
                 <Text style={styles.drawerItemLabel}>Privacy & Terms</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.drawerItem} 
+              <TouchableOpacity
+                style={styles.drawerItem}
                 onPress={() => {
                   setIsDrawerOpen(false);
                   sweetAlert({
@@ -640,13 +653,13 @@ export default function EmployeeDashboard({ user, onLogout }) {
                   });
                 }}
               >
-                <Text style={styles.drawerItemIcon}>⚠️</Text>
+                <AppIcon name="trash" size={18} color="#dc2626" style={{ marginRight: 12 }} />
                 <Text style={styles.drawerItemLabel}>Delete User Account</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity 
-              style={styles.drawerLogoutBtn} 
+            <TouchableOpacity
+              style={styles.drawerLogoutBtn}
               onPress={() => {
                 setIsDrawerOpen(false);
                 sweetAlert({
@@ -670,7 +683,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
           style={[styles.tabItem, activeTab === 'overview' && styles.tabItemActive]}
           onPress={() => setActiveTab('overview')}
         >
-          <Text style={styles.tabIcon}>📊</Text>
+          <AppIcon name="overview" size={20} color={activeTab === 'overview' ? '#2563eb' : '#64748b'} />
           <Text style={[styles.tabLabel, activeTab === 'overview' && styles.tabLabelActive]}>
             Overview
           </Text>
@@ -680,7 +693,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
           style={[styles.tabItem, activeTab === 'file-complaint' && styles.tabItemActive]}
           onPress={() => setActiveTab('file-complaint')}
         >
-          <Text style={styles.tabIcon}>🚨</Text>
+          <AppIcon name="alert" size={20} color={activeTab === 'file-complaint' ? '#2563eb' : '#64748b'} />
           <Text style={[styles.tabLabel, activeTab === 'file-complaint' && styles.tabLabelActive]}>
             File Ticket
           </Text>
@@ -690,7 +703,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
           style={[styles.tabItem, activeTab === 'records' && styles.tabItemActive]}
           onPress={() => setActiveTab('records')}
         >
-          <Text style={styles.tabIcon}>📋</Text>
+          <AppIcon name="records" size={20} color={activeTab === 'records' ? '#2563eb' : '#64748b'} />
           <Text style={[styles.tabLabel, activeTab === 'records' && styles.tabLabelActive]}>
             My Tickets
           </Text>
@@ -700,7 +713,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
           style={[styles.tabItem, activeTab === 'attendance' && styles.tabItemActive]}
           onPress={() => setActiveTab('attendance')}
         >
-          <Text style={styles.tabIcon}>🕒</Text>
+          <AppIcon name="attendance" size={20} color={activeTab === 'attendance' ? '#2563eb' : '#64748b'} />
           <Text style={[styles.tabLabel, activeTab === 'attendance' && styles.tabLabelActive]}>
             Attendance
           </Text>
@@ -710,7 +723,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
           style={[styles.tabItem, activeTab === 'tasks' && styles.tabItemActive]}
           onPress={() => setActiveTab('tasks')}
         >
-          <Text style={styles.tabIcon}>📅</Text>
+          <AppIcon name="tasks" size={20} color={activeTab === 'tasks' ? '#2563eb' : '#64748b'} />
           <Text style={[styles.tabLabel, activeTab === 'tasks' && styles.tabLabelActive]}>
             My Tasks
           </Text>
@@ -720,7 +733,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
           style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
           onPress={() => setActiveTab('chat')}
         >
-          <Text style={styles.tabIcon}>💬</Text>
+          <AppIcon name="chat" size={20} color={activeTab === 'chat' ? '#2563eb' : '#64748b'} />
           <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>
             Chat
           </Text>
@@ -733,123 +746,143 @@ export default function EmployeeDashboard({ user, onLogout }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: '#f8fafc',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderColor: '#30363d',
-    backgroundColor: '#161b22',
+    borderColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
     zIndex: 10,
-    elevation: 10,
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#58a6ff',
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -0.5,
   },
   headerSub: {
     fontSize: 12,
-    color: '#8b949e',
+    color: '#64748b',
   },
   logoutBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
+    borderColor: '#fca5a5',
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   logoutBtnText: {
-    color: '#f85149',
+    color: '#dc2626',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 18,
+    paddingBottom: 30,
   },
   rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   syncBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#21262d',
-    borderRadius: 6,
+    backgroundColor: '#eff6ff',
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: '#bfdbfe',
   },
   syncBtnText: {
-    color: '#c9d1d9',
-    fontSize: 13,
+    color: '#2563eb',
+    fontSize: 12.5,
+    fontWeight: '600',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
-    marginBottom: 15,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 14,
+    letterSpacing: -0.3,
   },
   subTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#58a6ff',
-    marginTop: 25,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginTop: 22,
     marginBottom: 12,
   },
   profileCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 12,
-    padding: 15,
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   profileName: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
-    marginBottom: 8,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 6,
   },
   profileMeta: {
     fontSize: 13,
-    color: '#8b949e',
+    color: '#475569',
     marginTop: 4,
   },
   noSystemCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 12,
-    padding: 20,
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
+    padding: 22,
     alignItems: 'center',
   },
   noSystemText: {
     fontSize: 14,
-    color: '#c9d1d9',
+    color: '#334155',
     fontWeight: '600',
     textAlign: 'center',
   },
   noSystemSubText: {
     fontSize: 12,
-    color: '#8b949e',
+    color: '#64748b',
     textAlign: 'center',
     marginTop: 5,
   },
   systemCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 12,
-    padding: 15,
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   systemHeader: {
     flexDirection: 'row',
@@ -858,44 +891,44 @@ const styles = StyleSheet.create({
   },
   systemNo: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#58a6ff',
+    fontWeight: '800',
+    color: '#2563eb',
   },
   systemNumberText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#58a6ff',
+    fontWeight: '800',
+    color: '#2563eb',
   },
   systemStatusActive: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#3fb950',
-    backgroundColor: 'rgba(56, 139, 60, 0.15)',
-    paddingHorizontal: 8,
+    fontWeight: '800',
+    color: '#059669',
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#3fb950',
+    borderColor: '#a7f3d0',
     overflow: 'hidden',
   },
   systemDetailsGrid: {
     marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#30363d',
+    borderTopColor: '#f1f5f9',
     paddingTop: 8,
   },
   systemModel: {
     fontSize: 14,
-    color: '#c9d1d9',
+    color: '#475569',
   },
   divider: {
     height: 1,
-    backgroundColor: '#30363d',
+    backgroundColor: '#f1f5f9',
     marginVertical: 10,
   },
   specItem: {
     fontSize: 13,
-    color: '#c9d1d9',
+    color: '#475569',
     marginTop: 4,
   },
   historyRow: {
@@ -904,19 +937,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderColor: '#21262d',
+    borderColor: '#f1f5f9',
   },
   historyLogText: {
-    color: '#c9d1d9',
+    color: '#334155',
     fontSize: 13,
   },
   historySubText: {
-    color: '#8b949e',
+    color: '#64748b',
     fontSize: 11,
     marginTop: 2,
   },
   historyTime: {
-    color: '#8b949e',
+    color: '#64748b',
     fontSize: 11,
   },
   paginationContainer: {
@@ -926,197 +959,212 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#30363d',
+    borderTopColor: '#f1f5f9',
   },
   pageBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    borderColor: '#cbd5e1',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   pageBtnDisabled: {
     opacity: 0.4,
-    backgroundColor: '#161b22',
   },
   pageBtnText: {
-    color: '#58a6ff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: '#2563eb',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   pageBtnTextDisabled: {
-    color: '#8b949e',
+    color: '#94a3b8',
   },
   pageInfoText: {
-    color: '#8b949e',
+    color: '#64748b',
     fontSize: 12,
     fontWeight: '600',
   },
   card: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 12,
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
     padding: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   label: {
-    fontSize: 14,
-    color: '#c9d1d9',
+    fontSize: 13.5,
+    color: '#334155',
     fontWeight: '600',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#0d1117',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 15,
-    color: '#f0f6fc',
-    marginBottom: 15,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14.5,
+    color: '#0f172a',
+    marginBottom: 16,
   },
   textArea: {
     height: 90,
     textAlignVertical: 'top',
   },
   pickerContainer: {
-    backgroundColor: '#0d1117',
+    backgroundColor: '#f1f5f9',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
-    padding: 5,
-    marginBottom: 15,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    padding: 6,
+    marginBottom: 16,
   },
   pickerItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
     marginRight: 8,
-    backgroundColor: '#21262d',
+    backgroundColor: '#ffffff',
   },
   pickerItemActive: {
-    backgroundColor: '#1f6feb',
+    backgroundColor: '#2563eb',
   },
   pickerItemText: {
-    color: '#8b949e',
-    fontSize: 12,
+    color: '#64748b',
+    fontSize: 12.5,
+    fontWeight: '600',
   },
   pickerItemTextActive: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontWeight: '800',
   },
   submitBtn: {
-    backgroundColor: '#238636',
-    borderRadius: 8,
-    paddingVertical: 12,
+    backgroundColor: '#2563eb',
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 8,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   submitBtnDisabled: {
-    backgroundColor: '#21262d',
+    backgroundColor: '#94a3b8',
     opacity: 0.5,
   },
   submitBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontSize: 15.5,
+    fontWeight: '800',
   },
   limitBanner: {
-    backgroundColor: 'rgba(248, 81, 73, 0.15)',
+    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: '#f85149',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 15,
+    borderColor: '#fca5a5',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
   },
   limitBannerText: {
-    color: '#f85149',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: '#dc2626',
+    fontSize: 12.5,
+    fontWeight: '700',
     textAlign: 'center',
   },
   limitInfoBox: {
-    backgroundColor: 'rgba(56, 139, 60, 0.15)',
+    backgroundColor: '#ecfdf5',
     borderWidth: 1,
-    borderColor: '#3fb950',
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 15,
+    borderColor: '#a7f3d0',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 16,
   },
   limitInfoText: {
-    color: '#3fb950',
-    fontSize: 12,
-    fontWeight: 'bold',
+    color: '#059669',
+    fontSize: 12.5,
+    fontWeight: '700',
     textAlign: 'center',
   },
   errorText: {
-    color: '#f85149',
+    color: '#dc2626',
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: 15,
     textAlign: 'center',
   },
   successText: {
-    color: '#3fb950',
+    color: '#059669',
     fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: 15,
     textAlign: 'center',
   },
   searchInput: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     fontSize: 14,
-    color: '#f0f6fc',
-    marginBottom: 15,
+    color: '#0f172a',
+    marginBottom: 16,
   },
   ticketCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   ticketCategory: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#58a6ff',
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#2563eb',
   },
   statusBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    borderRadius: 8,
+    paddingHorizontal: 10,
     paddingVertical: 3,
     borderWidth: 1,
   },
   badgeOpen: {
-    backgroundColor: 'rgba(248, 81, 73, 0.15)',
-    borderColor: '#f85149',
+    backgroundColor: '#fef2f2',
+    borderColor: '#fca5a5',
   },
   badgeProgress: {
-    backgroundColor: 'rgba(210, 153, 34, 0.15)',
-    borderColor: '#d29922',
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
   },
   badgeResolved: {
-    backgroundColor: 'rgba(56, 139, 60, 0.15)',
-    borderColor: '#3fb950',
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
   },
   statusText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#0f172a',
   },
   description: {
-    fontSize: 13,
-    color: '#c9d1d9',
-    lineHeight: 18,
+    fontSize: 13.5,
+    color: '#334155',
+    lineHeight: 19,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -1124,34 +1172,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerDate: {
-    fontSize: 11,
-    color: '#8b949e',
+    fontSize: 11.5,
+    color: '#64748b',
   },
   severityVal: {
     fontSize: 12,
-    color: '#c9d1d9',
+    color: '#334155',
+    fontWeight: '600',
   },
   notesBox: {
-    backgroundColor: '#0d1117',
-    borderRadius: 8,
-    padding: 10,
+    backgroundColor: '#ecfdf5',
+    borderRadius: 10,
+    padding: 12,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: '#a7f3d0',
   },
   notesTitle: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#3fb950',
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#059669',
     marginBottom: 4,
   },
   notesText: {
-    fontSize: 12,
-    color: '#8b949e',
+    fontSize: 12.5,
+    color: '#334155',
     fontStyle: 'italic',
   },
   emptyText: {
-    color: '#8b949e',
+    color: '#64748b',
     textAlign: 'center',
     marginVertical: 20,
     fontSize: 14,
@@ -1159,8 +1208,8 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderColor: '#30363d',
-    backgroundColor: '#161b22',
+    borderColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
     paddingVertical: 8,
   },
   tabItem: {
@@ -1170,7 +1219,7 @@ const styles = StyleSheet.create({
   },
   tabItemActive: {
     borderTopWidth: 2,
-    borderTopColor: '#58a6ff',
+    borderTopColor: '#2563eb',
     marginTop: -8,
     paddingTop: 8,
   },
@@ -1180,32 +1229,37 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 11,
-    color: '#8b949e',
+    color: '#64748b',
   },
   tabLabelActive: {
-    color: '#58a6ff',
-    fontWeight: '600',
+    color: '#2563eb',
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(13, 17, 23, 0.95)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 16,
-    padding: 20,
+    borderColor: '#e2e8f0',
+    borderRadius: 20,
+    padding: 22,
     width: '100%',
     maxHeight: '85%',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#58a6ff',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#2563eb',
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -1214,60 +1268,57 @@ const styles = StyleSheet.create({
   },
   legalHeader: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
-    marginTop: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginTop: 14,
     marginBottom: 6,
   },
   legalText: {
-    fontSize: 13,
-    color: '#8b949e',
+    fontSize: 12.5,
+    color: '#475569',
     lineHeight: 18,
-    textAlign: 'justify',
   },
   deleteBtn: {
-    backgroundColor: 'rgba(248, 81, 73, 0.1)',
+    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: '#f85149',
-    borderRadius: 8,
+    borderColor: '#fca5a5',
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 10,
   },
   deleteBtnText: {
-    color: '#f85149',
+    color: '#dc2626',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   closeBtn: {
-    backgroundColor: '#21262d',
-    borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
+    backgroundColor: '#2563eb',
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
   closeBtnText: {
-    color: '#f0f6fc',
-    fontSize: 15,
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
   },
   settingsProfileSection: {
-    backgroundColor: '#0d1117',
-    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: '#e2e8f0',
     marginBottom: 15,
   },
   settingsProfileTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#58a6ff',
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#2563eb',
     marginBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#21262d',
+    borderBottomColor: '#e2e8f0',
     paddingBottom: 6,
   },
   profileDetailRow: {
@@ -1277,22 +1328,21 @@ const styles = StyleSheet.create({
   },
   profileDetailLabel: {
     fontSize: 12,
-    color: '#8b949e',
+    color: '#64748b',
     fontWeight: '600',
   },
   profileDetailValue: {
     fontSize: 12,
-    color: '#f0f6fc',
-    fontWeight: 'bold',
+    color: '#0f172a',
+    fontWeight: '700',
   },
-  // Hamburger menu styles
   hamburgerBtn: {
     paddingRight: 12,
   },
   hamburgerIcon: {
     fontSize: 26,
-    color: '#58a6ff',
-    fontWeight: 'bold',
+    color: '#2563eb',
+    fontWeight: '800',
   },
   drawerOverlay: {
     position: 'absolute',
@@ -1309,14 +1359,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
   },
   drawerContent: {
     width: 280,
     height: '100%',
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderRightWidth: 1,
-    borderColor: '#30363d',
+    borderColor: '#e2e8f0',
     padding: 20,
     paddingTop: 45,
     justifyContent: 'space-between',
@@ -1324,7 +1374,7 @@ const styles = StyleSheet.create({
   drawerHeader: {
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#30363d',
+    borderBottomColor: '#f1f5f9',
     paddingBottom: 20,
     marginBottom: 20,
   },
@@ -1332,25 +1382,27 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#58a6ff',
+    backgroundColor: '#eff6ff',
+    borderWidth: 2,
+    borderColor: '#2563eb',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
   drawerAvatarText: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#0d1117',
+    fontWeight: '800',
+    color: '#2563eb',
   },
   drawerName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
+    fontWeight: '800',
+    color: '#0f172a',
     textAlign: 'center',
   },
   drawerEmail: {
     fontSize: 12,
-    color: '#8b949e',
+    color: '#64748b',
     marginTop: 4,
     textAlign: 'center',
   },
@@ -1361,14 +1413,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     marginBottom: 6,
   },
   drawerItemActive: {
-    backgroundColor: '#21262d',
+    backgroundColor: '#eff6ff',
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: '#bfdbfe',
   },
   drawerItemIcon: {
     fontSize: 18,
@@ -1376,66 +1428,72 @@ const styles = StyleSheet.create({
   },
   drawerItemLabel: {
     fontSize: 14,
-    color: '#c9d1d9',
+    color: '#334155',
     fontWeight: '600',
   },
   drawerLogoutBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 8,
+    borderColor: '#fca5a5',
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
   drawerLogoutText: {
-    color: '#f85149',
+    color: '#dc2626',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '800',
   },
-  // Profile screen styles
   profileCardFull: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 16,
-    padding: 20,
+    borderColor: '#e2e8f0',
+    borderRadius: 20,
+    padding: 22,
     alignItems: 'center',
     marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   profileAvatarLarge: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#58a6ff',
+    backgroundColor: '#eff6ff',
+    borderWidth: 2,
+    borderColor: '#2563eb',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   profileAvatarTextLarge: {
     fontSize: 36,
-    fontWeight: 'bold',
-    color: '#0d1117',
+    fontWeight: '800',
+    color: '#2563eb',
   },
   profileNameLarge: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
+    fontWeight: '800',
+    color: '#0f172a',
   },
   profileRoleLabel: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#58a6ff',
-    backgroundColor: 'rgba(88, 166, 255, 0.1)',
-    paddingHorizontal: 10,
+    fontWeight: '800',
+    color: '#2563eb',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 14,
     marginTop: 6,
     marginBottom: 20,
   },
   profileInfoList: {
     width: '100%',
     borderTopWidth: 1,
-    borderTopColor: '#30363d',
+    borderTopColor: '#f1f5f9',
     paddingTop: 15,
   },
   profileInfoItem: {
@@ -1443,15 +1501,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#21262d',
+    borderBottomColor: '#f1f5f9',
   },
   profileInfoLabel: {
     fontSize: 13,
-    color: '#8b949e',
+    color: '#64748b',
   },
   profileInfoVal: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#f0f6fc',
+    fontWeight: '700',
+    color: '#0f172a',
   },
 });
