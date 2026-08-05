@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 const API_URL_KEY = 'devicedesk_api_url';
 
 // Default URLs: 10.0.2.2 for Android Emulator, localhost for iOS simulator
- const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-// const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
+// const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
 
 let currentApiUrl = DEFAULT_URL;
 
@@ -200,7 +200,7 @@ export async function fetchAttendanceRecords(employeeId, month, status = 'ALL') 
   }
 }
 
-export async function postAttendancePunch(employeeId, employeeName, action, breakType = '', remarks = '') {
+export async function postAttendancePunch(employeeId, employeeName, action, breakType = '', remarks = '', latitude = null, longitude = null) {
   const url = `${currentApiUrl}/api/attendance/punch`;
   try {
     const response = await fetch(url, {
@@ -215,6 +215,8 @@ export async function postAttendancePunch(employeeId, employeeName, action, brea
         action,
         breakType,
         remarks,
+        latitude,
+        longitude,
       }),
     });
     const data = await response.json();
