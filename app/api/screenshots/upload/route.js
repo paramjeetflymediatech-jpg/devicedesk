@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
-import path from 'path';
+import { uploadFile, deleteFile } from '../../utils/storageManager.js';
 
 export async function POST(req) {
   try {
@@ -17,7 +16,6 @@ export async function POST(req) {
     let activityScore = 100;
     let fileBuffer = null;
     let fileExtension = 'jpg';
-
     let captureType = 'FULL_DESKTOP';
 
     if (contentType.includes('multipart/form-data')) {
@@ -37,7 +35,7 @@ export async function POST(req) {
         fileBuffer = Buffer.from(bytes);
         const nameParts = file.name ? file.name.split('.') : [];
         if (nameParts.length > 1) {
-          fileExtension = nameParts.pop();
+          fileExtension = nameParts.pop().toLowerCase();
         }
       }
     } else {
@@ -61,21 +59,13 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'No image data provided' }, { status: 400 });
     }
 
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'screenshots');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    // Save image file
     const screenshotId = uuidv4();
-    const fileName = `scr_${employeeId}_${Date.now()}_${screenshotId.slice(0, 8)}.${fileExtension}`;
-    const filePath = path.join(uploadDir, fileName);
-    await fs.promises.writeFile(filePath, fileBuffer);
+    const rawFileName = `scr_${employeeId}_${Date.now()}_${screenshotId.slice(0, 8)}.${fileExtension}`;
 
-    const imageUrl = `/uploads/screenshots/${fileName}`;
+    // Upload file using centralized storageManager (Supports SFTP https://storage.flymediatech.com/uploads/screenshots/ or local)
+    const imageUrl = await uploadFile(fileBuffer, rawFileName, 'screenshots');
 
-    // 1. Ensure table exists dynamically
+    // 1. Ensure screenshots table exists dynamically
     await pool.query(`
       CREATE TABLE IF NOT EXISTS screenshots (
         id VARCHAR(100) PRIMARY KEY,
@@ -116,33 +106,30 @@ export async function POST(req) {
       if (oldRows && oldRows.length > 0) {
         for (const row of oldRows) {
           if (row.imageUrl) {
-            const relPath = row.imageUrl.replace(/^\//, '');
-            const fullPath = path.join(process.cwd(), 'public', relPath);
-            if (fs.existsSync(fullPath)) {
-              fs.unlinkSync(fullPath);
-            }
+            await deleteFile(row.imageUrl);
           }
         }
-        await pool.query(`DELETE FROM screenshots WHERE capturedAt < NOW() - INTERVAL 180 DAY`);
+        await pool.query(
+          `DELETE FROM screenshots WHERE capturedAt < NOW() - INTERVAL 180 DAY`
+        );
       }
-    } catch (cleanupErr) {
-      console.warn('Screenshot 180-day cleanup notice:', cleanupErr.message);
+    } catch (cleanErr) {
+      console.warn('180-day cleanup notice:', cleanErr.message);
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Screenshot captured and stored successfully',
+      message: 'Screenshot uploaded successfully',
       data: {
         id: screenshotId,
         imageUrl,
-        employeeId,
-        employeeName,
-        capturedAt: new Date().toISOString()
+        capturedAt: new Date().toISOString(),
+        captureType
       }
     });
 
   } catch (err) {
-    console.error('Screenshot upload error:', err);
+    console.error('Upload screenshot error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

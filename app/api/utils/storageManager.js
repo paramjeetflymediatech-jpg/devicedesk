@@ -108,9 +108,9 @@ async function getSftpConfig() {
 }
 
 /**
- * Uploads a file buffer either locally or to remote SFTP storage.
+ * Uploads a file buffer either locally or to remote SFTP storage under an optional subfolder.
  */
-export async function uploadFile(buffer, filename) {
+export async function uploadFile(buffer, filename, subfolder = '') {
   if (!isSafeExtension(filename)) {
     throw new Error('Unsafe or unsupported file type. Upload rejected.');
   }
@@ -124,27 +124,44 @@ export async function uploadFile(buffer, filename) {
       const config = await getSftpConfig();
       await sftp.connect(config);
 
-      const remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
+      let remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
+      if (subfolder) {
+        remoteDir = `${remoteDir.replace(/\/$/, '')}/${subfolder.replace(/^\//, '')}`;
+      }
+
       const dirExists = await sftp.exists(remoteDir);
       if (!dirExists) {
         await sftp.mkdir(remoteDir, true);
       }
 
-      const remoteFilePath = remoteDir.endsWith('/') 
-        ? `${remoteDir}${uniqueFilename}` 
-        : `${remoteDir}/${uniqueFilename}`;
-
+      const remoteFilePath = `${remoteDir.replace(/\/$/, '')}/${uniqueFilename}`;
       await sftp.put(buffer, remoteFilePath);
-      return uniqueFilename;
+
+      // Return full public URL if WHM_SFTP_BASE_URL is defined, else relative path
+      const baseUrl = process.env.WHM_SFTP_BASE_URL;
+      if (baseUrl) {
+        const cleanBase = baseUrl.replace(/\/$/, '');
+        const folderPath = subfolder ? `/${subfolder.replace(/^\//, '')}` : '';
+        return `${cleanBase}${folderPath}/${uniqueFilename}`;
+      }
+
+      return subfolder ? `/uploads/${subfolder.replace(/^\//, '')}/${uniqueFilename}` : uniqueFilename;
     } finally {
       await sftp.end();
     }
   } else {
     // Local storage fallback
-    const uploadDir = join(process.cwd(), 'uploads');
-    await fs.mkdir(uploadDir, { recursive: true });
-    const localFilePath = join(uploadDir, uniqueFilename);
+    const targetDir = subfolder 
+      ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''))
+      : join(process.cwd(), 'uploads');
+
+    await fs.mkdir(targetDir, { recursive: true });
+    const localFilePath = join(targetDir, uniqueFilename);
     await fs.writeFile(localFilePath, buffer);
+
+    if (subfolder) {
+      return `/uploads/${subfolder.replace(/^\//, '')}/${uniqueFilename}`;
+    }
     return uniqueFilename;
   }
 }
@@ -152,7 +169,7 @@ export async function uploadFile(buffer, filename) {
 /**
  * Downloads a file buffer either from local disk or from remote SFTP storage.
  */
-export async function downloadFile(filename) {
+export async function downloadFile(filename, subfolder = '') {
   const safeFilename = basename(filename);
   const provider = process.env.STORAGE_PROVIDER || 'local';
 
@@ -162,11 +179,12 @@ export async function downloadFile(filename) {
       const config = await getSftpConfig();
       await sftp.connect(config);
 
-      const remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
-      const remoteFilePath = remoteDir.endsWith('/') 
-        ? `${remoteDir}${safeFilename}` 
-        : `${remoteDir}/${safeFilename}`;
+      let remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
+      if (subfolder) {
+        remoteDir = `${remoteDir.replace(/\/$/, '')}/${subfolder.replace(/^\//, '')}`;
+      }
 
+      const remoteFilePath = `${remoteDir.replace(/\/$/, '')}/${safeFilename}`;
       const fileExists = await sftp.exists(remoteFilePath);
       if (!fileExists) {
         throw new Error('File not found on remote SFTP storage.');
@@ -179,7 +197,10 @@ export async function downloadFile(filename) {
     }
   } else {
     // Local storage fallback
-    const localFilePath = join(process.cwd(), 'uploads', safeFilename);
+    const localFilePath = subfolder 
+      ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''), safeFilename)
+      : join(process.cwd(), 'uploads', safeFilename);
+      
     return await fs.readFile(localFilePath);
   }
 }
@@ -191,9 +212,20 @@ export async function downloadFile(filename) {
 export async function deleteFile(fileUrlOrName) {
   if (!fileUrlOrName) return;
 
-  // Extract just the filename from a full URL or path like /api/uploads/xxx or https://host/xxx
   const safeFilename = basename(fileUrlOrName);
   if (!safeFilename || !isSafeExtension(safeFilename)) return;
+
+  let subfolder = '';
+  try {
+    const urlObj = new URL(fileUrlOrName, 'http://localhost');
+    const pathParts = urlObj.pathname.split('/').filter(Boolean);
+    if (pathParts.length > 2) {
+      const lastFolder = pathParts[pathParts.length - 2];
+      if (lastFolder !== 'uploads') {
+        subfolder = lastFolder;
+      }
+    }
+  } catch (e) {}
 
   const provider = process.env.STORAGE_PROVIDER || 'local';
 
@@ -204,11 +236,12 @@ export async function deleteFile(fileUrlOrName) {
         const config = await getSftpConfig();
         await sftp.connect(config);
 
-        const remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
-        const remoteFilePath = remoteDir.endsWith('/')
-          ? `${remoteDir}${safeFilename}`
-          : `${remoteDir}/${safeFilename}`;
+        let remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
+        if (subfolder) {
+          remoteDir = `${remoteDir.replace(/\/$/, '')}/${subfolder}`;
+        }
 
+        const remoteFilePath = `${remoteDir.replace(/\/$/, '')}/${safeFilename}`;
         const fileExists = await sftp.exists(remoteFilePath);
         if (fileExists) {
           await sftp.delete(remoteFilePath);
@@ -217,15 +250,16 @@ export async function deleteFile(fileUrlOrName) {
         await sftp.end();
       }
     } else {
-      const localFilePath = join(process.cwd(), 'uploads', safeFilename);
+      const localFilePath = subfolder
+        ? join(process.cwd(), 'public', 'uploads', subfolder, safeFilename)
+        : join(process.cwd(), 'uploads', safeFilename);
       try {
         await fs.unlink(localFilePath);
       } catch (e) {
-        if (e.code !== 'ENOENT') throw e; // ignore "file not found"
+        if (e.code !== 'ENOENT') throw e;
       }
     }
   } catch (err) {
-    // Non-fatal: log but don't crash the request
     console.warn(`deleteFile: could not delete "${safeFilename}":`, err.message);
   }
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db';
-import fs from 'fs';
-import path from 'path';
+import { deleteFile } from '../../utils/storageManager.js';
 
 export async function DELETE(req) {
   try {
@@ -20,25 +19,10 @@ export async function DELETE(req) {
       const [rows] = await pool.query(`SELECT imageUrl FROM screenshots`);
       for (const row of rows) {
         if (row.imageUrl) {
-          const relPath = row.imageUrl.replace(/^\//, '');
-          const fullPath = path.join(process.cwd(), 'public', relPath);
-          if (fs.existsSync(fullPath)) {
-            try { fs.unlinkSync(fullPath); } catch (e) { /* ignore */ }
-          }
+          await deleteFile(row.imageUrl);
         }
       }
       await pool.query(`DELETE FROM screenshots`);
-
-      // Also clean up orphan files in uploads/screenshots directory if any exist
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'screenshots');
-      if (fs.existsSync(uploadDir)) {
-        const files = fs.readdirSync(uploadDir);
-        for (const file of files) {
-          try {
-            fs.unlinkSync(path.join(uploadDir, file));
-          } catch (e) { /* ignore */ }
-        }
-      }
 
       return NextResponse.json({ success: true, message: 'All screenshots permanently deleted' });
     }
@@ -47,11 +31,7 @@ export async function DELETE(req) {
     if (id) {
       const [rows] = await pool.query(`SELECT imageUrl FROM screenshots WHERE id = ?`, [id]);
       if (rows.length > 0 && rows[0].imageUrl) {
-        const relPath = rows[0].imageUrl.replace(/^\//, '');
-        const fullPath = path.join(process.cwd(), 'public', relPath);
-        if (fs.existsSync(fullPath)) {
-          try { fs.unlinkSync(fullPath); } catch (e) { /* ignore */ }
-        }
+        await deleteFile(rows[0].imageUrl);
       }
       await pool.query(`DELETE FROM screenshots WHERE id = ?`, [id]);
       return NextResponse.json({ success: true, message: 'Screenshot deleted successfully' });
@@ -62,11 +42,7 @@ export async function DELETE(req) {
       const [rows] = await pool.query(`SELECT imageUrl FROM screenshots WHERE employeeId = ?`, [employeeId]);
       for (const row of rows) {
         if (row.imageUrl) {
-          const relPath = row.imageUrl.replace(/^\//, '');
-          const fullPath = path.join(process.cwd(), 'public', relPath);
-          if (fs.existsSync(fullPath)) {
-            try { fs.unlinkSync(fullPath); } catch (e) { /* ignore */ }
-          }
+          await deleteFile(row.imageUrl);
         }
       }
       await pool.query(`DELETE FROM screenshots WHERE employeeId = ?`, [employeeId]);
