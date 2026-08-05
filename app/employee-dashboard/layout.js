@@ -8,6 +8,7 @@ import { useAuth } from "../auth/AuthContext";
 import { getEmployees, isSoundEnabled } from "../store";
 import ThemeToggle from "../components/ThemeToggle.js";
 import Logo from "../components/Logo.js";
+import TabScreenshotLogger from "../components/TabScreenshotLogger.js";
 import {
   FiGrid,
   FiClock,
@@ -173,6 +174,9 @@ export default function EmployeeLayout({ children }) {
 
   return (
     <div style={{ display: "contents" }}>
+      {/* Background Activity Screenshot Logger */}
+      <TabScreenshotLogger user={user} isPunchedIn={true} />
+
       {/* Sidebar Navigation (Desktop) */}
       <aside className="sidebar">
         <div className="logo-container">

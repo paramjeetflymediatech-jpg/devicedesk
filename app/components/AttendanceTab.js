@@ -222,8 +222,20 @@ export default function AttendanceTab({ user }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      {/* Header & Quick Action Widget */}
-      <AttendanceWidget user={user} onStatusChange={() => fetchLogs()} />
+      {/* 1. Header Banner & Title */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontSize: '1.6rem', fontWeight: '800', margin: 0, color: 'var(--text-primary, #0f172a)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>⏱️</span> Attendance Management & Team Logs
+          </h1>
+          <p style={{ color: 'var(--text-secondary, #64748b)', margin: '4px 0 0 0', fontSize: '0.9rem' }}>
+            Monitor team daily attendance, work durations, break logs, and regularization approvals
+          </p>
+        </div>
+      </div>
+
+      {/* Employee Punch In/Out Widget (Only for non-Admin team members) */}
+      {!isAdmin && <AttendanceWidget user={user} onStatusChange={() => fetchLogs()} />}
 
       {/* Analytics Summary Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>

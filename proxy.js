@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-export function middleware(request) {
+export function proxy(request) {
   const { pathname } = request.nextUrl;
 
   // Retrieve auth cookies
@@ -13,7 +13,6 @@ export function middleware(request) {
   if (pathname === '/register') {
     return NextResponse.redirect(new URL('/login', request.url));
   }
-
 
   if (!isAuthenticated) {
     if (pathname === '/' || pathname === '/employee-dashboard') {
@@ -30,24 +29,26 @@ export function middleware(request) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Role-based protection:
-    // Employees cannot access Admin portal (/)
+    // Role-based route protection
     if (pathname === '/' && userRole === 'employee') {
-      const employeeUrl = new URL('/employee-dashboard', request.url);
-      return NextResponse.redirect(employeeUrl);
+      return NextResponse.redirect(new URL('/employee-dashboard', request.url));
     }
 
-    // Admins cannot access Employee portal (/employee-dashboard)
     if (pathname === '/employee-dashboard' && userRole === 'admin') {
-      const adminUrl = new URL('/', request.url);
-      return NextResponse.redirect(adminUrl);
+      return NextResponse.redirect(new URL('/', request.url));
     }
   }
 
   return NextResponse.next();
 }
 
-// Configure which paths the middleware runs on
 export const config = {
-  matcher: ['/', '/employee-dashboard', '/login', '/register', '/forgot-password', '/reset-password'],
+  matcher: [
+    '/',
+    '/employee-dashboard',
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+  ],
 };

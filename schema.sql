@@ -246,4 +246,22 @@ CREATE TABLE IF NOT EXISTS chat_group_members (
   FOREIGN KEY (groupId) REFERENCES chat_groups(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 13. Screenshots Activity Logger Table
+CREATE TABLE IF NOT EXISTS screenshots (
+  id VARCHAR(100) PRIMARY KEY,
+  employeeId VARCHAR(50) NOT NULL,
+  employeeName VARCHAR(100) NOT NULL,
+  department VARCHAR(100),
+  imageUrl TEXT NOT NULL,
+  capturedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  shiftId VARCHAR(100),
+  ipAddress VARCHAR(50),
+  systemNumber VARCHAR(50),
+  captureType VARCHAR(50) DEFAULT 'FULL_DESKTOP',
+  activityScore INT DEFAULT 100,
+  INDEX idx_emp (employeeId),
+  INDEX idx_capturedAt (capturedAt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
 

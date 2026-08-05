@@ -40,6 +40,7 @@ import {
 } from "recharts";
 import AttendanceTab from "./components/AttendanceTab.js";
 import AttendanceWidget from "./components/AttendanceWidget.js";
+import ScreenshotsTab from "./components/ScreenshotsTab.js";
 import ChatView from "./components/ChatView.js";
 import ThemeToggle from "./components/ThemeToggle.js";
 import Logo from "./components/Logo.js";
@@ -127,6 +128,7 @@ export default function Home() {
   const [perfChartTab, setPerfChartTab] = useState("daily"); // daily | weekly | monthly | yearly
   const [showEmpReportModal, setShowEmpReportModal] = useState(false);
   const [empReportTarget, setEmpReportTarget] = useState(null); // the employee object
+  const [selectedReasonModal, setSelectedReasonModal] = useState(null);
   const [empReportFrom, setEmpReportFrom] = useState(""); // ISO date string yyyy-mm-dd
   const [empReportTo, setEmpReportTo] = useState("");     // ISO date string yyyy-mm-dd
   const [taskSearch, setTaskSearch] = useState("");
@@ -333,32 +335,39 @@ export default function Home() {
 
   const handleViewLeave = (req) => {
     const emp = employees.find(e => e.id === req.employeeId);
+    const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
+    const modalBg = isLight ? '#ffffff' : '#161b22';
+    const textColor = isLight ? '#0f172a' : '#f0f6fc';
+    const reasonBoxBg = isLight ? '#f1f5f9' : 'rgba(255,255,255,0.06)';
+    const reasonTextColor = isLight ? '#1e293b' : '#f1f5f9';
+    const borderCol = isLight ? '#cbd5e1' : 'rgba(255,255,255,0.12)';
+
     Swal.fire({
-      title: 'Leave Application Details',
+      title: `<span style="color: ${textColor}; font-weight: 800;">Leave Application Details</span>`,
       html: `
-        <div style="text-align: left; font-family: var(--font-main); color: var(--text-primary); font-size: 0.9rem; line-height: 1.6; padding: 5px;">
-          <div style="margin-bottom: 8px;"><strong>Employee Name:</strong> ${req.employeeName}</div>
-          <div style="margin-bottom: 8px;"><strong>Role & Department:</strong> ${emp ? `${emp.role} • ${emp.department}` : 'N/A'}</div>
-          <div style="margin-bottom: 8px;"><strong>Leave Type:</strong> ${req.leaveType}</div>
-          <div style="margin-bottom: 8px;"><strong>Duration:</strong> ${req.fromDate} to ${req.toDate} (${req.totalDays} ${req.totalDays === 1 ? 'day' : 'days'})</div>
-          <div style="margin-bottom: 6px; margin-top: 10px;"><strong>Full Reason for Leave:</strong></div>
-          <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); padding: 12px 14px; border-radius: 8px; margin-bottom: 12px; max-height: 320px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; font-style: normal; text-align: left; font-size: 0.88rem; color: #e6edf3;">
+        <div style="text-align: left; font-family: var(--font-main); color: ${textColor}; font-size: 0.9rem; line-height: 1.6; padding: 5px;">
+          <div style="margin-bottom: 8px;"><strong style="color: ${textColor};">Employee Name:</strong> ${req.employeeName}</div>
+          <div style="margin-bottom: 8px;"><strong style="color: ${textColor};">Role & Department:</strong> ${emp ? `${emp.role} • ${emp.department}` : 'N/A'}</div>
+          <div style="margin-bottom: 8px;"><strong style="color: ${textColor};">Leave Type:</strong> ${req.leaveType}</div>
+          <div style="margin-bottom: 8px;"><strong style="color: ${textColor};">Duration:</strong> ${req.fromDate} to ${req.toDate} (${req.totalDays} ${req.totalDays === 1 ? 'day' : 'days'})</div>
+          <div style="margin-bottom: 6px; margin-top: 12px;"><strong style="color: ${textColor}; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">Full Reason for Leave:</strong></div>
+          <div style="background: ${reasonBoxBg}; border: 1px solid ${borderCol}; padding: 14px 16px; border-radius: 10px; margin-bottom: 14px; max-height: 320px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; font-style: normal; text-align: left; font-size: 0.92rem; font-weight: 500; color: ${reasonTextColor}; line-height: 1.6;">
             ${req.reason || "No reason provided."}
           </div>
-          <div style="margin-bottom: 8px;"><strong>Status:</strong> <span class="status-badge badge-${req.status === 'Approved' ? 'resolved' : (req.status === 'Rejected' ? 'critical' : 'progress')}" style="padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 0.75rem;">${req.status}</span></div>
+          <div style="margin-bottom: 8px;"><strong style="color: ${textColor};">Status:</strong> <span class="status-badge badge-${req.status === 'Approved' ? 'resolved' : (req.status === 'Rejected' ? 'critical' : 'progress')}" style="padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 0.75rem;">${req.status}</span></div>
           ${req.status !== 'Pending' ? `
-            <div style="border-top: 1px solid var(--glass-border); margin-top: 12px; padding-top: 12px;">
-              <div style="margin-bottom: 4px;"><strong>Reviewed By:</strong> ${req.reviewedBy}</div>
-              <div style="margin-bottom: 4px;"><strong>Reviewed At:</strong> ${new Date(req.reviewedAt).toLocaleString()}</div>
+            <div style="border-top: 1px solid ${borderCol}; margin-top: 12px; padding-top: 12px;">
+              <div style="margin-bottom: 4px;"><strong style="color: ${textColor};">Reviewed By:</strong> ${req.reviewedBy}</div>
+              <div style="margin-bottom: 4px;"><strong style="color: ${textColor};">Reviewed At:</strong> ${new Date(req.reviewedAt).toLocaleString()}</div>
               ${req.status === 'Rejected' && req.rejectionReason ? `<div style="margin-top: 6px; color: var(--status-critical);"><strong>Rejection Reason:</strong> "${req.rejectionReason}"</div>` : ''}
             </div>
           ` : ''}
         </div>
       `,
       confirmButtonText: 'Close',
-      confirmButtonColor: 'var(--accent-cyan)',
-      background: '#161b22',
-      color: '#f0f6fc'
+      confirmButtonColor: '#2563eb',
+      background: modalBg,
+      color: textColor
     });
   };
   
@@ -2195,6 +2204,9 @@ export default function Home() {
                 <li className={`nav-item ${currentView === "attendance" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("attendance")}><span className="nav-icon"><FiClock /></span> Attendance</button>
                 </li>
+                <li className={`nav-item ${currentView === "screenshots" ? "active" : ""}`}>
+                  <button onClick={() => setCurrentView("screenshots")}><span className="nav-icon"><FiEye /></span> Activity Screenshots</button>
+                </li>
                 <li className={`nav-item ${currentView === "chat" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("chat")}>
                     <span className="nav-icon"><FiMessageSquare /></span> Chat Workspace
@@ -2295,6 +2307,10 @@ export default function Home() {
                 onClick={() => { setCurrentView("attendance"); setMobileMenuOpen(false); }}>
                 <span style={{ display: "inline-flex" }}><FiClock /></span> Attendance
               </button>
+              <button className={`mobile-drawer-item ${currentView === "screenshots" ? "active" : ""}`}
+                onClick={() => { setCurrentView("screenshots"); setMobileMenuOpen(false); }}>
+                <span style={{ display: "inline-flex" }}><FiEye /></span> Activity Screenshots
+              </button>
               <button className={`mobile-drawer-item ${currentView === "chat" ? "active" : ""}`}
                 onClick={() => { setCurrentView("chat"); setMobileMenuOpen(false); }}
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}
@@ -2389,12 +2405,12 @@ export default function Home() {
                   transition: "all 0.2s ease"
                 }}
               >
-                {(() => {
+                {isMounted && (() => {
                   const empDetails = employees.find(e => e.id === user?.id);
                   return renderProfileAvatar(empDetails || { name: user?.name || "A" }, "24px");
                 })()}
-                <span style={{ fontSize: "0.8rem", color: "var(--text-primary)", fontWeight: "600" }}>
-                  {user?.name}
+                <span suppressHydrationWarning style={{ fontSize: "0.8rem", color: "var(--text-primary)", fontWeight: "600" }}>
+                  {isMounted ? user?.name : ""}
                 </span>
                 <span style={{ fontSize: "0.6rem", color: "var(--text-secondary)", transition: "transform 0.2s ease", transform: userDropdownOpen ? "rotate(180deg)" : "none" }}>
                   ▼
@@ -2527,6 +2543,13 @@ export default function Home() {
           {currentView === "attendance" && (
             <div className="page-section active">
               <AttendanceTab user={user} />
+            </div>
+          )}
+
+          {/* ================= VIEW: SCREENSHOTS ================= */}
+          {currentView === "screenshots" && (
+            <div className="page-section active">
+              <ScreenshotsTab />
             </div>
           )}
 
@@ -2731,9 +2754,6 @@ export default function Home() {
           {/* ================= VIEW: DASHBOARD ================= */}
           {currentView === "dashboard" && userRole === "admin" && (
             <div className="page-section active space-y-6">
-              
-              {/* Quick Attendance Widget */}
-              <AttendanceWidget user={user} />
               
               {/* Test Mode Banner */}
               <div className="test-mode-banner">
@@ -4350,16 +4370,42 @@ export default function Home() {
                                 Total: {req.totalDays} {req.totalDays === 1 ? 'day' : 'days'}
                               </div>
                             </td>
-                            <td>
+                            <td style={{ minWidth: "240px", maxWidth: "320px" }}>
                               <div style={{
-                                maxWidth: "250px",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "normal",
                                 fontSize: "0.85rem",
-                                color: "var(--text-secondary)"
+                                color: "var(--text-secondary)",
+                                lineHeight: "1.4"
                               }}>
-                                {req.reason}
+                                <div style={{
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  wordBreak: "break-word"
+                                }}>
+                                  {req.reason || "No reason provided."}
+                                </div>
+                                {req.reason && (req.reason.length > 70 || req.reason.includes("\n")) && (
+                                  <button
+                                    onClick={() => setSelectedReasonModal(req)}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "#2563eb",
+                                      fontSize: "0.78rem",
+                                      fontWeight: "700",
+                                      cursor: "pointer",
+                                      padding: 0,
+                                      marginTop: "4px",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px"
+                                    }}
+                                  >
+                                    📄 Read Full Reason
+                                  </button>
+                                )}
                               </div>
                             </td>
                             <td>
@@ -6558,6 +6604,91 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Full Leave Reason Modal Inspector */}
+      {selectedReasonModal && (() => {
+        const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
+        const modalBg = isLight ? '#ffffff' : '#1e293b';
+        const textColor = isLight ? '#0f172a' : '#f8fafc';
+        const subTextColor = isLight ? '#64748b' : '#94a3b8';
+        const reasonBoxBg = isLight ? '#f1f5f9' : '#0f172a';
+        const borderCol = isLight ? '#cbd5e1' : '#334155';
+
+        return (
+          <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.75)",
+            backdropFilter: "blur(4px)",
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px"
+          }}>
+            <div style={{
+              backgroundColor: modalBg,
+              border: `1px solid ${borderCol}`,
+              borderRadius: "16px",
+              padding: "24px",
+              maxWidth: "580px",
+              width: "100%",
+              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)",
+              color: textColor
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", borderBottom: `1px solid ${borderCol}`, paddingBottom: "12px" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "800", color: textColor }}>
+                    📄 Leave Application Details
+                  </h3>
+                  <span style={{ fontSize: "0.82rem", color: subTextColor }}>
+                    Applicant: <strong style={{ color: textColor }}>{selectedReasonModal.employeeName}</strong> ({selectedReasonModal.leaveType})
+                  </span>
+                </div>
+                <button
+                  onClick={() => setSelectedReasonModal(null)}
+                  style={{ background: "none", border: "none", fontSize: "1.2rem", color: subTextColor, cursor: "pointer" }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ fontSize: "0.82rem", fontWeight: "800", marginBottom: "8px", color: textColor, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Full Reason for Leave:
+              </div>
+
+              <div style={{
+                maxHeight: "360px",
+                overflowY: "auto",
+                backgroundColor: reasonBoxBg,
+                padding: "16px",
+                borderRadius: "10px",
+                border: `1px solid ${borderCol}`,
+                fontSize: "0.92rem",
+                fontWeight: "500",
+                color: textColor,
+                lineHeight: "1.6",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word"
+              }}>
+                {selectedReasonModal.reason || "No reason provided."}
+              </div>
+
+              <div style={{ marginTop: "20px", textAlign: "right" }}>
+                <button
+                  onClick={() => setSelectedReasonModal(null)}
+                  style={{ padding: "10px 22px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", backgroundColor: "#2563eb", color: "#ffffff", border: "none" }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
