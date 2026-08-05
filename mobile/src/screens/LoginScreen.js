@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiUrl, setApiUrl, initApiUrl } from '../utils/api';
 import { findEmployeeByCredentials, isAdminCredentials, syncWithServer } from '../store/store';
 import { sweetAlert } from '../utils/sweetAlert';
+import AppIcon from '../components/AppIcon';
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +32,8 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
   const [loading, setLoading] = useState(false);
   const [showLegalModal, setShowLegalModal] = useState(false);
   const [testing, setTesting] = useState(false);
+
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     initApiUrl().then(url => {
@@ -202,138 +205,111 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0b0f19" />
-
-      {/* Decorative Glow Elements */}
-      <View style={styles.glowCyan} />
-      <View style={styles.glowPurple} />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Header & Logo Image */}
+          
+          {/* Top Bar with Server Settings Gear */}
+          {/* <View style={styles.topBarRow}>
+            <View style={styles.subTagPill}>
+              <Text style={styles.subTagPillText}>✨ ENTERPRISE PORTAL</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.gearButton} 
+              onPress={() => setShowConfig(true)}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.gearIcon}>⚙️ Server API</Text>
+            </TouchableOpacity>
+          </View> */}
+
+          {/* Header & Logo */}
           <View style={styles.headerContainer}>
             <Image
               source={require('../assets/flymedia-logo.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />
-
-            <View style={styles.subTagPill}>
-              <Text style={styles.subTagPillText}>✨ ENTERPRISE PORTAL</Text>
-            </View>
-
-            {/* <Text style={styles.title}>DeviceDesk</Text> */}
             <Text style={styles.subtitle}>System Tracking & Support Portal</Text>
           </View>
 
-          {/* Form Glass Card */}
+          {/* Clean White Card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Sign In to Account</Text>
 
-            {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
-            {successMsg ? <Text style={styles.successText}>{successMsg}</Text> : null}
+            {errorMsg ? (
+              <View style={styles.errorAlert}>
+                <Text style={styles.errorAlertText}>⚠️ {errorMsg}</Text>
+              </View>
+            ) : null}
 
+            {successMsg ? (
+              <View style={styles.successAlert}>
+                <Text style={styles.successAlertText}>✓ {successMsg}</Text>
+              </View>
+            ) : null}
+
+            {/* Email Field */}
             <Text style={styles.label}>Username or Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. sarabjot@devicedesk.com"
-              placeholderTextColor="#edf1f7ff"
-              value={identifier}
-              onChangeText={setIdentifier}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Please enter your company email"
+                placeholderTextColor="#94a3b8"
+                value={identifier}
+                onChangeText={setIdentifier}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Password Field */}
+            <View style={styles.labelRow}>
               <Text style={styles.label}>Password</Text>
               <TouchableOpacity onPress={onNavigateToForgot} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <Text style={styles.forgotBtnText}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              placeholderTextColor="#e0e7f0ff"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={[styles.input, { paddingRight: 45 }]}
+                placeholder="••••••••"
+                placeholderTextColor="#94a3b8"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <AppIcon name={showPassword ? 'eye-off' : 'eye'} size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
 
+            {/* Solid Black Login Button */}
             <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading} activeOpacity={0.88}>
               {loading ? (
-                <ActivityIndicator color="#0b0f19" />
+                <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={styles.loginButtonText}>Sign In </Text>
+                <Text style={styles.loginButtonText}>Sign In →</Text>
               )}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={{ alignItems: 'center', marginTop: 16, paddingVertical: 8 }} 
-              onPress={onNavigateToForgot}
-            >
-              <Text style={{ color: '#00f0ff', fontSize: 13.5, fontWeight: '700' }}>
-                Forgot Password?
-              </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Server Config Modal */}
-          <Modal
-            visible={showConfig}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowConfig(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>🌐 Server Settings</Text>
-                <Text style={styles.configDesc}>
-                  Set the IP/URL of your corporate Next.js deployment server.
-                </Text>
-
-                <Text style={styles.label}>API Base URL</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="https://api.yourdomain.com"
-                  placeholderTextColor="#64748b"
-                  value={apiUrl}
-                  onChangeText={setApiUrlState}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-
-                <TouchableOpacity
-                  style={styles.testBtn}
-                  onPress={handleTestConnection}
-                  disabled={testing}
-                >
-                  {testing ? (
-                    <ActivityIndicator color="#00f0ff" />
-                  ) : (
-                    <Text style={styles.testBtnText}>⚡ Test Connection</Text>
-                  )}
-                </TouchableOpacity>
-
-                <View style={styles.modalButtonsRow}>
-                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowConfig(false)}>
-                    <Text style={styles.cancelBtnText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.saveBtn} onPress={handleSaveConfig}>
-                    <Text style={styles.saveBtnText}>Save & Apply</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Modal>
+          
 
           {/* Footer */}
           <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>Secured by DeviceDesk Enterprise v2.4</Text>
+            <Text style={styles.footerText}>Secured by DeviceDesk  </Text>
             <TouchableOpacity style={{ marginTop: 6 }} onPress={() => setShowLegalModal(true)}>
               <Text style={styles.footerLinkText}>Privacy Policy & Terms of Service</Text>
             </TouchableOpacity>
@@ -380,26 +356,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffffff',
-    position: 'relative',
-  },
-  glowCyan: {
-    position: 'absolute',
-    top: -60,
-    right: -60,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(88, 136, 139, 0.07)',
-  },
-  glowPurple: {
-    position: 'absolute',
-    bottom: -60,
-    left: -60,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: 'rgba(168, 85, 247, 0.07)',
+    backgroundColor: '#ffffff',
   },
   scrollContent: {
     flexGrow: 1,
@@ -407,183 +364,162 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 25,
   },
-  headerContainer: {
+  topBarRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  logoImage: {
-    width: 220,
-    height: 75,
-    marginBottom: 12,
-    alignSelf: 'center',
+    marginBottom: 20,
   },
   subTagPill: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 240, 255, 0.1)',
+    backgroundColor: '#f1f5f9',
     borderWidth: 1,
-    borderColor: 'rgba(0, 240, 255, 0.25)',
-    marginBottom: 10,
+    borderColor: '#e2e8f0',
   },
   subTagPillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#00f0ff',
+    color: '#0f172a',
     letterSpacing: 1,
   },
-  title: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: '#000000ff',
-    letterSpacing: -0.5,
+  gearButton: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+  },
+  gearIcon: {
+    color: '#0f172a',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  headerContainer: {
+    alignItems: 'center',
+    marginBottom: 26,
+  },
+  logoImage: {
+    width: 230,
+    height: 75,
+    marginBottom: 8,
+    alignSelf: 'center',
   },
   subtitle: {
     fontSize: 13.5,
-    color: '#3a3e44ff',
-    marginTop: 4,
+    color: '#475569',
+    fontWeight: '500',
+    textAlign: 'center',
   },
   card: {
-    backgroundColor: 'rgba(20, 29, 46, 0.85)',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.2)',
-    borderRadius: 22,
-    padding: 22,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 8,
+    borderColor: '#e2e8f0',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 5,
     marginBottom: 20,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e9e9e9ff',
-    marginBottom: 18,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 20,
+    letterSpacing: -0.3,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#cbd5e1',
+    fontWeight: '700',
+    color: '#0f172a',
     marginBottom: 8,
   },
+  forgotBtnText: {
+    color: '#0284c7',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  inputWrapper: {
+    position: 'relative',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
   input: {
-    backgroundColor: '#0b0f19',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    borderColor: '#cbd5e1',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     fontSize: 14.5,
-    color: '#ffffff',
-    marginBottom: 16,
+    color: '#0f172a',
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: 14,
+    padding: 4,
+  },
+  eyeIcon: {
+    fontSize: 16,
   },
   loginButton: {
-    backgroundColor: '#00f0ff',
+    backgroundColor: '#0f172a',
     borderRadius: 14,
     paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
-    shadowColor: '#00f0ff',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
+    marginTop: 8,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
   loginButtonText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#050914',
+    color: '#ffffff',
     letterSpacing: 0.5,
   },
-  linksRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  forgotBtnText: {
-    color: '#00f0ff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  gearButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  errorAlert: {
+    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  gearIcon: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  configDesc: {
-    color: '#94a3b8',
-    fontSize: 13,
+    borderColor: '#fca5a5',
+    borderRadius: 12,
+    padding: 12,
     marginBottom: 18,
+  },
+  errorAlertText: {
+    color: '#dc2626',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  successAlert: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 18,
+  },
+  successAlertText: {
+    color: '#16a34a',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
     lineHeight: 18,
-    textAlign: 'center',
-  },
-  testBtn: {
-    borderWidth: 1,
-    borderColor: '#00f0ff',
-    backgroundColor: 'rgba(0, 240, 255, 0.1)',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  testBtnText: {
-    color: '#00f0ff',
-    fontWeight: '700',
-    fontSize: 13.5,
-  },
-  modalButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 10,
-  },
-  cancelBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  cancelBtnText: {
-    color: '#94a3b8',
-    fontWeight: '600',
-  },
-  saveBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 10,
-    backgroundColor: '#00f0ff',
-  },
-  saveBtnText: {
-    color: '#050914',
-    fontWeight: '800',
-  },
-  errorText: {
-    color: '#f85149',
-    fontSize: 13.5,
-    fontWeight: '600',
-    marginBottom: 14,
-    textAlign: 'center',
-  },
-  successText: {
-    color: '#39db6d',
-    fontSize: 13.5,
-    fontWeight: '600',
-    marginBottom: 14,
-    textAlign: 'center',
   },
   footerContainer: {
     alignItems: 'center',
@@ -591,60 +527,115 @@ const styles = StyleSheet.create({
   },
   footerText: {
     color: '#64748b',
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '500',
   },
   footerLinkText: {
-    color: '#00f0ff',
+    color: '#0f172a',
     fontSize: 12,
+    fontWeight: '700',
     textDecorationLine: 'underline',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 8, 16, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#141d2e',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.2)',
-    borderRadius: 20,
-    padding: 22,
+    borderColor: '#e2e8f0',
+    borderRadius: 22,
+    padding: 24,
     width: '100%',
     maxHeight: '85%',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#00f0ff',
-    marginBottom: 14,
+    color: '#0f172a',
+    marginBottom: 12,
     textAlign: 'center',
+  },
+  configDesc: {
+    color: '#475569',
+    fontSize: 13,
+    marginBottom: 18,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  testBtn: {
+    borderWidth: 1,
+    borderColor: '#0f172a',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  testBtnText: {
+    color: '#0f172a',
+    fontWeight: '700',
+    fontSize: 13.5,
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 10,
+  },
+  cancelBtn: {
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#f1f5f9',
+  },
+  cancelBtnText: {
+    color: '#475569',
+    fontWeight: '600',
+  },
+  saveBtn: {
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#0f172a',
+  },
+  saveBtnText: {
+    color: '#ffffff',
+    fontWeight: '800',
   },
   modalScroll: {
     marginBottom: 16,
   },
   legalHeader: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontWeight: '800',
+    color: '#0f172a',
     marginTop: 12,
     marginBottom: 6,
   },
   legalText: {
     fontSize: 12.5,
-    color: '#94a3b8',
-    lineHeight: 18,
+    color: '#334155',
+    lineHeight: 19,
   },
   closeBtn: {
-    backgroundColor: '#00f0ff',
+    backgroundColor: '#0f172a',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
   closeBtnText: {
-    color: '#050914',
+    color: '#ffffff',
     fontSize: 14,
     fontWeight: '800',
   },

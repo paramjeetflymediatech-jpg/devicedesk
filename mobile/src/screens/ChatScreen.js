@@ -20,7 +20,9 @@ import SoundPlayer from 'react-native-sound-player';
 import { getEmployees, getSystems, subscribe } from '../store/store';
 import { getApiUrl } from '../utils/api';
 import { pick } from '@react-native-documents/picker';
+import { launchCamera } from 'react-native-image-picker';
 import { useTheme } from '../utils/ThemeContext';
+import AppIcon from '../components/AppIcon';
 
 export default function ChatScreen({ user, onBack }) {
   const { isDark, themeColors } = useTheme();
@@ -36,6 +38,60 @@ export default function ChatScreen({ user, onBack }) {
 
   // Pinned chats state
   const [pinnedChats, setPinnedChats] = useState([]);
+  
+  // Read times state for unread badge tracking
+  const [readTimes, setReadTimes] = useState({});
+
+  // Load readTimes on mount
+  useEffect(() => {
+    async function loadReadTimes() {
+      try {
+        if (user?.id) {
+          const saved = await AsyncStorage.getItem(`devicedesk_read_times_${user.id}`);
+          if (saved) setReadTimes(JSON.parse(saved));
+        }
+      } catch (e) {}
+    }
+    loadReadTimes();
+  }, [user]);
+
+  // Update read time when active chat is opened
+  useEffect(() => {
+    if (showActiveChat && activeChatId && user?.id) {
+      const key = String(activeChatId).toLowerCase();
+      const now = Date.now();
+      setReadTimes(prev => {
+        const next = { ...prev, [key]: now };
+        AsyncStorage.setItem(`devicedesk_read_times_${user.id}`, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+    }
+  }, [showActiveChat, activeChatId, messages.length, user]);
+
+  // Calculate unread count for a given conversation
+  const getUnreadCount = (chatId) => {
+    const targetId = String(chatId).toLowerCase();
+    const lastRead = readTimes[targetId] || 0;
+    const currentUserId = String(user?.id || '').toLowerCase();
+
+    const chatMsgs = messages.filter(msg => {
+      if (msg.deletedForEveryone) return false;
+      const sender = String(msg.senderId).toLowerCase();
+      const receiver = String(msg.receiverId).toLowerCase();
+
+      if (sender === currentUserId) return false;
+
+      if (targetId === 'general') {
+        return receiver === 'general';
+      } else if (targetId.startsWith('group_') || targetId.startsWith('dept_')) {
+        return receiver === targetId;
+      } else {
+        return sender === targetId && receiver === currentUserId;
+      }
+    });
+
+    return chatMsgs.filter(m => new Date(m.timestamp).getTime() > lastRead).length;
+  };
   
   // Three Dots Context Menu state
   const [activeMenuMessageId, setActiveMenuMessageId] = useState(null);
@@ -86,6 +142,20 @@ export default function ChatScreen({ user, onBack }) {
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const [activeAlbumMessage, setActiveAlbumMessage] = useState(null);
 
+  // SoundPlayer finished playing listener
+  useEffect(() => {
+    let finishedSub = null;
+    try {
+      finishedSub = SoundPlayer.addEventListener('FinishedPlaying', () => {
+        setPlayingAudioId(null);
+      });
+    } catch (e) {}
+
+    return () => {
+      if (finishedSub) finishedSub.remove();
+    };
+  }, []);
+
   // Toggle Play Voice Note Audio
   const handleTogglePlayAudio = async (msg) => {
     if (!msg) return;
@@ -96,16 +166,15 @@ export default function ChatScreen({ user, onBack }) {
       setPlayingAudioId(null);
     } else {
       setPlayingAudioId(msg.id);
+      const audioUrl = msg.fileUrl || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
       try {
-        if (msg.fileUrl && (msg.fileUrl.startsWith('http://') || msg.fileUrl.startsWith('https://'))) {
-          await SoundPlayer.playUrl(msg.fileUrl);
-        }
+        await SoundPlayer.playUrl(audioUrl);
       } catch (e) {
-        // Safe catch for local content URI or player exception
+        console.warn('Audio playback error:', e);
       }
       setTimeout(() => {
-        setPlayingAudioId(prev => prev === msg.id ? null : prev);
-      }, 5000);
+        setPlayingAudioId(prev => (prev === msg.id ? null : prev));
+      }, 7000);
     }
   };
 
@@ -419,6 +488,8 @@ export default function ChatScreen({ user, onBack }) {
     const secs = recordTime % 60;
     const durStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 
+    const defaultAudioUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+
     const newMsg = {
       id: `msg_${Date.now()}`,
       senderId: user?.id || 'anonymous',
@@ -426,7 +497,8 @@ export default function ChatScreen({ user, onBack }) {
       receiverId: activeChatId,
       content: `🎙️ Voice Note (${durStr})`,
       messageType: 'audio',
-      fileName: `Voice Note (${durStr}).webm`,
+      fileUrl: defaultAudioUrl,
+      fileName: `Voice Note (${durStr}).mp3`,
       timestamp: new Date().toISOString(),
     };
 
@@ -441,6 +513,54 @@ export default function ChatScreen({ user, onBack }) {
         body: JSON.stringify(newMsg),
       });
     } catch (e) {}
+  };
+
+  // Open Device Hardware Camera Directly
+  const handleCameraClick = async () => {
+    try {
+      const result = await launchCamera({
+        mediaType: 'photo',
+        quality: 0.85,
+        saveToPhotos: true,
+      });
+
+      if (result.didCancel) return;
+      if (result.errorCode) {
+        // Fallback option menu
+        Alert.alert(
+          '📷 Select Photo Source',
+          'Camera access unavailable. Pick photo from gallery?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Gallery', onPress: () => handlePickDocument(['image/*']) },
+          ]
+        );
+        return;
+      }
+
+      if (result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const formattedFile = {
+          id: `file_${Math.random().toString(36).substring(2, 8)}`,
+          file: {
+            uri: asset.uri,
+            name: asset.fileName || `photo_${Date.now()}.jpg`,
+            type: asset.type || 'image/jpeg',
+            size: asset.fileSize || 0,
+          },
+          msgType: 'image',
+          isImage: true,
+          isVideo: false,
+          isAudio: false,
+        };
+
+        setPendingUploadFiles([formattedFile]);
+        setUploadCaption('');
+        setShowUploadConfirmModal(true);
+      }
+    } catch (err) {
+      handlePickDocument(['image/*']);
+    }
   };
 
   // Send Message
@@ -860,7 +980,7 @@ export default function ChatScreen({ user, onBack }) {
         <View style={[styles.listContainer, { backgroundColor: themeColors.background }]}>
           {/* Large Prominent Search Bar with Clear Icon */}
           <View style={[styles.largeSearchContainer, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <AppIcon name="search" size={18} color={themeColors.textSecondary} style={{ marginRight: 8 }} />
             <TextInput
               style={[styles.largeSearchInput, { color: themeColors.textPrimary }]}
               placeholder="Search chats or team members..."
@@ -870,7 +990,7 @@ export default function ChatScreen({ user, onBack }) {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchBtn}>
-                <Text style={[styles.clearSearchText, { color: themeColors.textSecondary }]}>✕</Text>
+                <AppIcon name="close" size={16} color={themeColors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -916,12 +1036,12 @@ export default function ChatScreen({ user, onBack }) {
               onPress={() => { setActiveChatId('general'); setShowActiveChat(true); }}
             >
               <View style={[styles.avatarBox, { backgroundColor: '#4f46e5' }]}>
-                <Text style={styles.avatarText}>🏢</Text>
+                <AppIcon name="group" size={20} color="#ffffff" />
               </View>
               <View style={styles.itemContent}>
                 <View style={styles.itemRow}>
                   <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>General Office Chat</Text>
-                  {isPinned('general') && <Text style={styles.pinBadge}>📌</Text>}
+                  {isPinned('general') && <AppIcon name="pin" size={14} color="#f59e0b" />}
                 </View>
                 <Text style={[styles.itemSub, { color: themeColors.textSecondary }]}>Company-wide channel</Text>
               </View>
@@ -944,13 +1064,13 @@ export default function ChatScreen({ user, onBack }) {
                       onPress={() => { setActiveChatId(group.id); setShowActiveChat(true); }}
                     >
                       <View style={[styles.avatarBox, { backgroundColor: '#7c3aed' }]}>
-                        <Text style={styles.avatarText}>👥</Text>
+                        <AppIcon name="users" size={20} color="#ffffff" />
                       </View>
                       <View style={styles.itemContent}>
                         <View style={styles.itemRow}>
                           <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>{group.name}</Text>
                           <TouchableOpacity onPress={() => togglePinChat(group.id)}>
-                            <Text style={styles.pinIcon}>{isPinned(group.id) ? '📍' : '📌'}</Text>
+                            <AppIcon name="pin" size={16} color={isPinned(group.id) ? '#f59e0b' : themeColors.textSecondary} />
                           </TouchableOpacity>
                         </View>
                         <Text style={[styles.itemSub, { color: themeColors.textSecondary }]} numberOfLines={1}>
@@ -967,6 +1087,7 @@ export default function ChatScreen({ user, onBack }) {
             <Text style={[styles.sectionHeader, { color: themeColors.textSecondary }]}>Direct Messages</Text>
             {sortedEmployees.map(emp => {
               const lastInfo = getLastMessageInfo(emp.id);
+              const unread = getUnreadCount(emp.id);
               return (
                 <TouchableOpacity
                   key={emp.id}
@@ -986,15 +1107,20 @@ export default function ChatScreen({ user, onBack }) {
                     <View style={styles.itemRow}>
                       <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>{emp.name}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {unread > 0 && (
+                          <View style={styles.unreadBadge}>
+                            <Text style={styles.unreadBadgeText}>{unread}</Text>
+                          </View>
+                        )}
                         {lastInfo.timeFormatted ? (
                           <Text style={[styles.itemTime, { color: themeColors.textSecondary }]}>{lastInfo.timeFormatted}</Text>
                         ) : null}
                         <TouchableOpacity onPress={() => togglePinChat(emp.id)}>
-                          <Text style={styles.pinIcon}>{isPinned(emp.id) ? '📍' : '📌'}</Text>
+                          <AppIcon name="pin" size={16} color={isPinned(emp.id) ? '#f59e0b' : themeColors.textSecondary} />
                         </TouchableOpacity>
                       </View>
                     </View>
-                    <Text style={[styles.itemSub, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                    <Text style={[styles.itemSub, { color: unread > 0 ? '#0f172a' : themeColors.textSecondary, fontWeight: unread > 0 ? '700' : '400' }]} numberOfLines={1}>
                       {lastInfo.content || `${emp.role} • ${emp.department}`}
                     </Text>
                   </View>
@@ -1015,7 +1141,7 @@ export default function ChatScreen({ user, onBack }) {
                   style={styles.backBtn}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
-                  <Text style={{ color: '#3b82f6', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
+                  <AppIcon name="close" size={20} color="#3b82f6" />
                 </TouchableOpacity>
                 <Text style={{ color: '#e9edef', fontSize: 17, fontWeight: 'bold', marginLeft: 12 }}>
                   {selectedMessages.length}
@@ -1031,7 +1157,7 @@ export default function ChatScreen({ user, onBack }) {
                       style={styles.headerActionBtn}
                       hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                     >
-                      <Text style={{ fontSize: 18 }}>{isMessagePinned(selectedMessages[0].id) ? '📍' : '📌'}</Text>
+                      <AppIcon name="pin" size={18} color={isMessagePinned(selectedMessages[0].id) ? '#f59e0b' : '#e9edef'} />
                     </TouchableOpacity>
 
                     {/* Copy Message - ONLY SHOW FOR TEXT MESSAGES */}
@@ -1041,7 +1167,7 @@ export default function ChatScreen({ user, onBack }) {
                         style={styles.headerActionBtn}
                         hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                       >
-                        <Text style={{ fontSize: 18 }}>📋</Text>
+                        <AppIcon name="file" size={18} color="#e9edef" />
                       </TouchableOpacity>
                     )}
 
@@ -1050,7 +1176,7 @@ export default function ChatScreen({ user, onBack }) {
                       style={styles.headerActionBtn}
                       hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                     >
-                      <Text style={{ fontSize: 18 }}>ℹ️</Text>
+                      <AppIcon name="info" size={18} color="#e9edef" />
                     </TouchableOpacity>
                   </>
                 )}
@@ -1061,7 +1187,7 @@ export default function ChatScreen({ user, onBack }) {
                   style={styles.headerActionBtn}
                   activeOpacity={0.7}
                 >
-                  <Text style={{ fontSize: 20 }}>↪️</Text>
+                  <AppIcon name="forward" size={18} color="#e9edef" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1069,7 +1195,7 @@ export default function ChatScreen({ user, onBack }) {
                   style={styles.headerActionBtn}
                   activeOpacity={0.7}
                 >
-                  <Text style={{ fontSize: 20 }}>🗑️</Text>
+                  <AppIcon name="trash" size={18} color="#ef4444" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -1077,19 +1203,19 @@ export default function ChatScreen({ user, onBack }) {
             /* STANDARD ROOM HEADER */
             <View style={[styles.roomHeader, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
               <TouchableOpacity onPress={() => setShowActiveChat(false)} style={styles.backBtn}>
-                <Text style={styles.backBtnText}>⬅️</Text>
+                <AppIcon name="back" size={20} color={themeColors.textPrimary} />
               </TouchableOpacity>
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={[styles.roomTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{activeChatTitle}</Text>
               </View>
               <TouchableOpacity onPress={() => togglePinChat(activeChatId)} style={styles.headerActionBtn}>
-                <Text style={{ fontSize: 16 }}>{isPinned(activeChatId) ? '📍' : '📌'}</Text>
+                <AppIcon name="pin" size={18} color={isPinned(activeChatId) ? '#f59e0b' : themeColors.textPrimary} />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleClearChatDisplay} style={styles.headerActionBtn}>
-                <Text style={{ fontSize: 16 }}>🧹</Text>
+                <AppIcon name="trash" size={18} color={themeColors.textPrimary} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => { setDetailsTab('info'); setShowDetailsModal(true); }} style={styles.headerActionBtn}>
-                <Text style={{ fontSize: 16 }}>ℹ️</Text>
+                <AppIcon name="info" size={18} color={themeColors.textPrimary} />
               </TouchableOpacity>
             </View>
           )}
@@ -1102,7 +1228,7 @@ export default function ChatScreen({ user, onBack }) {
           >
             {activeMessages.length === 0 ? (
               <View style={styles.emptyMessages}>
-                <Text style={{ fontSize: 32, marginBottom: 8 }}>💬</Text>
+                <AppIcon name="chat" size={38} color={themeColors.textSecondary} style={{ marginBottom: 8 }} />
                 <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No messages yet. Say hello!</Text>
               </View>
             ) : (
@@ -1131,7 +1257,7 @@ export default function ChatScreen({ user, onBack }) {
                     {/* Selection Checkmark Badge */}
                     {isSelected && (
                       <View style={styles.rowCheckBadge}>
-                        <Text style={styles.rowCheckText}>✓</Text>
+                        <AppIcon name="check" size={12} color="#ffffff" />
                       </View>
                     )}
 
@@ -1205,7 +1331,7 @@ export default function ChatScreen({ user, onBack }) {
                                             <Image source={{ uri: item.url }} style={styles.mediaGridImage} resizeMode="cover" />
                                           ) : (
                                             <View style={styles.mediaGridPlaceholder}>
-                                              <Text style={{ fontSize: 24 }}>{item.type === 'video' ? '🎥' : item.type === 'audio' ? '🎙️' : '📄'}</Text>
+                                              <AppIcon name={item.type === 'video' ? 'video' : item.type === 'audio' ? 'mic' : 'file'} size={24} color="#ffffff" />
                                             </View>
                                           )}
 
@@ -1232,7 +1358,7 @@ export default function ChatScreen({ user, onBack }) {
                                         style={styles.viewAllAlbumBtn}
                                       >
                                         <Text style={styles.viewAllAlbumText}>
-                                          🖼️ See All ({displayItems.length}) Media Files ➔
+                                          See All ({displayItems.length}) Media Files ➔
                                         </Text>
                                       </TouchableOpacity>
                                     )}
@@ -1265,14 +1391,14 @@ export default function ChatScreen({ user, onBack }) {
                               >
                                 <View style={styles.videoThumbnailContainer}>
                                   <View style={styles.videoPlayBadge}>
-                                    <Text style={{ fontSize: 18, color: '#fff' }}>▶️</Text>
+                                    <AppIcon name="play" size={16} color="#ffffff" />
                                   </View>
                                 </View>
-                                <View style={{ marginTop: 4 }}>
+                                <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                  <AppIcon name="video" size={14} color="#e9edef" />
                                   <Text style={{ color: '#e9edef', fontSize: 12, fontWeight: 'bold' }} numberOfLines={1}>
-                                    🎥 {msg.fileName || 'Video Attachment'}
+                                    {msg.fileName || 'Video Attachment'}
                                   </Text>
-                                  <Text style={{ color: '#3b82f6', fontSize: 10, fontWeight: 'bold' }}>Tap to play video ▶️</Text>
                                 </View>
                               </TouchableOpacity>
                             ) : msg.messageType === 'audio' ? (
@@ -1282,9 +1408,7 @@ export default function ChatScreen({ user, onBack }) {
                                   onPress={() => handleTogglePlayAudio(msg)}
                                   style={styles.voicePlayBtn}
                                 >
-                                  <Text style={{ color: '#fff', fontSize: 14 }}>
-                                    {playingAudioId === msg.id ? '⏸️' : '▶️'}
-                                  </Text>
+                                  <AppIcon name={playingAudioId === msg.id ? 'pause' : 'play'} size={14} color="#ffffff" />
                                 </TouchableOpacity>
 
                                 <View style={{ flex: 1, marginLeft: 8 }}>
@@ -1303,7 +1427,7 @@ export default function ChatScreen({ user, onBack }) {
                                 onPress={() => handleOpenFile(msg.fileUrl, msg.fileName)}
                                 style={styles.fileCard}
                               >
-                                <Text style={{ fontSize: 20, marginRight: 8 }}>📄</Text>
+                                <AppIcon name="file" size={20} color="#3b82f6" style={{ marginRight: 8 }} />
                                 <View style={{ flex: 1 }}>
                                   <Text style={{ color: '#e9edef', fontSize: 13, fontWeight: 'bold' }} numberOfLines={1}>
                                     {msg.fileName || 'Attachment'}
@@ -1320,7 +1444,7 @@ export default function ChatScreen({ user, onBack }) {
 
                             {/* Bottom Info Bar (Time + Checkmarks + Pin Indicator) */}
                             <View style={styles.bubbleFooter}>
-                              {isMessagePinned(msg.id) && <Text style={{ fontSize: 11, color: '#ffd700', marginRight: 4 }}>📌</Text>}
+                              {isMessagePinned(msg.id) && <AppIcon name="pin" size={12} color="#f59e0b" style={{ marginRight: 4 }} />}
                               {msg.isEdited ? <Text style={styles.editedTag}>edited • </Text> : null}
                               <Text style={[isOwn ? styles.ownMsgTime : styles.otherMsgTime, { color: themeColors.textSecondary }]}>
                                 {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
@@ -1360,10 +1484,10 @@ export default function ChatScreen({ user, onBack }) {
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <TouchableOpacity onPress={() => setIsRecording(false)} style={{ padding: 6 }}>
-                    <Text style={{ fontSize: 18 }}>🗑️</Text>
+                    <AppIcon name="trash" size={20} color="#ef4444" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleSendVoiceNote} style={styles.sendBtn}>
-                    <Text style={styles.sendBtnText}>➤</Text>
+                    <AppIcon name="send" size={16} color="#ffffff" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1371,11 +1495,11 @@ export default function ChatScreen({ user, onBack }) {
               /* STANDARD INPUT & MEDIA ACTIONS */
               <>
                 <TouchableOpacity onPress={() => handlePickDocument([])} style={styles.inputActionBtn}>
-                  <Text style={{ fontSize: 18 }}>📎</Text>
+                  <AppIcon name="attachment" size={20} color={themeColors.textSecondary} />
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => handlePickDocument(['image/*'])} style={styles.inputActionBtn}>
-                  <Text style={{ fontSize: 18 }}>📷</Text>
+                <TouchableOpacity onPress={handleCameraClick} style={styles.inputActionBtn}>
+                  <AppIcon name="camera" size={20} color={themeColors.textSecondary} />
                 </TouchableOpacity>
 
                 <TextInput
@@ -1391,11 +1515,11 @@ export default function ChatScreen({ user, onBack }) {
 
                 {inputText.trim().length > 0 ? (
                   <TouchableOpacity onPress={handleSendMessage} style={styles.sendBtn}>
-                    <Text style={styles.sendBtnText}>➤</Text>
+                    <AppIcon name="send" size={18} color="#ffffff" />
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity onPress={() => setIsRecording(true)} style={[styles.sendBtn, { backgroundColor: '#3b82f6' }]}>
-                    <Text style={{ fontSize: 18 }}>🎙️</Text>
+                    <AppIcon name="mic" size={18} color="#ffffff" />
                   </TouchableOpacity>
                 )}
               </>
@@ -2602,5 +2726,20 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 16,
     borderRadius: 10,
+  },
+  unreadBadge: {
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  unreadBadgeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '800',
   },
 });

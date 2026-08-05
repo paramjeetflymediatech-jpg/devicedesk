@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { getSystems, getTickets, getEmployees, getAssignmentHistory } from "../store";
 import AttendanceWidget from "../components/AttendanceWidget.js";
+import { FiMonitor, FiPieChart, FiRefreshCw, FiAlertTriangle } from "react-icons/fi";
 
 export default function OverviewPage() {
   const { user } = useAuth();
@@ -54,8 +55,8 @@ export default function OverviewPage() {
         <div className="emp-overview-grid">
           {/* Active System Details */}
           <div className="emp-card">
-            <h3 className="emp-card-title" style={{ color: "var(--accent-cyan)" }}>
-              🖥️ Assigned System Info
+            <h3 className="emp-card-title" style={{ color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: "8px" }}>
+              <FiMonitor /> Assigned System Info
             </h3>
             {activeSystems.length === 0 ? (
               <p style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>
@@ -99,8 +100,8 @@ export default function OverviewPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
             {/* Complaint limits */}
             <div className="emp-card">
-              <h3 className="emp-card-title" style={{ color: "var(--accent-cyan)" }}>
-                📊 Complaint Limits
+              <h3 className="emp-card-title" style={{ color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: "8px" }}>
+                <FiPieChart /> Complaint Limits
               </h3>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: "0.9rem" }}>
                 <span>Tickets Raised:</span>
@@ -132,17 +133,17 @@ export default function OverviewPage() {
                 />
               </div>
 
-              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.4", display: "flex", alignItems: "center", gap: "6px" }}>
                 {isLimitReached
-                  ? "⚠️ You have reached your issue limits. Please contact IT support to extend your limit if necessary."
+                  ? <> <FiAlertTriangle style={{ color: "var(--status-critical)" }} /> You have reached your issue limits. Please contact IT support to extend your limit if necessary.</>
                   : `You can raise ${remainingTickets} more complaint ticket(s) before reaching your limit.`}
               </p>
             </div>
 
             {/* System Change history */}
             <div className="emp-card" style={{ maxHeight: "300px", overflowY: "auto" }}>
-              <h3 className="emp-card-title" style={{ color: "var(--accent-cyan)" }}>
-                🔄 System Assignment History
+              <h3 className="emp-card-title" style={{ color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: "8px" }}>
+                <FiRefreshCw /> System Assignment History
               </h3>
               {empHistory.length === 0 ? (
                 <p style={{ color: "var(--text-secondary)", fontStyle: "italic", fontSize: "0.9rem" }}>

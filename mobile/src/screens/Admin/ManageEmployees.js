@@ -481,7 +481,7 @@ export default function ManageEmployees({ currentUser }) {
                 style={styles.input}
                 value={email}
                 onChangeText={setEmail}
-                placeholder="e.g. sarabjot@example.com"
+                placeholder="Please enter your company email"
                 placeholderTextColor="#666"
                 autoCapitalize="none"
               />

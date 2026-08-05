@@ -47,11 +47,7 @@ export default function ForgotPasswordScreen({ onNavigateToLogin }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0b0f19" />
-
-      {/* Ambient Glow Circles */}
-      <View style={styles.glowCyan} />
-      <View style={styles.glowPurple} />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -66,9 +62,9 @@ export default function ForgotPasswordScreen({ onNavigateToLogin }) {
               resizeMode="contain"
             />
 
-            <View style={styles.subTagPill}>
+            {/* <View style={styles.subTagPill}>
               <Text style={styles.subTagPillText}>🔑 PASSWORD RECOVERY</Text>
-            </View>
+            </View> */}
 
             <Text style={styles.title}>Forgot Password</Text>
             <Text style={styles.subtitle}>
@@ -93,8 +89,8 @@ export default function ForgotPasswordScreen({ onNavigateToLogin }) {
             <Text style={styles.label}>Registered Email Address</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. employee@devicedesk.com"
-              placeholderTextColor="#ffffffff"
+              placeholder="Please enter your email address"
+              placeholderTextColor="#94a3b8"
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -110,13 +106,13 @@ export default function ForgotPasswordScreen({ onNavigateToLogin }) {
               activeOpacity={0.88}
             >
               {loading ? (
-                <ActivityIndicator color="#050914" />
+                <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={styles.primaryButtonText}>Send Reset Link 📧</Text>
+                <Text style={styles.primaryButtonText}>Send Reset Link →</Text>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.backButton} onPress={onNavigateToLogin}>
+            <TouchableOpacity style={styles.backButton} onPress={onNavigateToLogin} activeOpacity={0.8}>
               <Text style={styles.backButtonText}>← Back to Login</Text>
             </TouchableOpacity>
           </View>
@@ -129,26 +125,7 @@ export default function ForgotPasswordScreen({ onNavigateToLogin }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffffff',
-    position: 'relative',
-  },
-  glowCyan: {
-    position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(0, 240, 255, 0.07)',
-  },
-  glowPurple: {
-    position: 'absolute',
-    bottom: -50,
-    left: -50,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: 'rgba(168, 85, 247, 0.07)',
+    backgroundColor: '#ffffff',
   },
   scrollContent: {
     flexGrow: 1,
@@ -161,129 +138,129 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   logoImage: {
-    width: 220,
+    width: 230,
     height: 75,
     marginBottom: 12,
     alignSelf: 'center',
   },
   subTagPill: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 20,
-    backgroundColor: 'rgba(0, 240, 255, 0.1)',
+    backgroundColor: '#f1f5f9',
     borderWidth: 1,
-    borderColor: 'rgba(0, 240, 255, 0.25)',
-    marginBottom: 10,
+    borderColor: '#e2e8f0',
+    marginBottom: 12,
   },
   subTagPillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#00f0ff',
+    color: '#0f172a',
     letterSpacing: 1,
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#000000ff',
+    color: '#0f172a',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 13,
-    color: '#94a3b8',
+    fontSize: 13.5,
+    color: '#475569',
     marginTop: 6,
     textAlign: 'center',
     paddingHorizontal: 16,
     lineHeight: 19,
   },
   card: {
-    backgroundColor: 'rgba(20, 29, 46, 0.85)',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.2)',
-    borderRadius: 22,
-    padding: 22,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 8,
+    borderColor: '#e2e8f0',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 5,
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#cbd5e1',
+    fontWeight: '700',
+    color: '#0f172a',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#0b0f19',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    borderColor: '#cbd5e1',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     fontSize: 14.5,
-    color: '#ffffff',
+    color: '#0f172a',
     marginBottom: 18,
   },
   primaryButton: {
-    backgroundColor: '#00f0ff',
+    backgroundColor: '#0f172a',
     borderRadius: 14,
     paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
-    shadowColor: '#00f0ff',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
   disabledButton: {
-    opacity: 0.5,
+    opacity: 0.6,
   },
   primaryButtonText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#050914',
+    color: '#ffffff',
     letterSpacing: 0.5,
   },
   backButton: {
     alignItems: 'center',
-    marginTop: 18,
+    marginTop: 16,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: '#cbd5e1',
+    backgroundColor: '#f8fafc',
   },
   backButtonText: {
-    color: '#ffffffff',
+    color: '#0f172a',
     fontSize: 13.5,
     fontWeight: '700',
   },
   errorAlert: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: '#fca5a5',
     borderRadius: 12,
     padding: 12,
     marginBottom: 18,
   },
   errorAlertText: {
-    color: '#f85149',
+    color: '#dc2626',
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
   successAlert: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    backgroundColor: '#f0fdf4',
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: '#86efac',
     borderRadius: 12,
     padding: 12,
     marginBottom: 18,
   },
   successAlertText: {
-    color: '#10b981',
+    color: '#16a34a',
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',

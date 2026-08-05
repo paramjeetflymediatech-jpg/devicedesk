@@ -175,8 +175,9 @@ export default function EmployeeLayout({ children }) {
     <div style={{ display: "contents" }}>
       {/* Sidebar Navigation (Desktop) */}
       <aside className="sidebar">
-        <div className="logo-container">
+        <div className="logo-container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Logo height="36px" />
+          <ThemeToggle />
         </div>
 
         <nav style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -185,7 +186,7 @@ export default function EmployeeLayout({ children }) {
               const active = pathname === item.path;
               return (
                 <li key={item.path} className={`nav-item ${active ? "active" : ""}`}>
-                  <Link href={item.path} style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                  <Link href={item.path} style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
                     <span className="nav-icon">{item.icon}</span>
                     {item.name}
                     {item.badge !== undefined && item.badge > 0 && (
@@ -217,11 +218,14 @@ export default function EmployeeLayout({ children }) {
         onClick={() => setMobileMenuOpen(false)}
       />
       <div className={`mobile-drawer ${mobileMenuOpen ? "open" : ""}`}>
-        <div className="mobile-drawer-header">
+        <div className="mobile-drawer-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Logo height="32px" />
-          <button className="mobile-drawer-close" onClick={() => setMobileMenuOpen(false)}>
-            ✕
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <ThemeToggle />
+            <button className="mobile-drawer-close" onClick={() => setMobileMenuOpen(false)}>
+              ✕
+            </button>
+          </div>
         </div>
         <div style={{ padding: "0.5rem 0 1rem", borderBottom: "1px solid var(--glass-border)", marginBottom: "0.5rem" }}>
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>Logged in as</p>
@@ -237,7 +241,7 @@ export default function EmployeeLayout({ children }) {
                 href={item.path}
                 className={`mobile-drawer-item ${active ? "active" : ""}`}
                 onClick={() => setMobileMenuOpen(false)}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <span style={{ display: "inline-flex" }}>{item.icon}</span>
@@ -261,7 +265,11 @@ export default function EmployeeLayout({ children }) {
             );
           })}
         </nav>
-        <div className="mobile-drawer-footer">
+        <div className="mobile-drawer-footer" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "10px", background: "var(--bg-tertiary)", border: "1px solid var(--glass-border)" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-secondary)" }}>Theme Mode</span>
+            <ThemeToggle />
+          </div>
           <button
             className="mobile-drawer-logout"
             onClick={() => {

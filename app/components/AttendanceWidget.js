@@ -223,6 +223,25 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     }
   };
 
+  const handlePunchOutConfirm = () => {
+    Swal.fire({
+      title: "Confirm Punch Out",
+      text: "Are you sure you want to punch out and complete your shift for today?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, Punch Out",
+      cancelButtonText: "Cancel",
+      background: "#161b22",
+      color: "#f0f6fc"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handlePunch("PUNCH_OUT");
+      }
+    });
+  };
+
   const formatHMS = (totalSecs) => {
     const hrs = Math.floor(totalSecs / 3600);
     const mins = Math.floor((totalSecs % 3600) / 60);
@@ -442,7 +461,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
               )}
 
               <button
-                onClick={() => handlePunch("PUNCH_OUT")}
+                onClick={handlePunchOutConfirm}
                 disabled={submitting}
                 style={{
                   background: "linear-gradient(135deg, #ef4444, #dc2626)",

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,27 +15,91 @@ import AppIcon from '../components/AppIcon';
 
 const { width } = Dimensions.get('window');
 
+const FEATURES = [
+  { label: 'Track Hardware & Asset Inventory', icon: 'monitor' },
+  { label: 'Submit & Track Support Tickets', icon: 'wrench' },
+  { label: 'Log Daily Attendance & Breaks', icon: 'attendance' },
+  { label: 'Receive Real-Time Updates', icon: 'bell' },
+];
+
 export default function WelcomeScreen({ onGetStarted }) {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
 
+  // Text ticker animation values
+  const textFade = useRef(new Animated.Value(0)).current;
+  const textSlide = useRef(new Animated.Value(15)).current;
+
+  // State values
+  const [featureIndex, setFeatureIndex] = useState(0);
+
+  // Initial screen load animation
   useEffect(() => {
-    // Visual entry animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 700,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 800,
+        duration: 700,
         useNativeDriver: true,
       }),
     ]).start();
   }, [fadeAnim, slideAnim]);
+
+  // Dynamic text carousel animation loop
+  useEffect(() => {
+    let isMounted = true;
+
+    const animateNext = (index) => {
+      if (!isMounted) return;
+      setFeatureIndex(index);
+      textFade.setValue(0);
+      textSlide.setValue(15);
+
+      Animated.parallel([
+        Animated.timing(textFade, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textSlide, {
+          toValue: 0,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setTimeout(() => {
+          if (!isMounted) return;
+          Animated.parallel([
+            Animated.timing(textFade, {
+              toValue: 0,
+              duration: 350,
+              useNativeDriver: true,
+            }),
+            Animated.timing(textSlide, {
+              toValue: -12,
+              duration: 350,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            if (!isMounted) return;
+            animateNext((index + 1) % FEATURES.length);
+          });
+        }, 2200);
+      });
+    };
+
+    animateNext(0);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleButtonPressIn = () => {
     Animated.spring(buttonScale, {
@@ -53,12 +117,15 @@ export default function WelcomeScreen({ onGetStarted }) {
     }).start();
   };
 
+  const activeFeature = FEATURES[featureIndex];
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Top Header */}
+        
+        {/* Top Branding Section */}
         <Animated.View
           style={[
             styles.header,
@@ -68,63 +135,48 @@ export default function WelcomeScreen({ onGetStarted }) {
             },
           ]}
         >
-          {/* Company Brand Logo Image */}
           <Image
             source={require('../assets/flymedia-logo.png')}
             style={styles.logoImage}
             resizeMode="contain"
           />
 
-          <Text style={styles.title}>Welcome to</Text>
           <Text style={styles.brandTitle}>DeviceDesk</Text>
-          <Text style={styles.subtitle}>
-            Your central portal for corporate inventory, asset management, and IT helpdesk support.
-          </Text>
+          <Text style={styles.subtitle}>System Tracking & Support Portal</Text>
         </Animated.View>
 
-        {/* Feature Cards Grid */}
-        <Animated.View style={[styles.featuresContainer, { opacity: fadeAnim }]}>
-          {/* Card 1 */}
-          <View style={styles.card}>
-            <View style={[styles.iconWrapper, { backgroundColor: '#eff6ff' }]}>
-              <AppIcon name="monitor" size={22} color="#2563eb" />
+        {/* Cardless Animated Text Section */}
+        <View style={styles.animatedTextContainer}>
+          <Animated.View
+            style={[
+              styles.animatedTextWrapper,
+              {
+                opacity: textFade,
+                transform: [{ translateY: textSlide }],
+              },
+            ]}
+          >
+            <View style={styles.iconCircle}>
+              <AppIcon name={activeFeature.icon} size={22} color="#0f172a" />
             </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Asset Inventory</Text>
-              <Text style={styles.cardDescription}>
-                View hardware specifications, assigned serial numbers, and remarks on company devices.
-              </Text>
-            </View>
-          </View>
+            <Text style={styles.animatedText}>{activeFeature.label}</Text>
+          </Animated.View>
 
-          {/* Card 2 */}
-          <View style={styles.card}>
-            <View style={[styles.iconWrapper, { backgroundColor: '#f3e8ff' }]}>
-              <AppIcon name="wrench" size={22} color="#7e22ce" />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>IT Support Desk</Text>
-              <Text style={styles.cardDescription}>
-                File support tickets for system issues, track resolutions, and request hardware upgrades.
-              </Text>
-            </View>
+          {/* Minimal Animated Dots Indicator */}
+          <View style={styles.dotsRow}>
+            {FEATURES.map((_, idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.dot,
+                  idx === featureIndex ? styles.activeDot : styles.inactiveDot,
+                ]}
+              />
+            ))}
           </View>
+        </View>
 
-          {/* Card 3 */}
-          <View style={styles.card}>
-            <View style={[styles.iconWrapper, { backgroundColor: '#ecfdf5' }]}>
-              <AppIcon name="bell" size={22} color="#059669" />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Push Notifications</Text>
-              <Text style={styles.cardDescription}>
-                Get real-time notifications on your device regarding system status and ticket updates.
-              </Text>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Call to Action Button */}
+        {/* Action Button Section */}
         <Animated.View style={[styles.actionContainer, { opacity: fadeAnim }]}>
           <TouchableOpacity
             activeOpacity={0.9}
@@ -133,12 +185,13 @@ export default function WelcomeScreen({ onGetStarted }) {
             onPress={onGetStarted}
           >
             <Animated.View style={[styles.btnPrimary, { transform: [{ scale: buttonScale }] }]}>
-              <Text style={styles.btnPrimaryText}>Get Started ➔</Text>
+              <Text style={styles.btnPrimaryText}>Get Started →</Text>
             </Animated.View>
           </TouchableOpacity>
 
-          <Text style={styles.footerNote}>Secured by DeviceDesk Enterprise</Text>
+          <Text style={styles.footerNote}>Secured by DeviceDesk</Text>
         </Animated.View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -151,100 +204,96 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 45,
-    paddingBottom: 30,
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+    paddingVertical: 20,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 8,
   },
   logoImage: {
-    width: 180,
-    height: 64,
-    marginBottom: 14,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#64748b',
-    letterSpacing: 0.5,
+    width: 210,
+    height: 68,
+    marginBottom: 8,
   },
   brandTitle: {
-    fontSize: 38,
+    fontSize: 32,
     fontWeight: '800',
     color: '#0f172a',
     letterSpacing: -0.5,
-    marginTop: 2,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#475569',
+    fontWeight: '500',
+    marginTop: 4,
     textAlign: 'center',
-    lineHeight: 20,
-    marginTop: 12,
-    paddingHorizontal: 10,
   },
-  featuresContainer: {
-    marginVertical: 16,
+  animatedTextContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 24,
+    minHeight: 85,
   },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
+  animatedTextWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-    alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  iconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginBottom: 10,
   },
-  cardIcon: {
-    fontSize: 22,
-  },
-  cardContent: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 15.5,
+  animatedText: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#0f172a',
+    textAlign: 'center',
+    letterSpacing: -0.2,
   },
-  cardDescription: {
-    fontSize: 12.5,
-    color: '#475569',
-    marginTop: 4,
-    lineHeight: 17,
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+  },
+  dot: {
+    height: 5,
+    borderRadius: 2.5,
+  },
+  activeDot: {
+    width: 22,
+    backgroundColor: '#0f172a',
+  },
+  inactiveDot: {
+    width: 5,
+    backgroundColor: '#cbd5e1',
   },
   actionContainer: {
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 16,
   },
   btnPrimary: {
-    width: width - 48,
-    backgroundColor: '#2563eb',
+    paddingHorizontal: 40,
+    paddingVertical: 14,
+    backgroundColor: '#0f172a',
     borderRadius: 14,
-    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 5,
   },
   btnPrimaryText: {
     fontSize: 16,
@@ -254,8 +303,8 @@ const styles = StyleSheet.create({
   },
   footerNote: {
     fontSize: 11.5,
-    color: '#94a3b8',
-    marginTop: 14,
+    color: '#64748b',
+    marginTop: 12,
     fontWeight: '500',
   },
 });

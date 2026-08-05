@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { getTickets } from "../../store";
+import { FiClipboard } from "react-icons/fi";
 
 export default function MyRecordsPage() {
   const { user } = useAuth();
@@ -57,8 +58,8 @@ export default function MyRecordsPage() {
     <div className="page-container emp-container" style={{ overflowY: "auto" }}>
       <div className="page-section active">
         <div className="emp-card" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          <h3 className="emp-card-title" style={{ color: "var(--accent-cyan)", marginBottom: "1.5rem" }}>
-            📋 Your Raise Records (Past & Present)
+          <h3 className="emp-card-title" style={{ color: "var(--accent-cyan)", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "8px" }}>
+            <FiClipboard /> Your Raise Records (Past & Present)
           </h3>
 
           {employeeTickets.length === 0 ? (

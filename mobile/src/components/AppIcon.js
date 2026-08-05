@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Line, Polyline, Polygon } from 'react-native-svg';
 
 export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
   const iconKey = String(name).toLowerCase();
@@ -69,6 +69,17 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
           <Circle cx="12" cy="7" r="4" />
+        </Svg>
+      );
+
+    case 'group':
+    case 'users':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M17 21v-2a4 4 0 0 0-3-3.87" />
+          <Path d="M9 21v-2a4 4 0 0 1 3-3.87" />
+          <Circle cx="9" cy="7" r="4" />
+          <Path d="M23 21v-2a4 4 0 0 0-3-3.87" />
         </Svg>
       );
 
@@ -162,9 +173,139 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
       );
 
     case 'paperclip':
+    case 'attachment':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </Svg>
+      );
+
+    case 'send':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Line x1="22" y1="2" x2="11" y2="13" />
+          <Polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </Svg>
+      );
+
+    case 'mic':
+    case 'microphone':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+          <Path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+          <Line x1="12" y1="19" x2="12" y2="23" />
+          <Line x1="8" y1="23" x2="16" y2="23" />
+        </Svg>
+      );
+
+    case 'camera':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+          <Circle cx="12" cy="13" r="4" />
+        </Svg>
+      );
+
+    case 'pin':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Line x1="12" y1="17" x2="12" y2="22" />
+          <Path d="M5 17h14l-1.5-6H6.5L5 17zM9 4h6v7H9V4z" />
+        </Svg>
+      );
+
+    case 'reply':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="9 17 4 12 9 7" />
+          <Path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+        </Svg>
+      );
+
+    case 'forward':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="15 17 20 12 15 7" />
+          <Path d="M4 18v-2a4 4 0 0 1 4-4h12" />
+        </Svg>
+      );
+
+    case 'edit':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </Svg>
+      );
+
+    case 'info':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Circle cx="12" cy="12" r="10" />
+          <Line x1="12" y1="16" x2="12" y2="12" />
+          <Line x1="12" y1="8" x2="12.01" y2="8" />
+        </Svg>
+      );
+
+    case 'more':
+    case 'dots':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Circle cx="12" cy="12" r="1" />
+          <Circle cx="12" cy="5" r="1" />
+          <Circle cx="12" cy="19" r="1" />
+        </Svg>
+      );
+
+    case 'file':
+    case 'document':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+          <Polyline points="13 2 13 9 20 9" />
+        </Svg>
+      );
+
+    case 'image':
+    case 'photo':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <Circle cx="8.5" cy="8.5" r="1.5" />
+          <Polyline points="21 15 16 10 5 21" />
+        </Svg>
+      );
+
+    case 'video':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polygon points="23 7 16 12 23 17 23 7" />
+          <Rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+        </Svg>
+      );
+
+    case 'play':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polygon points="5 3 19 12 5 21 5 3" />
+        </Svg>
+      );
+
+    case 'pause':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Rect x="6" y="4" width="4" height="16" />
+          <Rect x="14" y="4" width="4" height="16" />
+        </Svg>
+      );
+
+    case 'close':
+    case 'x':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Line x1="18" y1="6" x2="6" y2="18" />
+          <Line x1="6" y1="6" x2="18" y2="18" />
         </Svg>
       );
 
@@ -199,6 +340,23 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
           <Line x1="16" y1="2" x2="16" y2="6" />
           <Line x1="8" y1="2" x2="8" y2="6" />
           <Line x1="3" y1="10" x2="21" y2="10" />
+        </Svg>
+      );
+
+    case 'eye':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <Circle cx="12" cy="12" r="3" />
+        </Svg>
+      );
+
+    case 'eye-off':
+    case 'eyeoff':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+          <Line x1="1" y1="1" x2="23" y2="23" />
         </Svg>
       );
 

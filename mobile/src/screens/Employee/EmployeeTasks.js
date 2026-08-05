@@ -17,6 +17,7 @@ import { pick } from '@react-native-documents/picker';
 import { getApiUrl } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { useTheme } from '../../utils/ThemeContext';
+import AppIcon from '../../components/AppIcon';
 
 export default function EmployeeTasks({ currentUser }) {
   const { isDark, themeColors } = useTheme();
@@ -236,7 +237,10 @@ export default function EmployeeTasks({ currentUser }) {
       <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View>
-            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>📌 My Tasks</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon name="tasks" size={22} color={themeColors.textPrimary} />
+              <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>My Tasks</Text>
+            </View>
             <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>Manage assigned duties and track working time</Text>
           </View>
 
@@ -244,7 +248,10 @@ export default function EmployeeTasks({ currentUser }) {
             style={styles.createTaskBtn}
             onPress={() => setShowSelfModal(true)}
           >
-            <Text style={styles.createTaskBtnText}>+ Add Task</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <AppIcon name="plus" size={15} color="#ffffff" />
+              <Text style={styles.createTaskBtnText}>Add Task</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -290,13 +297,13 @@ export default function EmployeeTasks({ currentUser }) {
                             setEditModalVisible(true);
                           }}
                         >
-                          <Text style={styles.smallBtnText}>✏️</Text>
+                          <AppIcon name="edit" size={14} color="#ffffff" />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.smallBtn, { backgroundColor: '#ef4444' }]}
                           onPress={() => handleDeleteSelfTask(task)}
                         >
-                          <Text style={styles.smallBtnText}>🗑️</Text>
+                          <AppIcon name="trash" size={14} color="#ffffff" />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -323,10 +330,11 @@ export default function EmployeeTasks({ currentUser }) {
                       <TouchableOpacity 
                         key={idx} 
                         onPress={() => Linking.openURL(url)}
-                        style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2 }}
+                        style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2, gap: 4 }}
                       >
+                        <AppIcon name="paperclip" size={14} color="#2563eb" />
                         <Text style={{ fontSize: 12, color: '#2563eb', textDecorationLine: 'underline' }}>
-                          📎 Attachment #{idx + 1}
+                          Attachment #{idx + 1}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -341,14 +349,20 @@ export default function EmployeeTasks({ currentUser }) {
                           style={styles.startBtn}
                           onPress={() => handleStart(task.id)}
                         >
-                          <Text style={styles.btnTextStart}>▶ Start Timer</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <AppIcon name="play" size={14} color="#ffffff" />
+                            <Text style={styles.btnTextStart}>Start Timer</Text>
+                          </View>
                         </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
                           style={styles.stopBtn}
                           onPress={() => handleStop(task.id)}
                         >
-                          <Text style={styles.btnTextStop}>⏸ Pause Timer</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <AppIcon name="pause" size={14} color="#ffffff" />
+                            <Text style={styles.btnTextStop}>Pause Timer</Text>
+                          </View>
                         </TouchableOpacity>
                       )}
 
@@ -356,13 +370,19 @@ export default function EmployeeTasks({ currentUser }) {
                         style={styles.completeBtn}
                         onPress={() => handleCompletePress(task.id)}
                       >
-                        <Text style={styles.btnTextComplete}>✓ Complete</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <AppIcon name="check" size={14} color="#ffffff" />
+                          <Text style={styles.btnTextComplete}>Complete</Text>
+                        </View>
                       </TouchableOpacity>
                     </>
                   ) : (
-                    <Text style={styles.completedText}>
-                      ✓ Completed on {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : 'N/A'}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <AppIcon name="check" size={14} color="#059669" />
+                      <Text style={styles.completedText}>
+                        Completed on {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : 'N/A'}
+                      </Text>
+                    </View>
                   )}
                 </View>
               </View>
@@ -380,7 +400,10 @@ export default function EmployeeTasks({ currentUser }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>🎉 Complete Task</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <AppIcon name="check" size={20} color="#059669" />
+              <Text style={styles.modalTitle}>Complete Task</Text>
+            </View>
             <Text style={styles.modalLabel}>
               Optional: Attach completion proof (screenshots, files, or documents).
             </Text>
@@ -390,7 +413,10 @@ export default function EmployeeTasks({ currentUser }) {
               onPress={handleSelectFile}
               disabled={uploading}
             >
-              <Text style={styles.fileSelectText}>📎 Select Proof Files</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <AppIcon name="paperclip" size={16} color="#0f172a" />
+                <Text style={styles.fileSelectText}>Select Proof Files</Text>
+              </View>
             </TouchableOpacity>
 
             {selectedFiles.length > 0 && (
@@ -442,7 +468,10 @@ export default function EmployeeTasks({ currentUser }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>➕ Create New Task</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <AppIcon name="plus" size={18} color="#2563eb" />
+              <Text style={styles.modalTitle}>Create New Task</Text>
+            </View>
             
             <Text style={styles.inputLabel}>Task Title</Text>
             <TextInput
@@ -491,7 +520,10 @@ export default function EmployeeTasks({ currentUser }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>✏️ Edit Task</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <AppIcon name="edit" size={18} color="#38bdf8" />
+              <Text style={styles.modalTitle}>Edit Task</Text>
+            </View>
             
             <Text style={styles.inputLabel}>Task Title</Text>
             <TextInput

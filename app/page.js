@@ -5227,7 +5227,7 @@ export default function Home() {
                 className="form-control" 
                 value={newEmpName}
                 onChange={(e) => setNewEmpName(e.target.value)}
-                placeholder="e.g. Sarabjot"
+                placeholder="Please enter name"
                 required 
               />
             </div>
@@ -5239,7 +5239,7 @@ export default function Home() {
                 className="form-control" 
                 value={newEmpEmail}
                 onChange={(e) => setNewEmpEmail(e.target.value)}
-                placeholder="e.g. sarabjot@example.com" 
+                placeholder="Please enter your company email" 
                 required
               />
             </div>
@@ -5342,7 +5342,7 @@ export default function Home() {
                 className="form-control" 
                 value={editingEmp.name}
                 onChange={(e) => setEditingEmp({ ...editingEmp, name: e.target.value })}
-                placeholder="e.g. Sarabjot"
+                placeholder="Please enter name"
                 required 
               />
             </div>
@@ -5354,7 +5354,7 @@ export default function Home() {
                 className="form-control" 
                 value={editingEmp.email}
                 onChange={(e) => setEditingEmp({ ...editingEmp, email: e.target.value })}
-                placeholder="e.g. sarabjot@example.com"
+                placeholder="Please enter your company email"
                 required 
               />
             </div>

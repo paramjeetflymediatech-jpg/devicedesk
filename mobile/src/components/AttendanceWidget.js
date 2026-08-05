@@ -198,6 +198,16 @@ export default function AttendanceWidget({ user, onStatusChange }) {
   const nowObj = new Date();
   const isPastCutoff = !punchedIn && (nowObj.getHours() > 18 || (nowObj.getHours() === 18 && nowObj.getMinutes() >= 30));
 
+  const handlePunchOutClick = () => {
+    sweetAlert({
+      title: 'Confirm Punch Out',
+      text: 'Are you sure you want to punch out and complete your shift for today?',
+      type: 'warning',
+      showCancel: true,
+      onConfirm: () => handlePunchAction('PUNCH_OUT'),
+    });
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
       <View style={styles.headerRow}>
@@ -291,7 +301,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionBtn, { backgroundColor: '#da3633' }]}
-                onPress={() => handlePunchAction('PUNCH_OUT')}
+                onPress={handlePunchOutClick}
                 disabled={submitting}
               >
                 <Text style={styles.actionBtnText}>📤 Punch Out</Text>
@@ -507,82 +517,95 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   modalContent: {
-    backgroundColor: '#161b22',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 16,
-    padding: 20,
+    borderColor: '#e2e8f0',
+    borderRadius: 24,
+    padding: 24,
     width: '100%',
     maxWidth: 360,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 12,
   },
   modalTitle: {
-    color: '#58a6ff',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 16,
+    color: '#0f172a',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 18,
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
   breakOptions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 20,
+    gap: 10,
+    marginBottom: 22,
     justifyContent: 'center',
   },
   breakOptionBtn: {
-    backgroundColor: '#0d1117',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#30363d',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    minWidth: '45%',
+    borderColor: '#cbd5e1',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minWidth: '46%',
     alignItems: 'center',
   },
   breakOptionBtnActive: {
-    borderColor: '#58a6ff',
-    backgroundColor: 'rgba(88, 166, 255, 0.15)',
+    borderColor: '#0f172a',
+    backgroundColor: '#0f172a',
   },
   breakOptionText: {
-    color: '#8b949e',
-    fontSize: 13,
+    color: '#475569',
+    fontSize: 13.5,
     fontWeight: '600',
   },
   breakOptionTextActive: {
-    color: '#58a6ff',
-    fontWeight: '700',
+    color: '#ffffff',
+    fontWeight: '800',
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 10,
+    gap: 12,
   },
   modalCancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#21262d',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#f1f5f9',
   },
   modalCancelText: {
-    color: '#c9d1d9',
-    fontSize: 13,
-    fontWeight: '600',
+    color: '#475569',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
   modalConfirmBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#238636',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#f59e0b',
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   modalConfirmText: {
     color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 13.5,
+    fontWeight: '800',
   },
 });

@@ -16,6 +16,7 @@ import {
   getAssignmentHistory,
   isSoundEnabled
 } from "../../store";
+import { FiCalendar, FiBarChart2, FiPlus, FiPlay, FiPause, FiCheckCircle, FiEye, FiEdit2, FiTrash2, FiPaperclip } from "react-icons/fi";
 
 export default function TaskBoardPage() {
   const { user } = useAuth();
@@ -360,7 +361,9 @@ export default function TaskBoardPage() {
       <div className="container-card fade-in">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
           <div>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", margin: 0 }}>📅 My Task Board</h2>
+            <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+              <FiCalendar style={{ color: "var(--accent-cyan)" }} /> My Task Board
+            </h2>
             <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginTop: "4px" }}>
               Manage and track your assigned work in real-time
             </p>
@@ -384,14 +387,14 @@ export default function TaskBoardPage() {
                 transition: "all 0.2s"
               }}
             >
-              📊 My Performance Report
+              <FiBarChart2 style={{ fontSize: "1rem" }} /> My Performance Report
             </button>
             <button
               className="btn-primary"
               onClick={() => setShowSelfTaskModal(true)}
               style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", padding: "8px 14px", borderRadius: "8px" }}
             >
-              ➕ Create Self Task
+              <FiPlus style={{ fontSize: "1rem" }} /> Create Self Task
             </button>
           </div>
         </div>
@@ -467,7 +470,7 @@ export default function TaskBoardPage() {
                                   }}
                                   style={{ display: "flex", alignItems: "center", gap: "4px" }}
                                 >
-                                  ▶️ Start
+                                  <FiPlay style={{ fontSize: "0.85rem" }} /> Start
                                 </button>
                               )}
                               {t.status === "In Progress" && (
@@ -493,14 +496,14 @@ export default function TaskBoardPage() {
                                       refreshData();
                                     }}
                                   >
-                                    ⏸️ Stop
+                                    <FiPause style={{ fontSize: "0.85rem" }} /> Stop
                                   </button>
                                   <button
                                     className="btn-action resolve"
                                     onClick={() => handleCompleteTaskClick(t.id, t.title)}
                                     style={{ display: "flex", alignItems: "center", gap: "4px" }}
                                   >
-                                    ✅ Complete
+                                    <FiCheckCircle style={{ fontSize: "0.85rem" }} /> Complete
                                   </button>
                                 </>
                               )}
@@ -519,7 +522,7 @@ export default function TaskBoardPage() {
                                   setShowTaskDetailsModal(true);
                                 }}
                               >
-                                👁️ View
+                                <FiEye style={{ fontSize: "0.85rem" }} /> View
                               </button>
                               {t.status === "Completed" && (
                                 <span style={{ color: "var(--text-muted)", fontSize: "0.8rem", fontStyle: "italic" }}>
@@ -552,7 +555,7 @@ export default function TaskBoardPage() {
                                       border: "1px solid"
                                     }}
                                   >
-                                    ✏️ Edit
+                                    <FiEdit2 style={{ fontSize: "0.85rem" }} /> Edit
                                   </button>
                                   <button
                                     className="btn-action"
@@ -572,7 +575,7 @@ export default function TaskBoardPage() {
                                       border: "1px solid"
                                     }}
                                   >
-                                    🗑️ Delete
+                                    <FiTrash2 style={{ fontSize: "0.85rem" }} /> Delete
                                   </button>
                                 </>
                               )}
@@ -593,7 +596,9 @@ export default function TaskBoardPage() {
         <div className="modal-overlay active">
           <div className="modal-card">
             <div className="modal-header">
-              <h3 className="modal-title">➕ Create Self Task</h3>
+              <h3 className="modal-title" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <FiPlus style={{ color: "var(--accent-purple)" }} /> Create Self Task
+              </h3>
               <button className="modal-close" onClick={() => setShowSelfTaskModal(false)}>
                 &times;
               </button>
@@ -640,7 +645,9 @@ export default function TaskBoardPage() {
         <div className="modal-overlay active">
           <div className="modal-card">
             <div className="modal-header">
-              <h3 className="modal-title">✏️ Edit Task Details</h3>
+              <h3 className="modal-title" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <FiEdit2 style={{ color: "var(--accent-cyan)" }} /> Edit Task Details
+              </h3>
               <button className="modal-close" onClick={() => setShowEditTaskModal(false)}>
                 &times;
               </button>

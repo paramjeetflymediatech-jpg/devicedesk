@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
 import { checkAuth, deleteFile } from '../utils/storageManager.js';
 import { ChatMessage } from '../db/models/ChatMessage.js';
+import { sendPushNotification } from '../utils/pushNotifications.js';
 
 export async function GET(request) {
   try {
@@ -358,6 +359,31 @@ export async function POST(request) {
     };
 
     const saved = await ChatMessage.addMessage(messageData);
+
+    // Send Push Notification to recipient
+    try {
+      const notifTitle = `💬 New Message from ${user.name}`;
+      const notifBody = messageType === 'image' 
+        ? '📷 Sent an image' 
+        : messageType === 'video' 
+          ? '🎥 Sent a video' 
+          : messageType === 'audio' 
+            ? '🎙️ Sent a voice note' 
+            : messageType === 'file' 
+              ? '📎 Sent a file attachment' 
+              : (content || 'Sent a message');
+
+      if (!receiverId.startsWith('group_') && !receiverId.startsWith('dept_') && receiverId !== 'general') {
+        sendPushNotification(receiverId, notifTitle, notifBody, {
+          type: 'chat',
+          senderId: user.id,
+          senderName: user.name,
+          chatId: user.id,
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to send chat push notification:', notifErr);
+    }
 
     return NextResponse.json({ success: true, message: saved });
   } catch (err) {

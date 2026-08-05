@@ -1301,6 +1301,26 @@ textarea.form-control {
   text-align: left;
   transition: var(--transition);
   width: 100%;
+  text-decoration: none !important;
+}
+
+.mobile-drawer-item:hover,
+.mobile-drawer-item:focus,
+.mobile-drawer-item:active,
+.mobile-drawer-item.active,
+.sidebar a,
+.sidebar a:hover,
+.sidebar a:focus,
+.sidebar a:visited,
+.nav-item a,
+.nav-item a:hover,
+.nav-item a:focus,
+.nav-item a:visited,
+.mobile-drawer-nav a,
+.mobile-drawer-nav a:hover,
+.mobile-drawer-nav a:focus,
+.mobile-drawer-nav a:visited {
+  text-decoration: none !important;
 }
 
 .mobile-drawer-item:hover {
