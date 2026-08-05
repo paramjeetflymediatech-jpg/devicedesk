@@ -175,9 +175,8 @@ export default function EmployeeLayout({ children }) {
     <div style={{ display: "contents" }}>
       {/* Sidebar Navigation (Desktop) */}
       <aside className="sidebar">
-        <div className="logo-container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="logo-container">
           <Logo height="36px" />
-          <ThemeToggle />
         </div>
 
         <nav style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -209,6 +208,32 @@ export default function EmployeeLayout({ children }) {
               );
             })}
           </ul>
+
+          <div style={{ marginTop: "auto", paddingTop: "1rem", borderTop: "1px solid var(--glass-border)" }}>
+            <button
+              onClick={() => {
+                logout();
+                router.push("/login");
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "10px 14px",
+                borderRadius: "10px",
+                background: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.2)",
+                color: "#ef4444",
+                fontWeight: "600",
+                fontSize: "0.9rem",
+                cursor: "pointer",
+                transition: "all 0.2s"
+              }}
+            >
+              <FiLogOut style={{ fontSize: "1.1rem" }} /> Sign Out
+            </button>
+          </div>
         </nav>
       </aside>
 
@@ -218,14 +243,11 @@ export default function EmployeeLayout({ children }) {
         onClick={() => setMobileMenuOpen(false)}
       />
       <div className={`mobile-drawer ${mobileMenuOpen ? "open" : ""}`}>
-        <div className="mobile-drawer-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="mobile-drawer-header">
           <Logo height="32px" />
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <ThemeToggle />
-            <button className="mobile-drawer-close" onClick={() => setMobileMenuOpen(false)}>
-              ✕
-            </button>
-          </div>
+          <button className="mobile-drawer-close" onClick={() => setMobileMenuOpen(false)}>
+            ✕
+          </button>
         </div>
         <div style={{ padding: "0.5rem 0 1rem", borderBottom: "1px solid var(--glass-border)", marginBottom: "0.5rem" }}>
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>Logged in as</p>
@@ -296,7 +318,9 @@ export default function EmployeeLayout({ children }) {
             <Logo height="28px" />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <ThemeToggle />
+            <div className="desktop-only">
+              <ThemeToggle />
+            </div>
             {/* Clickable User Capsule & Dropdown */}
             <div style={{ position: "relative" }}>
               <div

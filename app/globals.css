@@ -288,8 +288,10 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  position: sticky;
+  position: fixed;
+  left: 0;
   top: 0;
+  bottom: 0;
   z-index: 100;
   overflow-y: auto;
 }
@@ -421,6 +423,8 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  margin-left: 260px;
+  width: calc(100% - 260px);
 }
 
 /* Header */
@@ -1389,6 +1393,7 @@ textarea.form-control {
 
   /* ── Main wrapper fills full width ── */
   .main-wrapper {
+    margin-left: 0 !important;
     width: 100vw;
     min-width: 0;
     min-height: 0;
