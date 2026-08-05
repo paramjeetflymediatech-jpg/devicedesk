@@ -57,7 +57,7 @@ export default function ForgotPasswordScreen({ onNavigateToLogin }) {
           {/* Header & Logo Image */}
           <View style={styles.headerContainer}>
             <Image
-              source={require('../assets/flymedia-logo.png')}
+              source={require('../assets/flymedia_logo.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />
@@ -99,8 +99,8 @@ export default function ForgotPasswordScreen({ onNavigateToLogin }) {
               editable={!loading}
             />
 
-            <TouchableOpacity 
-              style={[styles.primaryButton, loading && styles.disabledButton]} 
+            <TouchableOpacity
+              style={[styles.primaryButton, loading && styles.disabledButton]}
               onPress={handleRequestLink}
               disabled={loading}
               activeOpacity={0.88}

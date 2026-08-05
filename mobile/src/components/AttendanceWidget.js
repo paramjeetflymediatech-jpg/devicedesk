@@ -9,14 +9,25 @@ import {
   ActivityIndicator,
   Platform,
   PermissionsAndroid,
+  NativeModules,
 } from 'react-native';
-import Geolocation from '@react-native-community/geolocation';
 import {
   fetchAttendanceStatus,
   postAttendancePunch,
 } from '../utils/api';
 import { sweetAlert } from '../utils/sweetAlert';
 import { useTheme } from '../utils/ThemeContext';
+
+const getGeolocation = () => {
+  try {
+    if (NativeModules && NativeModules.RNCGeolocation) {
+      return require('@react-native-community/geolocation').default;
+    }
+  } catch (e) {
+    console.warn('RNCGeolocation native module not loaded:', e);
+  }
+  return null;
+};
 
 export default function AttendanceWidget({ user, onStatusChange }) {
   const { isDark, themeColors } = useTheme();
@@ -142,7 +153,10 @@ export default function AttendanceWidget({ user, onStatusChange }) {
       }
     } else if (Platform.OS === 'ios') {
       try {
-        Geolocation.requestAuthorization();
+        const Geolocation = getGeolocation();
+        if (Geolocation && typeof Geolocation.requestAuthorization === 'function') {
+          Geolocation.requestAuthorization();
+        }
         return true;
       } catch (err) {
         console.error('Error requesting iOS location permission:', err);
@@ -154,6 +168,11 @@ export default function AttendanceWidget({ user, onStatusChange }) {
 
   const getCurrentLocation = () => {
     return new Promise((resolve, reject) => {
+      const Geolocation = getGeolocation();
+      if (!Geolocation || typeof Geolocation.getCurrentPosition !== 'function') {
+        // Safe fallback when native module is absent or unlinked
+        return resolve({ latitude: 0, longitude: 0 });
+      }
       Geolocation.getCurrentPosition(
         (position) => {
           resolve({

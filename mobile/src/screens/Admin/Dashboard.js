@@ -187,14 +187,14 @@ export default function AdminDashboard({ user, onLogout }) {
   const renderProfile = () => (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <Text style={styles.sectionTitle}>Administrator Profile</Text>
-      
+
       <View style={styles.profileCardFull}>
         <View style={styles.profileAvatarLarge}>
           <Text style={styles.profileAvatarTextLarge}>A</Text>
         </View>
         <Text style={styles.profileNameLarge}>{user.name || 'Administrator'}</Text>
         <Text style={styles.profileRoleLabel}>Root Administrator</Text>
-        
+
         <View style={styles.profileInfoList}>
           <View style={styles.profileInfoItem}>
             <Text style={styles.profileInfoLabel}>Email Address</Text>
@@ -242,7 +242,7 @@ export default function AdminDashboard({ user, onLogout }) {
       {/* Top Header */}
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => setIsDrawerOpen(true)}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             style={styles.hamburgerBtn}
@@ -251,15 +251,15 @@ export default function AdminDashboard({ user, onLogout }) {
           </TouchableOpacity>
           <View style={{ marginLeft: 10 }}>
             <Image
-              source={isDark ? require('../../assets/flymedia-logo-white.png') : require('../../assets/flymedia-logo.png')}
+              source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
               style={{ width: 130, height: 32 }}
               resizeMode="contain"
             />
             <Text style={[styles.headerSub, { color: themeColors.textSecondary, fontSize: 10 }]}>Admin Console</Text>
           </View>
         </View>
-        <TouchableOpacity 
-          style={styles.logoutBtn} 
+        <TouchableOpacity
+          style={styles.logoutBtn}
           onPress={() => {
             sweetAlert({
               title: 'Log Out',
@@ -282,9 +282,9 @@ export default function AdminDashboard({ user, onLogout }) {
       {/* Hamburger Drawer Overlay */}
       {isDrawerOpen && (
         <View style={styles.drawerOverlay}>
-          <TouchableOpacity 
-            style={styles.drawerBackdrop} 
-            activeOpacity={1} 
+          <TouchableOpacity
+            style={styles.drawerBackdrop}
+            activeOpacity={1}
             onPress={() => setIsDrawerOpen(false)}
           />
           <View style={[styles.drawerContent, { backgroundColor: themeColors.drawerBg, borderColor: themeColors.border }]}>
@@ -297,52 +297,52 @@ export default function AdminDashboard({ user, onLogout }) {
             </View>
 
             <View style={styles.drawerItemsContainer}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.drawerItem, 
+                  styles.drawerItem,
                   activeTab === 'overview' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]} 
+                ]}
                 onPress={() => { setActiveTab('overview'); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>📊</Text>
                 <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Overview Dashboard</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.drawerItem, 
+                  styles.drawerItem,
                   activeTab === 'profile' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]} 
+                ]}
                 onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>👤</Text>
                 <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Admin Profile</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.drawerItem, 
+                  styles.drawerItem,
                   activeTab === 'departments' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]} 
+                ]}
                 onPress={() => { setActiveTab('departments'); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>🏢</Text>
                 <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Manage Departments</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.drawerItem, 
+                  styles.drawerItem,
                   activeTab === 'tasks' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]} 
+                ]}
                 onPress={() => { setActiveTab('tasks'); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>📅</Text>
                 <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Manage Tasks</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.drawerItem} 
+              <TouchableOpacity
+                style={styles.drawerItem}
                 onPress={() => { setShowSettingsModal(true); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>⚙️</Text>
@@ -382,8 +382,8 @@ export default function AdminDashboard({ user, onLogout }) {
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.drawerItem} 
+              <TouchableOpacity
+                style={styles.drawerItem}
                 onPress={() => {
                   setIsDrawerOpen(false);
                   sweetAlert({
@@ -405,8 +405,8 @@ export default function AdminDashboard({ user, onLogout }) {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity 
-              style={styles.drawerLogoutBtn} 
+            <TouchableOpacity
+              style={styles.drawerLogoutBtn}
               onPress={() => {
                 setIsDrawerOpen(false);
                 sweetAlert({
@@ -431,7 +431,7 @@ export default function AdminDashboard({ user, onLogout }) {
         onRequestClose={() => setShowSettingsModal(false)}
       >
         <SafeAreaView style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+          <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Settings & Policies</Text>
 
             <View style={styles.settingsProfileSection}>
@@ -455,19 +455,19 @@ export default function AdminDashboard({ user, onLogout }) {
               <Text style={styles.legalText}>
                 {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties."}
               </Text>
-              
+
               <Text style={styles.legalHeader}>2. Terms & Conditions</Text>
               <Text style={styles.legalText}>
                 This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited. All transactions, assignments, and support tickets raised are logged and audited.
               </Text>
-              
+
               <Text style={styles.legalHeader}>3. Permanent Account Deletion</Text>
               <Text style={styles.legalText}>
                 Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. This action is immediate and cannot be undone.
               </Text>
-              
-              <TouchableOpacity 
-                style={styles.deleteBtn} 
+
+              <TouchableOpacity
+                style={styles.deleteBtn}
                 onPress={() => {
                   sweetAlert({
                     title: 'Are you sure?',

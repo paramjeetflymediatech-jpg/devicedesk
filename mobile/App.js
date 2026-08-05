@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StatusBar, StyleSheet, View, Text, Platform } from 'react-native';
+import { StatusBar, StyleSheet, View, Text, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadCache, syncWithServer, subscribe } from './src/store/store';
@@ -27,51 +27,64 @@ function MainAppContent() {
 
   useEffect(() => {
     async function initApp() {
-      // 1. Initialize push notifications
       try {
-        await setupPushNotifications();
-      } catch (err) {
-        console.warn('Could not initialize push notifications:', err);
-      }
+        // 1. Initialize push notifications
+        try {
+          await setupPushNotifications();
+        } catch (err) {
+          console.warn('Could not initialize push notifications:', err);
+        }
 
-      // 2. Load data from AsyncStorage cache
-      await loadCache();
-      
-      // 3. Perform background sync from the Next.js server
-      await syncWithServer();
+        // 2. Load data from AsyncStorage cache
+        try {
+          await loadCache();
+        } catch (err) {
+          console.warn('Failed to load cache:', err);
+        }
+        
+        // 3. Perform background sync from the Next.js server
+        try {
+          await syncWithServer();
+        } catch (err) {
+          console.warn('Initial server sync failed:', err);
+        }
 
-      // 4. Check for persistent user session
-      try {
-        const storedUser = await AsyncStorage.getItem('@currentUser');
-        if (storedUser) {
-          const userObj = JSON.parse(storedUser);
-          setCurrentUser(userObj);
-          if (userObj.role === 'admin') {
-            setCurrentScreen('admin');
-          } else {
-            setCurrentScreen('employee');
-          }
-
-          // Silently register device token on launch for persistence
-          try {
-            const fcmToken = await getFcmToken();
-            const deviceId = await getOrCreateDeviceId();
-            const deviceModel = Platform.OS === 'android' ? 'Android Device' : 'iOS Device';
-            if (fcmToken) {
-              await registerDeviceToken(userObj.id, fcmToken, deviceId, deviceModel);
+        // 4. Check for persistent user session
+        try {
+          const storedUser = await AsyncStorage.getItem('@currentUser');
+          if (storedUser) {
+            const userObj = JSON.parse(storedUser);
+            setCurrentUser(userObj);
+            if (userObj.role === 'admin') {
+              setCurrentScreen('admin');
+            } else {
+              setCurrentScreen('employee');
             }
-          } catch (tokenErr) {
-            console.warn('Silent device token registration failed (non-fatal):', tokenErr);
+
+            // Silently register device token on launch for persistence
+            try {
+              const fcmToken = await getFcmToken();
+              const deviceId = await getOrCreateDeviceId();
+              const deviceModel = Platform.OS === 'android' ? 'Android Device' : 'iOS Device';
+              if (fcmToken) {
+                await registerDeviceToken(userObj.id, fcmToken, deviceId, deviceModel);
+              }
+            } catch (tokenErr) {
+              console.warn('Silent device token registration failed (non-fatal):', tokenErr);
+            }
+          } else {
+            setCurrentScreen('welcome');
           }
-        } else {
+        } catch (err) {
+          console.error('Failed to load persistent user session:', err);
           setCurrentScreen('welcome');
         }
-      } catch (err) {
-        console.error('Failed to load persistent user session:', err);
+      } catch (fatalErr) {
+        console.error('Fatal initialization error:', fatalErr);
         setCurrentScreen('welcome');
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     }
     
     initApp();
@@ -192,7 +205,13 @@ function MainAppContent() {
     <SafeAreaProvider style={[styles.container, { backgroundColor: themeColors.background }]}>
       <StatusBar barStyle={themeColors.statusBar} backgroundColor={themeColors.headerBg} />
       
-      {!loading && renderScreen()}
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.background }}>
+          <ActivityIndicator size="large" color={themeColors.accent || '#3b82f6'} />
+        </View>
+      ) : (
+        renderScreen()
+      )}
       
       <SweetAlertModal ref={sweetAlertRef} />
     </SafeAreaProvider>

@@ -212,7 +212,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          
+
           {/* Top Bar with Server Settings Gear */}
           {/* <View style={styles.topBarRow}>
             <View style={styles.subTagPill}>
@@ -230,7 +230,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
           {/* Header & Logo */}
           <View style={styles.headerContainer}>
             <Image
-              source={require('../assets/flymedia-logo.png')}
+              source={require('../assets/flymedia_logo.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />
@@ -274,7 +274,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
                 <Text style={styles.forgotBtnText}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.inputWrapper}>
               <TextInput
                 style={[styles.input, { paddingRight: 45 }]}
@@ -305,7 +305,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
             </TouchableOpacity>
           </View>
 
-          
+
 
           {/* Footer */}
           <View style={styles.footerContainer}>

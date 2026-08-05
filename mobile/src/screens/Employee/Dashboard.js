@@ -726,12 +726,12 @@ export default function EmployeeDashboard({ user, onLogout }) {
             )}
 
             {/* Assignment History logs */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 12 }}>
-              <Text style={[styles.subTitle, { color: themeColors.textPrimary, marginBottom: 0 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 16, marginBottom: 12 }}>
+              <Text style={[styles.subTitle, { color: themeColors.textPrimary, marginBottom: 0, flexShrink: 1 }]}>
                 📜 Device History Logs ({empHistory.length})
               </Text>
               {empHistory.length > 0 && (
-                <View style={{ backgroundColor: isDark ? '#1e293b' : '#e0f2fe', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                <View style={{ backgroundColor: isDark ? '#1e293b' : '#e0f2fe', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(56, 189, 248, 0.2)' : '#bae6fd' }}>
                   <Text style={{ fontSize: 11, fontWeight: '800', color: '#0284c7' }}>Activity Timeline</Text>
                 </View>
               )}
@@ -760,48 +760,49 @@ export default function EmployeeDashboard({ user, onLogout }) {
                         borderWidth: 1,
                         borderRadius: 14,
                         marginBottom: 10,
-                        padding: 14,
+                        padding: 12,
                         flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 12,
+                        alignItems: 'flex-start',
+                        gap: 10,
                         shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 2 },
+                        shadowOffset: { width: 0, height: 1 },
                         shadowOpacity: 0.03,
-                        shadowRadius: 4,
+                        shadowRadius: 3,
                         elevation: 1,
                       }}
                     >
                       {/* Timeline Accent Bar */}
-                      <View style={{ width: 4, height: '100%', minHeight: 44, backgroundColor: accentColor, borderRadius: 4 }} />
+                      <View style={{ width: 4, alignSelf: 'stretch', backgroundColor: accentColor, borderRadius: 4, minHeight: 36 }} />
 
                       {/* Icon Bubble */}
                       <View style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 19,
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
                         backgroundColor: badgeBg,
                         borderWidth: 1,
                         borderColor: isDark ? themeColors.border : badgeBorder,
                         alignItems: 'center',
                         justifyContent: 'center',
+                        marginTop: 2,
                       }}>
-                        <Text style={{ fontSize: 18 }}>
+                        <Text style={{ fontSize: 16 }}>
                           {isAssigned ? '💻' : isReturned ? '🔄' : '🛠️'}
                         </Text>
                       </View>
 
                       {/* Log Details Area */}
                       <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                          <Text style={{ fontSize: 13.5, fontWeight: '800', color: themeColors.textPrimary }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
+                          <Text style={{ flex: 1, flexShrink: 1, fontSize: 13, fontWeight: '800', color: themeColors.textPrimary }} numberOfLines={2}>
                             {log.action}
                           </Text>
-                          <Text style={{ fontSize: 11, color: themeColors.textSecondary, fontWeight: '600' }}>
+                          <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, fontWeight: '600', flexShrink: 0, marginTop: 1 }}>
                             📅 {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'N/A'}
                           </Text>
                         </View>
 
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 3 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
                           <View style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: themeColors.border }}>
                             <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
                               System: {log.systemNumber}
@@ -866,7 +867,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
           </TouchableOpacity>
           <View style={{ marginLeft: 10 }}>
             <Image
-              source={isDark ? require('../../assets/flymedia-logo-white.png') : require('../../assets/flymedia-logo.png')}
+              source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
               style={{ width: 140, height: 36 }}
               resizeMode="contain"
             />

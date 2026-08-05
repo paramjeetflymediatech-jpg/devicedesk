@@ -124,7 +124,7 @@ export default function WelcomeScreen({ onGetStarted }) {
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Top Branding Section */}
         <Animated.View
           style={[
@@ -136,7 +136,7 @@ export default function WelcomeScreen({ onGetStarted }) {
           ]}
         >
           <Image
-            source={require('../assets/flymedia-logo.png')}
+            source={require('../assets/flymedia_logo.png')}
             style={styles.logoImage}
             resizeMode="contain"
           />
