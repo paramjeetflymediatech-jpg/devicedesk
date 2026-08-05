@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
 import { uploadFile, deleteFile } from '../../utils/storageManager.js';
 
 export async function POST(req) {
@@ -60,12 +62,31 @@ export async function POST(req) {
     }
 
     const screenshotId = uuidv4();
-    const rawFileName = `scr_${employeeId}_${Date.now()}_${screenshotId.slice(0, 8)}.${fileExtension}`;
+    const fileName = `scr_${employeeId}_${Date.now()}_${screenshotId.slice(0, 8)}.${fileExtension}`;
 
-    // Upload file using centralized storageManager (Supports SFTP https://storage.flymediatech.com/uploads/screenshots/ or local)
-    const imageUrl = await uploadFile(fileBuffer, rawFileName, 'screenshots');
+    // 1. Ensure local public/uploads/screenshots directory exists
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'screenshots');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
 
-    // 1. Ensure screenshots table exists dynamically
+    // 2. Save image binary directly to public/uploads/screenshots/ for devicedesk.flymediatech.com route
+    const filePath = path.join(uploadDir, fileName);
+    await fs.promises.writeFile(filePath, fileBuffer);
+
+    // 3. Optionally sync to remote SFTP if configured
+    try {
+      if (process.env.STORAGE_PROVIDER === 'sftp') {
+        await uploadFile(fileBuffer, fileName, 'screenshots');
+      }
+    } catch (sftpErr) {
+      console.warn('SFTP sync notice:', sftpErr.message);
+    }
+
+    // Public route on devicedesk.flymediatech.com
+    const imageUrl = `/uploads/screenshots/${fileName}`;
+
+    // 4. Ensure screenshots table exists dynamically
     await pool.query(`
       CREATE TABLE IF NOT EXISTS screenshots (
         id VARCHAR(100) PRIMARY KEY,
@@ -91,14 +112,14 @@ export async function POST(req) {
       /* column already exists */
     }
 
-    // 2. Save screenshot record
+    // 5. Save screenshot record with /uploads/screenshots/... route
     await pool.query(
       `INSERT INTO screenshots (id, employeeId, employeeName, department, imageUrl, shiftId, ipAddress, systemNumber, captureType, activityScore)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [screenshotId, employeeId, employeeName, department, imageUrl, shiftId, ipAddress, systemNumber, captureType, activityScore]
     );
 
-    // 3. Automated 180-Day Cleanup Maintenance
+    // 6. Automated 180-Day Cleanup Maintenance
     try {
       const [oldRows] = await pool.query(
         `SELECT imageUrl FROM screenshots WHERE capturedAt < NOW() - INTERVAL 180 DAY`
@@ -106,7 +127,12 @@ export async function POST(req) {
       if (oldRows && oldRows.length > 0) {
         for (const row of oldRows) {
           if (row.imageUrl) {
-            await deleteFile(row.imageUrl);
+            const relPath = row.imageUrl.replace(/^\//, '');
+            const fullPath = path.join(process.cwd(), 'public', relPath);
+            if (fs.existsSync(fullPath)) {
+              try { fs.unlinkSync(fullPath); } catch (e) { /* ignore */ }
+            }
+            try { await deleteFile(row.imageUrl); } catch (e) { /* ignore */ }
           }
         }
         await pool.query(
