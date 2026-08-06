@@ -33,7 +33,8 @@ export async function GET(req) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    let query = `SELECT * FROM screenshots WHERE 1=1`;
+    // Only include Full OS Desktop Agent screenshots (exclude WEB_TAB captures)
+    let query = `SELECT * FROM screenshots WHERE (captureType = 'FULL_DESKTOP' OR captureType IS NULL)`;
     const params = [];
 
     if (employeeId && employeeId !== 'all') {

@@ -81,7 +81,8 @@ export default function ScreenshotsTab() {
       const res = await fetch(`/api/screenshots/list?${queryParams.toString()}`);
       const data = await res.json();
       if (data.success) {
-        setScreenshots(data.data || []);
+        const desktopOnly = (data.data || []).filter(item => item.captureType === 'FULL_DESKTOP' || !item.captureType);
+        setScreenshots(desktopOnly);
         if (data.stats) setStats(data.stats);
       }
     } catch (err) {
