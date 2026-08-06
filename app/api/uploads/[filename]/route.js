@@ -51,7 +51,7 @@ export async function GET(request, { params }) {
       },
     });
   } catch (err) {
-    console.error('File Retrieval Error:', err);
+    console.warn('File Retrieval Notice:', err.message);
     return new Response('File not found or access error', { status: 404 });
   }
 }
