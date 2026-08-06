@@ -7,6 +7,27 @@ import {
   FiChevronDown, FiChevronUp
 } from 'react-icons/fi';
 
+// Image load error fallback handler
+function handleImageError(e, rawUrl) {
+  if (!e || !e.currentTarget || !rawUrl) return;
+  const currentSrc = e.currentTarget.src || '';
+  const fileName = rawUrl.split('/').pop();
+  if (!fileName) return;
+
+  // Prevent infinite loop
+  const count = parseInt(e.currentTarget.getAttribute('data-retry-count') || '0', 10);
+  if (count >= 3) return;
+  e.currentTarget.setAttribute('data-retry-count', (count + 1).toString());
+
+  if (count === 0 && !currentSrc.includes('storage.flymediatech.com/uploads/screenshots/')) {
+    e.currentTarget.src = `https://storage.flymediatech.com/uploads/screenshots/${fileName}`;
+  } else if (count === 1 && !currentSrc.includes('storage.flymediatech.com/uploads/')) {
+    e.currentTarget.src = `https://storage.flymediatech.com/uploads/${fileName}`;
+  } else {
+    e.currentTarget.src = `/api/uploads/${fileName}`;
+  }
+}
+
 export default function ScreenshotsTab() {
   const [screenshots, setScreenshots] = useState([]);
   const [employeesList, setEmployeesList] = useState([]);
@@ -575,6 +596,7 @@ export default function ScreenshotsTab() {
                 <img
                   src={inspectModal.data.imageUrl}
                   alt="Full Screen Capture"
+                  onError={(e) => handleImageError(e, inspectModal.data.imageUrl)}
                   style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
                 />
               </div>
@@ -689,6 +711,7 @@ function ScreenshotCard({ item, showEmployeeHeader, onInspect, onDelete }) {
         <img
           src={item.imageUrl}
           alt="Activity capture"
+          onError={(e) => handleImageError(e, item.imageUrl)}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
 

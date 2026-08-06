@@ -173,6 +173,11 @@ export async function downloadFile(filename, subfolder = '') {
   const safeFilename = basename(filename);
   const provider = process.env.STORAGE_PROVIDER || 'local';
 
+  // Auto-detect screenshots subfolder if filename starts with scr_
+  if (!subfolder && safeFilename.startsWith('scr_')) {
+    subfolder = 'screenshots';
+  }
+
   if (provider === 'sftp') {
     const sftp = new Client();
     try {
@@ -184,8 +189,19 @@ export async function downloadFile(filename, subfolder = '') {
         remoteDir = `${remoteDir.replace(/\/$/, '')}/${subfolder.replace(/^\//, '')}`;
       }
 
-      const remoteFilePath = `${remoteDir.replace(/\/$/, '')}/${safeFilename}`;
-      const fileExists = await sftp.exists(remoteFilePath);
+      let remoteFilePath = `${remoteDir.replace(/\/$/, '')}/${safeFilename}`;
+      let fileExists = await sftp.exists(remoteFilePath);
+
+      // Check root remote uploads directory as fallback if subfolder check failed
+      if (!fileExists && subfolder) {
+        const rootDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
+        const rootPath = `${rootDir.replace(/\/$/, '')}/${safeFilename}`;
+        if (await sftp.exists(rootPath)) {
+          remoteFilePath = rootPath;
+          fileExists = true;
+        }
+      }
+
       if (!fileExists) {
         throw new Error('File not found on remote SFTP storage.');
       }
@@ -197,11 +213,18 @@ export async function downloadFile(filename, subfolder = '') {
     }
   } else {
     // Local storage fallback
-    const localFilePath = subfolder 
-      ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''), safeFilename)
-      : join(process.cwd(), 'uploads', safeFilename);
+    const targetDir = subfolder 
+      ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''))
+      : join(process.cwd(), 'uploads');
       
-    return await fs.readFile(localFilePath);
+    const localFilePath = join(targetDir, safeFilename);
+    try {
+      return await fs.readFile(localFilePath);
+    } catch (err) {
+      // Fallback to public/uploads/ or uploads/ root
+      const rootPath = join(process.cwd(), 'public', 'uploads', safeFilename);
+      return await fs.readFile(rootPath);
+    }
   }
 }
 
