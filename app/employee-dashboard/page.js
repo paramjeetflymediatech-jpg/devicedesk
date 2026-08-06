@@ -52,6 +52,57 @@ export default function OverviewPage() {
         {/* Quick Attendance Widget */}
         <AttendanceWidget user={user} />
 
+        {/* Windows Desktop Agent Download Banner */}
+        <div style={{
+          backgroundColor: "var(--card-bg, #ffffff)",
+          border: "1px solid var(--glass-border, #e2e8f0)",
+          borderRadius: "14px",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "16px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.03)"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            <div style={{ width: "42px", height: "42px", borderRadius: "12px", backgroundColor: "#2563eb", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.3rem" }}>
+              💻
+            </div>
+            <div>
+              <h4 style={{ margin: 0, fontSize: "0.98rem", fontWeight: "800", color: "var(--text-primary, #0f172a)" }}>
+                Download DeviceDesk Windows Desktop Agent (.exe)
+              </h4>
+              <p style={{ margin: "2px 0 0 0", fontSize: "0.82rem", color: "var(--text-secondary, #64748b)" }}>
+                Install once to keep full desktop screen monitoring running automatically in your Windows System Tray.
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="/download/DeviceDeskAgent-Setup.exe"
+            download="DeviceDeskAgent-Setup.exe"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              backgroundColor: "#2563eb",
+              color: "#ffffff",
+              textDecoration: "none",
+              padding: "9px 18px",
+              borderRadius: "10px",
+              fontWeight: "800",
+              fontSize: "0.85rem",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: "0 4px 12px rgba(37,99,235,0.3)",
+              cursor: "pointer"
+            }}
+          >
+            📥 Download Windows Agent (.exe)
+          </a>
+        </div>
+
         <div className="emp-overview-grid">
           {/* Active System Details */}
           <div className="emp-card">
