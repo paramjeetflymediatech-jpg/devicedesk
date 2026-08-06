@@ -137,10 +137,26 @@ export default function ScreenshotsTab() {
     setCollapsedGroups(map);
   };
 
-  // Delete Screenshot Handler
+  // Delete Screenshot Handler with SweetAlert2
   const handleDelete = async (id, e) => {
     if (e) e.stopPropagation();
-    if (!confirm('Are you sure you want to delete this activity screenshot?')) return;
+
+    const result = await Swal.fire({
+      title: 'Delete Screenshot?',
+      text: 'Are you sure you want to delete this activity screenshot?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'swal2-rounded-modal'
+      }
+    });
+
+    if (!result.isConfirmed) return;
 
     try {
       const res = await fetch(`/api/screenshots/delete?id=${id}`, { method: 'DELETE' });
@@ -150,15 +166,36 @@ export default function ScreenshotsTab() {
         if (inspectModal.data?.id === id) {
           setInspectModal({ open: false, data: null });
         }
+        Swal.fire({
+          icon: 'success',
+          title: 'Deleted!',
+          text: 'Activity screenshot has been deleted.',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      } else {
+        Swal.fire('Error', data.error || 'Failed to delete screenshot', 'error');
       }
     } catch (err) {
-      alert('Failed to delete screenshot: ' + err.message);
+      Swal.fire('Error', 'Failed to delete screenshot: ' + err.message, 'error');
     }
   };
 
-  // Delete All Screenshots Handler
+  // Delete All Screenshots Handler with SweetAlert2
   const handleDeleteAll = async () => {
-    if (!confirm('⚠️ WARNING: Are you sure you want to PERMANENTLY DELETE ALL activity screenshots and image files from the server? This action cannot be undone.')) return;
+    const result = await Swal.fire({
+      title: 'Delete All Screenshots?',
+      text: '⚠️ WARNING: Are you sure you want to PERMANENTLY DELETE ALL activity screenshots and image files from the server? This action cannot be undone!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete Everything!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true
+    });
+
+    if (!result.isConfirmed) return;
 
     try {
       setLoading(true);
@@ -168,10 +205,18 @@ export default function ScreenshotsTab() {
         setScreenshots([]);
         setStats(prev => ({ ...prev, todayCaptures: 0, todayMonitoredEmployees: 0 }));
         if (inspectModal.open) setInspectModal({ open: false, data: null });
-        alert('All screenshots have been permanently deleted from the server!');
+        Swal.fire({
+          icon: 'success',
+          title: 'All Screenshots Purged!',
+          text: 'All activity screenshots have been permanently deleted.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } else {
+        Swal.fire('Error', data.error || 'Failed to delete all screenshots', 'error');
       }
     } catch (err) {
-      alert('Failed to delete all screenshots: ' + err.message);
+      Swal.fire('Error', 'Failed to delete all screenshots: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
