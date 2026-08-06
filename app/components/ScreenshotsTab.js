@@ -186,14 +186,15 @@ export default function ScreenshotsTab() {
   const handleDeleteAll = async () => {
     const result = await Swal.fire({
       title: 'Delete All Screenshots?',
-      text: '⚠️ WARNING: Are you sure you want to PERMANENTLY DELETE ALL activity screenshots and image files from the server? This action cannot be undone!',
+      text: 'WARNING: Are you sure you want to PERMANENTLY DELETE ALL activity screenshots and image files from the server? This action cannot be undone.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#dc2626',
       cancelButtonColor: '#64748b',
-      confirmButtonText: 'Yes, Delete Everything!',
+      confirmButtonText: 'Yes, Delete All!',
       cancelButtonText: 'Cancel',
-      reverseButtons: true
+      reverseButtons: true,
+      focusCancel: true
     });
 
     if (!result.isConfirmed) return;
