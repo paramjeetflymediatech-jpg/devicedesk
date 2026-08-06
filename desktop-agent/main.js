@@ -1,5 +1,6 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } = require('electron');
 const path = require('path');
+const os = require('os');
 const screenshot = require('screenshot-desktop');
 const axios = require('axios');
 const Store = require('electron-store');
@@ -10,7 +11,7 @@ let mainWindow = null;
 let tray = null;
 let captureTimer = null;
 
-// Initialize AutoLaunch for Windows Startup
+// Initialize AutoLaunch for System Startup (Windows, Linux, Mac)
 const agentAutoLauncher = new AutoLaunch({
   name: 'DeviceDeskAgent',
   path: process.execPath,
@@ -60,7 +61,6 @@ function createWindow() {
 }
 
 function createTray() {
-  // Use a simple built-in native icon fallback if ico file is missing
   let iconPath = path.join(__dirname, 'assets', 'icon.png');
   let trayIcon = nativeImage.createFromPath(iconPath);
   if (trayIcon.isEmpty()) {
@@ -68,7 +68,7 @@ function createTray() {
   }
 
   tray = new Tray(trayIcon);
-  tray.setToolTip('DeviceDesk Agent - Desktop Screen Logger');
+  tray.setToolTip('DeviceDesk Agent - Automated Desktop Logger');
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -86,7 +86,7 @@ function createTray() {
       }
     },
     {
-      label: '📸 Take Manual Capture Now',
+      label: '📸 Take Instant Capture Now',
       click: () => {
         captureAndUpload();
       }
@@ -111,13 +111,35 @@ function createTray() {
   });
 }
 
+// Get Active Configuration with automatic OS Fallback (Ensures agent captures instantly on ANY system)
+function getActiveConfig() {
+  const config = store.get('config') || {};
+  const osUser = os.userInfo() ? os.userInfo().username : 'employee';
+  const osHost = os.hostname() || 'desktop';
+
+  const employeeId = config.employeeId || osUser;
+  const employeeName = config.employeeName || osUser;
+  const department = config.department || 'General';
+  const systemNumber = config.systemNumber || osHost;
+
+  let serverUrl = config.serverUrl || 'https://devicedesk.flymediatech.com';
+  if (!serverUrl || serverUrl.includes('localhost')) {
+    serverUrl = 'https://devicedesk.flymediatech.com';
+  }
+
+  return {
+    employeeId,
+    employeeName,
+    department,
+    systemNumber,
+    serverUrl,
+    isConfigured: !!config.isConfigured
+  };
+}
+
 // Screenshot Capture & Upload Engine
 async function captureAndUpload() {
-  const config = store.get('config');
-  if (!config || !config.employeeId || !config.serverUrl) {
-    console.log('DeviceDesk Agent: Waiting for employee configuration...');
-    return;
-  }
+  const config = getActiveConfig();
 
   try {
     // 1. Capture Full Multi-Monitor OS Desktop Screen
@@ -128,20 +150,20 @@ async function captureAndUpload() {
     const targetUrl = `${config.serverUrl.replace(/\/$/, '')}/api/screenshots/upload`;
 
     // 2. Upload to DeviceDesk Backend API
-    await axios.post(targetUrl, {
+    const response = await axios.post(targetUrl, {
       employeeId: config.employeeId,
-      employeeName: config.employeeName || 'Employee',
-      department: config.department || 'General',
+      employeeName: config.employeeName,
+      department: config.department,
       base64Image: base64Image,
       captureType: 'FULL_DESKTOP',
-      systemNumber: config.systemNumber || 'DESKTOP-AGENT',
+      systemNumber: config.systemNumber,
       activityScore: 98
     }, {
       timeout: 30000,
       headers: { 'Content-Type': 'application/json' }
     });
 
-    console.log(`[${new Date().toLocaleTimeString()}] Desktop Screenshot uploaded successfully for ${config.employeeName} (${config.employeeId})`);
+    console.log(`[${new Date().toLocaleTimeString()}] Screenshot uploaded successfully for ${config.employeeName} (${config.employeeId}) -> ${config.serverUrl}`);
   } catch (err) {
     console.warn(`[${new Date().toLocaleTimeString()}] Agent upload warning:`, err.message);
   }
@@ -149,7 +171,7 @@ async function captureAndUpload() {
 
 // IPC Handlers for Settings UI
 ipcMain.on('get-config', (event) => {
-  const config = store.get('config') || {};
+  const config = getActiveConfig();
   event.reply('config-data', config);
 });
 
@@ -157,7 +179,8 @@ ipcMain.on('save-config', (event, config) => {
   store.set('config', { ...config, isConfigured: true });
   console.log('Employee configuration updated:', config.employeeId);
   
-  // Restart capture loop with new settings
+  // Trigger immediate capture and restart loop
+  captureAndUpload();
   startCaptureTimer();
 });
 
@@ -171,7 +194,7 @@ function startCaptureTimer() {
   // Immediate capture after 5 seconds
   setTimeout(captureAndUpload, 5000);
 
-  // Capture every 3 minutes (180,000 ms)
+  // Periodic capture loop every 3 minutes (180,000 ms)
   captureTimer = setInterval(captureAndUpload, 180000);
 }
 
@@ -179,10 +202,11 @@ app.on('ready', () => {
   createWindow();
   createTray();
 
-  // Always show configuration setup window when launched
+  // Show setup window on launch
   mainWindow.show();
   mainWindow.focus();
 
+  // Start automated monitoring immediately
   startCaptureTimer();
 });
 
