@@ -26,6 +26,20 @@ export default function OverviewPage() {
   const [showRedownload, setShowRedownload] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    refreshData();
+  }, []);
+
+  // Listen for database changes to keep sync
+  useEffect(() => {
+    const handleSync = () => {
+      refreshData();
+    };
+    window.addEventListener("devicedesk_db_synced", handleSync);
+    return () => window.removeEventListener("devicedesk_db_synced", handleSync);
+  }, []);
+
+  useEffect(() => {
     async function checkAgentStatus() {
       if (!user) return;
       try {
