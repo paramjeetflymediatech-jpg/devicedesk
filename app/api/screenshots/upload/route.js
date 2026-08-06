@@ -64,27 +64,30 @@ export async function POST(req) {
     const screenshotId = uuidv4();
     const fileName = `scr_${employeeId}_${Date.now()}_${screenshotId.slice(0, 8)}.${fileExtension}`;
 
-    // 1. Ensure local public/uploads/screenshots directory exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'screenshots');
+    // 1. Ensure local public/uploads/devicedesk/screenshots directory exists
+    const subfolderPath = path.join('devicedesk', 'screenshots');
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', subfolderPath);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    // 2. Save image binary directly to public/uploads/screenshots/ for devicedesk.flymediatech.com route
+    // 2. Save image binary directly to public/uploads/devicedesk/screenshots/
     const filePath = path.join(uploadDir, fileName);
     await fs.promises.writeFile(filePath, fileBuffer);
 
-    // 3. Optionally sync to remote SFTP if configured
+    // 3. Sync to remote SFTP if configured
+    let imageUrl = `/uploads/devicedesk/screenshots/${fileName}`;
     try {
       if (process.env.STORAGE_PROVIDER === 'sftp') {
-        await uploadFile(fileBuffer, fileName, 'screenshots');
+        const sftpUrl = await uploadFile(fileBuffer, fileName, 'devicedesk/screenshots');
+        if (sftpUrl) imageUrl = sftpUrl;
+      } else if (process.env.WHM_SFTP_BASE_URL) {
+        const cleanBase = process.env.WHM_SFTP_BASE_URL.replace(/\/$/, '');
+        imageUrl = `${cleanBase}/devicedesk/screenshots/${fileName}`;
       }
     } catch (sftpErr) {
       console.warn('SFTP sync notice:', sftpErr.message);
     }
-
-    // Public route on devicedesk.flymediatech.com
-    const imageUrl = `/uploads/screenshots/${fileName}`;
 
     // 4. Ensure screenshots table exists dynamically
     await pool.query(`

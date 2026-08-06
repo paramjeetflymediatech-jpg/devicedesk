@@ -175,7 +175,7 @@ export async function downloadFile(filename, subfolder = '') {
 
   // Auto-detect screenshots subfolder if filename starts with scr_
   if (!subfolder && safeFilename.startsWith('scr_')) {
-    subfolder = 'screenshots';
+    subfolder = 'devicedesk/screenshots';
   }
 
   if (provider === 'sftp') {
@@ -192,10 +192,27 @@ export async function downloadFile(filename, subfolder = '') {
       let remoteFilePath = `${remoteDir.replace(/\/$/, '')}/${safeFilename}`;
       let fileExists = await sftp.exists(remoteFilePath);
 
-      // Check root remote uploads directory as fallback if subfolder check failed
-      if (!fileExists && subfolder) {
-        const rootDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
-        const rootPath = `${rootDir.replace(/\/$/, '')}/${safeFilename}`;
+      // Fallback Check 1: devicedesk/screenshots subfolder
+      if (!fileExists) {
+        const deviceDeskPath = `${(process.env.WHM_SFTP_REMOTE_PATH || '/uploads').replace(/\/$/, '')}/devicedesk/screenshots/${safeFilename}`;
+        if (await sftp.exists(deviceDeskPath)) {
+          remoteFilePath = deviceDeskPath;
+          fileExists = true;
+        }
+      }
+
+      // Fallback Check 2: legacy screenshots subfolder
+      if (!fileExists) {
+        const screenshotsPath = `${(process.env.WHM_SFTP_REMOTE_PATH || '/uploads').replace(/\/$/, '')}/screenshots/${safeFilename}`;
+        if (await sftp.exists(screenshotsPath)) {
+          remoteFilePath = screenshotsPath;
+          fileExists = true;
+        }
+      }
+
+      // Fallback Check 3: root uploads directory
+      if (!fileExists) {
+        const rootPath = `${(process.env.WHM_SFTP_REMOTE_PATH || '/uploads').replace(/\/$/, '')}/${safeFilename}`;
         if (await sftp.exists(rootPath)) {
           remoteFilePath = rootPath;
           fileExists = true;
@@ -203,7 +220,7 @@ export async function downloadFile(filename, subfolder = '') {
       }
 
       if (!fileExists) {
-        throw new Error('File not found on remote SFTP storage.');
+        throw new Error(`File '${safeFilename}' not found on remote SFTP storage.`);
       }
 
       const fileBuffer = await sftp.get(remoteFilePath);

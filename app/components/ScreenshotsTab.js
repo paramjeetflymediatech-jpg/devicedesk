@@ -19,9 +19,11 @@ function handleImageError(e, rawUrl) {
   if (count >= 3) return;
   e.currentTarget.setAttribute('data-retry-count', (count + 1).toString());
 
-  if (count === 0 && !currentSrc.includes('storage.flymediatech.com/uploads/screenshots/')) {
+  if (count === 0 && !currentSrc.includes('storage.flymediatech.com/uploads/devicedesk/screenshots/')) {
+    e.currentTarget.src = `https://storage.flymediatech.com/uploads/devicedesk/screenshots/${fileName}`;
+  } else if (count === 1 && !currentSrc.includes('storage.flymediatech.com/uploads/screenshots/')) {
     e.currentTarget.src = `https://storage.flymediatech.com/uploads/screenshots/${fileName}`;
-  } else if (count === 1 && !currentSrc.includes('storage.flymediatech.com/uploads/')) {
+  } else if (count === 2 && !currentSrc.includes('storage.flymediatech.com/uploads/')) {
     e.currentTarget.src = `https://storage.flymediatech.com/uploads/${fileName}`;
   } else {
     e.currentTarget.src = `/api/uploads/${fileName}`;
