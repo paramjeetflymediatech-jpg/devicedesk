@@ -6,14 +6,16 @@
   <title>DeviceDesk Agent Setup</title>
   <style>
     :root {
-      --bg: #0f172a;
-      --card-bg: #1e293b;
+      --bg: #0b0f19;
+      --card-bg: #151d30;
+      --card-border: #23314d;
       --accent: #2563eb;
       --accent-hover: #1d4ed8;
+      --accent-purple: #7c3aed;
       --text: #f8fafc;
       --text-secondary: #94a3b8;
-      --border: #334155;
-      --success: #16a34a;
+      --border: #2a3a5c;
+      --success: #22c55e;
     }
 
     * {
@@ -26,192 +28,332 @@
     body {
       background-color: var(--bg);
       color: var(--text);
-      padding: 24px;
+      padding: 20px;
       height: 100vh;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       user-select: none;
+      overflow: hidden;
     }
 
-    .header {
+    /* Top Logo & Header Area */
+    .header-banner {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(124, 58, 237, 0.15));
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 14px 16px;
       display: flex;
       align-items: center;
-      gap: 12px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 16px;
+      gap: 14px;
+      margin-bottom: 16px;
     }
 
-    .logo {
-      width: 38px;
-      height: 38px;
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      border-radius: 10px;
+    .logo-container {
+      width: 46px;
+      height: 46px;
+      background-color: #ffffff;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.4rem;
+      padding: 4px;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+      flex-shrink: 0;
+    }
+
+    .logo-img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
     }
 
     .title-area h2 {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .title-area p {
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       color: var(--text-secondary);
       margin-top: 2px;
     }
 
+    .badge-tag {
+      background-color: rgba(37, 99, 235, 0.2);
+      color: #60a5fa;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(96, 165, 250, 0.3);
+    }
+
+    /* Form Inputs */
+    .form-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
     .form-group {
-      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
     label {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 700;
+      font-size: 0.72rem;
+      font-weight: 800;
       color: var(--text-secondary);
-      margin-bottom: 6px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.85rem;
+      color: #64748b;
     }
 
     input, select {
       width: 100%;
-      padding: 10px 14px;
+      padding: 9px 12px 9px 32px;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background-color: var(--card-bg);
+      background-color: #0b0f19;
       color: var(--text);
-      font-size: 0.88rem;
+      font-size: 0.85rem;
+      font-weight: 600;
       outline: none;
-      transition: border-color 0.2s;
+      transition: all 0.2s ease;
     }
 
     input:focus, select:focus {
       border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
     }
 
+    /* Status Badge */
     .status-badge {
       display: flex;
       align-items: center;
-      gap: 8px;
-      background-color: rgba(22, 163, 74, 0.15);
-      border: 1px solid rgba(22, 163, 74, 0.3);
+      justify-content: space-between;
+      background-color: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
       color: #4ade80;
       padding: 8px 12px;
       border-radius: 8px;
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       font-weight: 700;
-      margin-top: 14px;
     }
 
-    .dot {
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pulse-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background-color: #16a34a;
-      box-shadow: 0 0 8px #16a34a;
+      background-color: var(--success);
+      box-shadow: 0 0 10px var(--success);
+      animation: pulse 2s infinite;
     }
 
-    .btn {
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    /* Primary Buttons */
+    .btn-primary {
       width: 100%;
-      padding: 12px;
-      border-radius: 8px;
+      padding: 11px;
+      border-radius: 10px;
       border: none;
-      background-color: var(--accent);
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
       color: #ffffff;
       font-weight: 800;
       font-size: 0.88rem;
       cursor: pointer;
-      transition: background-color 0.2s;
-      margin-top: 16px;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+      transition: all 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
     }
 
-    .btn:hover {
-      background-color: var(--accent-hover);
+    .btn-primary:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
     }
 
-    .footer-text {
-      text-align: center;
-      font-size: 0.72rem;
+    .btn-secondary {
+      width: 100%;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background-color: #0b0f19;
       color: var(--text-secondary);
-      margin-top: 12px;
+      font-weight: 700;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 6px;
+    }
+
+    .btn-secondary:hover {
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    /* Footer */
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    .security-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #64748b;
     }
   </style>
 </head>
 <body>
 
   <div>
-    <div class="header">
-      <div class="logo">💻</div>
+    <!-- Header Banner with Company Logo -->
+    <div class="header-banner">
+      <div class="logo-container">
+        <img src="assets/logo.png" alt="FlyMedia Logo" class="logo-img" onerror="this.src='../public/flymedia-logo-white.png'" />
+      </div>
       <div class="title-area">
-        <h2>DeviceDesk Agent</h2>
+        <h2>
+          DeviceDesk Agent
+          <span class="badge-tag">v1.0</span>
+        </h2>
         <p>Automated OS Desktop Activity Logger</p>
       </div>
     </div>
 
+    <!-- Configuration Form -->
     <form id="configForm">
-      <div class="form-group">
-        <label for="employeeId">Employee ID / Email</label>
-        <input type="text" id="employeeId" placeholder="e.g. EMP-102 or aman@flymedia.com" required />
-      </div>
-
-      <div class="form-group">
-        <label for="employeeName">Full Name</label>
-        <input type="text" id="employeeName" placeholder="e.g. Amandeep" required />
-      </div>
-
-      <div style="display: flex; gap: 10px;">
-        <div class="form-group" style="flex: 1;">
-          <label for="department">Department</label>
-          <select id="department">
-            <option value="Development">Development</option>
-            <option value="Design">Design</option>
-            <option value="QA">QA</option>
-            <option value="Operations">Operations</option>
-            <option value="IT Support">IT Support</option>
-            <option value="HR">HR</option>
-            <option value="Sales">Sales</option>
-          </select>
+      <div class="form-card">
+        
+        <div class="form-group">
+          <label for="employeeId">👤 Employee ID / Email</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🆔</span>
+            <input type="text" id="employeeId" placeholder="e.g. EMP-102 or aman@flymedia.com" required />
+          </div>
         </div>
 
-        <div class="form-group" style="flex: 1;">
-          <label for="systemNumber">System Tag</label>
-          <input type="text" id="systemNumber" placeholder="e.g. SN31" value="SN-DESKTOP" />
+        <div class="form-group">
+          <label for="employeeName">🏷️ Full Employee Name</label>
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <input type="text" id="employeeName" placeholder="e.g. Amandeep" required />
+          </div>
         </div>
-      </div>
 
-      <div class="form-group">
-        <label for="serverUrl">DeviceDesk Server URL</label>
-        <input type="text" id="serverUrl" value="https://devicedesk.flymediatech.com" required />
-      </div>
+        <div style="display: flex; gap: 10px;">
+          <div class="form-group" style="flex: 1;">
+            <label for="department">🏢 Department</label>
+            <div class="input-wrapper">
+              <span class="input-icon">💼</span>
+              <select id="department" style="padding-left: 28px;">
+                <option value="Development">Development</option>
+                <option value="Design">Design</option>
+                <option value="QA">QA</option>
+                <option value="Operations">Operations</option>
+                <option value="IT Support">IT Support</option>
+                <option value="HR">HR</option>
+                <option value="Sales">Sales</option>
+              </select>
+            </div>
+          </div>
 
-      <div class="status-badge" id="statusBadge" style="display: none;">
-        <div class="dot"></div>
-        <span id="statusText">Active: Full Desktop Screenshots Logging</span>
-      </div>
+          <div class="form-group" style="flex: 1;">
+            <label for="systemNumber">💻 System Tag</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🏷️</span>
+              <input type="text" id="systemNumber" placeholder="e.g. SN31" value="SN-DESKTOP" />
+            </div>
+          </div>
+        </div>
 
-      <button type="submit" class="btn" id="saveBtn">
-        <span>💾</span> Save & Start Background Agent
-      </button>
+        <div class="form-group">
+          <label for="serverUrl">🌐 Server Endpoint URL</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔗</span>
+            <input type="text" id="serverUrl" value="https://devicedesk.flymediatech.com" required />
+          </div>
+        </div>
+
+        <!-- Live Status Badge -->
+        <div class="status-badge" id="statusBadge" style="display: none;">
+          <div class="status-left">
+            <div class="pulse-dot"></div>
+            <span id="statusText">Active: Full Desktop Screenshots Logging</span>
+          </div>
+          <span style="font-size: 0.68rem; color: #86efac;">Every 3m</span>
+        </div>
+
+        <!-- Save Action -->
+        <button type="submit" class="btn-primary" id="saveBtn">
+          <span>💾</span> Save & Start Background Agent
+        </button>
+
+        <button type="button" class="btn-secondary" id="testCaptureBtn">
+          📸 Take Instant Test Screenshot
+        </button>
+
+      </div>
     </form>
   </div>
 
-  <div class="footer-text">
-    Runs silently in Windows System Tray at startup.
+  <!-- Footer -->
+  <div class="footer">
+    <div class="security-badge">
+      <span>🔒</span> 256-bit Encrypted API
+    </div>
+    <span>Windows System Tray Agent</span>
   </div>
 
   <script>
     const { ipcRenderer } = require('electron');
 
-    // Load existing config on startup
+    // Request stored config on window open
     ipcRenderer.send('get-config');
 
     ipcRenderer.on('config-data', (event, config) => {
@@ -245,6 +387,17 @@
       setTimeout(() => {
         ipcRenderer.send('hide-window');
       }, 1200);
+    });
+
+    document.getElementById('testCaptureBtn').addEventListener('click', () => {
+      document.getElementById('testCaptureBtn').innerText = '⏳ Capturing...';
+      ipcRenderer.send('trigger-test-capture');
+      setTimeout(() => {
+        document.getElementById('testCaptureBtn').innerText = '✅ Screenshot Sent!';
+        setTimeout(() => {
+          document.getElementById('testCaptureBtn').innerText = '📸 Take Instant Test Screenshot';
+        }, 2000);
+      }, 1500);
     });
   </script>
 </body>
