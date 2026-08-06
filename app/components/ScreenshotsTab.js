@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
+import Swal from 'sweetalert2';
 import {
   FiSearch, FiFilter, FiCalendar, FiUser, FiTv, FiTrash2,
   FiDownload, FiEye, FiClock, FiGrid, FiList, FiRefreshCw,
@@ -54,7 +55,7 @@ export default function ScreenshotsTab() {
   useEffect(() => {
     async function loadFilterOptions() {
       try {
-        const empRes = await fetch('/api/employees/list');
+        const empRes = await fetch('/api/employees');
         const empData = await empRes.json();
         if (empData.success && Array.isArray(empData.data)) {
           setEmployeesList(empData.data);
