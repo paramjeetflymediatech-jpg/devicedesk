@@ -2178,7 +2178,7 @@ export default function Home() {
         
         <nav style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <ul className="nav-links">
-            {userRole === "admin" && (
+            {['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin', 'team leader'].includes((userRole || '').toLowerCase()) && (
               <>
                 <li className={`nav-item ${currentView === "dashboard" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("dashboard")}><span className="nav-icon"><FiGrid /></span> Dashboard</button>
@@ -2277,7 +2277,7 @@ export default function Home() {
         </div>
 
         <nav className="mobile-drawer-nav">
-          {userRole === "admin" && (
+          {['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin', 'team leader'].includes((userRole || '').toLowerCase()) && (
             <>
               <button className={`mobile-drawer-item ${currentView === "dashboard" ? "active" : ""}`}
                 onClick={() => { setCurrentView("dashboard"); setMobileMenuOpen(false); }}>

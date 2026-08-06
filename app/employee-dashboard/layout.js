@@ -85,16 +85,18 @@ export default function EmployeeLayout({ children }) {
     return () => window.removeEventListener("click", enableAudio);
   }, []);
 
+  const isManagerRole = ['admin', 'management', 'hr', 'it support', 'it_support', 'it', 'superadmin'].includes((user?.role || '').toLowerCase());
+
   // Auth & role check
   useEffect(() => {
     if (mounted) {
       if (!user) {
         router.push("/login");
-      } else if (user.role === "admin") {
+      } else if (isManagerRole) {
         router.push("/");
       }
     }
-  }, [user, mounted, router]);
+  }, [user, mounted, router, isManagerRole]);
 
   // Handle body click to close profile dropdown
   useEffect(() => {
@@ -105,7 +107,7 @@ export default function EmployeeLayout({ children }) {
     return () => window.removeEventListener("click", handleBodyClick);
   }, []);
 
-  if (!mounted || !user || user.role === "admin") {
+  if (!mounted || !user || isManagerRole) {
     return null;
   }
 

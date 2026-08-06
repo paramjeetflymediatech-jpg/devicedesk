@@ -33,7 +33,8 @@ export default function LoginPage() {
 
       if (data.success) {
         login(data.user);
-        if (data.user.role === 'admin') {
+        const isManager = ['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin'].includes((data.user.role || '').toLowerCase());
+        if (isManager) {
           router.push('/');
         } else {
           router.push('/employee-dashboard');

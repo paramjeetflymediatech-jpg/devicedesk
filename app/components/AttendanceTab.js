@@ -5,7 +5,8 @@ import AttendanceWidget from "./AttendanceWidget";
 import { FiDownload, FiPlus, FiX } from "react-icons/fi";
 
 export default function AttendanceTab({ user }) {
-  const isAdmin = user?.role?.toLowerCase() === "admin" || user?.role?.toLowerCase() === "management";
+  const userRole = user?.role?.toLowerCase() || '';
+  const isAdmin = ['admin', 'management', 'hr', 'it support', 'it_support', 'it', 'team leader'].includes(userRole);
 
   const [records, setRecords] = useState([]);
   const [summary, setSummary] = useState(null);
