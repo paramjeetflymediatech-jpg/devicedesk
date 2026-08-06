@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { getSystems, getTickets, getEmployees, getAssignmentHistory } from "../store";
 import AttendanceWidget from "../components/AttendanceWidget.js";
 import { FiMonitor, FiPieChart, FiRefreshCw, FiAlertTriangle } from "react-icons/fi";
+import { FaWindows, FaUbuntu, FaApple } from "react-icons/fa";
 
 export default function OverviewPage() {
   const { user } = useAuth();
@@ -115,7 +116,7 @@ export default function OverviewPage() {
                 boxShadow: "0 2px 8px rgba(37,99,235,0.3)"
               }}
             >
-              🪟 Windows (.exe)
+              <FaWindows style={{ fontSize: "1rem" }} /> Windows (.exe)
             </a>
 
             <a
@@ -138,7 +139,7 @@ export default function OverviewPage() {
                 boxShadow: "0 2px 8px rgba(224,82,6,0.3)"
               }}
             >
-              🍥 Ubuntu (.deb)
+              <FaUbuntu style={{ fontSize: "1rem" }} /> Ubuntu (.deb)
             </a>
 
             <a
@@ -148,8 +149,8 @@ export default function OverviewPage() {
               rel="noreferrer"
               title="Download for macOS"
               style={{
-                backgroundColor: "#f1f5f9",
-                color: "#0f172a",
+                backgroundColor: "#0f172a",
+                color: "#ffffff",
                 textDecoration: "none",
                 padding: "8px 14px",
                 borderRadius: "10px",
@@ -158,10 +159,10 @@ export default function OverviewPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
-                border: "1px solid #cbd5e1"
+                boxShadow: "0 2px 8px rgba(15,23,42,0.3)"
               }}
             >
-              🍏 macOS (.dmg)
+              <FaApple style={{ fontSize: "1.05rem" }} /> macOS (.dmg)
             </a>
           </div>
         </div>

@@ -7,6 +7,7 @@ import {
   FiShield, FiCheckCircle, FiActivity, FiLayers, FiX, FiZoomIn,
   FiChevronDown, FiChevronUp
 } from 'react-icons/fi';
+import { FaWindows, FaUbuntu, FaApple } from 'react-icons/fa';
 
 // Image load error fallback handler
 function handleImageError(e, rawUrl) {
@@ -293,7 +294,7 @@ export default function ScreenshotsTab() {
             title="Download for Windows"
             style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(37,99,235,0.3)' }}
           >
-            🪟 Win (.exe)
+            <FaWindows style={{ fontSize: '0.95rem' }} /> Win (.exe)
           </a>
 
           <a
@@ -304,7 +305,7 @@ export default function ScreenshotsTab() {
             title="Download for Ubuntu / Debian Linux"
             style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#e05206', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(224,82,6,0.3)' }}
           >
-            🍥 Ubuntu (.deb)
+            <FaUbuntu style={{ fontSize: '0.95rem' }} /> Ubuntu (.deb)
           </a>
 
           <a
@@ -313,9 +314,9 @@ export default function ScreenshotsTab() {
             target="_blank"
             rel="noreferrer"
             title="Download for macOS"
-            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#f1f5f9', color: '#0f172a', fontWeight: '700', border: '1px solid #cbd5e1' }}
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#0f172a', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(15,23,42,0.3)' }}
           >
-            🍏 Mac (.dmg)
+            <FaApple style={{ fontSize: '1.05rem' }} /> Mac (.dmg)
           </a>
 
           <button
