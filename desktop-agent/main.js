@@ -156,7 +156,7 @@ function createTray() {
   });
 }
 
-// Get Active Configuration with automatic OS Fallback
+// Get Active Configuration with automatic OS Fallback & Dynamic Server URL Sanitization
 function getActiveConfig() {
   const config = loadConfig();
   const osUser = os.userInfo() ? os.userInfo().username : 'employee';
@@ -168,6 +168,10 @@ function getActiveConfig() {
   const systemNumber = config.systemNumber || osHost;
 
   let serverUrl = config.serverUrl || process.env.DEVICEDESK_SERVER_URL || 'https://devicedesk.flymediatech.com';
+  if (!serverUrl || serverUrl.includes('localhost') || serverUrl.includes('127.0.0.1')) {
+    serverUrl = 'https://devicedesk.flymediatech.com';
+  }
+  serverUrl = serverUrl.replace(/\/$/, '');
 
   return {
     employeeId,
@@ -177,6 +181,25 @@ function getActiveConfig() {
     serverUrl,
     isConfigured: !!config.isConfigured
   };
+}
+
+// Automatically register system on server startup
+async function registerAgentOnline() {
+  const config = getActiveConfig();
+  try {
+    const regUrl = `${config.serverUrl}/api/agent/register`;
+    await axios.post(regUrl, {
+      employeeId: config.employeeId,
+      employeeName: config.employeeName,
+      department: config.department,
+      systemNumber: config.systemNumber,
+      osPlatform: process.platform || 'windows',
+      serverUrl: config.serverUrl
+    }, { timeout: 15000 });
+    console.log(`[${new Date().toLocaleTimeString()}] Agent registered online for ${config.employeeName} (${config.employeeId})`);
+  } catch (e) {
+    console.warn(`[${new Date().toLocaleTimeString()}] Agent online registration notice:`, e.message);
+  }
 }
 
 // Screenshot Capture & Upload Engine (With high-performance image compression)
@@ -201,7 +224,7 @@ async function captureAndUpload() {
       base64Image = `data:image/jpeg;base64,${rawBuffer.toString('base64')}`;
     }
 
-    const targetUrl = `${config.serverUrl.replace(/\/$/, '')}/api/screenshots/upload`;
+    const targetUrl = `${config.serverUrl}/api/screenshots/upload`;
 
     // 3. Upload to DeviceDesk Backend API
     await axios.post(targetUrl, {
@@ -233,7 +256,8 @@ ipcMain.on('save-config', (event, config) => {
   saveConfig({ ...config, isConfigured: true });
   console.log('Employee configuration updated:', config.employeeId);
   
-  // Trigger immediate capture and restart loop
+  // Trigger immediate online registration & capture
+  registerAgentOnline();
   captureAndUpload();
   startCaptureTimer();
 });
@@ -262,7 +286,8 @@ app.whenReady().then(() => {
     mainWindow.focus();
   }
 
-  // Start automated monitoring immediately
+  // Register online and start monitoring
+  registerAgentOnline();
   startCaptureTimer();
 });
 

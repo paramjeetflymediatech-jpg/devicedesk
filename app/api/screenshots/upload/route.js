@@ -5,6 +5,17 @@ import fs from 'fs';
 import path from 'path';
 import { uploadFile, deleteFile } from '../../utils/storageManager.js';
 
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
+}
+
 export async function POST(req) {
   try {
     const pool = await getDbConnection();
