@@ -119,11 +119,34 @@ export default function OverviewPage() {
             </a>
 
             <a
+              href="/download/DeviceDeskAgent.deb"
+              download="DeviceDeskAgent.deb"
+              target="_blank"
+              rel="noreferrer"
+              title="Download for Ubuntu / Debian Linux (.deb)"
+              style={{
+                backgroundColor: "#e05206",
+                color: "#ffffff",
+                textDecoration: "none",
+                padding: "8px 14px",
+                borderRadius: "10px",
+                fontWeight: "700",
+                fontSize: "0.84rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 2px 8px rgba(224,82,6,0.3)"
+              }}
+            >
+              🍥 Ubuntu (.deb)
+            </a>
+
+            <a
               href="/download/DeviceDeskAgent.AppImage"
               download="DeviceDeskAgent.AppImage"
               target="_blank"
               rel="noreferrer"
-              title="Download for Linux (Ubuntu/Debian/Fedora)"
+              title="Download for Generic Linux (.AppImage)"
               style={{
                 backgroundColor: "#0f172a",
                 color: "#ffffff",

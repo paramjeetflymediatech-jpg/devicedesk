@@ -297,6 +297,17 @@ export default function ScreenshotsTab() {
           </a>
 
           <a
+            href="/download/DeviceDeskAgent.deb"
+            download="DeviceDeskAgent.deb"
+            target="_blank"
+            rel="noreferrer"
+            title="Download for Ubuntu / Debian Linux"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#e05206', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(224,82,6,0.3)' }}
+          >
+            🍥 Ubuntu (.deb)
+          </a>
+
+          <a
             href="/download/DeviceDeskAgent.AppImage"
             download="DeviceDeskAgent.AppImage"
             target="_blank"
