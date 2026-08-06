@@ -28,16 +28,20 @@
   "build": {
     "appId": "com.devicedesk.agent",
     "productName": "DeviceDeskAgent",
+    "directories": {
+      "output": "dist"
+    },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.png"
     },
     "nsis": {
       "oneClick": true,
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "DeviceDesk Agent"
+      "shortcutName": "DeviceDesk Agent",
+      "artifactName": "DeviceDeskAgent-Setup.exe"
     }
   }
 }
