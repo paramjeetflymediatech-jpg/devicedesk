@@ -308,17 +308,6 @@ export default function ScreenshotsTab() {
           </a>
 
           <a
-            href="/download/DeviceDeskAgent.AppImage"
-            download="DeviceDeskAgent.AppImage"
-            target="_blank"
-            rel="noreferrer"
-            title="Download for Linux"
-            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#0f172a', color: '#ffffff', fontWeight: '700', border: '1px solid #334155' }}
-          >
-            🐧 Linux (.AppImage)
-          </a>
-
-          <a
             href="/download/DeviceDeskAgent.dmg"
             download="DeviceDeskAgent.dmg"
             target="_blank"

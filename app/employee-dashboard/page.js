@@ -142,29 +142,6 @@ export default function OverviewPage() {
             </a>
 
             <a
-              href="/download/DeviceDeskAgent.AppImage"
-              download="DeviceDeskAgent.AppImage"
-              target="_blank"
-              rel="noreferrer"
-              title="Download for Generic Linux (.AppImage)"
-              style={{
-                backgroundColor: "#0f172a",
-                color: "#ffffff",
-                textDecoration: "none",
-                padding: "8px 14px",
-                borderRadius: "10px",
-                fontWeight: "700",
-                fontSize: "0.84rem",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                border: "1px solid #334155"
-              }}
-            >
-              🐧 Linux (.AppImage)
-            </a>
-
-            <a
               href="/download/DeviceDeskAgent.dmg"
               download="DeviceDeskAgent.dmg"
               target="_blank"
