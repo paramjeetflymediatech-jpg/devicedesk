@@ -17,12 +17,10 @@ export async function DELETE(req) {
     // Option A: Delete ALL screenshots
     if (deleteAll) {
       const [rows] = await pool.query(`SELECT imageUrl FROM screenshots`);
-      for (const row of rows) {
-        if (row.imageUrl) {
-          await deleteFile(row.imageUrl);
-        }
-      }
       await pool.query(`DELETE FROM screenshots`);
+
+      // Non-blocking background file cleanup
+      Promise.allSettled(rows.map(r => r.imageUrl ? deleteFile(r.imageUrl) : Promise.resolve())).catch(() => {});
 
       return NextResponse.json({ success: true, message: 'All screenshots permanently deleted' });
     }
@@ -30,22 +28,24 @@ export async function DELETE(req) {
     // Option B: Delete single screenshot by ID
     if (id) {
       const [rows] = await pool.query(`SELECT imageUrl FROM screenshots WHERE id = ?`, [id]);
-      if (rows.length > 0 && rows[0].imageUrl) {
-        await deleteFile(rows[0].imageUrl);
-      }
       await pool.query(`DELETE FROM screenshots WHERE id = ?`, [id]);
+
+      // Non-blocking background file cleanup
+      if (rows.length > 0 && rows[0].imageUrl) {
+        deleteFile(rows[0].imageUrl).catch(err => console.warn('Async file deletion notice:', err.message));
+      }
+
       return NextResponse.json({ success: true, message: 'Screenshot deleted successfully' });
     }
 
     // Option C: Delete all screenshots for a specific employee
     if (employeeId) {
       const [rows] = await pool.query(`SELECT imageUrl FROM screenshots WHERE employeeId = ?`, [employeeId]);
-      for (const row of rows) {
-        if (row.imageUrl) {
-          await deleteFile(row.imageUrl);
-        }
-      }
       await pool.query(`DELETE FROM screenshots WHERE employeeId = ?`, [employeeId]);
+
+      // Non-blocking background file cleanup
+      Promise.allSettled(rows.map(r => r.imageUrl ? deleteFile(r.imageUrl) : Promise.resolve())).catch(() => {});
+
       return NextResponse.json({ success: true, message: `All screenshots for employee ${employeeId} deleted` });
     }
 

@@ -267,7 +267,18 @@ export async function deleteFile(fileUrlOrName) {
     }
   } catch (e) {}
 
-  const provider = process.env.STORAGE_PROVIDER || 'local';
+  // Always cleanup local disk copies immediately if present
+  try {
+    const pathsToUnlink = [
+      join(process.cwd(), 'public', 'uploads', 'devicedesk', 'screenshots', safeFilename),
+      join(process.cwd(), 'public', 'uploads', 'screenshots', safeFilename),
+      join(process.cwd(), 'public', 'uploads', safeFilename),
+      join(process.cwd(), 'uploads', safeFilename)
+    ];
+    for (const p of pathsToUnlink) {
+      fs.unlink(p).catch(() => {});
+    }
+  } catch (e) {}
 
   try {
     if (provider === 'sftp') {
@@ -289,17 +300,8 @@ export async function deleteFile(fileUrlOrName) {
       } finally {
         await sftp.end();
       }
-    } else {
-      const localFilePath = subfolder
-        ? join(process.cwd(), 'public', 'uploads', subfolder, safeFilename)
-        : join(process.cwd(), 'uploads', safeFilename);
-      try {
-        await fs.unlink(localFilePath);
-      } catch (e) {
-        if (e.code !== 'ENOENT') throw e;
-      }
     }
   } catch (err) {
-    console.warn(`deleteFile: could not delete "${safeFilename}":`, err.message);
+    console.warn(`deleteFile notice for "${safeFilename}":`, err.message);
   }
 }
