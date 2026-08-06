@@ -363,15 +363,15 @@ export default function ScreenshotsTab() {
         </div>
       </div>
 
-      {/* 3. Enterprise Filter & Controls Bar */}
+      {/* 3. Enterprise Responsive Filter & Controls Bar */}
       <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #e2e8f0)', padding: '16px 20px', borderRadius: '14px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
-          {/* Left: Filter Controls */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', flex: 1 }}>
+          {/* Row 1: Responsive Grid Inputs */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', alignItems: 'center', width: '100%' }}>
 
             {/* Search Input */}
-            <div style={{ position: 'relative', minWidth: '220px', flex: '1 1 200px' }}>
+            <div style={{ position: 'relative', width: '100%' }}>
               <FiSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
               <input
                 type="text"
@@ -383,8 +383,8 @@ export default function ScreenshotsTab() {
               />
             </div>
 
-            {/* Employee Dropdown Filter (Crucial for 100+ employees) */}
-            <div style={{ position: 'relative', minWidth: '200px' }}>
+            {/* Employee Dropdown Filter */}
+            <div style={{ position: 'relative', width: '100%' }}>
               <select
                 value={selectedEmployee}
                 onChange={e => setSelectedEmployee(e.target.value)}
@@ -400,7 +400,7 @@ export default function ScreenshotsTab() {
             </div>
 
             {/* Department Dropdown Filter */}
-            <div style={{ position: 'relative', minWidth: '160px' }}>
+            <div style={{ position: 'relative', width: '100%' }}>
               <select
                 value={selectedDepartment}
                 onChange={e => setSelectedDepartment(e.target.value)}
@@ -414,29 +414,29 @@ export default function ScreenshotsTab() {
             </div>
 
             {/* Date Filter */}
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={e => setSelectedDate(e.target.value)}
-                style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #cbd5e1)', fontSize: '0.85rem', fontWeight: '600' }}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #cbd5e1)', fontSize: '0.85rem', fontWeight: '600' }}
               />
+              {selectedDate && (
+                <button
+                  onClick={() => setSelectedDate('')}
+                  style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  Clear
+                </button>
+              )}
             </div>
 
-            {selectedDate && (
-              <button
-                onClick={() => setSelectedDate('')}
-                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer' }}
-              >
-                Clear Date
-              </button>
-            )}
           </div>
 
-          {/* Right: View Mode Toggle & Accordion Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {viewMode === 'grouped' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Row 2: View Mode & Accordion Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+            {viewMode === 'grouped' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   onClick={expandAllGroups}
                   title="Expand All Employee Cards"
@@ -477,9 +477,9 @@ export default function ScreenshotsTab() {
                   <FiChevronUp /> Collapse All
                 </button>
               </div>
-            )}
+            ) : <div />}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-muted, #f1f5f9)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-muted, #f1f5f9)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color, #e2e8f0)', marginLeft: 'auto' }}>
               <button
                 onClick={() => setViewMode('grouped')}
                 style={{
