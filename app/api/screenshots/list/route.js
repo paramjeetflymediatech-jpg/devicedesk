@@ -33,8 +33,26 @@ export async function GET(req) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    // Only include Full OS Desktop Agent screenshots (exclude WEB_TAB captures)
-    let query = `SELECT * FROM screenshots WHERE (captureType = 'FULL_DESKTOP' OR captureType IS NULL)`;
+    // 1. Ensure tables exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS agent_registrations (
+        id VARCHAR(100) PRIMARY KEY,
+        employeeId VARCHAR(100) NOT NULL,
+        employeeName VARCHAR(150) NOT NULL,
+        department VARCHAR(100),
+        systemNumber VARCHAR(100),
+        ipAddress VARCHAR(50),
+        osPlatform VARCHAR(50),
+        serverUrl VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'ACTIVE',
+        installedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        lastSeenAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_emp_sys (employeeId, systemNumber)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // Fetch all screenshots matching filter (Includes all capture types)
+    let query = `SELECT * FROM screenshots WHERE 1=1`;
     const params = [];
 
     if (employeeId && employeeId !== 'all') {
@@ -74,6 +92,13 @@ export async function GET(req) {
 
     const [rows] = await pool.query(query, params);
 
+    // Fetch registered agents list to display all registered users even if 0 screenshots taken today
+    let registrations = [];
+    try {
+      const [regRows] = await pool.query(`SELECT * FROM agent_registrations ORDER BY lastSeenAt DESC`);
+      registrations = regRows || [];
+    } catch (e) {}
+
     // Summary Statistics
     const [statsRows] = await pool.query(`
       SELECT 
@@ -84,9 +109,11 @@ export async function GET(req) {
       WHERE DATE(capturedAt) = CURDATE()
     `);
 
+    const [totalRegCount] = await pool.query(`SELECT COUNT(DISTINCT employeeId) as total FROM agent_registrations`);
+
     const stats = {
       todayCaptures: statsRows[0]?.totalCaptures || 0,
-      todayMonitoredEmployees: statsRows[0]?.monitoredEmployees || 0,
+      todayMonitoredEmployees: Math.max(statsRows[0]?.monitoredEmployees || 0, totalRegCount[0]?.total || 0),
       todayAvgActivity: Math.round(statsRows[0]?.avgActivity || 100),
       totalMatchingFilter: totalCount,
       page,
@@ -96,6 +123,7 @@ export async function GET(req) {
     return NextResponse.json({
       success: true,
       stats,
+      registrations,
       data: rows
     });
 

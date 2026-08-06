@@ -70,6 +70,8 @@ export default function ScreenshotsTab() {
     loadFilterOptions();
   }, []);
 
+  const [agentRegistrations, setAgentRegistrations] = useState([]);
+
   // Fetch Screenshots
   const fetchScreenshots = async () => {
     setLoading(true);
@@ -83,8 +85,8 @@ export default function ScreenshotsTab() {
       const res = await fetch(`/api/screenshots/list?${queryParams.toString()}`);
       const data = await res.json();
       if (data.success) {
-        const desktopOnly = (data.data || []).filter(item => item.captureType === 'FULL_DESKTOP' || !item.captureType);
-        setScreenshots(desktopOnly);
+        setScreenshots(data.data || []);
+        if (data.registrations) setAgentRegistrations(data.registrations);
         if (data.stats) setStats(data.stats);
       }
     } catch (err) {
@@ -98,9 +100,24 @@ export default function ScreenshotsTab() {
     fetchScreenshots();
   }, [selectedEmployee, selectedDepartment, selectedDate]);
 
-  // Group screenshots by Employee ID for "Grouped View"
+  // Group screenshots by Employee ID & System for "Grouped View" (Includes all registered employees)
   const groupedByEmployee = useMemo(() => {
     const map = {};
+
+    // 1. Add all registered agents first
+    agentRegistrations.forEach(reg => {
+      const key = reg.employeeId || 'EMP-UNKNOWN';
+      map[key] = {
+        employeeId: reg.employeeId,
+        employeeName: reg.employeeName || reg.employeeId,
+        department: reg.department || 'General',
+        systemNumber: reg.systemNumber || 'AGENT-SYSTEM',
+        ipAddress: reg.ipAddress || '',
+        captures: []
+      };
+    });
+
+    // 2. Merge screenshots
     screenshots.forEach(item => {
       const key = item.employeeId || 'EMP-UNKNOWN';
       if (!map[key]) {
@@ -108,13 +125,16 @@ export default function ScreenshotsTab() {
           employeeId: item.employeeId,
           employeeName: item.employeeName || 'Unknown Employee',
           department: item.department || 'General',
+          systemNumber: item.systemNumber || 'PC',
+          ipAddress: item.ipAddress || '',
           captures: []
         };
       }
       map[key].captures.push(item);
     });
+
     return Object.values(map);
-  }, [screenshots]);
+  }, [screenshots, agentRegistrations]);
 
   // Accordion Toggle Handlers for 100+ Employees (Default: All Hidden/Collapsed)
   const toggleGroupCollapse = (empId) => {
@@ -606,7 +626,7 @@ export default function ScreenshotsTab() {
                   {/* Right Corner Buttons */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
                     <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '600' }}>
-                      Latest: {new Date(group.captures[0].capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      Latest: {group.captures.length > 0 ? new Date(group.captures[0].capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently Registered'}
                     </span>
 
                     <button
@@ -640,16 +660,23 @@ export default function ScreenshotsTab() {
                 {/* Screenshot Grid for this employee */}
                 {!isCollapsed && (
                   <div style={{ padding: '20px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
-                      {group.captures.map(item => (
-                        <ScreenshotCard
-                          key={item.id}
-                          item={item}
-                          onInspect={() => setInspectModal({ open: true, data: item })}
-                          onDelete={(id, e) => handleDelete(id, e)}
-                        />
-                      ))}
-                    </div>
+                    {group.captures.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', backgroundColor: 'var(--bg-muted, #f8fafc)', borderRadius: '12px', fontSize: '0.88rem' }}>
+                        💻 <strong>Desktop Agent Registered & Active</strong> (System: <code>{group.systemNumber}</code>)<br />
+                        <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Waiting for initial desktop activity screenshot stream...</span>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
+                        {group.captures.map(item => (
+                          <ScreenshotCard
+                            key={item.id}
+                            item={item}
+                            onInspect={() => setInspectModal({ open: true, data: item })}
+                            onDelete={(id, e) => handleDelete(id, e)}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
