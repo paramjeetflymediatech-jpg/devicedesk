@@ -153,8 +153,8 @@ export default function ScreenshotsTab() {
       confirmButtonText: 'Yes, delete it!',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
-      customClass: {
-        popup: 'swal2-rounded-modal'
+      didOpen: () => {
+        if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
       }
     });
 
@@ -173,13 +173,30 @@ export default function ScreenshotsTab() {
           title: 'Deleted!',
           text: 'Activity screenshot has been deleted.',
           timer: 1500,
-          showConfirmButton: false
+          showConfirmButton: false,
+          didOpen: () => {
+            if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+          }
         });
       } else {
-        Swal.fire('Error', data.error || 'Failed to delete screenshot', 'error');
+        Swal.fire({
+          title: 'Error',
+          text: data.error || 'Failed to delete screenshot',
+          icon: 'error',
+          didOpen: () => {
+            if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+          }
+        });
       }
     } catch (err) {
-      Swal.fire('Error', 'Failed to delete screenshot: ' + err.message, 'error');
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to delete screenshot: ' + err.message,
+        icon: 'error',
+        didOpen: () => {
+          if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+        }
+      });
     }
   };
 
@@ -195,7 +212,10 @@ export default function ScreenshotsTab() {
       confirmButtonText: 'Yes, Delete All!',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
-      focusCancel: true
+      focusCancel: true,
+      didOpen: () => {
+        if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+      }
     });
 
     if (!result.isConfirmed) return;
@@ -213,13 +233,30 @@ export default function ScreenshotsTab() {
           title: 'All Screenshots Purged!',
           text: 'All activity screenshots have been permanently deleted.',
           timer: 2000,
-          showConfirmButton: false
+          showConfirmButton: false,
+          didOpen: () => {
+            if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+          }
         });
       } else {
-        Swal.fire('Error', data.error || 'Failed to delete all screenshots', 'error');
+        Swal.fire({
+          title: 'Error',
+          text: data.error || 'Failed to delete all screenshots',
+          icon: 'error',
+          didOpen: () => {
+            if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+          }
+        });
       }
     } catch (err) {
-      Swal.fire('Error', 'Failed to delete all screenshots: ' + err.message, 'error');
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to delete all screenshots: ' + err.message,
+        icon: 'error',
+        didOpen: () => {
+          if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+        }
+      });
     } finally {
       setLoading(false);
     }
