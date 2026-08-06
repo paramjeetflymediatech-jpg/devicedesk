@@ -73,43 +73,47 @@ export default function OverviewPage() {
         {/* Quick Attendance Widget */}
         <AttendanceWidget user={user} />
 
-        {/* Desktop Agent Installed Status or Download Banner */}
+        {/* Option A: Employee ALREADY Has Desktop Agent Installed & Active */}
         {agentStatus.installed && !showRedownload ? (
           <div style={{
-            backgroundColor: "#f0fdf4",
+            backgroundColor: "var(--card-bg, #ffffff)",
             border: "1px solid #bbf7d0",
             borderRadius: "16px",
-            padding: "18px 24px",
+            padding: "20px 24px",
             margin: "24px 0",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             flexWrap: "wrap",
             gap: "16px",
-            boxShadow: "0 4px 14px rgba(34,197,94,0.08)"
+            boxShadow: "0 4px 16px rgba(34,197,94,0.06)",
+            background: "linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(16,185,129,0.03) 100%)"
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", flex: "1 1 300px" }}>
               <div style={{
-                width: "44px",
-                height: "44px",
-                borderRadius: "12px",
-                backgroundColor: "#22c55e",
+                width: "50px",
+                height: "50px",
+                borderRadius: "14px",
+                background: "linear-gradient(135deg, #16a34a, #15803d)",
                 color: "#ffffff",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "1.3rem",
-                boxShadow: "0 4px 10px rgba(34,197,94,0.3)"
+                fontSize: "1.5rem",
+                boxShadow: "0 4px 12px rgba(22,163,74,0.3)",
+                flexShrink: 0
               }}>
-                ✓
+                🛡️
               </div>
               <div>
-                <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "800", color: "#166534", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                  DeviceDesk Agent Installed & Active
-                  <span style={{ backgroundColor: "#dcfce7", color: "#15803d", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "12px", fontWeight: "700" }}>Live Monitoring Active</span>
+                <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "800", color: "#14532d", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  DeviceDesk Desktop Agent Active
+                  <span style={{ backgroundColor: "#dcfce7", color: "#15803d", fontSize: "0.72rem", padding: "3px 10px", borderRadius: "12px", fontWeight: "800", border: "1px solid #86efac" }}>
+                    ● Live Sync Active
+                  </span>
                 </h4>
-                <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "#15803d" }}>
-                  Your desktop screen activity logger is running. Last active desktop screenshot recorded at {agentStatus.lastCapturedAt ? new Date(agentStatus.lastCapturedAt).toLocaleTimeString() : 'Recently'}.
+                <p style={{ margin: "4px 0 0 0", fontSize: "0.86rem", color: "#166534" }}>
+                  Your desktop agent is running in system tray. Last background capture recorded at <strong>{agentStatus.lastCapturedAt ? new Date(agentStatus.lastCapturedAt).toLocaleTimeString() : 'Recently'}</strong>.
                 </p>
               </div>
             </div>
@@ -118,17 +122,17 @@ export default function OverviewPage() {
               onClick={() => setShowRedownload(true)}
               style={{
                 backgroundColor: "#ffffff",
-                border: "1px solid #bbf7d0",
+                border: "1px solid #16a34a",
                 color: "#15803d",
-                padding: "8px 14px",
+                padding: "8px 16px",
                 borderRadius: "10px",
-                fontSize: "0.82rem",
+                fontSize: "0.83rem",
                 fontWeight: "700",
                 cursor: "pointer",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                boxShadow: "0 2px 6px rgba(0,0,0,0.04)"
               }}
             >
-              Re-download Agent Installer
+              🔄 Re-download / Change PC
             </button>
           </div>
         ) : (
