@@ -22,19 +22,25 @@ export default function OverviewPage() {
     setAssignmentHistory(getAssignmentHistory());
   };
 
-  useEffect(() => {
-    setMounted(true);
-    refreshData();
-  }, []);
+  const [agentStatus, setAgentStatus] = useState({ installed: false, lastCapturedAt: null });
+  const [showRedownload, setShowRedownload] = useState(false);
 
-  // Listen for database changes to keep sync
   useEffect(() => {
-    const handleSync = () => {
-      refreshData();
-    };
-    window.addEventListener("devicedesk_db_synced", handleSync);
-    return () => window.removeEventListener("devicedesk_db_synced", handleSync);
-  }, []);
+    async function checkAgentStatus() {
+      if (!user) return;
+      try {
+        const empId = user.id || user.employeeId;
+        const res = await fetch(`/api/screenshots/list?employeeId=${empId}&limit=1`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setAgentStatus({ installed: true, lastCapturedAt: data.data[0].capturedAt });
+        }
+      } catch (err) {
+        console.warn('Check agent status notice:', err);
+      }
+    }
+    checkAgentStatus();
+  }, [user]);
 
   if (!mounted || !user) return null;
 
@@ -53,119 +59,195 @@ export default function OverviewPage() {
         {/* Quick Attendance Widget */}
         <AttendanceWidget user={user} />
 
-        {/* Cross-Platform Desktop Agent Download Banner */}
-        <div style={{
-          backgroundColor: "var(--card-bg, #ffffff)",
-          border: "1px solid var(--border-color, #e2e8f0)",
-          borderRadius: "16px",
-          padding: "20px 24px",
-          margin: "24px 0",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "16px",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
-          background: "linear-gradient(135deg, rgba(37,99,235,0.04) 0%, rgba(124,58,237,0.04) 100%)"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", flex: "1 1 300px" }}>
-            <div style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "14px",
-              background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-              color: "#ffffff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.4rem",
-              boxShadow: "0 4px 12px rgba(37,99,235,0.25)",
-              flexShrink: 0
-            }}>
-              💻
+        {/* Desktop Agent Installed Status or Download Banner */}
+        {agentStatus.installed && !showRedownload ? (
+          <div style={{
+            backgroundColor: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: "16px",
+            padding: "18px 24px",
+            margin: "24px 0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "16px",
+            boxShadow: "0 4px 14px rgba(34,197,94,0.08)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+              <div style={{
+                width: "44px",
+                height: "44px",
+                borderRadius: "12px",
+                backgroundColor: "#22c55e",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "1.3rem",
+                boxShadow: "0 4px 10px rgba(34,197,94,0.3)"
+              }}>
+                ✓
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "800", color: "#166534", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  DeviceDesk Agent Installed & Active
+                  <span style={{ backgroundColor: "#dcfce7", color: "#15803d", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "12px", fontWeight: "700" }}>Live Monitoring Active</span>
+                </h4>
+                <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "#15803d" }}>
+                  Your desktop screen activity logger is running. Last active desktop screenshot recorded at {agentStatus.lastCapturedAt ? new Date(agentStatus.lastCapturedAt).toLocaleTimeString() : 'Recently'}.
+                </p>
+              </div>
             </div>
-            <div>
-              <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "800", color: "var(--text-primary, #0f172a)", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                Download DeviceDesk Desktop Activity Agent
-                <span style={{ backgroundColor: "#dbeafe", color: "#1e40af", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "12px", fontWeight: "700" }}>Cross-Platform</span>
-              </h4>
-              <p style={{ margin: "4px 0 0 0", fontSize: "0.86rem", color: "var(--text-secondary, #64748b)" }}>
-                Install once on your computer to run continuous background desktop screen activity monitoring automatically.
-              </p>
+
+            <button
+              onClick={() => setShowRedownload(true)}
+              style={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #bbf7d0",
+                color: "#15803d",
+                padding: "8px 14px",
+                borderRadius: "10px",
+                fontSize: "0.82rem",
+                fontWeight: "700",
+                cursor: "pointer",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+              }}
+            >
+              Re-download Agent Installer
+            </button>
+          </div>
+        ) : (
+          <div style={{
+            backgroundColor: "var(--card-bg, #ffffff)",
+            border: "1px solid var(--border-color, #e2e8f0)",
+            borderRadius: "16px",
+            padding: "20px 24px",
+            margin: "24px 0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "16px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+            background: "linear-gradient(135deg, rgba(37,99,235,0.04) 0%, rgba(124,58,237,0.04) 100%)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", flex: "1 1 300px" }}>
+              <div style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "14px",
+                background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "1.4rem",
+                boxShadow: "0 4px 12px rgba(37,99,235,0.25)",
+                flexShrink: 0
+              }}>
+                💻
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "800", color: "var(--text-primary, #0f172a)", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  Download DeviceDesk Desktop Activity Agent
+                  <span style={{ backgroundColor: "#dbeafe", color: "#1e40af", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "12px", fontWeight: "700" }}>Cross-Platform</span>
+                </h4>
+                <p style={{ margin: "4px 0 0 0", fontSize: "0.86rem", color: "var(--text-secondary, #64748b)" }}>
+                  Install once on your computer to run continuous background desktop screen activity monitoring automatically.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <a
+                href="/download/DeviceDeskAgent-Setup.exe"
+                download="DeviceDeskAgent-Setup.exe"
+                target="_blank"
+                rel="noreferrer"
+                title="Download for Windows"
+                style={{
+                  backgroundColor: "#2563eb",
+                  color: "#ffffff",
+                  textDecoration: "none",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "0.84rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 2px 8px rgba(37,99,235,0.3)"
+                }}
+              >
+                <FaWindows style={{ fontSize: "1rem" }} /> Windows (.exe)
+              </a>
+
+              <a
+                href="/download/DeviceDeskAgent.deb"
+                download="DeviceDeskAgent.deb"
+                target="_blank"
+                rel="noreferrer"
+                title="Download for Ubuntu / Debian Linux (.deb)"
+                style={{
+                  backgroundColor: "#e05206",
+                  color: "#ffffff",
+                  textDecoration: "none",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "0.84rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 2px 8px rgba(224,82,6,0.3)"
+                }}
+              >
+                <FaUbuntu style={{ fontSize: "1rem" }} /> Ubuntu (.deb)
+              </a>
+
+              <a
+                href="/download/DeviceDeskAgent.dmg"
+                download="DeviceDeskAgent.dmg"
+                target="_blank"
+                rel="noreferrer"
+                title="Download for macOS"
+                style={{
+                  backgroundColor: "#0f172a",
+                  color: "#ffffff",
+                  textDecoration: "none",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "0.84rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 2px 8px rgba(15,23,42,0.3)"
+                }}
+              >
+                <FaApple style={{ fontSize: "1.05rem" }} /> macOS (.dmg)
+              </a>
+
+              {agentStatus.installed && (
+                <button
+                  onClick={() => setShowRedownload(false)}
+                  style={{
+                    backgroundColor: "transparent",
+                    border: "none",
+                    color: "#64748b",
+                    fontSize: "0.8rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    textDecoration: "underline"
+                  }}
+                >
+                  Hide
+                </button>
+              )}
             </div>
           </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            <a
-              href="/download/DeviceDeskAgent-Setup.exe"
-              download="DeviceDeskAgent-Setup.exe"
-              target="_blank"
-              rel="noreferrer"
-              title="Download for Windows"
-              style={{
-                backgroundColor: "#2563eb",
-                color: "#ffffff",
-                textDecoration: "none",
-                padding: "8px 14px",
-                borderRadius: "10px",
-                fontWeight: "700",
-                fontSize: "0.84rem",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                boxShadow: "0 2px 8px rgba(37,99,235,0.3)"
-              }}
-            >
-              <FaWindows style={{ fontSize: "1rem" }} /> Windows (.exe)
-            </a>
-
-            <a
-              href="/download/DeviceDeskAgent.deb"
-              download="DeviceDeskAgent.deb"
-              target="_blank"
-              rel="noreferrer"
-              title="Download for Ubuntu / Debian Linux (.deb)"
-              style={{
-                backgroundColor: "#e05206",
-                color: "#ffffff",
-                textDecoration: "none",
-                padding: "8px 14px",
-                borderRadius: "10px",
-                fontWeight: "700",
-                fontSize: "0.84rem",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                boxShadow: "0 2px 8px rgba(224,82,6,0.3)"
-              }}
-            >
-              <FaUbuntu style={{ fontSize: "1rem" }} /> Ubuntu (.deb)
-            </a>
-
-            <a
-              href="/download/DeviceDeskAgent.dmg"
-              download="DeviceDeskAgent.dmg"
-              target="_blank"
-              rel="noreferrer"
-              title="Download for macOS"
-              style={{
-                backgroundColor: "#0f172a",
-                color: "#ffffff",
-                textDecoration: "none",
-                padding: "8px 14px",
-                borderRadius: "10px",
-                fontWeight: "700",
-                fontSize: "0.84rem",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                boxShadow: "0 2px 8px rgba(15,23,42,0.3)"
-              }}
-            >
-              <FaApple style={{ fontSize: "1.05rem" }} /> macOS (.dmg)
-            </a>
-          </div>
-        </div>
+        )}
 
         <div className="emp-overview-grid">
           {/* Active System Details */}
