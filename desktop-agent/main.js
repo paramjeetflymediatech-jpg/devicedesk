@@ -1,25 +1,70 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 const screenshot = require('screenshot-desktop');
 const axios = require('axios');
-const Store = require('electron-store');
 const AutoLaunch = require('auto-launch');
 
-const store = new Store();
 let mainWindow = null;
 let tray = null;
 let captureTimer = null;
 
-// Initialize AutoLaunch for System Startup (Windows, Linux, Mac)
-const agentAutoLauncher = new AutoLaunch({
-  name: 'DeviceDeskAgent',
-  path: process.execPath,
-});
+// Crash-proof native JSON file storage (Replaces electron-store to avoid ESM require crashes in production binaries)
+function getConfigFile() {
+  try {
+    const userDataPath = app.getPath('userData');
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true });
+    }
+    return path.join(userDataPath, 'agent-config.json');
+  } catch (e) {
+    return path.join(__dirname, 'agent-config.json');
+  }
+}
 
-agentAutoLauncher.enable().catch((err) => {
-  console.warn('Auto launch enable notice:', err.message);
-});
+function loadConfig() {
+  try {
+    const filePath = getConfigFile();
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.warn('Load agent config warning:', err.message);
+  }
+  return {};
+}
+
+function saveConfig(data) {
+  try {
+    const filePath = getConfigFile();
+    const existing = loadConfig();
+    const merged = { ...existing, ...data };
+    fs.writeFileSync(filePath, JSON.stringify(merged, null, 2), 'utf8');
+    return merged;
+  } catch (err) {
+    console.warn('Save agent config warning:', err.message);
+    return data;
+  }
+}
+
+// Safely initialize AutoLaunch on startup without crashing process
+function setupAutoLaunch() {
+  try {
+    const agentAutoLauncher = new AutoLaunch({
+      name: 'DeviceDeskAgent',
+      path: process.execPath
+    });
+    agentAutoLauncher.isEnabled().then((isEnabled) => {
+      if (!isEnabled) {
+        agentAutoLauncher.enable().catch(() => {});
+      }
+    }).catch(() => {});
+  } catch (e) {
+    console.warn('AutoLaunch notice:', e.message);
+  }
+}
 
 // Single instance lock to prevent duplicate tray agents running
 const gotTheLock = app.requestSingleInstanceLock();
@@ -113,7 +158,7 @@ function createTray() {
 
 // Get Active Configuration with automatic OS Fallback (Ensures agent captures instantly on ANY system)
 function getActiveConfig() {
-  const config = store.get('config') || {};
+  const config = loadConfig();
   const osUser = os.userInfo() ? os.userInfo().username : 'employee';
   const osHost = os.hostname() || 'desktop';
 
@@ -147,7 +192,7 @@ async function captureAndUpload() {
     const targetUrl = `${config.serverUrl.replace(/\/$/, '')}/api/screenshots/upload`;
 
     // 2. Upload to DeviceDesk Backend API
-    const response = await axios.post(targetUrl, {
+    await axios.post(targetUrl, {
       employeeId: config.employeeId,
       employeeName: config.employeeName,
       department: config.department,
@@ -160,7 +205,7 @@ async function captureAndUpload() {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    console.log(`[${new Date().toLocaleTimeString()}] Screenshot uploaded successfully for ${config.employeeName} (${config.employeeId}) -> ${config.serverUrl}`);
+    console.log(`[${new Date().toLocaleTimeString()}] Desktop Screenshot uploaded successfully for ${config.employeeName} (${config.employeeId}) -> ${config.serverUrl}`);
   } catch (err) {
     console.warn(`[${new Date().toLocaleTimeString()}] Agent upload warning:`, err.message);
   }
@@ -173,7 +218,7 @@ ipcMain.on('get-config', (event) => {
 });
 
 ipcMain.on('save-config', (event, config) => {
-  store.set('config', { ...config, isConfigured: true });
+  saveConfig({ ...config, isConfigured: true });
   console.log('Employee configuration updated:', config.employeeId);
   
   // Trigger immediate capture and restart loop
@@ -195,13 +240,16 @@ function startCaptureTimer() {
   captureTimer = setInterval(captureAndUpload, 180000);
 }
 
-app.on('ready', () => {
+app.whenReady().then(() => {
+  setupAutoLaunch();
   createWindow();
   createTray();
 
   // Show setup window on launch
-  mainWindow.show();
-  mainWindow.focus();
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
 
   // Start automated monitoring immediately
   startCaptureTimer();

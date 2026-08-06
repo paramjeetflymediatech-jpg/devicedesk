@@ -2,12 +2,13 @@
   "name": "devicedesk-agent",
   "version": "1.0.0",
   "description": "DeviceDesk Automated Desktop Screen Activity Logger Agent",
+  "homepage": "https://devicedesk.flymediatech.com",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder -wml",
     "build:win": "electron-builder --win nsis",
-    "build:linux": "electron-builder --linux AppImage deb",
+    "build:linux": "electron-builder --linux deb zip AppImage",
     "build:mac": "electron-builder --mac dmg zip"
   },
   "keywords": [
@@ -16,12 +17,14 @@
     "activity-logger",
     "desktop-agent"
   ],
-  "author": "DeviceDesk Team",
+  "author": {
+    "name": "DeviceDesk Team",
+    "email": "support@flymediatech.com"
+  },
   "license": "MIT",
   "dependencies": {
     "auto-launch": "^5.0.6",
     "axios": "^1.6.8",
-    "electron-store": "^8.2.0",
     "screenshot-desktop": "^1.15.0"
   },
   "devDependencies": {
@@ -31,6 +34,11 @@
   "build": {
     "appId": "com.devicedesk.agent",
     "productName": "DeviceDeskAgent",
+    "files": [
+      "main.js",
+      "index.html",
+      "assets/**/*"
+    ],
     "directories": {
       "output": "dist"
     },
@@ -48,9 +56,11 @@
       "artifactName": "DeviceDeskAgent-Setup.exe"
     },
     "linux": {
+      "maintainer": "DeviceDesk Team <support@flymediatech.com>",
       "target": [
-        "AppImage",
-        "deb"
+        "deb",
+        "zip",
+        "AppImage"
       ],
       "icon": "assets/icon.png",
       "category": "Utility",
