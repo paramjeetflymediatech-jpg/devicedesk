@@ -168,7 +168,7 @@ export default function ScreenshotsTab() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
             onClick={fetchScreenshots}
             className="secondary-button"
@@ -176,6 +176,16 @@ export default function ScreenshotsTab() {
           >
             <FiRefreshCw className={loading ? 'spin-icon' : ''} /> Refresh Feeds
           </button>
+
+          <a
+            href="/download/DeviceDeskAgent-Setup.exe"
+            download="DeviceDeskAgent-Setup.exe"
+            target="_blank"
+            rel="noreferrer"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', cursor: 'pointer', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(37,99,235,0.3)' }}
+          >
+            <FiDownload /> Download Windows Agent (.exe)
+          </a>
 
           <button
             onClick={handleDeleteAll}

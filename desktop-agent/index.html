@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeviceDesk Agent Setup</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --text: #f8fafc;
+      --text-secondary: #94a3b8;
+      --border: #334155;
+      --success: #16a34a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      user-select: none;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+
+    .logo {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+
+    .title-area h2 {
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    .title-area p {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .form-group {
+      margin-top: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background-color: var(--card-bg);
+      color: var(--text);
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background-color: rgba(22, 163, 74, 0.15);
+      border: 1px solid rgba(22, 163, 74, 0.3);
+      color: #4ade80;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin-top: 14px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #16a34a;
+      box-shadow: 0 0 8px #16a34a;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background-color: var(--accent);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .footer-text {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <div>
+    <div class="header">
+      <div class="logo">💻</div>
+      <div class="title-area">
+        <h2>DeviceDesk Agent</h2>
+        <p>Automated OS Desktop Activity Logger</p>
+      </div>
+    </div>
+
+    <form id="configForm">
+      <div class="form-group">
+        <label for="employeeId">Employee ID / Email</label>
+        <input type="text" id="employeeId" placeholder="e.g. EMP-102 or aman@flymedia.com" required />
+      </div>
+
+      <div class="form-group">
+        <label for="employeeName">Full Name</label>
+        <input type="text" id="employeeName" placeholder="e.g. Amandeep" required />
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label for="department">Department</label>
+          <select id="department">
+            <option value="Development">Development</option>
+            <option value="Design">Design</option>
+            <option value="QA">QA</option>
+            <option value="Operations">Operations</option>
+            <option value="IT Support">IT Support</option>
+            <option value="HR">HR</option>
+            <option value="Sales">Sales</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="flex: 1;">
+          <label for="systemNumber">System Tag</label>
+          <input type="text" id="systemNumber" placeholder="e.g. SN31" value="SN-DESKTOP" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="serverUrl">DeviceDesk Server URL</label>
+        <input type="text" id="serverUrl" value="https://devicedesk.flymediatech.com" required />
+      </div>
+
+      <div class="status-badge" id="statusBadge" style="display: none;">
+        <div class="dot"></div>
+        <span id="statusText">Active: Full Desktop Screenshots Logging</span>
+      </div>
+
+      <button type="submit" class="btn" id="saveBtn">
+        <span>💾</span> Save & Start Background Agent
+      </button>
+    </form>
+  </div>
+
+  <div class="footer-text">
+    Runs silently in Windows System Tray at startup.
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    // Load existing config on startup
+    ipcRenderer.send('get-config');
+
+    ipcRenderer.on('config-data', (event, config) => {
+      if (config) {
+        if (config.employeeId) document.getElementById('employeeId').value = config.employeeId;
+        if (config.employeeName) document.getElementById('employeeName').value = config.employeeName;
+        if (config.department) document.getElementById('department').value = config.department;
+        if (config.systemNumber) document.getElementById('systemNumber').value = config.systemNumber;
+        if (config.serverUrl) document.getElementById('serverUrl').value = config.serverUrl;
+
+        if (config.isConfigured) {
+          document.getElementById('statusBadge').style.display = 'flex';
+          document.getElementById('saveBtn').innerText = '🔄 Update Settings';
+        }
+      }
+    });
+
+    document.getElementById('configForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const config = {
+        employeeId: document.getElementById('employeeId').value.trim(),
+        employeeName: document.getElementById('employeeName').value.trim(),
+        department: document.getElementById('department').value,
+        systemNumber: document.getElementById('systemNumber').value.trim(),
+        serverUrl: document.getElementById('serverUrl').value.trim()
+      };
+
+      ipcRenderer.send('save-config', config);
+      document.getElementById('statusBadge').style.display = 'flex';
+      document.getElementById('saveBtn').innerText = '✅ Settings Saved';
+      setTimeout(() => {
+        ipcRenderer.send('hide-window');
+      }, 1200);
+    });
+  </script>
+</body>
+</html>
