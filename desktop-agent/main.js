@@ -122,10 +122,7 @@ function getActiveConfig() {
   const department = config.department || 'General';
   const systemNumber = config.systemNumber || osHost;
 
-  let serverUrl = config.serverUrl || 'https://devicedesk.flymediatech.com';
-  if (!serverUrl || serverUrl.includes('localhost')) {
-    serverUrl = 'https://devicedesk.flymediatech.com';
-  }
+  let serverUrl = config.serverUrl || process.env.DEVICEDESK_SERVER_URL || 'https://devicedesk.flymediatech.com';
 
   return {
     employeeId,

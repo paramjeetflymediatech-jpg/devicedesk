@@ -297,11 +297,9 @@
         if (config.department) document.getElementById('department').value = config.department;
         if (config.systemNumber) document.getElementById('systemNumber').value = config.systemNumber;
         
-        // Ensure default endpoint URL is https://devicedesk.flymediatech.com if empty or localhost
-        if (config.serverUrl && !config.serverUrl.includes('localhost')) {
+        // Dynamic Server Endpoint URL configuration
+        if (config.serverUrl) {
           document.getElementById('serverUrl').value = config.serverUrl;
-        } else {
-          document.getElementById('serverUrl').value = 'https://devicedesk.flymediatech.com';
         }
 
         if (config.isConfigured) {

@@ -50,8 +50,10 @@ export async function POST(request) {
       [tokenId, targetEmail, token, createdAt, expiresAt]
     );
 
-    // 5. Construct Web Reset URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://devicedesk.flymediatech.com';
+    // 5. Construct Web Reset URL dynamically from request host
+    const hostHeader = req.headers.get('host');
+    const protoHeader = req.headers.get('x-forwarded-proto') || 'https';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (hostHeader ? `${protoHeader}://${hostHeader}` : 'https://devicedesk.flymediatech.com');
     const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
     // 6. Send Email
