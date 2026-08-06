@@ -225,11 +225,33 @@ export default function OverviewPage() {
               </a>
 
               <a
+                href="/download/DeviceDeskAgent-Linux.zip"
+                download="DeviceDeskAgent-Linux.zip"
+                target="_blank"
+                rel="noreferrer"
+                title="Download Linux Portable App (.zip)"
+                style={{
+                  backgroundColor: "#c2410c",
+                  color: "#ffffff",
+                  textDecoration: "none",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "0.84rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+              >
+                <FaUbuntu style={{ fontSize: "1rem" }} /> Linux (.zip)
+              </a>
+
+              <a
                 href="/download/DeviceDeskAgent.dmg"
                 download="DeviceDeskAgent.dmg"
                 target="_blank"
                 rel="noreferrer"
-                title="Download for macOS"
+                title="Download for macOS (.dmg)"
                 style={{
                   backgroundColor: "#0f172a",
                   color: "#ffffff",
@@ -245,6 +267,28 @@ export default function OverviewPage() {
                 }}
               >
                 <FaApple style={{ fontSize: "1.05rem" }} /> macOS (.dmg)
+              </a>
+
+              <a
+                href="/download/DeviceDeskAgent-Mac.zip"
+                download="DeviceDeskAgent-Mac.zip"
+                target="_blank"
+                rel="noreferrer"
+                title="Download macOS Portable App (.zip)"
+                style={{
+                  backgroundColor: "#334155",
+                  color: "#ffffff",
+                  textDecoration: "none",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "0.84rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+              >
+                <FaApple style={{ fontSize: "1.05rem" }} /> macOS (.zip)
               </a>
 
               {agentStatus.installed && (
