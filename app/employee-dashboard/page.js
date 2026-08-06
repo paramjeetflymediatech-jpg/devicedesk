@@ -55,26 +55,40 @@ export default function OverviewPage() {
         {/* Windows Desktop Agent Download Banner */}
         <div style={{
           backgroundColor: "var(--card-bg, #ffffff)",
-          border: "1px solid var(--glass-border, #e2e8f0)",
-          borderRadius: "14px",
-          padding: "16px 20px",
+          border: "1px solid var(--border-color, #e2e8f0)",
+          borderRadius: "16px",
+          padding: "20px 24px",
+          margin: "24px 0",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexWrap: "wrap",
           gap: "16px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.03)"
+          boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+          background: "linear-gradient(135deg, rgba(37,99,235,0.04) 0%, rgba(124,58,237,0.04) 100%)"
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-            <div style={{ width: "42px", height: "42px", borderRadius: "12px", backgroundColor: "#2563eb", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.3rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "14px",
+              background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.4rem",
+              boxShadow: "0 4px 12px rgba(37,99,235,0.25)"
+            }}>
               💻
             </div>
             <div>
-              <h4 style={{ margin: 0, fontSize: "0.98rem", fontWeight: "800", color: "var(--text-primary, #0f172a)" }}>
+              <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "800", color: "var(--text-primary, #0f172a)", display: "flex", alignItems: "center", gap: "8px" }}>
                 Download DeviceDesk Windows Desktop Agent (.exe)
+                <span style={{ backgroundColor: "#dbeafe", color: "#1e40af", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "12px", fontWeight: "700" }}>Official App</span>
               </h4>
-              <p style={{ margin: "2px 0 0 0", fontSize: "0.82rem", color: "var(--text-secondary, #64748b)" }}>
-                Install once to keep full desktop screen monitoring running automatically in your Windows System Tray.
+              <p style={{ margin: "4px 0 0 0", fontSize: "0.86rem", color: "var(--text-secondary, #64748b)" }}>
+                Install once on your Windows PC to run continuous background desktop screen activity monitoring automatically.
               </p>
             </div>
           </div>
@@ -88,18 +102,19 @@ export default function OverviewPage() {
               backgroundColor: "#2563eb",
               color: "#ffffff",
               textDecoration: "none",
-              padding: "9px 18px",
-              borderRadius: "10px",
+              padding: "10px 20px",
+              borderRadius: "12px",
               fontWeight: "800",
-              fontSize: "0.85rem",
+              fontSize: "0.88rem",
               display: "inline-flex",
               alignItems: "center",
-              gap: "6px",
-              boxShadow: "0 4px 12px rgba(37,99,235,0.3)",
-              cursor: "pointer"
+              gap: "8px",
+              boxShadow: "0 4px 14px rgba(37,99,235,0.35)",
+              cursor: "pointer",
+              transition: "transform 0.2s, background-color 0.2s"
             }}
           >
-            📥 Download Windows Agent (.exe)
+            <span>📥</span> Download Windows Agent (.exe)
           </a>
         </div>
 
