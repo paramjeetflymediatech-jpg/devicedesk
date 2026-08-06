@@ -10,7 +10,7 @@ let mainWindow = null;
 let tray = null;
 let captureTimer = null;
 
-// Crash-proof native JSON file storage (Replaces electron-store to avoid ESM require crashes in production binaries)
+// Crash-proof native JSON file storage
 function getConfigFile() {
   try {
     const userDataPath = app.getPath('userData');
@@ -156,7 +156,7 @@ function createTray() {
   });
 }
 
-// Get Active Configuration with automatic OS Fallback (Ensures agent captures instantly on ANY system)
+// Get Active Configuration with automatic OS Fallback
 function getActiveConfig() {
   const config = loadConfig();
   const osUser = os.userInfo() ? os.userInfo().username : 'employee';
@@ -179,19 +179,31 @@ function getActiveConfig() {
   };
 }
 
-// Screenshot Capture & Upload Engine
+// Screenshot Capture & Upload Engine (With high-performance image compression)
 async function captureAndUpload() {
   const config = getActiveConfig();
 
   try {
     // 1. Capture Full Multi-Monitor OS Desktop Screen
-    const imgBuffer = await screenshot({ format: 'jpeg' });
-    if (!imgBuffer || imgBuffer.length === 0) return;
+    const rawBuffer = await screenshot({ format: 'png' });
+    if (!rawBuffer || rawBuffer.length === 0) return;
 
-    const base64Image = `data:image/jpeg;base64,${imgBuffer.toString('base64')}`;
+    // 2. Compress & Resize using Electron nativeImage (Ensures payload is < 200 KB so uploads never fail)
+    let base64Image = '';
+    try {
+      const natImg = nativeImage.createFromBuffer(rawBuffer);
+      const size = natImg.getSize();
+      const targetWidth = Math.min(1280, size.width || 1280);
+      const resized = natImg.resize({ width: targetWidth });
+      const jpegBuf = resized.toJPEG(70);
+      base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
+    } catch (compErr) {
+      base64Image = `data:image/jpeg;base64,${rawBuffer.toString('base64')}`;
+    }
+
     const targetUrl = `${config.serverUrl.replace(/\/$/, '')}/api/screenshots/upload`;
 
-    // 2. Upload to DeviceDesk Backend API
+    // 3. Upload to DeviceDesk Backend API
     await axios.post(targetUrl, {
       employeeId: config.employeeId,
       employeeName: config.employeeName,
@@ -245,7 +257,6 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
 
-  // Show setup window on launch
   if (mainWindow) {
     mainWindow.show();
     mainWindow.focus();

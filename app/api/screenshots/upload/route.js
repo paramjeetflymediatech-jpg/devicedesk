@@ -122,6 +122,54 @@ export async function POST(req) {
       [screenshotId, employeeId, employeeName, department, imageUrl, shiftId, ipAddress, systemNumber, captureType, activityScore]
     );
 
+    // Auto-register employee in employees table if not present
+    try {
+      if (employeeId && employeeId !== 'EMP-UNKNOWN') {
+        const [empCheck] = await pool.query(`SELECT id FROM employees WHERE id = ?`, [employeeId]);
+        if (!empCheck || empCheck.length === 0) {
+          await pool.query(
+            `INSERT INTO employees (id, name, department, status, role, createdAt) VALUES (?, ?, ?, 'ACTIVE', 'Employee', NOW())`,
+            [employeeId, employeeName || employeeId, department || 'General']
+          );
+        }
+      }
+    } catch (empErr) {
+      /* ignore if employees table has custom schema */
+    }
+
+    // Upsert into dedicated agent_registrations table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS agent_registrations (
+          id VARCHAR(100) PRIMARY KEY,
+          employeeId VARCHAR(100) NOT NULL,
+          employeeName VARCHAR(150) NOT NULL,
+          department VARCHAR(100),
+          systemNumber VARCHAR(100),
+          ipAddress VARCHAR(50),
+          osPlatform VARCHAR(50),
+          serverUrl VARCHAR(255),
+          status VARCHAR(50) DEFAULT 'ACTIVE',
+          installedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          lastSeenAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY uk_emp_sys (employeeId, systemNumber)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      `);
+
+      await pool.query(`
+        INSERT INTO agent_registrations (id, employeeId, employeeName, department, systemNumber, ipAddress, osPlatform, status, installedAt, lastSeenAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE', NOW(), NOW())
+        ON DUPLICATE KEY UPDATE 
+          employeeName = VALUES(employeeName),
+          department = VALUES(department),
+          ipAddress = VALUES(ipAddress),
+          lastSeenAt = NOW(),
+          status = 'ACTIVE';
+      `, [screenshotId, employeeId, employeeName, department, systemNumber, ipAddress, process.platform || 'windows']);
+    } catch (regErr) {
+      console.warn('agent_registrations upsert notice:', regErr.message);
+    }
+
     // 6. Automated 180-Day Cleanup Maintenance
     try {
       const [oldRows] = await pool.query(
