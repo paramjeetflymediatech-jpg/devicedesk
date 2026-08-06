@@ -179,12 +179,9 @@ app.on('ready', () => {
   createWindow();
   createTray();
 
-  const config = store.get('config');
-  if (!config || !config.isConfigured) {
-    mainWindow.show();
-  } else {
-    mainWindow.hide();
-  }
+  // Always show configuration setup window when launched
+  mainWindow.show();
+  mainWindow.focus();
 
   startCaptureTimer();
 });
