@@ -290,9 +290,32 @@ export default function ScreenshotsTab() {
             download="DeviceDeskAgent-Setup.exe"
             target="_blank"
             rel="noreferrer"
-            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', cursor: 'pointer', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(37,99,235,0.3)' }}
+            title="Download for Windows"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(37,99,235,0.3)' }}
           >
-            <FiDownload /> Download Windows Agent (.exe)
+            🪟 Win (.exe)
+          </a>
+
+          <a
+            href="/download/DeviceDeskAgent.AppImage"
+            download="DeviceDeskAgent.AppImage"
+            target="_blank"
+            rel="noreferrer"
+            title="Download for Linux"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#0f172a', color: '#ffffff', fontWeight: '700', border: '1px solid #334155' }}
+          >
+            🐧 Linux (.AppImage)
+          </a>
+
+          <a
+            href="/download/DeviceDeskAgent.dmg"
+            download="DeviceDeskAgent.dmg"
+            target="_blank"
+            rel="noreferrer"
+            title="Download for macOS"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#f1f5f9', color: '#0f172a', fontWeight: '700', border: '1px solid #cbd5e1' }}
+          >
+            🍏 Mac (.dmg)
           </a>
 
           <button

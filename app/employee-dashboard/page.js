@@ -52,7 +52,7 @@ export default function OverviewPage() {
         {/* Quick Attendance Widget */}
         <AttendanceWidget user={user} />
 
-        {/* Windows Desktop Agent Download Banner */}
+        {/* Cross-Platform Desktop Agent Download Banner */}
         <div style={{
           backgroundColor: "var(--card-bg, #ffffff)",
           border: "1px solid var(--border-color, #e2e8f0)",
@@ -67,7 +67,7 @@ export default function OverviewPage() {
           boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
           background: "linear-gradient(135deg, rgba(37,99,235,0.04) 0%, rgba(124,58,237,0.04) 100%)"
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", flex: "1 1 300px" }}>
             <div style={{
               width: "48px",
               height: "48px",
@@ -78,44 +78,92 @@ export default function OverviewPage() {
               alignItems: "center",
               justifyContent: "center",
               fontSize: "1.4rem",
-              boxShadow: "0 4px 12px rgba(37,99,235,0.25)"
+              boxShadow: "0 4px 12px rgba(37,99,235,0.25)",
+              flexShrink: 0
             }}>
               💻
             </div>
             <div>
-              <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "800", color: "var(--text-primary, #0f172a)", display: "flex", alignItems: "center", gap: "8px" }}>
-                Download DeviceDesk Windows Desktop Agent (.exe)
-                <span style={{ backgroundColor: "#dbeafe", color: "#1e40af", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "12px", fontWeight: "700" }}>Official App</span>
+              <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "800", color: "var(--text-primary, #0f172a)", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                Download DeviceDesk Desktop Activity Agent
+                <span style={{ backgroundColor: "#dbeafe", color: "#1e40af", fontSize: "0.7rem", padding: "2px 8px", borderRadius: "12px", fontWeight: "700" }}>Cross-Platform</span>
               </h4>
               <p style={{ margin: "4px 0 0 0", fontSize: "0.86rem", color: "var(--text-secondary, #64748b)" }}>
-                Install once on your Windows PC to run continuous background desktop screen activity monitoring automatically.
+                Install once on your computer to run continuous background desktop screen activity monitoring automatically.
               </p>
             </div>
           </div>
 
-          <a
-            href="/download/DeviceDeskAgent-Setup.exe"
-            download="DeviceDeskAgent-Setup.exe"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              backgroundColor: "#2563eb",
-              color: "#ffffff",
-              textDecoration: "none",
-              padding: "10px 20px",
-              borderRadius: "12px",
-              fontWeight: "800",
-              fontSize: "0.88rem",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              boxShadow: "0 4px 14px rgba(37,99,235,0.35)",
-              cursor: "pointer",
-              transition: "transform 0.2s, background-color 0.2s"
-            }}
-          >
-            <span>📥</span> Download Windows Agent (.exe)
-          </a>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <a
+              href="/download/DeviceDeskAgent-Setup.exe"
+              download="DeviceDeskAgent-Setup.exe"
+              target="_blank"
+              rel="noreferrer"
+              title="Download for Windows"
+              style={{
+                backgroundColor: "#2563eb",
+                color: "#ffffff",
+                textDecoration: "none",
+                padding: "8px 14px",
+                borderRadius: "10px",
+                fontWeight: "700",
+                fontSize: "0.84rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 2px 8px rgba(37,99,235,0.3)"
+              }}
+            >
+              🪟 Windows (.exe)
+            </a>
+
+            <a
+              href="/download/DeviceDeskAgent.AppImage"
+              download="DeviceDeskAgent.AppImage"
+              target="_blank"
+              rel="noreferrer"
+              title="Download for Linux (Ubuntu/Debian/Fedora)"
+              style={{
+                backgroundColor: "#0f172a",
+                color: "#ffffff",
+                textDecoration: "none",
+                padding: "8px 14px",
+                borderRadius: "10px",
+                fontWeight: "700",
+                fontSize: "0.84rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                border: "1px solid #334155"
+              }}
+            >
+              🐧 Linux (.AppImage)
+            </a>
+
+            <a
+              href="/download/DeviceDeskAgent.dmg"
+              download="DeviceDeskAgent.dmg"
+              target="_blank"
+              rel="noreferrer"
+              title="Download for macOS"
+              style={{
+                backgroundColor: "#f1f5f9",
+                color: "#0f172a",
+                textDecoration: "none",
+                padding: "8px 14px",
+                borderRadius: "10px",
+                fontWeight: "700",
+                fontSize: "0.84rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                border: "1px solid #cbd5e1"
+              }}
+            >
+              🍏 macOS (.dmg)
+            </a>
+          </div>
         </div>
 
         <div className="emp-overview-grid">

@@ -3,7 +3,7 @@ if (!(Test-Path $downloadDir)) {
     New-Item -ItemType Directory -Path $downloadDir -Force
 }
 
-Write-Host "Closing any active agent processes to unlock build files..."
+Write-Host "Closing any active agent processes..."
 Get-Process -Name "DeviceDeskAgent", "electron" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
 Start-Sleep -Seconds 1
@@ -17,16 +17,17 @@ Write-Host "Installing Desktop Agent dependencies..."
 Set-Location "d:\devicedesk\desktop-agent"
 npm install --no-audit
 
-Write-Host "Building DeviceDeskAgent.exe production installer..."
+Write-Host "Building DeviceDesk Agent cross-platform installers..."
 npx electron-builder --win nsis
 
-$createdExe = "d:\devicedesk\desktop-agent\dist\DeviceDeskAgent-Setup.exe"
-if (Test-Path $createdExe) {
-    Copy-Item $createdExe "$downloadDir\DeviceDeskAgent-Setup.exe" -Force
-    Write-Host "=========================================================="
-    Write-Host "SUCCESS: DeviceDeskAgent-Setup.exe generated cleanly!"
-    Write-Host "Saved to: $downloadDir\DeviceDeskAgent-Setup.exe"
-    Write-Host "=========================================================="
-} else {
-    Write-Host "Build finished. Checking output files in $distDir..."
+# Copy all created installers to public/download
+$targets = Get-ChildItem -Path $distDir -Include "*.exe", "*.AppImage", "*.deb", "*.dmg", "*.zip" -Recurse -ErrorAction SilentlyContinue
+foreach ($file in $targets) {
+    Copy-Item $file.FullName "$downloadDir\" -Force
+    Write-Host "Published artifact: $($file.Name) -> $downloadDir"
 }
+
+Write-Host "=========================================================="
+Write-Host "SUCCESS: DeviceDesk Agent installers published cleanly!"
+Write-Host "Saved to: $downloadDir"
+Write-Host "=========================================================="

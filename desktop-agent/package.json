@@ -5,7 +5,10 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win nsis"
+    "build": "electron-builder -wml",
+    "build:win": "electron-builder --win nsis",
+    "build:linux": "electron-builder --linux AppImage deb",
+    "build:mac": "electron-builder --mac dmg zip"
   },
   "keywords": [
     "devicedesk",
@@ -43,6 +46,24 @@
       "createStartMenuShortcut": true,
       "shortcutName": "DeviceDesk Agent",
       "artifactName": "DeviceDeskAgent-Setup.exe"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Utility",
+      "artifactName": "DeviceDeskAgent.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.utilities",
+      "artifactName": "DeviceDeskAgent.${ext}"
     }
   }
 }
