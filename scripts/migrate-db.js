@@ -17,21 +17,27 @@ async function runMigration() {
   console.log('📦 DeviceDesk Safe Database Migration Tool (Non-Destructive)');
   console.log('==========================================================');
 
+  const dbName = process.env.DB_NAME || 'devicedesk';
   const config = {
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'devicedesk',
+    password: process.env.DB_PASS || process.env.DB_PASSWORD || 'root',
     port: parseInt(process.env.DB_PORT || '3306', 10),
     multipleStatements: true
   };
 
-  console.log(`Connecting to MySQL database [${config.database}] at ${config.host}:${config.port}...`);
+  console.log(`Connecting to MySQL server at ${config.host}:${config.port}...`);
 
   let connection;
   try {
     connection = await mysql.createConnection(config);
-    console.log('✅ Connected to MySQL database successfully!\n');
+    console.log('✅ Connected to MySQL server successfully!\n');
+
+    // Create database if missing
+    console.log(`--> Ensuring database [${dbName}] exists...`);
+    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\`;`);
+    await connection.query(`USE \`${dbName}\`;`);
+    console.log(`✅ Using database [${dbName}]\n`);
 
     // 1. Table: agent_registrations
     console.log('--> Checking/Creating table: agent_registrations...');
@@ -146,7 +152,7 @@ async function runMigration() {
     `);
 
     console.log('\n==========================================================');
-    console.log('🎉 SUCCESS: All database tables & schema alterations applied cleanly!');
+    console.log(`🎉 SUCCESS: All database tables & schema alterations applied cleanly to database [${dbName}]!`);
     console.log('Zero live data was deleted. All existing records preserved intact.');
     console.log('==========================================================');
 
