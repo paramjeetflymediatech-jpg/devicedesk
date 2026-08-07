@@ -5,8 +5,12 @@ import bcrypt from 'bcryptjs';
 export async function GET() {
   try {
     const db = await getDbConnection();
+    try {
+      await db.query(`ALTER TABLE employees ADD COLUMN createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+    } catch (e) {}
+
     const [rows] = await db.query(
-      `SELECT id, name, email, role, department, status, ticketLimit, createdAt FROM employees ORDER BY name ASC`
+      `SELECT * FROM employees ORDER BY name ASC`
     );
     return NextResponse.json({
       success: true,
