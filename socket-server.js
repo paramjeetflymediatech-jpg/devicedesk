@@ -1,4 +1,17 @@
-require('dotenv').config({ path: '.env.local' });
+const fs = require('fs');
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Dynamically resolve environment file (.env.local, .env, or .env.production)
+const envCandidates = ['.env.local', '.env', '.env.production'];
+for (const envName of envCandidates) {
+  const envPath = path.join(__dirname, envName);
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    break;
+  }
+}
+
 const http = require('http');
 const https = require('https');
 const { Server } = require('socket.io');
