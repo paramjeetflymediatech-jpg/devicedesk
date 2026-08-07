@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, desktopCapturer } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -227,35 +227,57 @@ async function sendPingHeartbeat() {
   }
 }
 
-// Screenshot Capture & Upload Engine (With high-performance image compression)
+// Dual-Mode Screenshot Engine (Chromium Native desktopCapturer + screenshot-desktop fallback)
 async function captureAndUpload() {
   const config = getActiveConfig();
   if (!config.isLoggedIn) return;
 
+  let base64Image = '';
+
+  // Method 1: Electron Native Chromium desktopCapturer (Bypasses Windows Defender Temp EXE Block)
   try {
-    // 1. Capture Full Multi-Monitor OS Desktop Screen
-    const rawBuffer = await screenshot({ format: 'png' });
-    if (!rawBuffer || rawBuffer.length === 0) return;
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: 1024, height: 576 }
+    });
 
-    // 2. Compress & Resize using Electron nativeImage (Ensures payload is < 150 KB for instant upload)
-    let base64Image = '';
-    try {
-      const natImg = nativeImage.createFromBuffer(rawBuffer);
-      const size = natImg.getSize();
-      const targetWidth = Math.min(1024, size.width || 1024);
-      const resized = natImg.resize({ width: targetWidth, quality: 'medium' });
-      const jpegBuf = resized.toJPEG(55);
-      base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
-    } catch (compErr) {
-      console.warn('Image compression notice:', compErr.message);
-      const natImg = nativeImage.createFromBuffer(rawBuffer);
-      const jpegBuf = natImg.toJPEG(50);
-      base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
+    if (sources && sources.length > 0) {
+      const primarySource = sources[0];
+      const jpegBuf = primarySource.thumbnail.toJPEG(55);
+      if (jpegBuf && jpegBuf.length > 0) {
+        base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
+      }
     }
+  } catch (nativeErr) {
+    console.warn('Native desktopCapturer notice:', nativeErr.message);
+  }
 
+  // Method 2: Fallback to screenshot-desktop
+  if (!base64Image) {
+    try {
+      const rawBuffer = await screenshot({ format: 'png' });
+      if (rawBuffer && rawBuffer.length > 0) {
+        const natImg = nativeImage.createFromBuffer(rawBuffer);
+        const size = natImg.getSize();
+        const targetWidth = Math.min(1024, size.width || 1024);
+        const resized = natImg.resize({ width: targetWidth, quality: 'medium' });
+        const jpegBuf = resized.toJPEG(55);
+        base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
+      }
+    } catch (scErr) {
+      console.warn('screenshot-desktop fallback notice:', scErr.message);
+    }
+  }
+
+  if (!base64Image) {
+    console.warn(`[${new Date().toLocaleTimeString()}] Desktop capture produced empty image. Skipping upload cycle.`);
+    return;
+  }
+
+  try {
     const targetUrl = `${config.serverUrl}/api/screenshots/upload`;
 
-    // 3. Upload to DeviceDesk Backend API
+    // Upload payload to DeviceDesk Backend API
     const res = await axios.post(targetUrl, {
       employeeId: config.employeeId,
       employeeName: config.employeeName,
@@ -273,7 +295,7 @@ async function captureAndUpload() {
 
     console.log(`[${new Date().toLocaleTimeString()}] Desktop Screenshot uploaded successfully for ${config.employeeName} (${config.employeeId}) -> Status: ${res.status}`);
   } catch (err) {
-    console.warn(`[${new Date().toLocaleTimeString()}] Agent upload warning:`, err.message);
+    console.warn(`[${new Date().toLocaleTimeString()}] Agent upload warning:`, err.response?.status || err.message);
   }
 }
 
