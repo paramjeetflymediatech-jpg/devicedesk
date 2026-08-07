@@ -43,7 +43,10 @@
       "output": "dist"
     },
     "win": {
-      "target": "nsis",
+      "target": [
+        "nsis",
+        "zip"
+      ],
       "icon": "assets/icon.png"
     },
     "nsis": {

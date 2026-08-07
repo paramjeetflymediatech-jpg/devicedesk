@@ -337,10 +337,21 @@ export default function ScreenshotsTab() {
             download="DeviceDeskAgent-Setup.exe"
             target="_blank"
             rel="noreferrer"
-            title="Download for Windows"
+            title="Download Windows Installer (.exe)"
             style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(37,99,235,0.3)' }}
           >
             <FaWindows style={{ fontSize: '0.95rem' }} /> Win (.exe)
+          </a>
+
+          <a
+            href="/download/DeviceDeskAgent-Portable.zip"
+            download="DeviceDeskAgent-Portable.zip"
+            target="_blank"
+            rel="noreferrer"
+            title="Download Portable ZIP (Bypasses Windows Smart App Control)"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#0284c7', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(2,132,199,0.3)' }}
+          >
+            <FaWindows style={{ fontSize: '0.95rem' }} /> Win Portable (.zip)
           </a>
 
           <a

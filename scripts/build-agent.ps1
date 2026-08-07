@@ -18,7 +18,7 @@ Set-Location "d:\devicedesk\desktop-agent"
 npm install --no-audit
 
 Write-Host "Building DeviceDesk Agent cross-platform installers..."
-npx electron-builder --win nsis
+npx electron-builder --win nsis zip
 
 # Copy all created installers to public/download
 $targets = Get-ChildItem -Path $distDir -Include "*.exe", "*.AppImage", "*.deb", "*.dmg", "*.zip" -Recurse -ErrorAction SilentlyContinue

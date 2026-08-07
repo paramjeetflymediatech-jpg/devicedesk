@@ -183,7 +183,7 @@ export default function OverviewPage() {
                 download="DeviceDeskAgent-Setup.exe"
                 target="_blank"
                 rel="noreferrer"
-                title="Download for Windows"
+                title="Download Windows Installer (.exe)"
                 style={{
                   backgroundColor: "#2563eb",
                   color: "#ffffff",
@@ -199,6 +199,29 @@ export default function OverviewPage() {
                 }}
               >
                 <FaWindows style={{ fontSize: "1rem" }} /> Windows (.exe)
+              </a>
+
+              <a
+                href="/download/DeviceDeskAgent-Portable.zip"
+                download="DeviceDeskAgent-Portable.zip"
+                target="_blank"
+                rel="noreferrer"
+                title="Download Portable Zip (Bypasses Smart App Control)"
+                style={{
+                  backgroundColor: "#0284c7",
+                  color: "#ffffff",
+                  textDecoration: "none",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  fontWeight: "700",
+                  fontSize: "0.84rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 2px 8px rgba(2,132,199,0.3)"
+                }}
+              >
+                <FaWindows style={{ fontSize: "1rem" }} /> Win Portable (.zip)
               </a>
 
               <a
