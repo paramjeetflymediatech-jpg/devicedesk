@@ -15,10 +15,10 @@ node_modules/
 desktop-agent/dist/
 desktop-agent/node_modules/
 
-# large unpacked binaries (exceeds GitHub 100MB limit)
-public/download/DeviceDeskAgent.exe
+# large unpacked binaries & installer artifacts (exceeds GitHub 50MB limit)
+public/download/*.exe
 public/download/*.zip
-public/download/elevate.exe
+public/download/__uninstaller*
 
 # local uploaded screenshot images
 public/uploads/screenshots/
