@@ -609,12 +609,12 @@ export default function ScreenshotsTab() {
           <FiRefreshCw className="spin-icon" style={{ fontSize: '2rem', marginBottom: '12px', color: '#2563eb' }} />
           <p style={{ fontWeight: '600' }}>Loading activity screenshots...</p>
         </div>
-      ) : screenshots.length === 0 ? (
+      ) : (viewMode === 'grouped' ? groupedByEmployee.length === 0 : screenshots.length === 0) ? (
         <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #e2e8f0)', padding: '60px 20px', borderRadius: '16px', textAlign: 'center' }}>
           <div style={{ fontSize: '3rem', marginBottom: '12px' }}>📷</div>
-          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: 'var(--text-primary, #0f172a)' }}>No Activity Screenshots Found</h3>
+          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: 'var(--text-primary, #0f172a)' }}>No Desktop Activity Captures or Agents Found</h3>
           <p style={{ color: '#64748b', maxWidth: '480px', margin: '8px auto 0 auto', fontSize: '0.85rem' }}>
-            No screen captures match your active filters. Captures occur automatically when employees punch in.
+            No registered desktop agents or screen captures match your active filters. Captures stream automatically when employees sign into the Desktop Agent.
           </p>
         </div>
       ) : viewMode === 'grouped' ? (
