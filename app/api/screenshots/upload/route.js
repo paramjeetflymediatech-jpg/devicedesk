@@ -142,11 +142,17 @@ export async function POST(req) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    // Dynamically ensure column exists
-    try {
-      await pool.query(`ALTER TABLE screenshots ADD COLUMN captureType VARCHAR(50) DEFAULT 'FULL_DESKTOP'`);
-    } catch (e) {
-      /* column already exists */
+    // Dynamically ensure all optional columns exist for legacy MySQL schema safety
+    const autoCols = [
+      `ALTER TABLE screenshots ADD COLUMN department VARCHAR(100)`,
+      `ALTER TABLE screenshots ADD COLUMN shiftId VARCHAR(100)`,
+      `ALTER TABLE screenshots ADD COLUMN ipAddress VARCHAR(50)`,
+      `ALTER TABLE screenshots ADD COLUMN systemNumber VARCHAR(50)`,
+      `ALTER TABLE screenshots ADD COLUMN captureType VARCHAR(50) DEFAULT 'FULL_DESKTOP'`,
+      `ALTER TABLE screenshots ADD COLUMN activityScore INT DEFAULT 100`
+    ];
+    for (const colSql of autoCols) {
+      try { await pool.query(colSql); } catch (e) {}
     }
 
     // 5. Save screenshot record with /uploads/screenshots/... route

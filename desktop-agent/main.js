@@ -237,23 +237,26 @@ async function captureAndUpload() {
     const rawBuffer = await screenshot({ format: 'png' });
     if (!rawBuffer || rawBuffer.length === 0) return;
 
-    // 2. Compress & Resize using Electron nativeImage (Ensures payload is < 200 KB)
+    // 2. Compress & Resize using Electron nativeImage (Ensures payload is < 150 KB for instant upload)
     let base64Image = '';
     try {
       const natImg = nativeImage.createFromBuffer(rawBuffer);
       const size = natImg.getSize();
-      const targetWidth = Math.min(1280, size.width || 1280);
-      const resized = natImg.resize({ width: targetWidth });
-      const jpegBuf = resized.toJPEG(70);
+      const targetWidth = Math.min(1024, size.width || 1024);
+      const resized = natImg.resize({ width: targetWidth, quality: 'medium' });
+      const jpegBuf = resized.toJPEG(55);
       base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
     } catch (compErr) {
-      base64Image = `data:image/jpeg;base64,${rawBuffer.toString('base64')}`;
+      console.warn('Image compression notice:', compErr.message);
+      const natImg = nativeImage.createFromBuffer(rawBuffer);
+      const jpegBuf = natImg.toJPEG(50);
+      base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
     }
 
     const targetUrl = `${config.serverUrl}/api/screenshots/upload`;
 
     // 3. Upload to DeviceDesk Backend API
-    await axios.post(targetUrl, {
+    const res = await axios.post(targetUrl, {
       employeeId: config.employeeId,
       employeeName: config.employeeName,
       department: config.department,
@@ -263,10 +266,12 @@ async function captureAndUpload() {
       activityScore: 98
     }, {
       timeout: 30000,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
       headers: { 'Content-Type': 'application/json' }
     });
 
-    console.log(`[${new Date().toLocaleTimeString()}] Desktop Screenshot uploaded successfully for ${config.employeeName} (${config.employeeId}) -> ${config.serverUrl}`);
+    console.log(`[${new Date().toLocaleTimeString()}] Desktop Screenshot uploaded successfully for ${config.employeeName} (${config.employeeId}) -> Status: ${res.status}`);
   } catch (err) {
     console.warn(`[${new Date().toLocaleTimeString()}] Agent upload warning:`, err.message);
   }
