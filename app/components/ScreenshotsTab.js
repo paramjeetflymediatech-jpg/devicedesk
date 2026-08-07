@@ -102,6 +102,13 @@ export default function ScreenshotsTab() {
     fetchScreenshots();
   }, [selectedEmployee, selectedDepartment, selectedDate]);
 
+  const parseUtcMs = (val) => {
+    if (!val) return 0;
+    if (val instanceof Date) return val.getTime();
+    const str = String(val).replace(' ', 'T');
+    return (!str.endsWith('Z') && !str.includes('+')) ? new Date(str + 'Z').getTime() : new Date(str).getTime();
+  };
+
   // Group screenshots by Employee ID & System for "Grouped View" (Includes all registered employees)
   const groupedByEmployee = useMemo(() => {
     const map = {};
@@ -109,7 +116,7 @@ export default function ScreenshotsTab() {
     // 1. Add all registered agents first
     agentRegistrations.forEach(reg => {
       const key = (reg.employeeId || 'EMP-UNKNOWN').toLowerCase().trim();
-      const lastSeenMs = reg.lastSeenAt ? new Date(reg.lastSeenAt).getTime() : 0;
+      const lastSeenMs = parseUtcMs(reg.lastSeenAt);
       const isOnline = (Date.now() - lastSeenMs) < 300000; // Online if active within last 5 minutes
 
       map[key] = {

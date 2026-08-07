@@ -46,8 +46,21 @@ export async function GET(req) {
       ORDER BY lastSeenAt DESC;
     `);
 
-    const onlineCount = rows.filter(r => r.connectionState === 'ONLINE').length;
-    const totalCount = rows.length;
+    const formatIso = (val) => {
+      if (!val) return null;
+      if (val instanceof Date) return val.toISOString();
+      const str = String(val).replace(' ', 'T');
+      return (!str.endsWith('Z') && !str.includes('+')) ? new Date(str + 'Z').toISOString() : new Date(str).toISOString();
+    };
+
+    const formattedRows = rows.map(r => ({
+      ...r,
+      installedAt: formatIso(r.installedAt),
+      lastSeenAt: formatIso(r.lastSeenAt)
+    }));
+
+    const onlineCount = formattedRows.filter(r => r.connectionState === 'ONLINE').length;
+    const totalCount = formattedRows.length;
 
     return NextResponse.json({
       success: true,
@@ -56,7 +69,7 @@ export async function GET(req) {
         onlineAgents: onlineCount,
         offlineAgents: totalCount - onlineCount
       },
-      agents: rows
+      agents: formattedRows
     });
 
   } catch (err) {

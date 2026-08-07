@@ -120,11 +120,29 @@ export async function GET(req) {
       totalPages: Math.ceil(totalCount / limit) || 1
     };
 
+    const formatIso = (val) => {
+      if (!val) return null;
+      if (val instanceof Date) return val.toISOString();
+      const str = String(val).replace(' ', 'T');
+      return (!str.endsWith('Z') && !str.includes('+')) ? new Date(str + 'Z').toISOString() : new Date(str).toISOString();
+    };
+
+    const formattedRegs = registrations.map(r => ({
+      ...r,
+      installedAt: formatIso(r.installedAt),
+      lastSeenAt: formatIso(r.lastSeenAt)
+    }));
+
+    const formattedRows = rows.map(r => ({
+      ...r,
+      capturedAt: formatIso(r.capturedAt)
+    }));
+
     return NextResponse.json({
       success: true,
       stats,
-      registrations,
-      data: rows
+      registrations: formattedRegs,
+      data: formattedRows
     });
 
   } catch (err) {
