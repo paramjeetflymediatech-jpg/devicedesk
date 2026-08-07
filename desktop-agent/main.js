@@ -87,7 +87,7 @@ function createWindow() {
     resizable: false,
     maximizable: false,
     autoHideMenuBar: true,
-    title: 'DeviceDesk Agent Setup',
+    title: 'DeviceDesk Agent Login',
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -113,7 +113,7 @@ function createTray() {
   }
 
   tray = new Tray(trayIcon);
-  tray.setToolTip('DeviceDesk Agent - Automated Desktop Logger');
+  tray.setToolTip('DeviceDesk Agent - User Connected');
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -122,7 +122,7 @@ function createTray() {
     },
     { type: 'separator' },
     {
-      label: '⚙️ Configure Employee Settings',
+      label: '👤 Account & Settings',
       click: () => {
         if (mainWindow) {
           mainWindow.show();
@@ -164,6 +164,7 @@ function getActiveConfig() {
 
   const employeeId = config.employeeId || osUser;
   const employeeName = config.employeeName || osUser;
+  const userEmail = config.userEmail || '';
   const department = config.department || 'General';
   const systemNumber = config.systemNumber || osHost;
 
@@ -176,9 +177,11 @@ function getActiveConfig() {
   return {
     employeeId,
     employeeName,
+    userEmail,
     department,
     systemNumber,
     serverUrl,
+    isLoggedIn: !!config.isLoggedIn,
     isConfigured: !!config.isConfigured
   };
 }
@@ -186,6 +189,8 @@ function getActiveConfig() {
 // Automatically register system on server startup
 async function registerAgentOnline() {
   const config = getActiveConfig();
+  if (!config.isLoggedIn) return;
+
   try {
     const regUrl = `${config.serverUrl}/api/agent/register`;
     await axios.post(regUrl, {
@@ -202,16 +207,37 @@ async function registerAgentOnline() {
   }
 }
 
+// Periodic Ping Heartbeat to Server (Every 60s)
+async function sendPingHeartbeat() {
+  const config = getActiveConfig();
+  if (!config.isLoggedIn) return;
+
+  try {
+    const pingUrl = `${config.serverUrl}/api/agent/ping`;
+    await axios.post(pingUrl, {
+      employeeId: config.employeeId,
+      employeeName: config.employeeName,
+      department: config.department,
+      systemNumber: config.systemNumber,
+      osPlatform: process.platform || 'windows',
+      agentVersion: '1.0.0'
+    }, { timeout: 10000 });
+  } catch (e) {
+    // Silent fail on network ping timeout
+  }
+}
+
 // Screenshot Capture & Upload Engine (With high-performance image compression)
 async function captureAndUpload() {
   const config = getActiveConfig();
+  if (!config.isLoggedIn) return;
 
   try {
     // 1. Capture Full Multi-Monitor OS Desktop Screen
     const rawBuffer = await screenshot({ format: 'png' });
     if (!rawBuffer || rawBuffer.length === 0) return;
 
-    // 2. Compress & Resize using Electron nativeImage (Ensures payload is < 200 KB so uploads never fail)
+    // 2. Compress & Resize using Electron nativeImage (Ensures payload is < 200 KB)
     let base64Image = '';
     try {
       const natImg = nativeImage.createFromBuffer(rawBuffer);
@@ -246,20 +272,62 @@ async function captureAndUpload() {
   }
 }
 
-// IPC Handlers for Settings UI
+// IPC Handlers for Agent UI & Login
 ipcMain.on('get-config', (event) => {
   const config = getActiveConfig();
   event.reply('config-data', config);
 });
 
-ipcMain.on('save-config', (event, config) => {
-  saveConfig({ ...config, isConfigured: true });
-  console.log('Employee configuration updated:', config.employeeId);
-  
-  // Trigger immediate online registration & capture
-  registerAgentOnline();
-  captureAndUpload();
-  startCaptureTimer();
+ipcMain.on('agent-login', async (event, { identifier, password, serverUrl }) => {
+  let targetServer = serverUrl || 'https://devicedesk.flymediatech.com';
+  targetServer = targetServer.replace(/\/$/, '');
+  const osHost = os.hostname() || 'desktop';
+
+  try {
+    const loginUrl = `${targetServer}/api/agent/login`;
+    const res = await axios.post(loginUrl, {
+      identifier,
+      password,
+      systemNumber: osHost,
+      serverUrl: targetServer,
+      osPlatform: process.platform || 'windows'
+    }, { timeout: 15000 });
+
+    if (res.data && res.data.success) {
+      const user = res.data.user;
+      const userConfig = saveConfig({
+        employeeId: user.id,
+        employeeName: user.name,
+        userEmail: user.email,
+        department: user.department,
+        systemNumber: osHost,
+        serverUrl: targetServer,
+        isLoggedIn: true,
+        isConfigured: true
+      });
+
+      // Trigger immediate registration & activity loops
+      registerAgentOnline();
+      sendPingHeartbeat();
+      startCaptureTimer();
+
+      event.reply('login-result', { success: true, userConfig });
+    } else {
+      event.reply('login-result', { success: false, message: res.data?.message || 'Login failed.' });
+    }
+  } catch (err) {
+    const errorMsg = err.response?.data?.message || err.message || 'Server connection error.';
+    event.reply('login-result', { success: false, message: errorMsg });
+  }
+});
+
+ipcMain.on('agent-logout', () => {
+  saveConfig({
+    isLoggedIn: false,
+    isConfigured: false
+  });
+  if (captureTimer) clearInterval(captureTimer);
+  console.log('User logged out from desktop agent.');
 });
 
 ipcMain.on('hide-window', () => {
@@ -268,7 +336,9 @@ ipcMain.on('hide-window', () => {
 
 function startCaptureTimer() {
   if (captureTimer) clearInterval(captureTimer);
-  
+  const config = getActiveConfig();
+  if (!config.isLoggedIn) return;
+
   // Immediate capture after 5 seconds
   setTimeout(captureAndUpload, 5000);
 
@@ -281,14 +351,22 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
 
+  const config = getActiveConfig();
+
   if (mainWindow) {
     mainWindow.show();
     mainWindow.focus();
   }
 
-  // Register online and start monitoring
-  registerAgentOnline();
-  startCaptureTimer();
+  // Register online and start monitoring only if user is logged in
+  if (config.isLoggedIn) {
+    registerAgentOnline();
+    sendPingHeartbeat();
+    startCaptureTimer();
+  }
+
+  // Periodic heartbeat every 60 seconds (60,000 ms)
+  setInterval(sendPingHeartbeat, 60000);
 });
 
 app.on('window-all-closed', () => {

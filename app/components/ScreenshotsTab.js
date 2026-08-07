@@ -57,11 +57,13 @@ export default function ScreenshotsTab() {
     async function loadFilterOptions() {
       try {
         const empRes = await fetch('/api/employees');
-        const empData = await empRes.json();
-        if (empData.success && Array.isArray(empData.data)) {
-          setEmployeesList(empData.data);
-          const deptSet = new Set(empData.data.map(e => e.department).filter(Boolean));
-          setDepartmentsList(Array.from(deptSet));
+        if (empRes.ok) {
+          const empData = await empRes.json();
+          if (empData.success && Array.isArray(empData.data)) {
+            setEmployeesList(empData.data);
+            const deptSet = new Set(empData.data.map(e => e.department).filter(Boolean));
+            setDepartmentsList(Array.from(deptSet));
+          }
         }
       } catch (err) {
         console.warn('Could not load employees filter list:', err);

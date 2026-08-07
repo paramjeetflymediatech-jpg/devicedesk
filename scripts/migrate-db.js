@@ -1,21 +1,50 @@
 const path = require('path');
 const fs = require('fs');
+const mysql = require('mysql2/promise');
 
-// Load environment variables from .env file
-const envPath = path.join(__dirname, '..', '.env');
-if (fs.existsSync(envPath)) {
-  const envConfig = require('dotenv').parse(fs.readFileSync(envPath));
-  for (const k in envConfig) {
-    process.env[k] = envConfig[k];
+// Flexible environment file path resolution for local dev & server deployment
+const customEnvPath = process.env.ENV_PATH || process.argv.find(arg => arg.startsWith('--env='))?.split('=')[1];
+const envCandidates = customEnvPath
+  ? [path.resolve(customEnvPath)]
+  : [
+      path.join(__dirname, '..', '.env.local'),
+      path.join(__dirname, '..', '.env'),
+      path.join(__dirname, '..', '.env.production'),
+      path.join(process.cwd(), '.env'),
+      path.join(process.cwd(), '.env.local')
+    ];
+
+let loadedEnvPath = null;
+for (const envFile of envCandidates) {
+  if (fs.existsSync(envFile)) {
+    const envContent = fs.readFileSync(envFile, 'utf8');
+    envContent.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const parts = trimmed.split('=');
+      if (parts.length >= 2) {
+        const key = parts[0].trim();
+        const val = parts.slice(1).join('=').trim().replace(/(^['"]|['"]$)/g, '');
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    });
+    loadedEnvPath = envFile;
+    break;
   }
 }
-
-const mysql = require('mysql2/promise');
 
 async function runMigration() {
   console.log('==========================================================');
   console.log('📦 DeviceDesk Safe Database Migration Tool (Non-Destructive)');
   console.log('==========================================================');
+
+  if (loadedEnvPath) {
+    console.log(`📌 Loaded Environment File: ${loadedEnvPath}`);
+  } else {
+    console.log('⚠️ No explicit .env file found. Using default environment variables.');
+  }
 
   const dbName = process.env.DB_NAME || 'devicedesk';
   const config = {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DeviceDesk Agent Setup</title>
+  <title>DeviceDesk Agent Login</title>
   <style>
     :root {
       --bg: #f8fafc;
@@ -18,6 +18,9 @@
       --success-bg: #f0fdf4;
       --success-border: #bbf7d0;
       --success-text: #166534;
+      --error-bg: #fef2f2;
+      --error-border: #fecaca;
+      --error-text: #991b1b;
     }
 
     * {
@@ -38,7 +41,7 @@
       user-select: none;
     }
 
-    /* Top Logo & Header Area */
+    /* Top Logo & Header Banner */
     .header-banner {
       background-color: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -54,7 +57,7 @@
     .logo-container {
       height: 44px;
       min-width: 44px;
-      max-width: 150px;
+      max-width: 140px;
       background-color: #ffffff;
       border-radius: 10px;
       display: flex;
@@ -98,11 +101,11 @@
     }
 
     /* Form Container */
-    .form-card {
+    .card {
       background-color: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 12px;
-      padding: 18px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -123,7 +126,7 @@
       letter-spacing: 0.5px;
     }
 
-    input, select {
+    input {
       width: 100%;
       padding: 10px 12px;
       border-radius: 8px;
@@ -136,12 +139,166 @@
       transition: all 0.2s ease;
     }
 
-    input:focus, select:focus {
+    input:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
     }
 
-    /* Live Status Badge */
+    .password-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .password-wrapper input {
+      padding-right: 40px;
+    }
+
+    .toggle-password-btn {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.05rem;
+      opacity: 0.65;
+      transition: opacity 0.2s ease;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+    }
+
+    .toggle-password-btn:hover {
+      opacity: 1;
+    }
+
+    /* Alert Message */
+    .alert {
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      display: none;
+    }
+
+    .alert-error {
+      background-color: var(--error-bg);
+      border: 1px solid var(--error-border);
+      color: var(--error-text);
+    }
+
+    .alert-success {
+      background-color: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+    }
+
+    /* Action Buttons */
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background-color: var(--accent);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 0.9rem;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+      transition: background-color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      background-color: #f1f5f9;
+      color: #334155;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      background-color: #e2e8f0;
+    }
+
+    .btn-danger {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #fca5a5;
+      background-color: #fef2f2;
+      color: #b91c1c;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 6px;
+    }
+
+    .btn-danger:hover {
+      background-color: #fee2e2;
+    }
+
+    /* User Profile Card when Logged In */
+    .profile-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 12px;
+      border-radius: 10px;
+    }
+
+    .avatar-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .profile-details {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .profile-name {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .profile-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Status Pulse Badge */
     .status-badge {
       display: flex;
       align-items: center;
@@ -167,30 +324,6 @@
       border-radius: 50%;
       background-color: #16a34a;
       box-shadow: 0 0 6px #16a34a;
-    }
-
-    /* Primary Action Button */
-    .btn-primary {
-      width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      border: none;
-      background-color: var(--accent);
-      color: #ffffff;
-      font-weight: 800;
-      font-size: 0.9rem;
-      cursor: pointer;
-      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
-      transition: background-color 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .btn-primary:hover {
-      background-color: var(--accent-hover);
     }
 
     /* Footer */
@@ -219,41 +352,35 @@
           DeviceDesk Agent
           <span class="badge-tag">v1.0</span>
         </h2>
-        <p>Automated OS Desktop Activity Logger</p>
+        <p>Automated Desktop Monitor</p>
       </div>
     </div>
 
-    <!-- Configuration Form -->
-    <form id="configForm">
-      <div class="form-card">
-        
+    <!-- 1. LOGIN FORM STATE -->
+    <div id="loginView" class="card">
+      <h3 style="font-size: 0.95rem; font-weight: 800; color: #334155; margin-bottom: 2px;">
+        🔑 Employee Login
+      </h3>
+      <p style="font-size: 0.75rem; color: #64748b; margin-bottom: 6px;">
+        Sign in with your DeviceDesk account credentials to connect this desktop.
+      </p>
+
+      <div class="alert alert-error" id="errorAlert"></div>
+      <div class="alert alert-success" id="successAlert"></div>
+
+      <form id="loginForm" style="display: flex; flex-direction: column; gap: 12px;">
         <div class="form-group">
-          <label for="employeeId">Employee ID / Email</label>
-          <input type="text" id="employeeId" placeholder="e.g. EMP-102 or employee@company.com" required />
+          <label for="identifier">Employee ID / Email / Username</label>
+          <input type="text" id="identifier" placeholder="e.g. employee@company.com or EMP-101" required />
         </div>
 
         <div class="form-group">
-          <label for="employeeName">Full Employee Name</label>
-          <input type="text" id="employeeName" placeholder="e.g. Amandeep" required />
-        </div>
-
-        <div style="display: flex; gap: 10px;">
-          <div class="form-group" style="flex: 1;">
-            <label for="department">Department</label>
-            <select id="department">
-              <option value="Development">Development</option>
-              <option value="Design">Design</option>
-              <option value="QA">QA</option>
-              <option value="Operations">Operations</option>
-              <option value="IT Support">IT Support</option>
-              <option value="HR">HR</option>
-              <option value="Sales">Sales</option>
-            </select>
-          </div>
-
-          <div class="form-group" style="flex: 1;">
-            <label for="systemNumber">System Tag</label>
-            <input type="text" id="systemNumber" placeholder="e.g. SN31" value="SN-DESKTOP" />
+          <label for="password">Password</label>
+          <div class="password-wrapper">
+            <input type="password" id="password" placeholder="Enter your password" required />
+            <button type="button" id="togglePasswordBtn" class="toggle-password-btn" title="Toggle password visibility">
+              👁️
+            </button>
           </div>
         </div>
 
@@ -262,72 +389,182 @@
           <input type="text" id="serverUrl" value="https://devicedesk.flymediatech.com" required />
         </div>
 
-        <!-- Live Status Badge -->
-        <div class="status-badge" id="statusBadge" style="display: none;">
-          <div class="status-left">
-            <div class="pulse-dot"></div>
-            <span id="statusText">Active: Full Desktop Screenshots Logging</span>
-          </div>
-          <span style="font-size: 0.7rem; color: #15803d; font-weight: 800;">Every 3m</span>
-        </div>
-
-        <!-- Save Action Button -->
-        <button type="submit" class="btn-primary" id="saveBtn">
-          Save Settings & Start Agent
+        <button type="submit" class="btn-primary" id="loginBtn">
+          Sign In & Connect Agent
         </button>
+      </form>
+    </div>
 
+    <!-- 2. LOGGED IN STATE -->
+    <div id="activeView" class="card" style="display: none;">
+      <div class="profile-box">
+        <div class="avatar-circle" id="userAvatar">E</div>
+        <div class="profile-details">
+          <div class="profile-name" id="profileName">Employee Name</div>
+          <div class="profile-sub" id="profileSub">EMP-ID • Department</div>
+          <div class="profile-sub" id="profileEmail" style="font-size: 0.7rem; color: #94a3b8;">email@company.com</div>
+        </div>
       </div>
-    </form>
+
+      <!-- Live Status Pulse -->
+      <div class="status-badge">
+        <div class="status-left">
+          <div class="pulse-dot"></div>
+          <span>Active: Desktop Logging Online</span>
+        </div>
+        <span style="font-size: 0.7rem; color: #15803d; font-weight: 800;">Connected</span>
+      </div>
+
+      <button class="btn-secondary" id="hideBtn">
+        📌 Minimize to System Tray
+      </button>
+
+      <button class="btn-danger" id="logoutBtn">
+        🔒 Log Out Account
+      </button>
+    </div>
   </div>
 
   <!-- Footer -->
   <div class="footer">
-    <span>Encrypted API Connection</span>
+    <span>Encrypted Authentication</span>
     <span>Windows System Tray Agent</span>
   </div>
 
   <script>
     const { ipcRenderer } = require('electron');
 
-    // Request stored config on window open
+    const loginView = document.getElementById('loginView');
+    const activeView = document.getElementById('activeView');
+    const loginForm = document.getElementById('loginForm');
+    const loginBtn = document.getElementById('loginBtn');
+    const errorAlert = document.getElementById('errorAlert');
+    const successAlert = document.getElementById('successAlert');
+
+    const profileName = document.getElementById('profileName');
+    const profileSub = document.getElementById('profileSub');
+    const profileEmail = document.getElementById('profileEmail');
+    const userAvatar = document.getElementById('userAvatar');
+
+    // Request active configuration state on window load
     ipcRenderer.send('get-config');
 
     ipcRenderer.on('config-data', (event, config) => {
       if (config) {
-        if (config.employeeId) document.getElementById('employeeId').value = config.employeeId;
-        if (config.employeeName) document.getElementById('employeeName').value = config.employeeName;
-        if (config.department) document.getElementById('department').value = config.department;
-        if (config.systemNumber) document.getElementById('systemNumber').value = config.systemNumber;
-        
-        // Dynamic Server Endpoint URL configuration
         if (config.serverUrl) {
           document.getElementById('serverUrl').value = config.serverUrl;
         }
 
-        if (config.isConfigured) {
-          document.getElementById('statusBadge').style.display = 'flex';
-          document.getElementById('saveBtn').innerText = 'Update Settings';
+        if (config.isLoggedIn && config.employeeName) {
+          showActiveView(config);
+        } else {
+          showLoginView();
         }
       }
     });
 
-    document.getElementById('configForm').addEventListener('submit', (e) => {
+    // Handle Login Form Submit
+    loginForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      const config = {
-        employeeId: document.getElementById('employeeId').value.trim(),
-        employeeName: document.getElementById('employeeName').value.trim(),
-        department: document.getElementById('department').value,
-        systemNumber: document.getElementById('systemNumber').value.trim(),
-        serverUrl: document.getElementById('serverUrl').value.trim()
-      };
+      hideAlerts();
 
-      ipcRenderer.send('save-config', config);
-      document.getElementById('statusBadge').style.display = 'flex';
-      document.getElementById('saveBtn').innerText = 'Settings Saved';
-      setTimeout(() => {
-        ipcRenderer.send('hide-window');
-      }, 1200);
+      const identifier = document.getElementById('identifier').value.trim();
+      const password = document.getElementById('password').value;
+      const serverUrl = document.getElementById('serverUrl').value.trim();
+
+      if (!identifier || !password) {
+        showError('Please enter both Employee ID/Email and Password.');
+        return;
+      }
+
+      loginBtn.innerText = 'Connecting to Server...';
+      loginBtn.disabled = true;
+
+      ipcRenderer.send('agent-login', { identifier, password, serverUrl });
     });
+
+    // Handle Login Result from Main Process
+    ipcRenderer.on('login-result', (event, res) => {
+      loginBtn.innerText = 'Sign In & Connect Agent';
+      loginBtn.disabled = false;
+
+      if (res.success) {
+        showSuccess('Connected successfully! Starting agent monitoring...');
+        setTimeout(() => {
+          hideAlerts();
+          showActiveView(res.userConfig);
+        }, 1000);
+      } else {
+        showError(res.message || 'Login failed. Please check credentials.');
+      }
+    });
+
+    // Toggle Password Visibility (Eye Icon)
+    const passwordInput = document.getElementById('password');
+    const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+
+    if (togglePasswordBtn && passwordInput) {
+      togglePasswordBtn.addEventListener('click', () => {
+        if (passwordInput.type === 'password') {
+          passwordInput.type = 'text';
+          togglePasswordBtn.innerText = '🙈';
+        } else {
+          passwordInput.type = 'password';
+          togglePasswordBtn.innerText = '👁️';
+        }
+      });
+    }
+
+    // Minimize Button
+    document.getElementById('hideBtn').addEventListener('click', () => {
+      ipcRenderer.send('hide-window');
+    });
+
+    // Logout Button
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      ipcRenderer.send('agent-logout');
+      showLoginView();
+    });
+
+    function showLoginView() {
+      loginView.style.display = 'flex';
+      activeView.style.display = 'none';
+      document.getElementById('password').value = '';
+    }
+
+    function showActiveView(config) {
+      loginView.style.display = 'none';
+      activeView.style.display = 'flex';
+
+      const name = config.employeeName || 'Employee';
+      const empId = config.employeeId || 'EMP';
+      const dept = config.department || 'General';
+      const email = config.userEmail || '';
+
+      profileName.innerText = name;
+      profileSub.innerText = `${empId} • ${dept}`;
+      profileEmail.innerText = email;
+
+      const firstChar = name.charAt(0).toUpperCase();
+      userAvatar.innerText = firstChar || 'E';
+    }
+
+    function showError(msg) {
+      errorAlert.innerText = msg;
+      errorAlert.style.display = 'block';
+      successAlert.style.display = 'none';
+    }
+
+    function showSuccess(msg) {
+      successAlert.innerText = msg;
+      successAlert.style.display = 'block';
+      errorAlert.style.display = 'none';
+    }
+
+    function hideAlerts() {
+      errorAlert.style.display = 'none';
+      successAlert.style.display = 'none';
+    }
   </script>
 </body>
 </html>

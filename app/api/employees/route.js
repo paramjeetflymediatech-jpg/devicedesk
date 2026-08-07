@@ -2,6 +2,23 @@ import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
 import bcrypt from 'bcryptjs';
 
+export async function GET() {
+  try {
+    const db = await getDbConnection();
+    const [rows] = await db.query(
+      `SELECT id, name, email, role, department, status, ticketLimit, createdAt FROM employees ORDER BY name ASC`
+    );
+    return NextResponse.json({
+      success: true,
+      count: rows.length,
+      data: rows
+    });
+  } catch (err) {
+    console.error('Fetch Employees API Error:', err);
+    return NextResponse.json({ success: false, error: err.message, data: [] }, { status: 500 });
+  }
+}
+
 export async function POST(request) {
   try {
     const { name, email, password, role, department, ticketLimit } = await request.json();

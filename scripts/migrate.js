@@ -2,12 +2,22 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 
-// Load environment variables
-const envNames = ['.env.local', '.env', '.env.production'];
-for (const name of envNames) {
-  const envPath = path.join(__dirname, '..', name);
-  if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, 'utf8');
+// Flexible environment file path resolution for local dev & server deployment
+const customEnvPath = process.env.ENV_PATH || process.argv.find(arg => arg.startsWith('--env='))?.split('=')[1];
+const envCandidates = customEnvPath
+  ? [path.resolve(customEnvPath)]
+  : [
+      path.join(__dirname, '..', '.env.local'),
+      path.join(__dirname, '..', '.env'),
+      path.join(__dirname, '..', '.env.production'),
+      path.join(process.cwd(), '.env'),
+      path.join(process.cwd(), '.env.local')
+    ];
+
+let loadedEnvPath = null;
+for (const envFile of envCandidates) {
+  if (fs.existsSync(envFile)) {
+    const envContent = fs.readFileSync(envFile, 'utf8');
     envContent.split('\n').forEach(line => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) return;
@@ -15,28 +25,33 @@ for (const name of envNames) {
       if (parts.length >= 2) {
         const key = parts[0].trim();
         const val = parts.slice(1).join('=').trim().replace(/(^['"]|['"]$)/g, '');
-        process.env[key] = val;
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
       }
     });
+    loadedEnvPath = envFile;
     break;
   }
 }
 
 async function getConnection() {
-  const envPass = process.env.DB_PASS;
-  const candidatePasswords = envPass !== undefined ? [envPass] : [process.env.DB_PASS || 'root', 'Root@123', '', '123456', 'password', 'admin'];
+  const envPass = process.env.DB_PASS || process.env.DB_PASSWORD;
+  const candidatePasswords = envPass !== undefined 
+    ? [envPass] 
+    : ['root', 'Root@123', '', '123456', 'password', 'admin'];
 
   let lastError;
   for (const pass of candidatePasswords) {
     try {
       const conn = await mysql.createConnection({
         host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '3306'),
+        port: parseInt(process.env.DB_PORT || '3306', 10),
         user: process.env.DB_USER || 'root',
         password: pass,
         multipleStatements: true
       });
-      console.log(`🔑 Successfully connected to MySQL using user '${process.env.DB_USER || 'root'}'!`);
+      console.log(`🔑 Connected to MySQL server as user '${process.env.DB_USER || 'root'}'!`);
       return conn;
     } catch (err) {
       lastError = err;
@@ -49,34 +64,47 @@ async function getConnection() {
 }
 
 async function runMigration() {
-  console.log('🚀 Running DeviceDesk Database Migrations...');
+  console.log('==========================================================');
+  console.log('🚀 DeviceDesk Automated Database Migration Tool');
+  console.log('==========================================================');
+  if (loadedEnvPath) {
+    console.log(`📌 Loaded Environment File: ${loadedEnvPath}`);
+  } else {
+    console.log('⚠️ No explicit .env file found. Using default environment variables.');
+  }
+
   const host = process.env.DB_HOST || 'localhost';
   const port = process.env.DB_PORT || '3306';
   const user = process.env.DB_USER || 'root';
-  console.log(`Host: ${host}:${port}`);
-  console.log(`User: ${user}`);
+  const targetDb = process.env.DB_NAME || 'system_tracking';
+
+  console.log(`Target Host: ${host}:${port}`);
+  console.log(`Database User: ${user}`);
+  console.log(`Target Database: ${targetDb}\n`);
 
   let connection;
   try {
     connection = await getConnection();
 
-    // 1. Run schema.sql if present
+    // 1. Ensure database exists
+    console.log(`--> Ensuring database [${targetDb}] exists...`);
+    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\`;`);
+    await connection.changeUser({ database: targetDb });
+    console.log(`✅ Using database [${targetDb}]\n`);
+
+    // 2. Run schema.sql if present
     const schemaPath = path.join(__dirname, '..', 'schema.sql');
     if (fs.existsSync(schemaPath)) {
-      console.log('\n📄 Executing schema.sql...');
+      console.log('📄 Executing schema.sql...');
       const schemaSql = fs.readFileSync(schemaPath, 'utf8');
       await connection.query(schemaSql);
-      console.log('✅ schema.sql executed successfully.');
+      console.log('✅ schema.sql executed successfully.\n');
     }
 
-    // Connect specifically to target database now
-    const dbName = process.env.DB_NAME || 'system_tracking';
-    await connection.changeUser({ database: dbName });
-
-    // 2. Run alter.sql if present
+    // 3. Run alter.sql if present
     const alterPath = path.join(__dirname, '..', 'alter.sql');
     if (fs.existsSync(alterPath)) {
-      console.log('\n📄 Executing alter.sql...');
+      console.log('📄 Executing alter.sql...');
       const alterSql = fs.readFileSync(alterPath, 'utf8');
       const statements = alterSql
         .split(';')
@@ -95,10 +123,12 @@ async function runMigration() {
           }
         }
       }
-      console.log('✅ alter.sql processing complete.');
+      console.log('✅ alter.sql processing complete.\n');
     }
 
-    console.log('\n🎉 Database Migration completed successfully!');
+    console.log('==========================================================');
+    console.log('🎉 Database Migration completed successfully!');
+    console.log('==========================================================');
   } catch (error) {
     console.error('\n❌ Migration Failed:', error.message);
     process.exitCode = 1;
