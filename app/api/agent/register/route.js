@@ -6,7 +6,7 @@ export async function POST(req) {
   try {
     const pool = await getDbConnection();
     const body = await req.json();
-
+    console.log("Request BodyAgent Registration: ",body);
     const employeeId = body.employeeId || 'EMP-UNKNOWN';
     const employeeName = body.employeeName || 'Unknown Employee';
     const department = body.department || 'General';
