@@ -68,6 +68,29 @@ export async function POST(req) {
       }
     }
 
+    // Resolve canonical employee ID & name from employees or agent_registrations
+    try {
+      const [empLookup] = await pool.query(
+        `SELECT id, name, department FROM employees WHERE LOWER(id) = LOWER(?) OR LOWER(name) = LOWER(?) OR LOWER(email) = LOWER(?) LIMIT 1`,
+        [employeeId, employeeName, employeeId]
+      );
+      if (empLookup && empLookup.length > 0) {
+        employeeId = empLookup[0].id;
+        employeeName = empLookup[0].name || employeeName;
+        department = empLookup[0].department || department;
+      } else {
+        const [regLookup] = await pool.query(
+          `SELECT employeeId, employeeName, department FROM agent_registrations WHERE LOWER(employeeId) = LOWER(?) OR LOWER(employeeName) = LOWER(?) LIMIT 1`,
+          [employeeId, employeeName]
+        );
+        if (regLookup && regLookup.length > 0) {
+          employeeId = regLookup[0].employeeId;
+          employeeName = regLookup[0].employeeName || employeeName;
+          department = regLookup[0].department || department;
+        }
+      }
+    } catch (lookupErr) {}
+
     if (!fileBuffer || fileBuffer.length === 0) {
       return NextResponse.json({ success: false, error: 'No image data provided' }, { status: 400 });
     }

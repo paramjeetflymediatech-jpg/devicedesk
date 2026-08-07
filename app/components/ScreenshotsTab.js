@@ -108,31 +108,48 @@ export default function ScreenshotsTab() {
 
     // 1. Add all registered agents first
     agentRegistrations.forEach(reg => {
-      const key = reg.employeeId || 'EMP-UNKNOWN';
+      const key = (reg.employeeId || 'EMP-UNKNOWN').toLowerCase().trim();
+      const lastSeenMs = reg.lastSeenAt ? new Date(reg.lastSeenAt).getTime() : 0;
+      const isOnline = (Date.now() - lastSeenMs) < 300000; // Online if active within last 5 minutes
+
       map[key] = {
         employeeId: reg.employeeId,
         employeeName: reg.employeeName || reg.employeeId,
         department: reg.department || 'General',
         systemNumber: reg.systemNumber || 'AGENT-SYSTEM',
         ipAddress: reg.ipAddress || '',
+        osPlatform: reg.osPlatform || 'windows',
+        lastSeenAt: reg.lastSeenAt || null,
+        isOnline,
         captures: []
       };
     });
 
-    // 2. Merge screenshots
+    // 2. Merge screenshots with smart fuzzy matching (by employeeId OR employeeName)
     screenshots.forEach(item => {
-      const key = item.employeeId || 'EMP-UNKNOWN';
-      if (!map[key]) {
-        map[key] = {
+      const idKey = (item.employeeId || '').toLowerCase().trim();
+      const nameKey = (item.employeeName || '').toLowerCase().trim();
+
+      let targetKey = idKey;
+      if (!map[targetKey] && nameKey) {
+        const foundKey = Object.keys(map).find(k => map[k].employeeName.toLowerCase().trim() === nameKey);
+        if (foundKey) targetKey = foundKey;
+      }
+
+      if (!map[targetKey]) {
+        map[targetKey] = {
           employeeId: item.employeeId,
           employeeName: item.employeeName || 'Unknown Employee',
           department: item.department || 'General',
           systemNumber: item.systemNumber || 'PC',
           ipAddress: item.ipAddress || '',
+          osPlatform: 'windows',
+          lastSeenAt: item.capturedAt || null,
+          isOnline: false,
           captures: []
         };
       }
-      map[key].captures.push(item);
+      map[targetKey].captures.push(item);
     });
 
     return Object.values(map);
@@ -663,9 +680,68 @@ export default function ScreenshotsTab() {
                 {!isCollapsed && (
                   <div style={{ padding: '20px' }}>
                     {group.captures.length === 0 ? (
-                      <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', backgroundColor: 'var(--bg-muted, #f8fafc)', borderRadius: '12px', fontSize: '0.88rem' }}>
-                        💻 <strong>Desktop Agent Registered & Active</strong> (System: <code>{group.systemNumber}</code>)<br />
-                        <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Waiting for initial desktop activity screenshot stream...</span>
+                      <div style={{
+                        padding: '24px',
+                        backgroundColor: 'var(--bg-muted, #f8fafc)',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-color, #e2e8f0)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '10px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                          <span style={{ fontSize: '1.2rem' }}>💻</span>
+                          <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#0f172a' }}>
+                            Desktop Agent Registered on <code>{group.systemNumber}</code>
+                          </span>
+                          {group.isOnline ? (
+                            <span style={{ backgroundColor: '#dcfce7', color: '#15803d', fontSize: '0.72rem', fontWeight: '800', padding: '3px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                              <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#16a34a' }}></span> ONLINE (Active)
+                            </span>
+                          ) : (
+                            <span style={{ backgroundColor: '#fef3c7', color: '#b45309', fontSize: '0.72rem', fontWeight: '800', padding: '3px 10px', borderRadius: '12px' }}>
+                              OFFLINE (Agent Closed / Idle)
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                          <span>System: <strong>{group.systemNumber}</strong></span>
+                          <span>IP: <strong>{group.ipAddress || '127.0.0.1'}</strong></span>
+                          <span>OS: <strong>{group.osPlatform || 'Windows'}</strong></span>
+                          {group.lastSeenAt && (
+                            <span>Last Active: <strong>{new Date(group.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong></span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', maxWidth: '560px', lineHeight: '1.4' }}>
+                          The Desktop Agent is registered for <strong>{group.employeeName}</strong>. 
+                          Automated activity screenshots stream every 3 minutes while the agent is running on their PC.
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={fetchScreenshots}
+                          style={{
+                            marginTop: '4px',
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            backgroundColor: '#ffffff',
+                            color: '#2563eb',
+                            fontWeight: '700',
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                          }}
+                        >
+                          🔄 Refresh Captures Stream
+                        </button>
                       </div>
                     ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
