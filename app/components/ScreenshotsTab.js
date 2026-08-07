@@ -720,7 +720,7 @@ export default function ScreenshotsTab() {
                             </span>
                           ) : (
                             <span style={{ backgroundColor: '#fef3c7', color: '#b45309', fontSize: '0.72rem', fontWeight: '800', padding: '3px 10px', borderRadius: '12px' }}>
-                              OFFLINE (Agent Closed / Idle)
+                              OFFLINE (Agent Closed)
                             </span>
                           )}
                         </div>
