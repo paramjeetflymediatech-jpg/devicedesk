@@ -29,7 +29,7 @@ export default function SetupAgentPage() {
       flexDirection: 'column',
       alignItems: 'center'
     }}>
-      <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+      <div style={{ width: '100%', maxWidth: '1280px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
 
         {/* Top Header Navigation */}
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
