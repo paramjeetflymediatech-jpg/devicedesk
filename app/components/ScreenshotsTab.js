@@ -65,8 +65,9 @@ export default function ScreenshotsTab() {
   const [feedPage, setFeedPage] = useState(1);
   const [feedPageSize, setFeedPageSize] = useState(10);
 
-  // Modal Inspector State
+  // Modal Inspector & Guide State
   const [inspectModal, setInspectModal] = useState({ open: false, data: null });
+  const [showGuideModal, setShowGuideModal] = useState(false);
 
   // Fetch Employees List for filter dropdown
   useEffect(() => {
@@ -429,33 +430,41 @@ export default function ScreenshotsTab() {
             download="DeviceDeskAgent-Portable.zip"
             target="_blank"
             rel="noreferrer"
-            title="Download Portable ZIP (Bypasses Windows Smart App Control)"
-            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: 'var(--accent-blue)', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(37,99,235,0.3)' }}
+            title="Download Portable ZIP for Windows"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: 'var(--accent-blue)', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(37,99,235,0.3)' }}
           >
-            <FaWindows style={{ fontSize: '0.95rem' }} /> Window (.zip)
+            <FaWindows style={{ fontSize: '0.95rem' }} /> Windows (.zip)
           </a>
 
           <a
-            href="/download/DeviceDeskAgent.deb"
-            download="DeviceDeskAgent.deb"
+            href="/download/DeviceDeskAgent-Linux.zip"
+            download="DeviceDeskAgent-Linux.zip"
             target="_blank"
             rel="noreferrer"
-            title="Download for Ubuntu / Debian Linux"
-            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#e05206', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(224,82,6,0.3)' }}
+            title="Download Portable ZIP for Ubuntu / Debian Linux"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: '#e05206', color: '#ffffff', fontWeight: '700', boxShadow: '0 2px 6px rgba(224,82,6,0.3)' }}
           >
-            <FaUbuntu style={{ fontSize: '0.95rem' }} /> Ubuntu (.deb)
+            <FaUbuntu style={{ fontSize: '0.95rem' }} /> Ubuntu (.zip)
           </a>
 
           <a
-            href="/download/DeviceDeskAgent.dmg"
-            download="DeviceDeskAgent.dmg"
+            href="/download/DeviceDeskAgent-Mac.zip"
+            download="DeviceDeskAgent-Mac.zip"
             target="_blank"
             rel="noreferrer"
-            title="Download for macOS"
-            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontWeight: '700', border: '1px solid var(--glass-border)' }}
+            title="Download Portable ZIP for macOS"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontWeight: '700', border: '1px solid var(--glass-border)' }}
           >
-            <FaApple style={{ fontSize: '1.05rem' }} /> Mac (.dmg)
+            <FaApple style={{ fontSize: '1.05rem' }} /> macOS (.zip)
           </a>
+
+          <button
+            onClick={() => setShowGuideModal(true)}
+            title="View Step-by-Step Installation Guide for Windows, Ubuntu & macOS"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: 'rgba(2, 132, 199, 0.15)', color: 'var(--accent-cyan)', border: '1px solid var(--glass-border)', fontWeight: '700' }}
+          >
+            📖 Installation Steps
+          </button>
 
           <button
             onClick={handleDeleteAll}
@@ -1276,6 +1285,105 @@ export default function ScreenshotsTab() {
 
               </div>
 
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 6. Step-by-Step Desktop Agent Installation Guide Modal */}
+      {showGuideModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--glass-border)', borderRadius: '16px', width: '100%', maxWidth: '850px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+
+            {/* Modal Header */}
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>📦</span> Desktop Activity Agent — How to Download & Run (.zip)
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Step-by-step instructions for Windows, Ubuntu Linux, and macOS
+                </span>
+              </div>
+
+              <button
+                onClick={() => setShowGuideModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.4rem', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            {/* Modal Body with Instructions */}
+            <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+              {/* Windows Guide */}
+              <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '18px' }}>
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '1.05rem', fontWeight: '800', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaWindows /> Windows (.zip) Download & Setup
+                </h4>
+                <ol style={{ margin: 0, paddingLeft: '20px', color: 'var(--text-primary)', fontSize: '0.88rem', lineHeight: '1.7' }}>
+                  <li>Click <strong>Windows (.zip)</strong> above to download <code>DeviceDeskAgent-Portable.zip</code>.</li>
+                  <li>Right-click the downloaded <code>DeviceDeskAgent-Portable.zip</code> file and select <strong>Extract All...</strong>.</li>
+                  <li>Open the extracted folder and double-click <code>DeviceDeskAgent.exe</code>.</li>
+                  <li>Enter your Employee Credentials when prompted to pair your desktop with real-time activity tracking.</li>
+                </ol>
+              </div>
+
+              {/* Ubuntu Guide */}
+              <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '18px' }}>
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '1.05rem', fontWeight: '800', color: '#e05206', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaUbuntu /> Ubuntu / Linux (.zip) Download & Setup
+                </h4>
+                <ol style={{ margin: 0, paddingLeft: '20px', color: 'var(--text-primary)', fontSize: '0.88rem', lineHeight: '1.7' }}>
+                  <li>Click <strong>Ubuntu (.zip)</strong> above to download <code>DeviceDeskAgent-Linux.zip</code>.</li>
+                  <li>Open Terminal (<code>Ctrl+Alt+T</code>) and extract the archive:
+                    <div style={{ backgroundColor: '#000', color: '#00ff66', padding: '8px 12px', borderRadius: '6px', fontFamily: 'monospace', margin: '6px 0', fontSize: '0.82rem' }}>
+                      unzip ~/Downloads/DeviceDeskAgent-Linux.zip -d ~/DeviceDeskAgent
+                    </div>
+                  </li>
+                  <li>Navigate to the folder and make the binary executable:
+                    <div style={{ backgroundColor: '#000', color: '#00ff66', padding: '8px 12px', borderRadius: '6px', fontFamily: 'monospace', margin: '6px 0', fontSize: '0.82rem' }}>
+                      cd ~/DeviceDeskAgent && chmod +x DeviceDeskAgent
+                    </div>
+                  </li>
+                  <li>Run the agent application:
+                    <div style={{ backgroundColor: '#000', color: '#00ff66', padding: '8px 12px', borderRadius: '6px', fontFamily: 'monospace', margin: '6px 0', fontSize: '0.82rem' }}>
+                      ./DeviceDeskAgent
+                    </div>
+                  </li>
+                </ol>
+              </div>
+
+              {/* macOS Guide */}
+              <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '18px' }}>
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaApple /> macOS (.zip) Download & Setup
+                </h4>
+                <ol style={{ margin: 0, paddingLeft: '20px', color: 'var(--text-primary)', fontSize: '0.88rem', lineHeight: '1.7' }}>
+                  <li>Click <strong>macOS (.zip)</strong> above to download <code>DeviceDeskAgent-Mac.zip</code>.</li>
+                  <li>Double-click <code>DeviceDeskAgent-Mac.zip</code> in Finder to extract it automatically.</li>
+                  <li>Move <code>DeviceDeskAgent.app</code> into your <strong>Applications</strong> folder.</li>
+                  <li>If macOS blocks opening unverified developers, open <strong>Terminal</strong> and run:
+                    <div style={{ backgroundColor: '#000', color: '#00ff66', padding: '8px 12px', borderRadius: '6px', fontFamily: 'monospace', margin: '6px 0', fontSize: '0.82rem' }}>
+                      sudo xattr -rd com.apple.quarantine /Applications/DeviceDeskAgent.app
+                    </div>
+                  </li>
+                  <li>Double-click to open <code>DeviceDeskAgent.app</code> and grant <strong>Screen Recording</strong> permission under <em>System Settings → Privacy & Security</em>.</li>
+                </ol>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'flex-end', backgroundColor: 'var(--bg-secondary)' }}>
+              <button
+                onClick={() => setShowGuideModal(false)}
+                style={{ backgroundColor: 'var(--accent-blue)', color: '#ffffff', border: 'none', padding: '8px 20px', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}
+              >
+                Got It, Close Guide
+              </button>
             </div>
 
           </div>

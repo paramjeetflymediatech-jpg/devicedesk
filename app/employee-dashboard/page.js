@@ -178,35 +178,12 @@ export default function OverviewPage() {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              {/* <a
-                href="/download/DeviceDeskAgent-Setup.exe"
-                download="DeviceDeskAgent-Setup.exe"
-                target="_blank"
-                rel="noreferrer"
-                title="Download Windows Installer (.exe)"
-                style={{
-                  backgroundColor: "#2563eb",
-                  color: "#ffffff",
-                  textDecoration: "none",
-                  padding: "8px 14px",
-                  borderRadius: "10px",
-                  fontWeight: "700",
-                  fontSize: "0.84rem",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  boxShadow: "0 2px 8px rgba(37,99,235,0.3)"
-                }}
-              >
-                <FaWindows style={{ fontSize: "1rem" }} /> Windows (.exe)
-              </a> */}
-
               <a
                 href="/download/DeviceDeskAgent-Portable.zip"
                 download="DeviceDeskAgent-Portable.zip"
                 target="_blank"
                 rel="noreferrer"
-                title="Download Portable Zip (Bypasses Smart App Control)"
+                title="Download Windows Portable ZIP App"
                 style={{
                   backgroundColor: "#2563eb",
                   color: "#ffffff",
@@ -221,15 +198,15 @@ export default function OverviewPage() {
                   boxShadow: "0 2px 8px rgba(2,132,199,0.3)"
                 }}
               >
-                <FaWindows style={{ fontSize: "1rem" }} /> window (.zip)
+                <FaWindows style={{ fontSize: "1rem" }} /> Windows (.zip)
               </a>
 
               <a
-                href="/download/DeviceDeskAgent.deb"
-                download="DeviceDeskAgent.deb"
+                href="/download/DeviceDeskAgent-Linux.zip"
+                download="DeviceDeskAgent-Linux.zip"
                 target="_blank"
                 rel="noreferrer"
-                title="Download for Ubuntu / Debian Linux (.deb)"
+                title="Download Ubuntu / Linux Portable ZIP App"
                 style={{
                   backgroundColor: "#e05206",
                   color: "#ffffff",
@@ -244,37 +221,15 @@ export default function OverviewPage() {
                   boxShadow: "0 2px 8px rgba(224,82,6,0.3)"
                 }}
               >
-                <FaUbuntu style={{ fontSize: "1rem" }} /> Ubuntu (.deb)
+                <FaUbuntu style={{ fontSize: "1rem" }} /> Ubuntu (.zip)
               </a>
 
               <a
-                href="/download/DeviceDeskAgent-Linux.zip"
-                download="DeviceDeskAgent-Linux.zip"
+                href="/download/DeviceDeskAgent-Mac.zip"
+                download="DeviceDeskAgent-Mac.zip"
                 target="_blank"
                 rel="noreferrer"
-                title="Download Linux Portable App (.zip)"
-                style={{
-                  backgroundColor: "#c2410c",
-                  color: "#ffffff",
-                  textDecoration: "none",
-                  padding: "8px 14px",
-                  borderRadius: "10px",
-                  fontWeight: "700",
-                  fontSize: "0.84rem",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px"
-                }}
-              >
-                <FaUbuntu style={{ fontSize: "1rem" }} /> Linux (.zip)
-              </a>
-
-              <a
-                href="/download/DeviceDeskAgent.dmg"
-                download="DeviceDeskAgent.dmg"
-                target="_blank"
-                rel="noreferrer"
-                title="Download for macOS (.dmg)"
+                title="Download macOS Portable ZIP App"
                 style={{
                   backgroundColor: "#0f172a",
                   color: "#ffffff",
@@ -287,28 +242,6 @@ export default function OverviewPage() {
                   alignItems: "center",
                   gap: "6px",
                   boxShadow: "0 2px 8px rgba(15,23,42,0.3)"
-                }}
-              >
-                <FaApple style={{ fontSize: "1.05rem" }} /> macOS (.dmg)
-              </a>
-
-              <a
-                href="/download/DeviceDeskAgent-Mac.zip"
-                download="DeviceDeskAgent-Mac.zip"
-                target="_blank"
-                rel="noreferrer"
-                title="Download macOS Portable App (.zip)"
-                style={{
-                  backgroundColor: "#334155",
-                  color: "#ffffff",
-                  textDecoration: "none",
-                  padding: "8px 14px",
-                  borderRadius: "10px",
-                  fontWeight: "700",
-                  fontSize: "0.84rem",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px"
                 }}
               >
                 <FaApple style={{ fontSize: "1.05rem" }} /> macOS (.zip)
