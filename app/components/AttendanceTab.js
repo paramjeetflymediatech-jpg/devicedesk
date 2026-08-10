@@ -314,6 +314,12 @@ export default function AttendanceTab({ user }) {
     };
   }, [filteredRecords, summary, records.length]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filteredRecords.length);
+  const paginatedRecords = filteredRecords.slice(startIndex, endIndex);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       {/* 1. Header Banner & Title */}
