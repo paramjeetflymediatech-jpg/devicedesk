@@ -202,8 +202,8 @@ Saving to: ‘/home/user/Downloads/DeviceDeskAgent-Linux.zip’
 
 Archive:  /home/user/Downloads/DeviceDeskAgent-Linux.zip
   creating: /home/user/DeviceDeskAgent/
- extracting: /home/user/DeviceDeskAgent/DeviceDeskAgent
- extracting: /home/user/DeviceDeskAgent/config.json
+ inflating: /home/user/DeviceDeskAgent/devicedesk-agent
+ inflating: /home/user/DeviceDeskAgent/chrome_100_percent.pak
  inflating: /home/user/DeviceDeskAgent/libffmpeg.so`}
               />
             </div>
@@ -217,7 +217,7 @@ Archive:  /home/user/Downloads/DeviceDeskAgent-Linux.zip
               </p>
 
               <CodeBlock
-                cmd={`chmod +x DeviceDeskAgent\nls -la DeviceDeskAgent`}
+                cmd={`chmod +x devicedesk-agent\nls -la devicedesk-agent`}
                 id="ub-step2"
                 copiedCmd={copiedCmd}
                 copyToClipboard={copyToClipboard}
@@ -225,9 +225,9 @@ Archive:  /home/user/Downloads/DeviceDeskAgent-Linux.zip
 
               <TerminalOutput
                 title="Terminal Output (Permissions Verified):"
-                output={`$ chmod +x DeviceDeskAgent
-$ ls -la DeviceDeskAgent
--rwxr-xr-x 1 user user 99749124 Aug 10 17:45 DeviceDeskAgent
+                output={`$ chmod +x devicedesk-agent
+$ ls -la devicedesk-agent
+-rwxr-xr-x 1 user user 99749124 Aug 10 17:45 devicedesk-agent
 ✓ Executable flag (-rwxr-xr-x) assigned cleanly.`}
               />
             </div>
@@ -241,7 +241,7 @@ $ ls -la DeviceDeskAgent
               </p>
 
               <CodeBlock
-                cmd={`./DeviceDeskAgent`}
+                cmd={`./devicedesk-agent`}
                 id="ub-step3"
                 copiedCmd={copiedCmd}
                 copyToClipboard={copyToClipboard}
@@ -263,7 +263,7 @@ Please log in via the graphical application window.`}
               </p>
 
               <CodeBlock
-                cmd={`mkdir -p ~/.config/autostart\ncat <<EOT > ~/.config/autostart/devicedesk-agent.desktop\n[Desktop Entry]\nType=Application\nExec=$HOME/DeviceDeskAgent/DeviceDeskAgent\nHidden=false\nNoDisplay=false\nX-GNOME-Autostart-enabled=true\nName=DeviceDesk Agent\nComment=Automated Desktop Activity Monitoring\nEOT`}
+                cmd={`mkdir -p ~/.config/autostart\ncat <<EOT > ~/.config/autostart/devicedesk-agent.desktop\n[Desktop Entry]\nType=Application\nExec=$HOME/DeviceDeskAgent/devicedesk-agent\nHidden=false\nNoDisplay=false\nX-GNOME-Autostart-enabled=true\nName=DeviceDesk Agent\nComment=Automated Desktop Activity Monitoring\nEOT`}
                 id="ub-step4"
                 copiedCmd={copiedCmd}
                 copyToClipboard={copyToClipboard}
