@@ -61,9 +61,9 @@ export default function ScreenshotsTab() {
 
   // Pagination States
   const [groupedPage, setGroupedPage] = useState(1);
-  const [groupedPageSize, setGroupedPageSize] = useState(5);
+  const [groupedPageSize, setGroupedPageSize] = useState(10);
   const [feedPage, setFeedPage] = useState(1);
-  const [feedPageSize, setFeedPageSize] = useState(16);
+  const [feedPageSize, setFeedPageSize] = useState(10);
 
   // Modal Inspector State
   const [inspectModal, setInspectModal] = useState({ open: false, data: null });
@@ -977,8 +977,8 @@ export default function ScreenshotsTab() {
                 );
               })}
 
-              {/* Grouped View Pagination Bar */}
-              {groupedByEmployee.length > 0 && (
+              {/* Grouped View Pagination Bar - Automatically shows after 10 employee cards */}
+              {groupedByEmployee.length > 10 && (
                 <div
                   style={{
                     background: 'var(--card-bg, #ffffff)',
@@ -1097,8 +1097,8 @@ export default function ScreenshotsTab() {
                 ))}
               </div>
 
-              {/* Feed View Pagination Bar */}
-              {screenshots.length > 0 && (
+              {/* Feed View Pagination Bar - Automatically shows after 10 captures */}
+              {screenshots.length > 10 && (
                 <div
                   style={{
                     background: 'var(--card-bg, #ffffff)',

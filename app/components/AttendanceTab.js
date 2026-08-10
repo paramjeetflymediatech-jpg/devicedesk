@@ -52,7 +52,7 @@ export default function AttendanceTab({ user }) {
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const [pageSize, setPageSize] = useState(10);
 
   // Regularize Modal State
   const [showRegModal, setShowRegModal] = useState(false);
@@ -859,9 +859,10 @@ export default function AttendanceTab({ user }) {
           </table>
         </div>
 
-        {/* Pagination Bar */}
-        {filteredRecords.length > 0 && (
+        {/* Pagination Bar - Automatically shows after 10 records */}
+        {filteredRecords.length > 10 && (
           <div
+            className="pagination-controls"
             style={{
               padding: "1rem 1.5rem",
               borderTop: "1px solid var(--glass-border)",
@@ -879,75 +880,40 @@ export default function AttendanceTab({ user }) {
               <strong style={{ color: "var(--text-primary)" }}>{filteredRecords.length}</strong> attendance records
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
-                <span>Rows per page:</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--glass-border)",
-                    background: "rgba(0, 0, 0, 0.3)",
-                    color: "var(--text-primary)",
-                    fontSize: "0.82rem",
-                    fontWeight: "600",
-                    cursor: "pointer"
-                  }}
-                >
-                  <option value={10}>10</option>
-                  <option value={15}>15</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={safePage <= 1}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
+                  opacity: safePage <= 1 ? 0.5 : 1,
+                  cursor: safePage <= 1 ? "not-allowed" : "pointer"
+                }}
+              >
+                ← Previous
+              </button>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <button
-                  type="button"
-                  disabled={safePage <= 1}
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--glass-border)",
-                    background: safePage <= 1 ? "rgba(255, 255, 255, 0.05)" : "var(--accent-purple)",
-                    color: safePage <= 1 ? "var(--text-muted)" : "#ffffff",
-                    fontSize: "0.8rem",
-                    fontWeight: "700",
-                    cursor: safePage <= 1 ? "not-allowed" : "pointer"
-                  }}
-                >
-                  ◀ Prev
-                </button>
+              <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "600" }}>
+                Page {safePage} of {totalPages}
+              </span>
 
-                <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)", fontWeight: "600", padding: "0 4px" }}>
-                  Page {safePage} of {totalPages}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={safePage >= totalPages}
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--glass-border)",
-                    background: safePage >= totalPages ? "rgba(255, 255, 255, 0.05)" : "var(--accent-purple)",
-                    color: safePage >= totalPages ? "var(--text-muted)" : "#ffffff",
-                    fontSize: "0.8rem",
-                    fontWeight: "700",
-                    cursor: safePage >= totalPages ? "not-allowed" : "pointer"
-                  }}
-                >
-                  Next ▶
-                </button>
-              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={safePage >= totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
+                  opacity: safePage >= totalPages ? 0.5 : 1,
+                  cursor: safePage >= totalPages ? "not-allowed" : "pointer"
+                }}
+              >
+                Next →
+              </button>
             </div>
           </div>
         )}

@@ -4575,95 +4575,64 @@ export default function Home() {
                         </tbody>
                       </table>
 
-                      {/* Leave Pagination Controls Bar */}
-                      <div
-                        style={{
-                          padding: "1rem 1.5rem",
-                          borderTop: "1px solid var(--glass-border)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          flexWrap: "wrap",
-                          gap: "12px",
-                          background: "rgba(0, 0, 0, 0.15)"
-                        }}
-                      >
-                        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "500" }}>
-                          Showing <strong style={{ color: "var(--text-primary)" }}>{leaveStartIndex + 1}</strong> to{" "}
-                          <strong style={{ color: "var(--text-primary)" }}>{leaveEndIndex}</strong> of{" "}
-                          <strong style={{ color: "var(--text-primary)" }}>{leaveRequests.length}</strong> leave applications
-                        </div>
-
-                        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
-                            <span>Rows per page:</span>
-                            <select
-                              value={leavePageSize}
-                              onChange={(e) => {
-                                setLeavePageSize(Number(e.target.value));
-                                setLeaveCurrentPage(1);
-                              }}
-                              style={{
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                                border: "1px solid var(--glass-border)",
-                                background: "rgba(0, 0, 0, 0.3)",
-                                color: "var(--text-primary)",
-                                fontSize: "0.82rem",
-                                fontWeight: "600",
-                                cursor: "pointer"
-                              }}
-                            >
-                              <option value={5}>5</option>
-                              <option value={10}>10</option>
-                              <option value={20}>20</option>
-                              <option value={50}>50</option>
-                            </select>
+                      {/* Leave Pagination Controls Bar - Automatically shows after 10 records */}
+                      {leaveRequests.length > 10 && (
+                        <div
+                          className="pagination-controls"
+                          style={{
+                            padding: "1rem 1.5rem",
+                            borderTop: "1px solid var(--glass-border)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexWrap: "wrap",
+                            gap: "12px",
+                            background: "rgba(0, 0, 0, 0.15)"
+                          }}
+                        >
+                          <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "500" }}>
+                            Showing <strong style={{ color: "var(--text-primary)" }}>{leaveStartIndex + 1}</strong> to{" "}
+                            <strong style={{ color: "var(--text-primary)" }}>{leaveEndIndex}</strong> of{" "}
+                            <strong style={{ color: "var(--text-primary)" }}>{leaveRequests.length}</strong> leave applications
                           </div>
 
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                             <button
                               type="button"
+                              className="btn-secondary"
                               disabled={safeLeavePage <= 1}
                               onClick={() => setLeaveCurrentPage(prev => Math.max(1, prev - 1))}
                               style={{
-                                padding: "6px 12px",
-                                borderRadius: "6px",
-                                border: "1px solid var(--glass-border)",
-                                background: safeLeavePage <= 1 ? "rgba(255, 255, 255, 0.05)" : "var(--accent-cyan)",
-                                color: safeLeavePage <= 1 ? "var(--text-muted)" : "#0f172a",
-                                fontSize: "0.8rem",
-                                fontWeight: "700",
+                                padding: "6px 14px",
+                                fontSize: "0.82rem",
+                                opacity: safeLeavePage <= 1 ? 0.5 : 1,
                                 cursor: safeLeavePage <= 1 ? "not-allowed" : "pointer"
                               }}
                             >
-                              ◀ Prev
+                              ← Previous
                             </button>
 
-                            <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)", fontWeight: "600", padding: "0 4px" }}>
+                            <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "600" }}>
                               Page {safeLeavePage} of {totalLeavePages}
                             </span>
 
                             <button
                               type="button"
+                              className="btn-secondary"
                               disabled={safeLeavePage >= totalLeavePages}
                               onClick={() => setLeaveCurrentPage(prev => Math.min(totalLeavePages, prev + 1))}
                               style={{
-                                padding: "6px 12px",
-                                borderRadius: "6px",
-                                border: "1px solid var(--glass-border)",
-                                background: safeLeavePage >= totalLeavePages ? "rgba(255, 255, 255, 0.05)" : "var(--accent-cyan)",
-                                color: safeLeavePage >= totalLeavePages ? "var(--text-muted)" : "#0f172a",
-                                fontSize: "0.8rem",
-                                fontWeight: "700",
+                                padding: "6px 14px",
+                                fontSize: "0.82rem",
+                                opacity: safeLeavePage >= totalLeavePages ? 0.5 : 1,
                                 cursor: safeLeavePage >= totalLeavePages ? "not-allowed" : "pointer"
                               }}
                             >
-                              Next ▶
+                              Next →
                             </button>
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   );
                 })()
