@@ -90,6 +90,57 @@ export default function AttendanceLogs({ user }) {
     return list.reverse();
   };
 
+  // Dynamic summary computation for mobile view
+  const computedSummary = useMemo(() => {
+    let totalNetMinutes = 0;
+    let presentCount = 0;
+    let lateCount = 0;
+    let overtimeCount = 0;
+
+    filteredRecords.forEach((r) => {
+      totalNetMinutes += (r.netWorkMinutes || 0);
+      const st = (r.status || '').toLowerCase().trim();
+      const rem = (r.remarks || '').toLowerCase();
+
+      let isLate = st.includes('late') || rem.includes('late');
+      if (!isLate && r.punchInTime) {
+        try {
+          const pDate = new Date(r.punchInTime);
+          const hrs = pDate.getHours();
+          const mins = pDate.getMinutes();
+          if (hrs * 60 + mins > 580) { // Punched in after 09:40 AM
+            isLate = true;
+          }
+        } catch (e) {}
+      }
+
+      if (isLate) {
+        lateCount++;
+        presentCount++;
+      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active') {
+        presentCount++;
+      }
+
+      if (st.includes('overtime') || rem.includes('overtime')) {
+        overtimeCount++;
+      }
+    });
+
+    if (summary && filteredRecords.length === records.length) {
+      presentCount = Math.max(presentCount, summary.presentCount || 0);
+      lateCount = Math.max(lateCount, summary.lateCount || 0);
+    }
+
+    const totalWorkHours = (totalNetMinutes / 60).toFixed(1);
+
+    return {
+      presentCount,
+      lateCount,
+      totalWorkHours,
+      overtimeCount
+    };
+  }, [filteredRecords, summary, records.length]);
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>📅 Attendance Logs & Summary</Text>
@@ -99,25 +150,25 @@ export default function AttendanceLogs({ user }) {
         <View style={[styles.statCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
           <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Present Days</Text>
           <Text style={[styles.statValue, { color: '#059669' }]}>
-            {summary?.presentCount || 0}
+            {computedSummary.presentCount}
           </Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
           <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Late Days</Text>
           <Text style={[styles.statValue, { color: '#d97706' }]}>
-            {summary?.lateCount || 0}
+            {computedSummary.lateCount}
           </Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
           <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Total Hours</Text>
           <Text style={[styles.statValue, { color: '#2563eb' }]}>
-            {summary?.totalWorkHours || 0} hrs
+            {computedSummary.totalWorkHours} hrs
           </Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
           <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Overtime</Text>
           <Text style={[styles.statValue, { color: '#7e22ce' }]}>
-            {summary?.overtimeCount || 0}
+            {computedSummary.overtimeCount}
           </Text>
         </View>
       </View>

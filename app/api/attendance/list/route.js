@@ -62,12 +62,30 @@ export async function GET(request) {
 
     records.forEach(r => {
       totalNetMinutes += (r.netWorkMinutes || 0);
-      if (r.status === 'Present' || r.status === 'Completed' || r.status === 'Overtime') presentCount++;
-      if (r.status === 'Late') {
-        presentCount++;
-        lateCount++;
+      const st = (r.status || '').toLowerCase().trim();
+      const rem = (r.remarks || '').toLowerCase();
+
+      let isLate = st.includes('late') || rem.includes('late');
+
+      if (!isLate && r.punchInTime) {
+        try {
+          const pDate = new Date(r.punchInTime);
+          const hrs = pDate.getHours();
+          const mins = pDate.getMinutes();
+          if (hrs * 60 + mins > 580) { // Punched in after 09:40 AM
+            isLate = true;
+          }
+        } catch (e) {}
       }
-      if (r.status === 'Half Day') halfDayCount++;
+
+      if (isLate) {
+        lateCount++;
+        presentCount++;
+      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active') {
+        presentCount++;
+      } else if (st.includes('half')) {
+        halfDayCount++;
+      }
     });
 
     const totalWorkHours = (totalNetMinutes / 60).toFixed(1);

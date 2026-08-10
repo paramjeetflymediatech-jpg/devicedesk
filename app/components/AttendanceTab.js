@@ -263,6 +263,57 @@ export default function AttendanceTab({ user }) {
     return true;
   });
 
+  const summaryStats = React.useMemo(() => {
+    let totalNetMinutes = 0;
+    let presentCount = 0;
+    let lateCount = 0;
+    let halfDayCount = 0;
+
+    filteredRecords.forEach(r => {
+      totalNetMinutes += (r.netWorkMinutes || 0);
+      const st = (r.status || '').toLowerCase().trim();
+      const rem = (r.remarks || '').toLowerCase();
+
+      let isLate = st.includes('late') || rem.includes('late');
+
+      if (!isLate && r.punchInTime) {
+        try {
+          const pDate = new Date(r.punchInTime);
+          const hrs = pDate.getHours();
+          const mins = pDate.getMinutes();
+          if (hrs * 60 + mins > 580) { // Punched in after 09:40 AM
+            isLate = true;
+          }
+        } catch (e) {}
+      }
+
+      if (isLate) {
+        lateCount++;
+        presentCount++;
+      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active') {
+        presentCount++;
+      } else if (st.includes('half')) {
+        halfDayCount++;
+      }
+    });
+
+    if (summary && filteredRecords.length === records.length) {
+      presentCount = Math.max(presentCount, summary.presentCount || 0);
+      lateCount = Math.max(lateCount, summary.lateCount || 0);
+      if (summary.totalNetMinutes && summary.totalNetMinutes > totalNetMinutes) {
+        totalNetMinutes = summary.totalNetMinutes;
+      }
+    }
+
+    return {
+      totalRecords: filteredRecords.length,
+      presentCount,
+      lateCount,
+      halfDayCount,
+      totalNetMinutes
+    };
+  }, [filteredRecords, summary, records.length]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       {/* 1. Header Banner & Title */}
@@ -293,7 +344,7 @@ export default function AttendanceTab({ user }) {
         >
           <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>Days Logged</div>
           <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--accent-cyan)", marginTop: "4px" }}>
-            {summary?.totalRecords || 0}
+            {summaryStats.totalRecords}
           </div>
         </div>
 
@@ -308,7 +359,7 @@ export default function AttendanceTab({ user }) {
         >
           <div style={{ fontSize: "0.8rem", color: "var(--status-resolved)", fontWeight: "600" }}>Present Days</div>
           <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--status-resolved)", marginTop: "4px" }}>
-            {summary?.presentCount || 0}
+            {summaryStats.presentCount}
           </div>
         </div>
 
@@ -323,7 +374,7 @@ export default function AttendanceTab({ user }) {
         >
           <div style={{ fontSize: "0.8rem", color: "#f59e0b", fontWeight: "600" }}>Late Days</div>
           <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "#f59e0b", marginTop: "4px" }}>
-            {summary?.lateCount || 0}
+            {summaryStats.lateCount}
           </div>
         </div>
 
@@ -338,17 +389,8 @@ export default function AttendanceTab({ user }) {
         >
           <div style={{ fontSize: "0.8rem", color: "var(--accent-purple)", fontWeight: "600" }}>Total Work Hours</div>
           <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--accent-purple)", marginTop: "4px", lineHeight: 1 }}>
-            {(() => {
-              const mins = summary?.totalNetMinutes ?? Math.round((parseFloat(summary?.totalWorkHours || 0)) * 60);
-              const h = Math.floor(mins / 60);
-              const m = mins % 60;
-              return (
-                <>
-                  {h}<span style={{ fontSize: "1rem", fontWeight: "600" }}>h </span>
-                  {m}<span style={{ fontSize: "1rem", fontWeight: "600" }}>m</span>
-                </>
-              );
-            })()}
+            {Math.floor(summaryStats.totalNetMinutes / 60)}<span style={{ fontSize: "1rem", fontWeight: "600" }}>h </span>
+            {summaryStats.totalNetMinutes % 60}<span style={{ fontSize: "1rem", fontWeight: "600" }}>m</span>
           </div>
         </div>
       </div>
