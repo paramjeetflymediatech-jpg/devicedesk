@@ -108,14 +108,14 @@ export default function Home() {
     dbRoleLower === 'admin' ||
     dbRoleLower === 'management' ||
     dbRoleLower === 'executive' ||
-    roleLower === 'superadmin' ||
+    dbRoleLower === 'superadmin' ||
+    user?.email === 'admin@yopmail.com' ||
     user?.email === 'pravi@yopmail.com'
   );
 
-  // IT person (IT Support / IT Engineer) is restricted to IT Desk sections
+  // IT person (IT Support / IT Engineer / IT Dept) is restricted to IT Desk sections
   const isITSupport = isMounted && !isRootAdmin && (
     dbRoleLower.includes('it') ||
-    roleLower.includes('it') ||
     deptLower.includes('it')
   );
 

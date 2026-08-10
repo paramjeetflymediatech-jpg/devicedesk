@@ -33,14 +33,24 @@ export default function LoginPage() {
 
       if (data.success) {
         login(data.user);
-        const roleLower = (data.user.role || '').toLowerCase();
-        const dbRoleLower = (data.user.dbRole || '').toLowerCase();
-        const deptLower = (data.user.department || '').toLowerCase();
+        const dbRoleLower = (data.user?.dbRole || '').toLowerCase();
+        const emailLower = (data.user?.email || '').toLowerCase();
+        const deptLower = (data.user?.department || '').toLowerCase();
 
-        // Root Admin / Management defaults to Root Admin Desk ('/')
-        // IT personnel (IT Support / IT Engineer) and regular employees default to Employee Dashboard ('/employee-dashboard')
-        const isITPerson = dbRoleLower.includes('it') || roleLower.includes('it') || deptLower.includes('it');
-        const isRootAdmin = (dbRoleLower === 'admin' || dbRoleLower === 'management' || dbRoleLower === 'executive' || roleLower === 'superadmin' || data.user.email === 'pravi@yopmail.com') && !isITPerson;
+        // Root Admin / Executive Management has full unrestricted access to Admin Panel ('/')
+        const isRootAdmin = 
+          dbRoleLower === 'admin' ||
+          dbRoleLower === 'management' ||
+          dbRoleLower === 'executive' ||
+          dbRoleLower === 'superadmin' ||
+          emailLower === 'admin@yopmail.com' ||
+          emailLower === 'pravi@yopmail.com';
+
+        // IT Support staff (only non-Admin IT personnel)
+        const isITSupport = !isRootAdmin && (
+          dbRoleLower.includes('it') ||
+          deptLower.includes('it')
+        );
 
         if (isRootAdmin) {
           router.push('/');
