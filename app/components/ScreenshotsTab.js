@@ -458,13 +458,15 @@ export default function ScreenshotsTab() {
             <FaApple style={{ fontSize: '1.05rem' }} /> macOS (.zip)
           </a>
 
-          <button
-            onClick={() => setShowGuideModal(true)}
-            title="View Step-by-Step Installation Guide for Windows, Ubuntu & macOS"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: 'rgba(2, 132, 199, 0.15)', color: 'var(--accent-cyan)', border: '1px solid var(--glass-border)', fontWeight: '700' }}
+          <a
+            href="/setup-agent"
+            target="_blank"
+            rel="noreferrer"
+            title="Open Dedicated Agent Setup Guide with Commands & Outputs"
+            style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', fontSize: '0.82rem', cursor: 'pointer', backgroundColor: 'rgba(2, 132, 199, 0.15)', color: 'var(--accent-cyan)', border: '1px solid var(--glass-border)', fontWeight: '700' }}
           >
-            📖 Installation Steps
-          </button>
+            📖 Full Setup Guide (/setup-agent)
+          </a>
 
           <button
             onClick={handleDeleteAll}
