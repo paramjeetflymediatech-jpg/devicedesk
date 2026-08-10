@@ -24,24 +24,21 @@ export default function SetupAgentPage() {
       backgroundColor: 'var(--bg-primary, #0a0b10)',
       color: 'var(--text-primary, #f3f4f6)',
       fontFamily: 'var(--font-main, sans-serif)',
-      padding: '32px 20px'
+      padding: '40px 20px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center'
     }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
 
         {/* Top Header Navigation */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
           <Link
             href="/"
             style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--accent-blue)', fontWeight: '700', fontSize: '0.9rem', backgroundColor: 'var(--bg-secondary)', padding: '8px 16px', borderRadius: '10px', border: '1px solid var(--glass-border)' }}
           >
             <FiArrowLeft /> Back to Portal
           </Link>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--status-resolved)', fontWeight: '700', backgroundColor: 'rgba(16, 185, 129, 0.12)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(16, 185, 129, 0.2)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--status-resolved)' }}></span> Latest Agent v2.4.0 Live
-            </span>
-          </div>
         </div>
 
         {/* Hero Title Banner */}
@@ -49,17 +46,21 @@ export default function SetupAgentPage() {
           background: 'linear-gradient(135deg, rgba(37,99,235,0.12) 0%, rgba(2,132,199,0.06) 100%)',
           border: '1px solid var(--glass-border)',
           borderRadius: '20px',
-          padding: '36px 32px',
-          marginBottom: '32px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+          padding: '40px 32px',
+          marginBottom: '36px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: 'var(--accent-blue)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', boxShadow: '0 4px 14px rgba(37,99,235,0.4)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '18px', backgroundColor: 'var(--accent-blue)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', boxShadow: '0 4px 14px rgba(37,99,235,0.4)' }}>
               <FiTerminal />
             </div>
             <div>
-              <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: '800', color: 'var(--text-primary)' }}>
-                Desktop Activity Agent — Complete Setup Guide
+              <h1 style={{ margin: 0, fontSize: '2.4rem', fontWeight: '800', color: 'var(--text-primary)', lineHeight: '1.2' }}>
+                Desktop Activity Agent <br /> Complete Setup Guide
               </h1>
               <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '1rem' }}>
                 Step-by-step installation instructions, terminal commands, and expected outputs for Windows, Ubuntu Linux, and macOS.
@@ -68,7 +69,7 @@ export default function SetupAgentPage() {
           </div>
 
           {/* Quick Direct Download Bar (.zip only) */}
-          <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+          <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', flexWrap: 'wrap', width: '100%' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-secondary)' }}>Direct Download Packages (.zip):</span>
 
             <a
@@ -98,7 +99,7 @@ export default function SetupAgentPage() {
         </div>
 
         {/* Operating System Selector Tabs */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '28px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '28px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
           <button
             onClick={() => setActiveTab('ubuntu')}
             style={{
@@ -478,7 +479,7 @@ function CodeBlock({ cmd, id, copiedCmd, copyToClipboard }) {
             transition: 'all 0.2s ease'
           }}
         >
-          {copiedCmd === id ? <><FiCheckCircle /> Copied!</> : <><FiCopy /> Copy Command</>}
+          {copiedCmd === id ? <><FiCheckCircle /> Copied!</> : <><FiCopy /> Copy </>}
         </button>
       </div>
     </div>
