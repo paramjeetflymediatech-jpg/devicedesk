@@ -32,21 +32,30 @@ function handleImageError(e, rawUrl) {
   }
 }
 
+const getTodayDateStr = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function ScreenshotsTab() {
   const [screenshots, setScreenshots] = useState([]);
   const [employeesList, setEmployeesList] = useState([]);
   const [departmentsList, setDepartmentsList] = useState([]);
   const [stats, setStats] = useState({ todayCaptures: 0, todayMonitoredEmployees: 0, todayAvgActivity: 100 });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Collapsible Accordion State for 100+ Employee Cards
   const [collapsedGroups, setCollapsedGroups] = useState({});
 
-  // Filters State
+  // Filters State - Default Date is TODAY's date
   const [selectedEmployee, setSelectedEmployee] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [limitFilter, setLimitFilter] = useState('all'); // 'all' (unlimited whole day) | '50' | '100' | '200'
+  const [selectedDate, setSelectedDate] = useState(getTodayDateStr());
+  const [limitFilter, setLimitFilter] = useState('all'); // 'all' (unlimited whole day) | '500' | '100' | '50'
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grouped'); // 'grouped' or 'feed'
 
@@ -75,15 +84,16 @@ export default function ScreenshotsTab() {
 
   const [agentRegistrations, setAgentRegistrations] = useState([]);
 
-  // Fetch Screenshots
-  const fetchScreenshots = async () => {
-    setLoading(true);
+  // Fetch Screenshots (Supports Silent Background Auto-Refresh)
+  const fetchScreenshots = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    setRefreshing(true);
     try {
       const queryParams = new URLSearchParams();
       if (selectedEmployee !== 'all') queryParams.append('employeeId', selectedEmployee);
       if (selectedDepartment !== 'all') queryParams.append('department', selectedDepartment);
       if (selectedDate) queryParams.append('date', selectedDate);
-      if (searchQuery) queryParams.append('search', searchQuery);
+      if (searchQuery.trim()) queryParams.append('search', searchQuery.trim());
       queryParams.append('limit', limitFilter);
 
       const res = await fetch(`/api/screenshots/list?${queryParams.toString()}`);
@@ -96,13 +106,36 @@ export default function ScreenshotsTab() {
     } catch (err) {
       console.error('Fetch screenshots failed:', err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  // Debounced Re-fetch when any filter or search query changes
   useEffect(() => {
-    fetchScreenshots();
-  }, [selectedEmployee, selectedDepartment, selectedDate, limitFilter]);
+    const handler = setTimeout(() => {
+      fetchScreenshots();
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [selectedEmployee, selectedDepartment, selectedDate, limitFilter, searchQuery]);
+
+  // Live Auto-Refresh every 30 seconds for real-time employee capture streaming
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchScreenshots(true); // Silent background update
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [selectedEmployee, selectedDepartment, selectedDate, limitFilter, searchQuery]);
+
+  // Reset All Filters Helper
+  const resetFilters = () => {
+    setSelectedEmployee('all');
+    setSelectedDepartment('all');
+    setSelectedDate(getTodayDateStr());
+    setLimitFilter('all');
+    setSearchQuery('');
+    setViewMode('grouped');
+  };
 
   const parseUtcMs = (val) => {
     if (!val) return 0;
@@ -111,12 +144,38 @@ export default function ScreenshotsTab() {
     return (!str.endsWith('Z') && !str.includes('+')) ? new Date(str + 'Z').getTime() : new Date(str).getTime();
   };
 
-  // Group screenshots by Employee ID & System for "Grouped View" (Includes all registered employees)
+  // Group screenshots by Employee ID & System for "Grouped View" (Dynamically filtered by active controls)
   const groupedByEmployee = useMemo(() => {
     const map = {};
 
-    // 1. Add all registered agents first
-    agentRegistrations.forEach(reg => {
+    // 1. Filter agent registrations based on active controls (department, employee, search)
+    let filteredAgents = agentRegistrations;
+
+    if (selectedEmployee !== 'all') {
+      filteredAgents = filteredAgents.filter(reg => 
+        (reg.employeeId || '').toLowerCase() === selectedEmployee.toLowerCase()
+      );
+    }
+
+    if (selectedDepartment !== 'all') {
+      filteredAgents = filteredAgents.filter(reg => 
+        (reg.department || '').toLowerCase() === selectedDepartment.toLowerCase()
+      );
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      filteredAgents = filteredAgents.filter(reg => 
+        (reg.employeeName || '').toLowerCase().includes(q) ||
+        (reg.employeeId || '').toLowerCase().includes(q) ||
+        (reg.department || '').toLowerCase().includes(q) ||
+        (reg.systemNumber || '').toLowerCase().includes(q) ||
+        (reg.ipAddress || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Add filtered registered agents first
+    filteredAgents.forEach(reg => {
       const key = (reg.employeeId || 'EMP-UNKNOWN').toLowerCase().trim();
       const lastSeenMs = parseUtcMs(reg.lastSeenAt);
       const isOnline = (Date.now() - lastSeenMs) < 300000; // Online if active within last 5 minutes
@@ -134,8 +193,29 @@ export default function ScreenshotsTab() {
       };
     });
 
-    // 2. Merge screenshots with smart fuzzy matching (by employeeId OR employeeName)
-    screenshots.forEach(item => {
+    // 2. Merge screenshots matching current search query & filters
+    let filteredScreenshots = screenshots;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      filteredScreenshots = filteredScreenshots.filter(item => 
+        (item.employeeName || '').toLowerCase().includes(q) ||
+        (item.employeeId || '').toLowerCase().includes(q) ||
+        (item.department || '').toLowerCase().includes(q) ||
+        (item.systemNumber || '').toLowerCase().includes(q) ||
+        (item.ipAddress || '').toLowerCase().includes(q)
+      );
+    }
+
+    filteredScreenshots.forEach(item => {
+      // Check employee & department filters on screenshots
+      if (selectedEmployee !== 'all' && (item.employeeId || '').toLowerCase() !== selectedEmployee.toLowerCase()) {
+        return;
+      }
+      if (selectedDepartment !== 'all' && (item.department || '').toLowerCase() !== selectedDepartment.toLowerCase()) {
+        return;
+      }
+
       const idKey = (item.employeeId || '').toLowerCase().trim();
       const nameKey = (item.employeeName || '').toLowerCase().trim();
 
@@ -162,7 +242,7 @@ export default function ScreenshotsTab() {
     });
 
     return Object.values(map);
-  }, [screenshots, agentRegistrations]);
+  }, [screenshots, agentRegistrations, selectedEmployee, selectedDepartment, searchQuery]);
 
   // Accordion Toggle Handlers for 100+ Employees (Default: All Hidden/Collapsed)
   const toggleGroupCollapse = (empId) => {
@@ -447,11 +527,11 @@ export default function ScreenshotsTab() {
       </div>
 
       {/* 3. Enterprise Responsive Filter & Controls Bar */}
-      <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #e2e8f0)', padding: '16px 20px', borderRadius: '14px', marginBottom: '24px' }}>
+      <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #e2e8f0)', padding: '16px 20px', borderRadius: '14px', marginBottom: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
           {/* Row 1: Responsive Grid Inputs */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', alignItems: 'center', width: '100%' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', alignItems: 'center', width: '100%' }}>
 
             {/* Search Input */}
             <div style={{ position: 'relative', width: '100%' }}>
@@ -461,9 +541,17 @@ export default function ScreenshotsTab() {
                 placeholder="Search Employee, ID, IP..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && fetchScreenshots()}
-                style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: '8px', border: '1px solid var(--border-color, #cbd5e1)', fontSize: '0.85rem' }}
+                style={{ width: '100%', padding: '9px 32px 9px 36px', borderRadius: '8px', border: '1px solid var(--border-color, #cbd5e1)', fontSize: '0.85rem' }}
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  title="Clear search"
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  <FiX style={{ fontSize: '0.9rem' }} />
+                </button>
+              )}
             </div>
 
             {/* Employee Dropdown Filter */}
@@ -489,27 +577,47 @@ export default function ScreenshotsTab() {
                 onChange={e => setSelectedDepartment(e.target.value)}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #cbd5e1)', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary, #0f172a)', backgroundColor: 'var(--card-bg, #fff)' }}
               >
-                <option value="all">🏢 All Departments</option>
+                <option value="all">🏢 All Departments ({departmentsList.length})</option>
                 {departmentsList.map(dept => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
             </div>
 
-            {/* Date Filter */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+            {/* Date Filter with Today Quick Selector */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={e => setSelectedDate(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #cbd5e1)', fontSize: '0.85rem', fontWeight: '600' }}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-color, #cbd5e1)', fontSize: '0.85rem', fontWeight: '600' }}
               />
+              <button
+                type="button"
+                onClick={() => setSelectedDate(getTodayDateStr())}
+                title="Filter Today"
+                style={{
+                  padding: '7px 10px',
+                  borderRadius: '6px',
+                  border: selectedDate === getTodayDateStr() ? '1px solid #2563eb' : '1px solid #cbd5e1',
+                  backgroundColor: selectedDate === getTodayDateStr() ? '#2563eb' : '#f8fafc',
+                  color: selectedDate === getTodayDateStr() ? '#ffffff' : '#334155',
+                  fontSize: '0.75rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Today
+              </button>
               {selectedDate && (
                 <button
+                  type="button"
                   onClick={() => setSelectedDate('')}
-                  style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  title="Show All Dates"
+                  style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}
                 >
-                  Clear
+                  All
                 </button>
               )}
             </div>
@@ -530,39 +638,64 @@ export default function ScreenshotsTab() {
 
           </div>
 
-          {/* Row 2: View Mode & Accordion Controls */}
+          {/* Row 2: View Mode, Auto-Sync & Accordion Controls */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
-            {viewMode === 'grouped' ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={expandAllGroups}
-                  title="Expand All Employee Cards"
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-color, #cbd5e1)',
-                    backgroundColor: 'var(--card-bg, #ffffff)',
-                    color: 'var(--text-primary, #0f172a)',
-                    fontWeight: '700',
-                    fontSize: '0.78rem',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <FiChevronDown /> Expand All ({groupedByEmployee.length})
-                </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {viewMode === 'grouped' && (
+                <>
+                  <button
+                    onClick={expandAllGroups}
+                    title="Expand All Employee Cards"
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color, #cbd5e1)',
+                      backgroundColor: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text-primary, #0f172a)',
+                      fontWeight: '700',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <FiChevronDown /> Expand All ({groupedByEmployee.length})
+                  </button>
 
+                  <button
+                    onClick={collapseAllGroups}
+                    title="Collapse All Employee Cards"
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color, #cbd5e1)',
+                      backgroundColor: 'var(--card-bg, #ffffff)',
+                      color: 'var(--text-primary, #0f172a)',
+                      fontWeight: '700',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <FiChevronUp /> Collapse All
+                  </button>
+                </>
+              )}
+
+              {/* Reset Filters Button */}
+              {(selectedEmployee !== 'all' || selectedDepartment !== 'all' || selectedDate !== getTodayDateStr() || searchQuery || limitFilter !== 'all') && (
                 <button
-                  onClick={collapseAllGroups}
-                  title="Collapse All Employee Cards"
+                  onClick={resetFilters}
+                  title="Reset All Filters to Default (Today)"
                   style={{
                     padding: '6px 12px',
                     borderRadius: '8px',
-                    border: '1px solid var(--border-color, #cbd5e1)',
-                    backgroundColor: 'var(--card-bg, #ffffff)',
-                    color: 'var(--text-primary, #0f172a)',
+                    border: '1px solid #fca5a5',
+                    backgroundColor: '#fef2f2',
+                    color: '#dc2626',
                     fontWeight: '700',
                     fontSize: '0.78rem',
                     cursor: 'pointer',
@@ -571,48 +704,78 @@ export default function ScreenshotsTab() {
                     gap: '4px'
                   }}
                 >
-                  <FiChevronUp /> Collapse All
+                  <FiX /> Reset Filters
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto', flexWrap: 'wrap' }}>
+              {/* Live Sync Status Pill */}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#15803d', fontWeight: '700', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '5px 12px', borderRadius: '20px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }}></span> Live Sync Active (30s)
+              </span>
+
+              {/* Manual Refresh Now Button */}
+              <button
+                onClick={() => fetchScreenshots(false)}
+                disabled={refreshing}
+                title="Refresh Screenshots Now"
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  color: '#2563eb',
+                  fontWeight: '700',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <FiRefreshCw className={refreshing ? 'spin-icon' : ''} /> {refreshing ? 'Syncing...' : 'Refresh Now'}
+              </button>
+
+              {/* View Mode Switcher */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-muted, #f1f5f9)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+                <button
+                  onClick={() => setViewMode('grouped')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: viewMode === 'grouped' ? '#2563eb' : 'transparent',
+                    color: viewMode === 'grouped' ? '#ffffff' : '#64748b',
+                    fontWeight: '700',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <FiGrid /> Grouped ({groupedByEmployee.length})
+                </button>
+                <button
+                  onClick={() => setViewMode('feed')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: viewMode === 'feed' ? '#2563eb' : 'transparent',
+                    color: viewMode === 'feed' ? '#ffffff' : '#64748b',
+                    fontWeight: '700',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <FiList /> Timeline Feed ({screenshots.length})
                 </button>
               </div>
-            ) : <div />}
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-muted, #f1f5f9)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color, #e2e8f0)', marginLeft: 'auto' }}>
-              <button
-                onClick={() => setViewMode('grouped')}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor: viewMode === 'grouped' ? '#2563eb' : 'transparent',
-                  color: viewMode === 'grouped' ? '#ffffff' : '#64748b',
-                  fontWeight: '700',
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <FiGrid /> Grouped by Employee
-              </button>
-              <button
-                onClick={() => setViewMode('feed')}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  backgroundColor: viewMode === 'feed' ? '#2563eb' : 'transparent',
-                  color: viewMode === 'feed' ? '#ffffff' : '#64748b',
-                  fontWeight: '700',
-                  fontSize: '0.8rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <FiList /> Timeline Feed
-              </button>
             </div>
           </div>
 
