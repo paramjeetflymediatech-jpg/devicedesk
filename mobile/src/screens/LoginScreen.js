@@ -328,19 +328,26 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Legal & Privacy Policy</Text>
             <ScrollView style={styles.modalScroll}>
-              <Text style={styles.legalHeader}>1. Privacy Policy</Text>
+              <Text style={styles.legalHeader}>1. Privacy Policy & Data Collection</Text>
               <Text style={styles.legalText}>
-                {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server."}
+                {"DeviceDesk collects system specifications, employee assignments, attendance location coordinates (GPS), camera photos for ticket attachments, and push notification tokens to facilitate corporate inventory and attendance tracking. Data is stored securely in encrypted databases."}
               </Text>
 
-              <Text style={styles.legalHeader}>2. Terms & Conditions</Text>
+              <Text style={styles.legalHeader}>2. Location & Media Usage</Text>
+              <Text style={styles.legalText}>
+                Location permissions are accessed only during attendance punch-in and punch-out to verify office presence. Camera permissions are used exclusively to capture hardware issue photos for IT support tickets and chat attachments.
+              </Text>
+
+              <Text style={styles.legalHeader}>3. Terms & Conditions</Text>
               <Text style={styles.legalText}>
                 This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited.
               </Text>
 
-              <Text style={styles.legalHeader}>3. Data & Account Deletion</Text>
+              <Text style={styles.legalHeader}>4. Data & Account Deletion</Text>
               <Text style={styles.legalText}>
-                In compliance with App Store guidelines, users have the right to request full account profile and data deletion.
+                In compliance with Google Play Developer Program policies, users have the right to request full account profile and data deletion within the app settings or via our public web portal at:
+                {"\n"}
+                https://devicedesk.app/account-deletion
               </Text>
             </ScrollView>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setShowLegalModal(false)}>

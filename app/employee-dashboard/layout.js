@@ -19,7 +19,8 @@ import {
   FiUser,
   FiLogOut,
   FiShield,
-  FiCalendar
+  FiCalendar,
+  FiTrash2
 } from "react-icons/fi";
 
 export default function EmployeeLayout({ children }) {
@@ -437,6 +438,29 @@ export default function EmployeeLayout({ children }) {
                     className="dropdown-link-btn"
                   >
                     <FiShield style={{ fontSize: "1rem", flexShrink: 0 }} /> Privacy & Terms
+                  </Link>
+
+                  <Link
+                    href="/account-deletion"
+                    onClick={() => setUserDropdownOpen(false)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-primary)",
+                      padding: "8px",
+                      borderRadius: "6px",
+                      textAlign: "left",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                      transition: "background 0.2s"
+                    }}
+                    className="dropdown-link-btn"
+                  >
+                    <FiTrash2 style={{ fontSize: "1rem", flexShrink: 0 }} /> Account Deletion
                   </Link>
 
                   <button

@@ -200,6 +200,23 @@ export default function LoginPage() {
             >
               Privacy & Terms
             </button>
+            <span style={{ color: "var(--text-secondary)", opacity: 0.3 }}>|</span>
+            <button
+              type="button"
+              onClick={() => router.push("/account-deletion")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-secondary)",
+                fontWeight: "500",
+                cursor: "pointer",
+                textDecoration: "underline",
+                fontFamily: "var(--font-main)",
+                fontSize: "0.85rem"
+              }}
+            >
+              Account Deletion
+            </button>
           </div>
         </div>
       </div>

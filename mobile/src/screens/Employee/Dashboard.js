@@ -930,9 +930,9 @@ export default function EmployeeDashboard({ user, onLogout }) {
             </View>
 
             <ScrollView style={styles.modalScroll}>
-              <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>1. Privacy Policy</Text>
+              <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>1. Privacy Policy & Data Collection</Text>
               <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
-                {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties."}
+                {"DeviceDesk collects system specifications, employee assignments, location coordinates (GPS for punch in/out verification), camera photos for tickets/chat attachments, and IT support tickets to facilitate hardware inventory tracking. Data is stored securely in encrypted databases. We do not share, sell, or distribute your personal details or usage history to any third parties."}
               </Text>
 
               <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>2. Terms & Conditions</Text>
@@ -942,7 +942,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
               <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>3. Permanent Account Deletion</Text>
               <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
-                Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. This action is immediate and cannot be undone.
+                Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. You can delete your account directly using the button below, or submit a deletion request on our web portal at https://devicedesk.app/account-deletion
               </Text>
 
               <TouchableOpacity

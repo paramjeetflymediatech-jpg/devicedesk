@@ -10,24 +10,15 @@ import {
   Platform,
   PermissionsAndroid,
   NativeModules,
+  ScrollView,
 } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import {
   fetchAttendanceStatus,
   postAttendancePunch,
 } from '../utils/api';
 import { sweetAlert } from '../utils/sweetAlert';
 import { useTheme } from '../utils/ThemeContext';
-
-const getGeolocation = () => {
-  try {
-    if (NativeModules && NativeModules.RNCGeolocation) {
-      return require('@react-native-community/geolocation').default;
-    }
-  } catch (e) {
-    console.warn('RNCGeolocation native module not loaded:', e);
-  }
-  return null;
-};
 
 export default function AttendanceWidget({ user, onStatusChange }) {
   const { isDark, themeColors } = useTheme();
@@ -37,6 +28,10 @@ export default function AttendanceWidget({ user, onStatusChange }) {
   const [showBreakModal, setShowBreakModal] = useState(false);
   const [selectedBreakType, setSelectedBreakType] = useState('Tea Break');
   const [remarks, setRemarks] = useState('');
+
+  // Location Prominent Disclosure State (Google Play Policy)
+  const [showLocationDisclosureModal, setShowLocationDisclosureModal] = useState(false);
+  const [pendingPunch, setPendingPunch] = useState(null);
 
   // Location Fetching State
   const [employeeLocation, setEmployeeLocation] = useState('📍 Fetching location...');
@@ -140,7 +135,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           {
             title: 'Location Permission Required',
-            message: 'Device Desk requires location permission to verify your presence at the office during punch in and punch out.',
+            message: 'DeviceDesk requires high-precision GPS location permission to verify your presence inside office premises during punch-in and punch-out.',
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
             buttonPositive: 'OK',
@@ -153,9 +148,8 @@ export default function AttendanceWidget({ user, onStatusChange }) {
       }
     } else if (Platform.OS === 'ios') {
       try {
-        const Geolocation = getGeolocation();
-        if (Geolocation && typeof Geolocation.requestAuthorization === 'function') {
-          Geolocation.requestAuthorization();
+        if (typeof Geolocation.requestAuthorization === 'function') {
+          Geolocation.requestAuthorization('whenInUse');
         }
         return true;
       } catch (err) {
@@ -168,69 +162,44 @@ export default function AttendanceWidget({ user, onStatusChange }) {
 
   const getCurrentLocation = () => {
     return new Promise((resolve, reject) => {
-      const Geolocation = getGeolocation();
       if (!Geolocation || typeof Geolocation.getCurrentPosition !== 'function') {
-        // Safe fallback when native module is absent or unlinked
-        return resolve({ latitude: 0, longitude: 0 });
+        return reject(new Error('Geolocation service unavailable on this device.'));
       }
       Geolocation.getCurrentPosition(
         (position) => {
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
           });
         },
         (error) => {
-          let msg = 'Failed to fetch location.';
+          let msg = 'Failed to fetch precise location.';
           if (error.code === 1) {
             msg = 'Location permission denied. Please allow location access in your device settings to punch in or punch out.';
           } else if (error.code === 2) {
-            msg = 'Location position unavailable. Please ensure GPS/Location is enabled on your device.';
+            msg = 'Location position unavailable. Please ensure GPS / Location is turned ON in your device settings.';
           } else if (error.code === 3) {
-            msg = 'Location request timed out. Please ensure GPS signal is available and try again.';
+            msg = 'Location request timed out. Please step near a window or open area for better GPS reception and try again.';
           }
           reject(new Error(msg));
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0,
+          distanceFilter: 0,
+        }
       );
     });
   };
 
-  const handlePunchAction = async (action, extraData = {}) => {
-    if (submitting) return;
-
-    // Shift Cutoff Check: 06:30 PM (18:30)
-    if (action === 'PUNCH_IN') {
-      const now = new Date();
-      const hrs = now.getHours();
-      const mins = now.getMinutes();
-      if (hrs > 18 || (hrs === 18 && mins >= 30)) {
-        sweetAlert({
-          title: 'Punch-in Restricted',
-          text: 'Shift cutoff time (06:30 PM) has passed for today. You cannot punch in for today\'s shift.',
-          type: 'error',
-        });
-        return;
-      }
-    }
-
+  const executePunchWithLocation = async (action, extraData = {}) => {
     setSubmitting(true);
-
     let lat = null;
     let lng = null;
 
     if (action === 'PUNCH_IN' || action === 'PUNCH_OUT') {
-      const hasPermission = await requestLocationPermission();
-      if (!hasPermission) {
-        setSubmitting(false);
-        sweetAlert({
-          title: 'Location Permission Denied',
-          text: 'Location access is required to punch in or punch out. Please enable location permissions in device settings.',
-          type: 'error',
-        });
-        return;
-      }
-
       try {
         const coords = await getCurrentLocation();
         lat = coords.latitude;
@@ -275,13 +244,46 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     } catch (err) {
       sweetAlert({
         title: 'Error',
-        text: 'Failed to update attendance. Check network.',
+        text: 'Failed to process request. Please try again.',
         type: 'error',
       });
     } finally {
       setSubmitting(false);
       setShowBreakModal(false);
     }
+  };
+
+  const handlePunchAction = async (action, extraData = {}) => {
+    if (submitting) return;
+
+    // Shift Cutoff Check: 06:30 PM (18:30)
+    if (action === 'PUNCH_IN') {
+      const now = new Date();
+      const hrs = now.getHours();
+      const mins = now.getMinutes();
+      if (hrs > 18 || (hrs === 18 && mins >= 30)) {
+        sweetAlert({
+          title: 'Punch-in Restricted',
+          text: 'Shift cutoff time (06:30 PM) has passed for today. You cannot punch in for today\'s shift.',
+          type: 'error',
+        });
+        return;
+      }
+    }
+
+    if (action === 'PUNCH_IN' || action === 'PUNCH_OUT') {
+      if (Platform.OS === 'android') {
+        const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+        if (!hasPermission) {
+          // Google Play Policy requirement: Show Prominent Disclosure Modal BEFORE requesting permission
+          setPendingPunch({ action, extraData });
+          setShowLocationDisclosureModal(true);
+          return;
+        }
+      }
+    }
+
+    await executePunchWithLocation(action, extraData);
   };
 
   const formatHMS = (totalSecs) => {
@@ -470,6 +472,71 @@ export default function AttendanceWidget({ user, onStatusChange }) {
                 onPress={() => handlePunchAction('START_BREAK', { breakType: selectedBreakType })}
               >
                 <Text style={styles.modalConfirmText}>Start Break</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Prominent Location Disclosure Modal for Google Play Policy Compliance */}
+      <Modal
+        visible={showLocationDisclosureModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setShowLocationDisclosureModal(false);
+          setPendingPunch(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={{ fontSize: 24, textAlign: 'center', marginBottom: 8 }}>📍</Text>
+            <Text style={[styles.modalTitle, { fontSize: 18, marginBottom: 4 }]}>Location Access Required</Text>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#0284c7', textAlign: 'center', textTransform: 'uppercase', marginBottom: 12, letterSpacing: 0.5 }}>
+              Google Play Prominent Disclosure
+            </Text>
+            <ScrollView style={{ maxHeight: 180, marginBottom: 16 }}>
+              <Text style={{ fontSize: 13, color: '#334155', lineHeight: 19, textAlign: 'left' }}>
+                DeviceDesk collects precise device location data (GPS coordinates) to verify employee presence at authorized workplace locations during punch-in and punch-out attendance recording.
+                {'\n\n'}
+                • Location data is accessed ONLY when you tap Punch In or Punch Out.
+                {'\n'}
+                • Data is transmitted securely to your organization's database server to record attendance proximity.
+                {'\n'}
+                • DeviceDesk does NOT track location in the background or sell location data to third parties.
+              </Text>
+            </ScrollView>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => {
+                  setShowLocationDisclosureModal(false);
+                  setPendingPunch(null);
+                }}
+              >
+                <Text style={styles.modalCancelText}>Deny</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalConfirmBtn, { backgroundColor: '#0284c7' }]}
+                onPress={async () => {
+                  setShowLocationDisclosureModal(false);
+                  const granted = await requestLocationPermission();
+                  if (granted && pendingPunch) {
+                    const actionToPerform = pendingPunch;
+                    setPendingPunch(null);
+                    executePunchWithLocation(actionToPerform.action, actionToPerform.extraData);
+                  } else {
+                    setPendingPunch(null);
+                    sweetAlert({
+                      title: 'Location Permission Denied',
+                      text: 'Location access is required to punch in or punch out.',
+                      type: 'error',
+                    });
+                  }
+                }}
+              >
+                <Text style={styles.modalConfirmText}>Accept & Continue</Text>
               </TouchableOpacity>
             </View>
           </View>

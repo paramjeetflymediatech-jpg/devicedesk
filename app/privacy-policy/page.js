@@ -389,12 +389,32 @@ export default function PrivacyPolicyPage() {
                 <FiTrash2 />
               </div>
               <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
-                5. Data Retention & Account Deletion
+                5. Account & Data Deletion Rights
               </h2>
             </div>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7" }}>
-              Personnel account removals unassign active hardware items and archive support history in compliance with organizational IT retention rules. Employees may contact their system administrator to request account data updates or complete profile purges.
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "1rem" }}>
+              In compliance with Google Play Developer Program policies, all users have the right to request permanent deletion of their account profile, personal identifiers, and associated attendance/ticket data. You can delete your account in-app under Account Settings, or submit a request directly on our web portal:
             </p>
+            <div style={{ marginTop: "0.5rem" }}>
+              <a
+                href="/account-deletion"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "10px 18px",
+                  borderRadius: "10px",
+                  background: "rgba(239, 68, 68, 0.15)",
+                  color: "#ef4444",
+                  fontWeight: "700",
+                  fontSize: "0.9rem",
+                  textDecoration: "none",
+                  border: "1px solid rgba(239, 68, 68, 0.3)"
+                }}
+              >
+                <FiTrash2 /> Request Web Account & Data Deletion →
+              </a>
+            </div>
           </section>
         </div>
 

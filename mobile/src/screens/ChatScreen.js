@@ -13,6 +13,7 @@ import {
   Platform,
   Image,
   Linking,
+  PermissionsAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -518,6 +519,25 @@ export default function ChatScreen({ user, onBack }) {
   // Open Device Hardware Camera Directly
   const handleCameraClick = async () => {
     try {
+      if (Platform.OS === 'android') {
+        const hasCamPerm = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
+        if (!hasCamPerm) {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.CAMERA,
+            {
+              title: 'Camera Permission Required',
+              message: 'DeviceDesk requires camera access to take photos for support tickets and chat attachments.',
+              buttonPositive: 'Allow',
+              buttonNegative: 'Cancel',
+            }
+          );
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            Alert.alert('Permission Required', 'Camera permission was denied.');
+            return;
+          }
+        }
+      }
+
       const result = await launchCamera({
         mediaType: 'photo',
         quality: 0.85,
