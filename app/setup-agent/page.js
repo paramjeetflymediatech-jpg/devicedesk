@@ -204,8 +204,7 @@ Archive:  /home/user/Downloads/DeviceDeskAgent-Linux.zip
   creating: /home/user/DeviceDeskAgent/
  extracting: /home/user/DeviceDeskAgent/DeviceDeskAgent
  extracting: /home/user/DeviceDeskAgent/config.json
- inflating: /home/user/DeviceDeskAgent/libffmpeg.so
-SUCCESS: 3 files extracted to /home/user/DeviceDeskAgent`}
+ inflating: /home/user/DeviceDeskAgent/libffmpeg.so`}
               />
             </div>
 
@@ -312,8 +311,7 @@ $ ls -la DeviceDeskAgent
 Archive:  DeviceDeskAgent-Mac.zip
    creating: /Applications/DeviceDeskAgent.app/
    creating: /Applications/DeviceDeskAgent.app/Contents/
-  inflating: /Applications/DeviceDeskAgent.app/Contents/MacOS/DeviceDeskAgent
-SUCCESS: Application extracted to /Applications/DeviceDeskAgent.app`}
+  inflating: /Applications/DeviceDeskAgent.app/Contents/MacOS/DeviceDeskAgent`}
               />
             </div>
 
