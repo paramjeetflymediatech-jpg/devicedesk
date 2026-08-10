@@ -237,7 +237,7 @@ $ ls -la DeviceDeskAgent
                 <FaUbuntu /> Step 3: Run the Agent & Authenticate
               </h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '14px', lineHeight: '1.6' }}>
-                Start the application binary. The interactive CLI will prompt for your Employee Credentials and pair your desktop automatically:
+                Start the application binary. A graphical setup window will open where you can enter your Employee Credentials and Server URL to connect:
               </p>
 
               <CodeBlock
@@ -248,15 +248,9 @@ $ ls -la DeviceDeskAgent
               />
 
               <TerminalOutput
-                title="Terminal Output (Live Execution & Pairing Log):"
-                output={`[DeviceDesk Agent v2.4.0 - Linux 64-bit]
-[Network] Server endpoint: https://devicedesk.flymediatech.com
-[Auth] Employee Credentials verified: aman@yopmail.com (Aman - ID: emp14)
-[System] Registered hostname: UBUNTU-PC-01 | IP: 192.168.1.42
-[Sync] Initializing background activity monitor...
-[Status] Heartbeat pulse active (interval: 30s)
-[Monitor] Screen capture scheduled every 3 minutes.
-✓ DeviceDesk Agent is running active in background.`}
+                title="Terminal Output (App Launch):"
+                output={`Opening DeviceDesk Agent UI...
+Please log in via the graphical application window.`}
               />
             </div>
 
@@ -361,7 +355,7 @@ Cleared extended attribute 'com.apple.quarantine' for /Applications/DeviceDeskAg
               <TerminalOutput
                 title="Terminal Output (Launch App):"
                 output={`Opening /Applications/DeviceDeskAgent.app...
-[DeviceDesk Agent v2.4.0 macOS] Active & Monitoring.`}
+Please log in via the graphical application window.`}
               />
             </div>
           </div>
@@ -402,7 +396,7 @@ Extracted 4 files to C:\\Users\\Employee\\DeviceDeskAgent`}
                 <FaWindows /> Step 2: Launch Binary Executable
               </h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '14px', lineHeight: '1.6' }}>
-                Double-click <code>DeviceDeskAgent.exe</code> or launch via PowerShell command:
+                Double-click <code>DeviceDeskAgent.exe</code> or launch via PowerShell command. A graphical setup window will open where you can log in:
               </p>
 
               <CodeBlock
@@ -415,11 +409,8 @@ Extracted 4 files to C:\\Users\\Employee\\DeviceDeskAgent`}
               <TerminalOutput
                 title="PowerShell Execution Output:"
                 output={`PS C:\\Users\\Employee\\DeviceDeskAgent> .\\DeviceDeskAgent.exe
-[DeviceDesk Agent v2.4.0 - Windows 64-bit]
-[Network] Server connected: https://devicedesk.flymediatech.com
-[Auth] Employee Credentials verified: aman@yopmail.com (ID: emp14)
-[Status] System tray icon minimized. Heartbeat ping active (30s).
-✓ Desktop Agent active and recording background work activity.`}
+Opening DeviceDesk Agent UI...
+Please log in via the graphical application window.`}
               />
             </div>
           </div>
