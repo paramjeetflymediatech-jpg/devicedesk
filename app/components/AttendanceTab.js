@@ -5,11 +5,12 @@ import AttendanceWidget from "./AttendanceWidget";
 import { FiDownload, FiPlus, FiX } from "react-icons/fi";
 
 export default function AttendanceTab({ user }) {
-  const userRole = (user?.role || '').toLowerCase();
   const userDbRole = (user?.dbRole || '').toLowerCase();
-  // Full Admin privileges (viewing all company logs) reserved for Root Admin, Management, HR, and Superadmin
-  const isFullAdmin = ['admin', 'management', 'hr', 'superadmin'].includes(userRole) ||
-                      ['admin', 'management', 'hr', 'superadmin'].includes(userDbRole);
+  const userEmail = (user?.email || '').toLowerCase();
+  // Full Admin privileges (viewing all company logs) reserved strictly for Root Admin, Executive Management, HR, and Superadmin
+  const isFullAdmin = 
+    ['admin', 'management', 'hr', 'superadmin', 'executive'].includes(userDbRole) ||
+    ['admin@yopmail.com', 'pravi@yopmail.com'].includes(userEmail);
   const isAdmin = isFullAdmin;
 
   const [records, setRecords] = useState([]);

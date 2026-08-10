@@ -178,7 +178,7 @@ export default function OverviewPage() {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              <a
+              {/* <a
                 href="/download/DeviceDeskAgent-Setup.exe"
                 download="DeviceDeskAgent-Setup.exe"
                 target="_blank"
@@ -199,7 +199,7 @@ export default function OverviewPage() {
                 }}
               >
                 <FaWindows style={{ fontSize: "1rem" }} /> Windows (.exe)
-              </a>
+              </a> */}
 
               <a
                 href="/download/DeviceDeskAgent-Portable.zip"
@@ -208,7 +208,7 @@ export default function OverviewPage() {
                 rel="noreferrer"
                 title="Download Portable Zip (Bypasses Smart App Control)"
                 style={{
-                  backgroundColor: "#0284c7",
+                  backgroundColor: "#2563eb",
                   color: "#ffffff",
                   textDecoration: "none",
                   padding: "8px 14px",
@@ -221,7 +221,7 @@ export default function OverviewPage() {
                   boxShadow: "0 2px 8px rgba(2,132,199,0.3)"
                 }}
               >
-                <FaWindows style={{ fontSize: "1rem" }} /> Win Portable (.zip)
+                <FaWindows style={{ fontSize: "1rem" }} /> window (.zip)
               </a>
 
               <a
