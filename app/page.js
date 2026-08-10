@@ -99,6 +99,33 @@ export default function Home() {
   }, []);
 
   const userRole = user?.role || "admin";
+  const dbRoleLower = (user?.dbRole || "").toLowerCase();
+  const roleLower = (user?.role || "").toLowerCase();
+  const deptLower = (user?.department || "").toLowerCase();
+
+  // Root Admin / Executive Management has full unrestricted access
+  const isRootAdmin = isMounted && (
+    dbRoleLower === 'admin' ||
+    dbRoleLower === 'management' ||
+    dbRoleLower === 'executive' ||
+    roleLower === 'superadmin' ||
+    user?.email === 'pravi@yopmail.com'
+  );
+
+  // IT person (IT Support / IT Engineer) is restricted to IT Desk sections
+  const isITSupport = isMounted && !isRootAdmin && (
+    dbRoleLower.includes('it') ||
+    roleLower.includes('it') ||
+    deptLower.includes('it')
+  );
+
+  // Auto-redirect IT Support away from restricted admin views
+  useEffect(() => {
+    if (isITSupport && ["tasks", "attendance", "screenshots", "leave-requests", "danger-zone"].includes(currentView)) {
+      setCurrentView("dashboard");
+    }
+  }, [isITSupport, currentView]);
+
   // Team Leader scope — only sees their own department
   const isTeamLeader = user?.dbRole === "Team Leader";
   const leaderDepartment = user?.department || "";
@@ -2198,15 +2225,21 @@ export default function Home() {
                 <li className={`nav-item ${currentView === "history" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("history")}><span className="nav-icon"><FiFileText /></span> System Logs</button>
                 </li>
-                <li className={`nav-item ${currentView === "tasks" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("tasks")}><span className="nav-icon"><FiCheckSquare /></span> Task Board</button>
-                </li>
-                <li className={`nav-item ${currentView === "attendance" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("attendance")}><span className="nav-icon"><FiClock /></span> Attendance</button>
-                </li>
-                <li className={`nav-item ${currentView === "screenshots" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("screenshots")}><span className="nav-icon"><FiEye /></span> Activity Screenshots</button>
-                </li>
+                {!isITSupport && (
+                  <li className={`nav-item ${currentView === "tasks" ? "active" : ""}`}>
+                    <button onClick={() => setCurrentView("tasks")}><span className="nav-icon"><FiCheckSquare /></span> Task Board</button>
+                  </li>
+                )}
+                {!isITSupport && (
+                  <li className={`nav-item ${currentView === "attendance" ? "active" : ""}`}>
+                    <button onClick={() => setCurrentView("attendance")}><span className="nav-icon"><FiClock /></span> Attendance</button>
+                  </li>
+                )}
+                {!isITSupport && (
+                  <li className={`nav-item ${currentView === "screenshots" ? "active" : ""}`}>
+                    <button onClick={() => setCurrentView("screenshots")}><span className="nav-icon"><FiEye /></span> Activity Screenshots</button>
+                  </li>
+                )}
                 <li className={`nav-item ${currentView === "chat" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("chat")}>
                     <span className="nav-icon"><FiMessageSquare /></span> Chat Workspace
@@ -2225,27 +2258,39 @@ export default function Home() {
                     )}
                   </button>
                 </li>
-                <li className={`nav-item ${currentView === "leave-requests" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("leave-requests")}>
-                    <span className="nav-icon"><FiCalendar /></span> Leave Requests
-                    {isMounted && leaveRequests.filter(r => r.status === 'Pending').length > 0 && (
-                      <span style={{
-                        background: "var(--status-critical)",
-                        color: "#fff",
-                        borderRadius: "50%",
-                        padding: "2px 6px",
-                        fontSize: "0.7rem",
-                        fontWeight: "700",
-                        marginLeft: "8px"
-                      }}>
-                        {leaveRequests.filter(r => r.status === 'Pending').length}
-                      </span>
-                    )}
-                  </button>
-                </li>
+                {!isITSupport && (
+                  <li className={`nav-item ${currentView === "leave-requests" ? "active" : ""}`}>
+                    <button onClick={() => setCurrentView("leave-requests")}>
+                      <span className="nav-icon"><FiCalendar /></span> Leave Requests
+                      {isMounted && leaveRequests.filter(r => r.status === 'Pending').length > 0 && (
+                        <span style={{
+                          background: "var(--status-critical)",
+                          color: "#fff",
+                          borderRadius: "50%",
+                          padding: "2px 6px",
+                          fontSize: "0.7rem",
+                          fontWeight: "700",
+                          marginLeft: "8px"
+                        }}>
+                          {leaveRequests.filter(r => r.status === 'Pending').length}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                )}
                 <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
                   <button onClick={() => setCurrentView("profile")}><span className="nav-icon"><FiUser /></span> My Profile</button>
                 </li>
+                {isITSupport && (
+                  <li className="nav-item" style={{ marginTop: '12px', borderTop: '1px solid var(--glass-border)', paddingTop: '8px' }}>
+                    <button
+                      onClick={() => { window.location.href = "/employee-dashboard"; }}
+                      style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}
+                    >
+                      <span className="nav-icon"><FiUser /></span> Employee Portal
+                    </button>
+                  </li>
+                )}
                 {isMounted && user?.dbRole === 'Admin' && (
                   <li className={`nav-item ${currentView === "danger-zone" ? "active" : ""}`} style={{ marginTop: '8px' }}>
                     <button onClick={() => setCurrentView("danger-zone")} style={{ color: 'var(--status-critical)' }}><span className="nav-icon"><FiAlertTriangle /></span> Danger Zone</button>
@@ -2299,18 +2344,24 @@ export default function Home() {
                 onClick={() => { setCurrentView("departments"); setMobileMenuOpen(false); }}>
                 <span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments
               </button>
-              <button className={`mobile-drawer-item ${currentView === "tasks" ? "active" : ""}`}
-                onClick={() => { setCurrentView("tasks"); setMobileMenuOpen(false); }}>
-                <span style={{ display: "inline-flex" }}><FiCheckSquare /></span> Task Board
-              </button>
-              <button className={`mobile-drawer-item ${currentView === "attendance" ? "active" : ""}`}
-                onClick={() => { setCurrentView("attendance"); setMobileMenuOpen(false); }}>
-                <span style={{ display: "inline-flex" }}><FiClock /></span> Attendance
-              </button>
-              <button className={`mobile-drawer-item ${currentView === "screenshots" ? "active" : ""}`}
-                onClick={() => { setCurrentView("screenshots"); setMobileMenuOpen(false); }}>
-                <span style={{ display: "inline-flex" }}><FiEye /></span> Activity Screenshots
-              </button>
+              {!isITSupport && (
+                <button className={`mobile-drawer-item ${currentView === "tasks" ? "active" : ""}`}
+                  onClick={() => { setCurrentView("tasks"); setMobileMenuOpen(false); }}>
+                  <span style={{ display: "inline-flex" }}><FiCheckSquare /></span> Task Board
+                </button>
+              )}
+              {!isITSupport && (
+                <button className={`mobile-drawer-item ${currentView === "attendance" ? "active" : ""}`}
+                  onClick={() => { setCurrentView("attendance"); setMobileMenuOpen(false); }}>
+                  <span style={{ display: "inline-flex" }}><FiClock /></span> Attendance
+                </button>
+              )}
+              {!isITSupport && (
+                <button className={`mobile-drawer-item ${currentView === "screenshots" ? "active" : ""}`}
+                  onClick={() => { setCurrentView("screenshots"); setMobileMenuOpen(false); }}>
+                  <span style={{ display: "inline-flex" }}><FiEye /></span> Activity Screenshots
+                </button>
+              )}
               <button className={`mobile-drawer-item ${currentView === "chat" ? "active" : ""}`}
                 onClick={() => { setCurrentView("chat"); setMobileMenuOpen(false); }}
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}
@@ -2331,27 +2382,37 @@ export default function Home() {
                   </span>
                 )}
               </button>
-              <button className={`mobile-drawer-item ${currentView === "leave-requests" ? "active" : ""}`}
-                onClick={() => { setCurrentView("leave-requests"); setMobileMenuOpen(false); }}>
-                <span style={{ display: "inline-flex" }}><FiCalendar /></span> Leave Requests
-                {leaveRequests.filter(r => r.status === 'Pending').length > 0 && (
-                  <span style={{
-                    background: "var(--status-critical)",
-                    color: "#fff",
-                    borderRadius: "50%",
-                    padding: "2px 6px",
-                    fontSize: "0.7rem",
-                    fontWeight: "700",
-                    marginLeft: "8px"
-                  }}>
-                    {leaveRequests.filter(r => r.status === 'Pending').length}
-                  </span>
-                )}
-              </button>
+              {!isITSupport && (
+                <button className={`mobile-drawer-item ${currentView === "leave-requests" ? "active" : ""}`}
+                  onClick={() => { setCurrentView("leave-requests"); setMobileMenuOpen(false); }}>
+                  <span style={{ display: "inline-flex" }}><FiCalendar /></span> Leave Requests
+                  {leaveRequests.filter(r => r.status === 'Pending').length > 0 && (
+                    <span style={{
+                      background: "var(--status-critical)",
+                      color: "#fff",
+                      borderRadius: "50%",
+                      padding: "2px 6px",
+                      fontSize: "0.7rem",
+                      fontWeight: "700",
+                      marginLeft: "8px"
+                    }}>
+                      {leaveRequests.filter(r => r.status === 'Pending').length}
+                    </span>
+                  )}
+                </button>
+              )}
               <button className={`mobile-drawer-item ${currentView === "profile" ? "active" : ""}`}
                 onClick={() => { setCurrentView("profile"); setMobileMenuOpen(false); }}>
                 <span style={{ display: "inline-flex" }}><FiUser /></span> My Profile
               </button>
+              {isITSupport && (
+                <button className="mobile-drawer-item"
+                  onClick={() => { window.location.href = "/employee-dashboard"; setMobileMenuOpen(false); }}
+                  style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", color: "var(--accent-cyan)", fontWeight: "600", marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}
+                >
+                  <span style={{ display: "inline-flex" }}><FiUser /></span> Employee Portal
+                </button>
+              )}
             </>
           )}
         </nav>
@@ -2540,14 +2601,14 @@ export default function Home() {
         <main className="page-container" style={{ overflowY: currentView === "chat" ? "hidden" : "auto" }}>
 
           {/* ================= VIEW: ATTENDANCE ================= */}
-          {currentView === "attendance" && (
+          {currentView === "attendance" && !isITSupport && (
             <div className="page-section active">
               <AttendanceTab user={user} />
             </div>
           )}
 
           {/* ================= VIEW: SCREENSHOTS ================= */}
-          {currentView === "screenshots" && (
+          {currentView === "screenshots" && !isITSupport && (
             <div className="page-section active">
               <ScreenshotsTab />
             </div>
@@ -2752,7 +2813,7 @@ export default function Home() {
           )}
 
           {/* ================= VIEW: DASHBOARD ================= */}
-          {currentView === "dashboard" && userRole === "admin" && (
+          {currentView === "dashboard" && (userRole === "admin" || isITSupport) && (
             <div className="page-section active space-y-6">
               
               {/* Test Mode Banner */}
@@ -2883,7 +2944,7 @@ export default function Home() {
           )}
 
           {/* ================= VIEW: SYSTEMS INVENTORY ================= */}
-          {currentView === "systems" && userRole === "admin" && (
+          {currentView === "systems" && (userRole === "admin" || isITSupport) && (
             <div className="page-section active">
               <div className="section-header">
                 <h2 style={{ fontSize: "1.4rem" }}>Hardware Directory</h2>
@@ -3052,7 +3113,7 @@ export default function Home() {
           )}
 
           {/* ================= VIEW: EMPLOYEE DIRECTORY ================= */}
-          {currentView === "employees" && userRole === "admin" && (
+          {currentView === "employees" && (userRole === "admin" || isITSupport) && (
             <div className="page-section active">
               <div className="section-header">
                 <h2 style={{ fontSize: "1.4rem", margin: 0 }}>Team Member Assignments</h2>
@@ -3279,7 +3340,7 @@ export default function Home() {
           )}
 
           {/* ================= VIEW: RAISE RECORDS ================= */}
-          {currentView === "tickets" && userRole === "admin" && (
+          {currentView === "tickets" && (userRole === "admin" || isITSupport) && (
             <div className="page-section active">
               <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <h2 style={{ fontSize: "1.4rem", margin: 0 }}>Raise Records (All Tickets)</h2>
@@ -3462,7 +3523,7 @@ export default function Home() {
           )}
 
           {/* ================= VIEW: DEPARTMENTS MANAGEMENT ================= */}
-          {currentView === "departments" && userRole === "admin" && (
+          {currentView === "departments" && (userRole === "admin" || isITSupport) && (
             <div className="page-section active">
               <div className="section-header">
                 <h2 style={{ fontSize: "1.4rem" }}>Department Settings</h2>
@@ -3581,7 +3642,7 @@ export default function Home() {
           )}
 
           {/* ================= VIEW: SYSTEM HISTORY LOGS ================= */}
-          {currentView === "history" && userRole === "admin" && (
+          {currentView === "history" && (userRole === "admin" || isITSupport) && (
             <div className="page-section active">
               <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <h2 style={{ fontSize: "1.4rem", margin: 0 }}>System Tracking & Audit Logs</h2>
@@ -3739,7 +3800,7 @@ export default function Home() {
           )}
 
           {/* ================= VIEW: TASK BOARD (ADMIN/LEADER) ================= */}
-          {currentView === "tasks" && userRole === "admin" && (
+          {currentView === "tasks" && userRole === "admin" && !isITSupport && (
             <div className="page-section active">
               <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
@@ -4258,7 +4319,7 @@ export default function Home() {
           )}
 
           {/* ================= VIEW: LEAVE REQUESTS (ADMIN) ================= */}
-          {currentView === "leave-requests" && userRole === "admin" && (
+          {currentView === "leave-requests" && userRole === "admin" && !isITSupport && (
             <div className="page-section active">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
                 <div>

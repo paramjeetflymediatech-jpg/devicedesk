@@ -33,8 +33,16 @@ export default function LoginPage() {
 
       if (data.success) {
         login(data.user);
-        const isManager = ['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin'].includes((data.user.role || '').toLowerCase());
-        if (isManager) {
+        const roleLower = (data.user.role || '').toLowerCase();
+        const dbRoleLower = (data.user.dbRole || '').toLowerCase();
+        const deptLower = (data.user.department || '').toLowerCase();
+
+        // Root Admin / Management defaults to Root Admin Desk ('/')
+        // IT personnel (IT Support / IT Engineer) and regular employees default to Employee Dashboard ('/employee-dashboard')
+        const isITPerson = dbRoleLower.includes('it') || roleLower.includes('it') || deptLower.includes('it');
+        const isRootAdmin = (dbRoleLower === 'admin' || dbRoleLower === 'management' || dbRoleLower === 'executive' || roleLower === 'superadmin' || data.user.email === 'pravi@yopmail.com') && !isITPerson;
+
+        if (isRootAdmin) {
           router.push('/');
         } else {
           router.push('/employee-dashboard');

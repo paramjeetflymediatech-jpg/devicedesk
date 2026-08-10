@@ -46,6 +46,7 @@ export default function ScreenshotsTab() {
   const [selectedEmployee, setSelectedEmployee] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedDate, setSelectedDate] = useState('');
+  const [limitFilter, setLimitFilter] = useState('all'); // 'all' (unlimited whole day) | '50' | '100' | '200'
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grouped'); // 'grouped' or 'feed'
 
@@ -83,6 +84,7 @@ export default function ScreenshotsTab() {
       if (selectedDepartment !== 'all') queryParams.append('department', selectedDepartment);
       if (selectedDate) queryParams.append('date', selectedDate);
       if (searchQuery) queryParams.append('search', searchQuery);
+      queryParams.append('limit', limitFilter);
 
       const res = await fetch(`/api/screenshots/list?${queryParams.toString()}`);
       const data = await res.json();
@@ -100,7 +102,7 @@ export default function ScreenshotsTab() {
 
   useEffect(() => {
     fetchScreenshots();
-  }, [selectedEmployee, selectedDepartment, selectedDate]);
+  }, [selectedEmployee, selectedDepartment, selectedDate, limitFilter]);
 
   const parseUtcMs = (val) => {
     if (!val) return 0;
@@ -510,6 +512,20 @@ export default function ScreenshotsTab() {
                   Clear
                 </button>
               )}
+            </div>
+
+            {/* Display Range / Limit Filter */}
+            <div style={{ position: 'relative', width: '100%' }}>
+              <select
+                value={limitFilter}
+                onChange={e => setLimitFilter(e.target.value)}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--border-color, #cbd5e1)', fontSize: '0.85rem', fontWeight: '700', color: '#0369a1', backgroundColor: '#f0f9ff' }}
+              >
+                <option value="all">📸 All Whole Day (Unlimited)</option>
+                <option value="500">📸 Up to 500 Captures</option>
+                <option value="100">📸 Up to 100 Captures</option>
+                <option value="50">📸 Up to 50 Captures</option>
+              </select>
             </div>
 
           </div>

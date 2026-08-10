@@ -86,18 +86,17 @@ export default function EmployeeLayout({ children }) {
     return () => window.removeEventListener("click", enableAudio);
   }, []);
 
-  const isManagerRole = ['admin', 'management', 'hr', 'it support', 'it_support', 'it', 'superadmin'].includes((user?.role || '').toLowerCase());
+  const roleStr = `${user?.dbRole || ''} ${user?.role || ''} ${user?.department || ''}`.toLowerCase();
+  const isManagerOrIT = roleStr.includes('admin') || roleStr.includes('it') || roleStr.includes('management') || roleStr.includes('hr') || roleStr.includes('leader');
 
-  // Auth & role check
+  // Auth check
   useEffect(() => {
     if (mounted) {
       if (!user) {
         router.push("/login");
-      } else if (isManagerRole) {
-        router.push("/");
       }
     }
-  }, [user, mounted, router, isManagerRole]);
+  }, [user, mounted, router]);
 
   // Handle body click to close profile dropdown
   useEffect(() => {
@@ -108,7 +107,7 @@ export default function EmployeeLayout({ children }) {
     return () => window.removeEventListener("click", handleBodyClick);
   }, []);
 
-  if (!mounted || !user || isManagerRole) {
+  if (!mounted || !user) {
     return null;
   }
 
@@ -214,6 +213,16 @@ export default function EmployeeLayout({ children }) {
                 </li>
               );
             })}
+            {isManagerOrIT && (
+              <li className="nav-item" style={{ marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}>
+                <button
+                  onClick={() => { window.location.href = "/"; }}
+                  style={{ color: "var(--accent-cyan)", fontWeight: "600" }}
+                >
+                  <span className="nav-icon"><FiShield /></span> IT Support Desk
+                </button>
+              </li>
+            )}
           </ul>
 
           <div style={{ marginTop: "auto", paddingTop: "1rem", borderTop: "1px solid var(--glass-border)" }}>
@@ -293,6 +302,15 @@ export default function EmployeeLayout({ children }) {
               </Link>
             );
           })}
+          {isManagerOrIT && (
+            <button
+              className="mobile-drawer-item"
+              onClick={() => { window.location.href = "/"; setMobileMenuOpen(false); }}
+              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", color: "var(--accent-cyan)", fontWeight: "600", marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}
+            >
+              <span style={{ display: "inline-flex" }}><FiShield /></span> IT Support Desk
+            </button>
+          )}
         </nav>
         <div className="mobile-drawer-footer" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "10px", background: "var(--bg-tertiary)", border: "1px solid var(--glass-border)" }}>

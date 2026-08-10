@@ -65,7 +65,7 @@ export async function POST(request) {
       }
     }
 
-    const isAdmin = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'Team Leader';
+    const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader';
 
     return NextResponse.json({
       success: true,
@@ -73,7 +73,7 @@ export async function POST(request) {
         id:          emp.id,
         name:        emp.name,
         email:       emp.email,
-        role:        isAdmin ? 'admin' : 'employee',
+        role:        isDeskRole ? 'admin' : 'employee',
         dbRole:      emp.role,
         department:  emp.department,
         ticketLimit: emp.ticketLimit

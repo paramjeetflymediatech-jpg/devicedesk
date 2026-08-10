@@ -29,13 +29,9 @@ export function proxy(request) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Role-based route protection
+    // Role-based route protection: employees cannot access admin desk
     if (pathname === '/' && userRole === 'employee') {
       return NextResponse.redirect(new URL('/employee-dashboard', request.url));
-    }
-
-    if (pathname === '/employee-dashboard' && userRole === 'admin') {
-      return NextResponse.redirect(new URL('/', request.url));
     }
   }
 

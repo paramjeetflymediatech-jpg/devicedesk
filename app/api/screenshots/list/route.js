@@ -11,9 +11,13 @@ export async function GET(req) {
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || '';
     const search = searchParams.get('search') || '';
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const limitParam = searchParams.get('limit');
+    let limit = parseInt(limitParam || '1000', 10);
+    if (limitParam === 'all' || limitParam === 'unlimited' || limitParam === '0') {
+      limit = 10000;
+    }
     const page = parseInt(searchParams.get('page') || '1', 10);
-    const offset = (page - 1) * limit;
+    const offset = Math.max(0, (page - 1) * limit);
 
     // Ensure table exists
     await pool.query(`

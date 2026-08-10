@@ -17,6 +17,8 @@ export async function GET(request) {
     let query = `SELECT * FROM attendance_records WHERE 1=1`;
     const params = [];
 
+    const search = searchParams.get('search');
+
     if (employeeId) {
       query += ` AND employeeId = ?`;
       params.push(employeeId);
@@ -25,10 +27,10 @@ export async function GET(request) {
     if (date) {
       query += ` AND date = ?`;
       params.push(date);
-    } else if (month) {
+    } else if (month && month !== 'all') {
       query += ` AND date LIKE ?`;
       params.push(`${month}%`);
-    } else if (year) {
+    } else if (year && year !== 'all') {
       query += ` AND date LIKE ?`;
       params.push(`${year}%`);
     } else if (startDate && endDate) {
@@ -37,8 +39,14 @@ export async function GET(request) {
     }
 
     if (status && status !== 'ALL') {
-      query += ` AND status = ?`;
+      query += ` AND LOWER(status) = LOWER(?)`;
       params.push(status);
+    }
+
+    if (search) {
+      query += ` AND (LOWER(employeeName) LIKE ? OR LOWER(employeeId) LIKE ? OR LOWER(remarks) LIKE ?)`;
+      const term = `%${search.toLowerCase().trim()}%`;
+      params.push(term, term, term);
     }
 
     query += ` ORDER BY date DESC, punchInTime DESC`;

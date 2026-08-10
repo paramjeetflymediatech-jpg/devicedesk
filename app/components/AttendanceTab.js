@@ -5,15 +5,19 @@ import AttendanceWidget from "./AttendanceWidget";
 import { FiDownload, FiPlus, FiX } from "react-icons/fi";
 
 export default function AttendanceTab({ user }) {
-  const userRole = user?.role?.toLowerCase() || '';
-  const isAdmin = ['admin', 'management', 'hr', 'it support', 'it_support', 'it', 'team leader'].includes(userRole);
+  const userRole = (user?.role || '').toLowerCase();
+  const userDbRole = (user?.dbRole || '').toLowerCase();
+  // Full Admin privileges (viewing all company logs) reserved for Root Admin, Management, HR, and Superadmin
+  const isFullAdmin = ['admin', 'management', 'hr', 'superadmin'].includes(userRole) ||
+                      ['admin', 'management', 'hr', 'superadmin'].includes(userDbRole);
+  const isAdmin = isFullAdmin;
 
   const [records, setRecords] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Filters
-  const [filterType, setFilterType] = useState("monthly"); // daily | weekly | monthly | yearly
+  const [filterType, setFilterType] = useState("monthly"); // all | monthly | daily | weekly | yearly | custom
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -80,19 +84,23 @@ export default function AttendanceTab({ user }) {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      let url = `/api/attendance/list?status=${statusFilter}`;
+      let url = `/api/attendance/list?status=${encodeURIComponent(statusFilter)}`;
       
       if (filterType === "daily") {
-        url += `&date=${selectedDate}`;
+        url += `&date=${encodeURIComponent(selectedDate)}`;
       } else if (filterType === "weekly") {
         const { startDate, endDate } = getWeekRange(selectedWeekDate);
-        url += `&startDate=${startDate}&endDate=${endDate}`;
-      } else if (filterType === "monthly") {
-        url += `&month=${selectedMonth}`;
-      } else if (filterType === "yearly") {
-        url += `&year=${selectedYear}`;
-      } else if (filterType === "custom") {
-        url += `&startDate=${fromDate}&endDate=${toDate}`;
+        url += `&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+      } else if (filterType === "monthly" && selectedMonth) {
+        url += `&month=${encodeURIComponent(selectedMonth)}`;
+      } else if (filterType === "yearly" && selectedYear) {
+        url += `&year=${encodeURIComponent(selectedYear)}`;
+      } else if (filterType === "custom" && fromDate && toDate) {
+        url += `&startDate=${encodeURIComponent(fromDate)}&endDate=${encodeURIComponent(toDate)}`;
+      }
+
+      if (searchEmployee.trim()) {
+        url += `&search=${encodeURIComponent(searchEmployee.trim())}`;
       }
 
       if (!isAdmin && user?.id) {
@@ -115,7 +123,7 @@ export default function AttendanceTab({ user }) {
 
   useEffect(() => {
     requestAnimationFrame(() => fetchLogs());
-  }, [selectedMonth, selectedDate, selectedWeekDate, selectedYear, fromDate, toDate, filterType, statusFilter, user?.id, isAdmin]);
+  }, [selectedMonth, selectedDate, selectedWeekDate, selectedYear, fromDate, toDate, filterType, statusFilter, searchEmployee, user?.id, isAdmin]);
 
   const handleRegularizeSubmit = async (e) => {
     e.preventDefault();
@@ -212,13 +220,43 @@ export default function AttendanceTab({ user }) {
   };
 
   const filteredRecords = records.filter(r => {
-    // Employee search
-    if (!searchEmployee) return true;
-    const term = searchEmployee.toLowerCase();
-    return (
-      (r.employeeName && r.employeeName.toLowerCase().includes(term)) ||
-      (r.employeeId && r.employeeId.toLowerCase().includes(term))
-    );
+    // 1. Status Filter check
+    if (statusFilter && statusFilter !== "ALL") {
+      if ((r.status || "").toLowerCase() !== statusFilter.toLowerCase()) {
+        return false;
+      }
+    }
+
+    // 2. Month Filter check (client fallback)
+    if (filterType === "monthly" && selectedMonth) {
+      if (r.date && !r.date.startsWith(selectedMonth)) {
+        return false;
+      }
+    }
+
+    // 3. Daily Filter check (client fallback)
+    if (filterType === "daily" && selectedDate) {
+      if (r.date !== selectedDate) {
+        return false;
+      }
+    }
+
+    // 4. Employee & Search Filter check
+    if (searchEmployee.trim()) {
+      const term = searchEmployee.trim().toLowerCase();
+      const nameMatch = r.employeeName && r.employeeName.toLowerCase().includes(term);
+      const idMatch = r.employeeId && r.employeeId.toLowerCase().includes(term);
+      const dateMatch = r.date && r.date.toLowerCase().includes(term);
+      const remarksMatch = r.remarks && r.remarks.toLowerCase().includes(term);
+      const statusMatch = r.status && r.status.toLowerCase().includes(term);
+      const ipMatch = r.ipAddress && r.ipAddress.toLowerCase().includes(term);
+
+      if (!nameMatch && !idMatch && !dateMatch && !remarksMatch && !statusMatch && !ipMatch) {
+        return false;
+      }
+    }
+
+    return true;
   });
 
   return (
@@ -339,8 +377,8 @@ export default function AttendanceTab({ user }) {
               <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
                 Filter Period
               </label>
-              <div style={{ display: "flex", background: "rgba(0, 0, 0, 0.2)", borderRadius: "8px", padding: "2px", border: "1px solid var(--glass-border)" }}>
-                {["daily", "weekly", "monthly", "yearly", "custom"].map((type) => (
+              <div style={{ display: "flex", background: "rgba(0, 0, 0, 0.2)", borderRadius: "8px", padding: "2px", border: "1px solid var(--glass-border)", flexWrap: "wrap" }}>
+                {["all", "monthly", "daily", "weekly", "yearly", "custom"].map((type) => (
                   <button
                     key={type}
                     type="button"
@@ -549,28 +587,27 @@ export default function AttendanceTab({ user }) {
               </select>
             </div>
 
-            {isAdmin && (
-              <div>
-                <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
-                  Search Employee
-                </label>
-                <input
-                  type="text"
-                  placeholder="Filter name or ID..."
-                  value={searchEmployee}
-                  onChange={(e) => setSearchEmployee(e.target.value)}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: "8px",
-                    border: "1px solid var(--glass-border)",
-                    background: "rgba(0, 0, 0, 0.3)",
-                    color: "var(--text-primary)",
-                    fontSize: "0.85rem",
-                    fontFamily: "var(--font-main)"
-                  }}
-                />
-              </div>
-            )}
+            <div>
+              <label style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                Search Logs
+              </label>
+              <input
+                type="text"
+                placeholder={isAdmin ? "Search name, ID, date..." : "Search date, status, notes..."}
+                value={searchEmployee}
+                onChange={(e) => setSearchEmployee(e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--glass-border)",
+                  background: "rgba(0, 0, 0, 0.3)",
+                  color: "var(--text-primary)",
+                  fontSize: "0.85rem",
+                  fontFamily: "var(--font-main)",
+                  minWidth: "160px"
+                }}
+              />
+            </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
