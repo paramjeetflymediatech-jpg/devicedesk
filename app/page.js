@@ -121,7 +121,7 @@ export default function Home() {
 
   // Auto-redirect IT Support away from restricted admin views
   useEffect(() => {
-    if (isITSupport && ["tasks", "attendance", "screenshots", "leave-requests", "danger-zone"].includes(currentView)) {
+    if (isITSupport && ["tasks", "attendance", "screenshots", "leave-requests", "danger-zone", "chat"].includes(currentView)) {
       setCurrentView("dashboard");
     }
   }, [isITSupport, currentView]);
@@ -2245,24 +2245,26 @@ export default function Home() {
                     <button onClick={() => setCurrentView("screenshots")}><span className="nav-icon"><FiEye /></span> Activity Screenshots</button>
                   </li>
                 )}
-                <li className={`nav-item ${currentView === "chat" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("chat")}>
-                    <span className="nav-icon"><FiMessageSquare /></span> Chat Workspace
-                    {isMounted && unreadChatCount > 0 && (
-                      <span style={{
-                        background: "var(--status-critical)",
-                        color: "#fff",
-                        borderRadius: "50%",
-                        padding: "2px 6px",
-                        fontSize: "0.7rem",
-                        fontWeight: "700",
-                        marginLeft: "8px"
-                      }}>
-                        {unreadChatCount}
-                      </span>
-                    )}
-                  </button>
-                </li>
+                {!isITSupport && (
+                  <li className={`nav-item ${currentView === "chat" ? "active" : ""}`}>
+                    <button onClick={() => setCurrentView("chat")}>
+                      <span className="nav-icon"><FiMessageSquare /></span> Chat Workspace
+                      {isMounted && unreadChatCount > 0 && (
+                        <span style={{
+                          background: "var(--status-critical)",
+                          color: "#fff",
+                          borderRadius: "50%",
+                          padding: "2px 6px",
+                          fontSize: "0.7rem",
+                          fontWeight: "700",
+                          marginLeft: "8px"
+                        }}>
+                          {unreadChatCount}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                )}
                 {!isITSupport && (
                   <li className={`nav-item ${currentView === "leave-requests" ? "active" : ""}`}>
                     <button onClick={() => setCurrentView("leave-requests")}>
@@ -2367,26 +2369,28 @@ export default function Home() {
                   <span style={{ display: "inline-flex" }}><FiEye /></span> Activity Screenshots
                 </button>
               )}
-              <button className={`mobile-drawer-item ${currentView === "chat" ? "active" : ""}`}
-                onClick={() => { setCurrentView("chat"); setMobileMenuOpen(false); }}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ display: "inline-flex" }}><FiMessageSquare /></span> Chat Workspace
-                </span>
-                {unreadChatCount > 0 && (
-                  <span style={{
-                    background: "var(--status-critical)",
-                    color: "#fff",
-                    borderRadius: "50%",
-                    padding: "2px 6px",
-                    fontSize: "0.7rem",
-                    fontWeight: "700"
-                  }}>
-                    {unreadChatCount}
+              {!isITSupport && (
+                <button className={`mobile-drawer-item ${currentView === "chat" ? "active" : ""}`}
+                  onClick={() => { setCurrentView("chat"); setMobileMenuOpen(false); }}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ display: "inline-flex" }}><FiMessageSquare /></span> Chat Workspace
                   </span>
-                )}
-              </button>
+                  {unreadChatCount > 0 && (
+                    <span style={{
+                      background: "var(--status-critical)",
+                      color: "#fff",
+                      borderRadius: "50%",
+                      padding: "2px 6px",
+                      fontSize: "0.7rem",
+                      fontWeight: "700"
+                    }}>
+                      {unreadChatCount}
+                    </span>
+                  )}
+                </button>
+              )}
               {!isITSupport && (
                 <button className={`mobile-drawer-item ${currentView === "leave-requests" ? "active" : ""}`}
                   onClick={() => { setCurrentView("leave-requests"); setMobileMenuOpen(false); }}>
@@ -2620,7 +2624,7 @@ export default function Home() {
           )}
 
           {/* ================= VIEW: CHAT ================= */}
-          {currentView === "chat" && (
+          {currentView === "chat" && !isITSupport && (
             <div className="page-section active" style={{ height: "calc(100vh - 150px)", padding: 0 }}>
               <ChatView user={user} />
             </div>
