@@ -265,6 +265,10 @@ export default function Home() {
   const [leaveFilterStatus, setLeaveFilterStatus] = useState("ALL");
   const [leaveActionLoading, setLeaveActionLoading] = useState(null);
 
+  // Leave Pagination State
+  const [leaveCurrentPage, setLeaveCurrentPage] = useState(1);
+  const [leavePageSize, setLeavePageSize] = useState(10);
+
   const fetchLeaveRequests = async () => {
     try {
       const res = await fetch(`/api/leave/list?status=${leaveFilterStatus}`);
@@ -279,6 +283,7 @@ export default function Home() {
   };
 
   useEffect(() => {
+    setLeaveCurrentPage(1);
     fetchLeaveRequests();
   }, [leaveFilterStatus]);
 
@@ -4397,171 +4402,271 @@ export default function Home() {
                   <p style={{ fontSize: "1rem", margin: 0 }}>No leave applications found matching the filter.</p>
                 </div>
               ) : (
-                <div className="table-wrapper">
-                  <table className="custom-table">
-                    <thead>
-                      <tr>
-                        <th>Team Member</th>
-                        <th>Leave Type</th>
-                        <th>Dates & Duration</th>
-                        <th>Reason</th>
-                        <th>Status</th>
-                        <th style={{ textAlign: "right" }}>Actions / Review</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {leaveRequests.map(req => {
-                        const emp = employees.find(e => e.id === req.employeeId);
-                        return (
-                          <tr key={req.id}>
-                            <td>
-                              <strong>{req.employeeName}</strong>
-                              {emp && (
-                                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                                  {emp.role} • {emp.department}
-                                </div>
-                              )}
-                            </td>
-                            <td>
-                              <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{req.leaveType}</span>
-                            </td>
-                            <td>
-                              <div style={{ fontWeight: "500" }}>{req.fromDate} to {req.toDate}</div>
-                              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                                Total: {req.totalDays} {req.totalDays === 1 ? 'day' : 'days'}
-                              </div>
-                            </td>
-                            <td style={{ minWidth: "240px", maxWidth: "320px" }}>
-                              <div style={{
-                                fontSize: "0.85rem",
-                                color: "var(--text-secondary)",
-                                lineHeight: "1.4"
-                              }}>
-                                <div style={{
-                                  display: "-webkit-box",
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  wordBreak: "break-word"
-                                }}>
-                                  {req.reason || "No reason provided."}
-                                </div>
-                                {req.reason && (req.reason.length > 70 || req.reason.includes("\n")) && (
-                                  <button
-                                    onClick={() => setSelectedReasonModal(req)}
-                                    style={{
-                                      background: "none",
-                                      border: "none",
-                                      color: "#2563eb",
-                                      fontSize: "0.78rem",
-                                      fontWeight: "700",
-                                      cursor: "pointer",
-                                      padding: 0,
-                                      marginTop: "4px",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: "4px"
-                                    }}
-                                  >
-                                    📄 Read Full Reason
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                            <td>
-                              <span className={`status-badge badge-${req.status === 'Approved' ? 'resolved' : (req.status === 'Rejected' ? 'critical' : 'progress')}`}>
-                                {req.status}
-                              </span>
-                            </td>
-                            <td style={{ textAlign: "right" }}>
-                              {req.status === 'Pending' ? (
-                                <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-                                  <button
-                                    onClick={() => handleViewLeave(req)}
-                                    className="btn-action"
-                                    title="View Details"
-                                    style={{
-                                      padding: "6px 10px",
-                                      background: "rgba(0, 240, 255, 0.15)",
-                                      color: "var(--accent-cyan)",
-                                      borderColor: "var(--accent-cyan)",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center"
-                                    }}
-                                  >
-                                    <FiEye style={{ fontSize: "1rem" }} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleReviewLeave(req.id, 'Approved')}
-                                    disabled={leaveActionLoading === req.id}
-                                    className="btn-action resolve"
-                                    title="Approve"
-                                    style={{
-                                      padding: "6px 10px",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center"
-                                    }}
-                                  >
-                                    <FiCheck style={{ fontSize: "1.05rem" }} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleReviewLeave(req.id, 'Rejected')}
-                                    disabled={leaveActionLoading === req.id}
-                                    className="btn-action"
-                                    title="Reject"
-                                    style={{
-                                      padding: "6px 10px",
-                                      background: "rgba(239, 68, 68, 0.15)",
-                                      color: "var(--status-critical)",
-                                      borderColor: "var(--status-critical)",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center"
-                                    }}
-                                  >
-                                    <FiX style={{ fontSize: "1.05rem" }} />
-                                  </button>
-                                </div>
-                              ) : (
-                                <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "flex-end" }}>
-                                  <button
-                                    onClick={() => handleViewLeave(req)}
-                                    className="btn-action"
-                                    title="View Details"
-                                    style={{
-                                      padding: "6px 10px",
-                                      background: "rgba(0, 240, 255, 0.15)",
-                                      color: "var(--accent-cyan)",
-                                      borderColor: "var(--accent-cyan)",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center"
-                                    }}
-                                  >
-                                    <FiEye style={{ fontSize: "1rem" }} />
-                                  </button>
-                                  <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "right" }}>
-                                    {req.status === 'Rejected' && req.rejectionReason && (
-                                      <div style={{ color: "var(--status-critical)", fontSize: "0.75rem", fontStyle: "italic", marginBottom: "2px", maxWidth: "200px" }}>
-                                        Reason: "{req.rejectionReason}"
-                                      </div>
-                                    )}
-                                    <div>
-                                      By {req.reviewedBy} on {new Date(req.reviewedAt).toLocaleDateString()}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </td>
+                (() => {
+                  const totalLeavePages = Math.max(1, Math.ceil(leaveRequests.length / leavePageSize));
+                  const safeLeavePage = Math.min(leaveCurrentPage, totalLeavePages);
+                  const leaveStartIndex = (safeLeavePage - 1) * leavePageSize;
+                  const leaveEndIndex = Math.min(leaveStartIndex + leavePageSize, leaveRequests.length);
+                  const paginatedLeaveRequests = leaveRequests.slice(leaveStartIndex, leaveEndIndex);
+
+                  return (
+                    <div className="table-wrapper">
+                      <table className="custom-table">
+                        <thead>
+                          <tr>
+                            <th>Team Member</th>
+                            <th>Leave Type</th>
+                            <th>Dates & Duration</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th style={{ textAlign: "right" }}>Actions / Review</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {paginatedLeaveRequests.map(req => {
+                            const emp = employees.find(e => e.id === req.employeeId);
+                            return (
+                              <tr key={req.id}>
+                                <td>
+                                  <strong>{req.employeeName}</strong>
+                                  {emp && (
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                                      {emp.role} • {emp.department}
+                                    </div>
+                                  )}
+                                </td>
+                                <td>
+                                  <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{req.leaveType}</span>
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: "500" }}>{req.fromDate} to {req.toDate}</div>
+                                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                                    Total: {req.totalDays} {req.totalDays === 1 ? 'day' : 'days'}
+                                  </div>
+                                </td>
+                                <td style={{ minWidth: "240px", maxWidth: "320px" }}>
+                                  <div style={{
+                                    fontSize: "0.85rem",
+                                    color: "var(--text-secondary)",
+                                    lineHeight: "1.4"
+                                  }}>
+                                    <div style={{
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: "vertical",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      wordBreak: "break-word"
+                                    }}>
+                                      {req.reason || "No reason provided."}
+                                    </div>
+                                    {req.reason && (req.reason.length > 70 || req.reason.includes("\n")) && (
+                                      <button
+                                        onClick={() => setSelectedReasonModal(req)}
+                                        style={{
+                                          background: "none",
+                                          border: "none",
+                                          color: "#2563eb",
+                                          fontSize: "0.78rem",
+                                          fontWeight: "700",
+                                          cursor: "pointer",
+                                          padding: 0,
+                                          marginTop: "4px",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: "4px"
+                                        }}
+                                      >
+                                        📄 Read Full Reason
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className={`status-badge badge-${req.status === 'Approved' ? 'resolved' : (req.status === 'Rejected' ? 'critical' : 'progress')}`}>
+                                    {req.status}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: "right" }}>
+                                  {req.status === 'Pending' ? (
+                                    <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                                      <button
+                                        onClick={() => handleViewLeave(req)}
+                                        className="btn-action"
+                                        title="View Details"
+                                        style={{
+                                          padding: "6px 10px",
+                                          background: "rgba(0, 240, 255, 0.15)",
+                                          color: "var(--accent-cyan)",
+                                          borderColor: "var(--accent-cyan)",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center"
+                                        }}
+                                      >
+                                        <FiEye style={{ fontSize: "1rem" }} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleReviewLeave(req.id, 'Approved')}
+                                        disabled={leaveActionLoading === req.id}
+                                        className="btn-action resolve"
+                                        title="Approve"
+                                        style={{
+                                          padding: "6px 10px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center"
+                                        }}
+                                      >
+                                        <FiCheck style={{ fontSize: "1.05rem" }} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleReviewLeave(req.id, 'Rejected')}
+                                        disabled={leaveActionLoading === req.id}
+                                        className="btn-action"
+                                        title="Reject"
+                                        style={{
+                                          padding: "6px 10px",
+                                          background: "rgba(239, 68, 68, 0.15)",
+                                          color: "var(--status-critical)",
+                                          borderColor: "var(--status-critical)",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center"
+                                        }}
+                                      >
+                                        <FiX style={{ fontSize: "1.05rem" }} />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "flex-end" }}>
+                                      <button
+                                        onClick={() => handleViewLeave(req)}
+                                        className="btn-action"
+                                        title="View Details"
+                                        style={{
+                                          padding: "6px 10px",
+                                          background: "rgba(0, 240, 255, 0.15)",
+                                          color: "var(--accent-cyan)",
+                                          borderColor: "var(--accent-cyan)",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center"
+                                        }}
+                                      >
+                                        <FiEye style={{ fontSize: "1rem" }} />
+                                      </button>
+                                      <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "right" }}>
+                                        {req.status === 'Rejected' && req.rejectionReason && (
+                                          <div style={{ color: "var(--status-critical)", fontSize: "0.75rem", fontStyle: "italic", marginBottom: "2px", maxWidth: "200px" }}>
+                                            Reason: "{req.rejectionReason}"
+                                          </div>
+                                        )}
+                                        <div>
+                                          By {req.reviewedBy} on {new Date(req.reviewedAt).toLocaleDateString()}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+
+                      {/* Leave Pagination Controls Bar */}
+                      <div
+                        style={{
+                          padding: "1rem 1.5rem",
+                          borderTop: "1px solid var(--glass-border)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          flexWrap: "wrap",
+                          gap: "12px",
+                          background: "rgba(0, 0, 0, 0.15)"
+                        }}
+                      >
+                        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "500" }}>
+                          Showing <strong style={{ color: "var(--text-primary)" }}>{leaveStartIndex + 1}</strong> to{" "}
+                          <strong style={{ color: "var(--text-primary)" }}>{leaveEndIndex}</strong> of{" "}
+                          <strong style={{ color: "var(--text-primary)" }}>{leaveRequests.length}</strong> leave applications
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                            <span>Rows per page:</span>
+                            <select
+                              value={leavePageSize}
+                              onChange={(e) => {
+                                setLeavePageSize(Number(e.target.value));
+                                setLeaveCurrentPage(1);
+                              }}
+                              style={{
+                                padding: "4px 8px",
+                                borderRadius: "6px",
+                                border: "1px solid var(--glass-border)",
+                                background: "rgba(0, 0, 0, 0.3)",
+                                color: "var(--text-primary)",
+                                fontSize: "0.82rem",
+                                fontWeight: "600",
+                                cursor: "pointer"
+                              }}
+                            >
+                              <option value={5}>5</option>
+                              <option value={10}>10</option>
+                              <option value={20}>20</option>
+                              <option value={50}>50</option>
+                            </select>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <button
+                              type="button"
+                              disabled={safeLeavePage <= 1}
+                              onClick={() => setLeaveCurrentPage(prev => Math.max(1, prev - 1))}
+                              style={{
+                                padding: "6px 12px",
+                                borderRadius: "6px",
+                                border: "1px solid var(--glass-border)",
+                                background: safeLeavePage <= 1 ? "rgba(255, 255, 255, 0.05)" : "var(--accent-cyan)",
+                                color: safeLeavePage <= 1 ? "var(--text-muted)" : "#0f172a",
+                                fontSize: "0.8rem",
+                                fontWeight: "700",
+                                cursor: safeLeavePage <= 1 ? "not-allowed" : "pointer"
+                              }}
+                            >
+                              ◀ Prev
+                            </button>
+
+                            <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)", fontWeight: "600", padding: "0 4px" }}>
+                              Page {safeLeavePage} of {totalLeavePages}
+                            </span>
+
+                            <button
+                              type="button"
+                              disabled={safeLeavePage >= totalLeavePages}
+                              onClick={() => setLeaveCurrentPage(prev => Math.min(totalLeavePages, prev + 1))}
+                              style={{
+                                padding: "6px 12px",
+                                borderRadius: "6px",
+                                border: "1px solid var(--glass-border)",
+                                background: safeLeavePage >= totalLeavePages ? "rgba(255, 255, 255, 0.05)" : "var(--accent-cyan)",
+                                color: safeLeavePage >= totalLeavePages ? "var(--text-muted)" : "#0f172a",
+                                fontSize: "0.8rem",
+                                fontWeight: "700",
+                                cursor: safeLeavePage >= totalLeavePages ? "not-allowed" : "pointer"
+                              }}
+                            >
+                              Next ▶
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()
               )}
             </div>
           )}

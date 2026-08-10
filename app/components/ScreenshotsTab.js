@@ -59,6 +59,12 @@ export default function ScreenshotsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grouped'); // 'grouped' or 'feed'
 
+  // Pagination States
+  const [groupedPage, setGroupedPage] = useState(1);
+  const [groupedPageSize, setGroupedPageSize] = useState(5);
+  const [feedPage, setFeedPage] = useState(1);
+  const [feedPageSize, setFeedPageSize] = useState(16);
+
   // Modal Inspector State
   const [inspectModal, setInspectModal] = useState({ open: false, data: null });
 
@@ -113,6 +119,8 @@ export default function ScreenshotsTab() {
 
   // Debounced Re-fetch when any filter or search query changes
   useEffect(() => {
+    setGroupedPage(1);
+    setFeedPage(1);
     const handler = setTimeout(() => {
       fetchScreenshots();
     }, 300);
@@ -135,6 +143,8 @@ export default function ScreenshotsTab() {
     setLimitFilter('all');
     setSearchQuery('');
     setViewMode('grouped');
+    setGroupedPage(1);
+    setFeedPage(1);
   };
 
   const parseUtcMs = (val) => {
@@ -799,181 +809,389 @@ export default function ScreenshotsTab() {
       ) : viewMode === 'grouped' ? (
 
         /* MODE A: Grouped by Employee with Collapsible Accordion Cards */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {groupedByEmployee.map(group => {
-            const isCollapsed = collapsedGroups[group.employeeId] !== false; // Default: HIDDEN/COLLAPSED
-            return (
-              <div key={group.employeeId} style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #e2e8f0)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', transition: 'all 0.2s ease' }}>
+        (() => {
+          const totalGroupedPages = Math.max(1, Math.ceil(groupedByEmployee.length / groupedPageSize));
+          const safeGroupedPage = Math.min(groupedPage, totalGroupedPages);
+          const groupedStartIdx = (safeGroupedPage - 1) * groupedPageSize;
+          const groupedEndIdx = Math.min(groupedStartIdx + groupedPageSize, groupedByEmployee.length);
+          const paginatedGrouped = groupedByEmployee.slice(groupedStartIdx, groupedEndIdx);
 
-                {/* Employee Group Header Bar (Clickable Accordion Trigger) */}
-                <div
-                  onClick={() => toggleGroupCollapse(group.employeeId)}
-                  style={{
-                    display: 'flex',
-                    justify: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '12px',
-                    padding: '16px 20px',
-                    backgroundColor: isCollapsed ? 'var(--card-bg, #ffffff)' : 'var(--bg-muted, #f8fafc)',
-                    borderBottom: isCollapsed ? 'none' : '1px solid var(--border-color, #f1f5f9)',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    transition: 'background-color 0.2s'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
-                    <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#2563eb', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '1.1rem', boxShadow: '0 2px 6px rgba(37,99,235,0.25)' }}>
-                      {group.employeeName.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: '800', color: 'var(--text-primary, #0f172a)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {group.employeeName}
-                        <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', fontWeight: '700' }}>
-                          ID: {group.employeeId}
-                        </span>
-                      </h3>
-                      <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '500' }}>
-                        Dept: <strong>{group.department}</strong> • Total Captures: <strong>{group.captures.length}</strong>
-                      </span>
-                    </div>
-                  </div>
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {paginatedGrouped.map(group => {
+                const isCollapsed = collapsedGroups[group.employeeId] !== false; // Default: HIDDEN/COLLAPSED
+                return (
+                  <div key={group.employeeId} style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #e2e8f0)', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', transition: 'all 0.2s ease' }}>
 
-                  {/* Right Corner Buttons */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
-                    <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '600' }}>
-                      Latest: {group.captures.length > 0 ? new Date(group.captures[0].capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently Registered'}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleGroupCollapse(group.employeeId);
-                      }}
+                    {/* Employee Group Header Bar (Clickable Accordion Trigger) */}
+                    <div
+                      onClick={() => toggleGroupCollapse(group.employeeId)}
                       style={{
-                        display: 'inline-flex',
+                        display: 'flex',
+                        justify: 'space-between',
                         alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 16px',
-                        borderRadius: '20px',
-                        backgroundColor: isCollapsed ? '#2563eb' : '#f1f5f9',
-                        color: isCollapsed ? '#ffffff' : '#334155',
-                        fontSize: '0.8rem',
-                        fontWeight: '800',
-                        border: isCollapsed ? 'none' : '1px solid #cbd5e1',
-                        boxShadow: isCollapsed ? '0 4px 12px rgba(37,99,235,0.3)' : '0 1px 3px rgba(0,0,0,0.05)',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                        padding: '16px 20px',
+                        backgroundColor: isCollapsed ? 'var(--card-bg, #ffffff)' : 'var(--bg-muted, #f8fafc)',
+                        borderBottom: isCollapsed ? 'none' : '1px solid var(--border-color, #f1f5f9)',
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease'
+                        userSelect: 'none',
+                        transition: 'background-color 0.2s'
                       }}
                     >
-                      <span>{isCollapsed ? `Show ${group.captures.length} Screenshots` : 'Hide Screenshots'}</span>
-                      <span style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s ease', display: 'inline-block', fontSize: '0.75rem' }}>▼</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Screenshot Grid for this employee */}
-                {!isCollapsed && (
-                  <div style={{ padding: '20px' }}>
-                    {group.captures.length === 0 ? (
-                      <div style={{
-                        padding: '24px',
-                        backgroundColor: 'var(--bg-muted, #f8fafc)',
-                        borderRadius: '12px',
-                        border: '1px solid var(--border-color, #e2e8f0)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '10px',
-                        textAlign: 'center'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                          <span style={{ fontSize: '1.2rem' }}>💻</span>
-                          <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#0f172a' }}>
-                            Desktop Agent Registered on <code>{group.systemNumber}</code>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 300px' }}>
+                        <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#2563eb', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '1.1rem', boxShadow: '0 2px 6px rgba(37,99,235,0.25)' }}>
+                          {group.employeeName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: '1.02rem', fontWeight: '800', color: 'var(--text-primary, #0f172a)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {group.employeeName}
+                            <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', fontWeight: '700' }}>
+                              ID: {group.employeeId}
+                            </span>
+                          </h3>
+                          <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '500' }}>
+                            Dept: <strong>{group.department}</strong> • Total Captures: <strong>{group.captures.length}</strong>
                           </span>
-                          {group.isOnline ? (
-                            <span style={{ backgroundColor: '#dcfce7', color: '#15803d', fontSize: '0.72rem', fontWeight: '800', padding: '3px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                              <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#16a34a' }}></span> ONLINE (Active)
-                            </span>
-                          ) : (
-                            <span style={{ backgroundColor: '#fef3c7', color: '#b45309', fontSize: '0.72rem', fontWeight: '800', padding: '3px 10px', borderRadius: '12px' }}>
-                              OFFLINE (Agent Closed)
-                            </span>
-                          )}
                         </div>
+                      </div>
 
-                        <div style={{ fontSize: '0.78rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                          <span>System: <strong>{group.systemNumber}</strong></span>
-                          <span>IP: <strong>{group.ipAddress || '127.0.0.1'}</strong></span>
-                          <span>OS: <strong>{group.osPlatform || 'Windows'}</strong></span>
-                          {group.lastSeenAt && (
-                            <span>Last Active: <strong>{new Date(group.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong></span>
-                          )}
-                        </div>
-
-                        <div style={{ fontSize: '0.78rem', color: '#64748b', maxWidth: '560px', lineHeight: '1.4' }}>
-                          The Desktop Agent is registered for <strong>{group.employeeName}</strong>. 
-                          Automated activity screenshots stream every 3 minutes while the agent is running on their PC.
-                        </div>
+                      {/* Right Corner Buttons */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
+                        <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '600' }}>
+                          Latest: {group.captures.length > 0 ? new Date(group.captures[0].capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently Registered'}
+                        </span>
 
                         <button
                           type="button"
-                          onClick={fetchScreenshots}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleGroupCollapse(group.employeeId);
+                          }}
                           style={{
-                            marginTop: '4px',
-                            padding: '6px 14px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            backgroundColor: '#ffffff',
-                            color: '#2563eb',
-                            fontWeight: '700',
-                            fontSize: '0.78rem',
-                            cursor: 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '6px',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                            gap: '8px',
+                            padding: '8px 16px',
+                            borderRadius: '20px',
+                            backgroundColor: isCollapsed ? '#2563eb' : '#f1f5f9',
+                            color: isCollapsed ? '#ffffff' : '#334155',
+                            fontSize: '0.8rem',
+                            fontWeight: '800',
+                            border: isCollapsed ? 'none' : '1px solid #cbd5e1',
+                            boxShadow: isCollapsed ? '0 4px 12px rgba(37,99,235,0.3)' : '0 1px 3px rgba(0,0,0,0.05)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
                           }}
                         >
-                          🔄 Refresh Captures Stream
+                          <span>{isCollapsed ? `Show ${group.captures.length} Screenshots` : 'Hide Screenshots'}</span>
+                          <span style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s ease', display: 'inline-block', fontSize: '0.75rem' }}>▼</span>
                         </button>
                       </div>
-                    ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
-                        {group.captures.map(item => (
-                          <ScreenshotCard
-                            key={item.id}
-                            item={item}
-                            onInspect={() => setInspectModal({ open: true, data: item })}
-                            onDelete={(id, e) => handleDelete(id, e)}
-                          />
-                        ))}
+                    </div>
+
+                    {/* Screenshot Grid for this employee */}
+                    {!isCollapsed && (
+                      <div style={{ padding: '20px' }}>
+                        {group.captures.length === 0 ? (
+                          <div style={{
+                            padding: '24px',
+                            backgroundColor: 'var(--bg-muted, #f8fafc)',
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-color, #e2e8f0)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '10px',
+                            textAlign: 'center'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                              <span style={{ fontSize: '1.2rem' }}>💻</span>
+                              <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#0f172a' }}>
+                                Desktop Agent Registered on <code>{group.systemNumber}</code>
+                              </span>
+                              {group.isOnline ? (
+                                <span style={{ backgroundColor: '#dcfce7', color: '#15803d', fontSize: '0.72rem', fontWeight: '800', padding: '3px 10px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#16a34a' }}></span> ONLINE (Active)
+                                </span>
+                              ) : (
+                                <span style={{ backgroundColor: '#fef3c7', color: '#b45309', fontSize: '0.72rem', fontWeight: '800', padding: '3px 10px', borderRadius: '12px' }}>
+                                  OFFLINE (Agent Closed)
+                                </span>
+                              )}
+                            </div>
+
+                            <div style={{ fontSize: '0.78rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                              <span>System: <strong>{group.systemNumber}</strong></span>
+                              <span>IP: <strong>{group.ipAddress || '127.0.0.1'}</strong></span>
+                              <span>OS: <strong>{group.osPlatform || 'Windows'}</strong></span>
+                              {group.lastSeenAt && (
+                                <span>Last Active: <strong>{new Date(group.lastSeenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong></span>
+                              )}
+                            </div>
+
+                            <div style={{ fontSize: '0.78rem', color: '#64748b', maxWidth: '560px', lineHeight: '1.4' }}>
+                              The Desktop Agent is registered for <strong>{group.employeeName}</strong>. 
+                              Automated activity screenshots stream every 3 minutes while the agent is running on their PC.
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={fetchScreenshots}
+                              style={{
+                                marginTop: '4px',
+                                padding: '6px 14px',
+                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                backgroundColor: '#ffffff',
+                                color: '#2563eb',
+                                fontWeight: '700',
+                                fontSize: '0.78rem',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              🔄 Refresh Captures Stream
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
+                            {group.captures.map(item => (
+                              <ScreenshotCard
+                                key={item.id}
+                                item={item}
+                                onInspect={() => setInspectModal({ open: true, data: item })}
+                                onDelete={(id, e) => handleDelete(id, e)}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
 
-              </div>
-            );
-          })}
-        </div>
+                  </div>
+                );
+              })}
+
+              {/* Grouped View Pagination Bar */}
+              {groupedByEmployee.length > 0 && (
+                <div
+                  style={{
+                    background: 'var(--card-bg, #ffffff)',
+                    border: '1px solid var(--border-color, #e2e8f0)',
+                    padding: '14px 20px',
+                    borderRadius: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '500' }}>
+                    Showing <strong style={{ color: '#0f172a' }}>{groupedStartIdx + 1}</strong> to{' '}
+                    <strong style={{ color: '#0f172a' }}>{groupedEndIdx}</strong> of{' '}
+                    <strong style={{ color: '#0f172a' }}>{groupedByEmployee.length}</strong> monitored employee groups
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#64748b' }}>
+                      <span>Cards per page:</span>
+                      <select
+                        value={groupedPageSize}
+                        onChange={(e) => {
+                          setGroupedPageSize(Number(e.target.value));
+                          setGroupedPage(1);
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          backgroundColor: '#ffffff',
+                          color: '#0f172a',
+                          fontSize: '0.82rem',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        disabled={safeGroupedPage <= 1}
+                        onClick={() => setGroupedPage(prev => Math.max(1, prev - 1))}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          backgroundColor: safeGroupedPage <= 1 ? '#f1f5f9' : '#2563eb',
+                          color: safeGroupedPage <= 1 ? '#94a3b8' : '#ffffff',
+                          fontSize: '0.8rem',
+                          fontWeight: '700',
+                          cursor: safeGroupedPage <= 1 ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        ◀ Prev
+                      </button>
+
+                      <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: '600', padding: '0 4px' }}>
+                        Page {safeGroupedPage} of {totalGroupedPages}
+                      </span>
+
+                      <button
+                        type="button"
+                        disabled={safeGroupedPage >= totalGroupedPages}
+                        onClick={() => setGroupedPage(prev => Math.min(totalGroupedPages, prev + 1))}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          backgroundColor: safeGroupedPage >= totalGroupedPages ? '#f1f5f9' : '#2563eb',
+                          color: safeGroupedPage >= totalGroupedPages ? '#94a3b8' : '#ffffff',
+                          fontSize: '0.8rem',
+                          fontWeight: '700',
+                          cursor: safeGroupedPage >= totalGroupedPages ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        Next ▶
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()
 
       ) : (
 
         /* MODE B: Chronological Feed View */
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '18px' }}>
-          {screenshots.map(item => (
-            <ScreenshotCard
-              key={item.id}
-              item={item}
-              showEmployeeHeader
-              onInspect={() => setInspectModal({ open: true, data: item })}
-              onDelete={(id, e) => handleDelete(id, e)}
-            />
-          ))}
-        </div>
+        (() => {
+          const totalFeedPages = Math.max(1, Math.ceil(screenshots.length / feedPageSize));
+          const safeFeedPage = Math.min(feedPage, totalFeedPages);
+          const feedStartIdx = (safeFeedPage - 1) * feedPageSize;
+          const feedEndIdx = Math.min(feedStartIdx + feedPageSize, screenshots.length);
+          const paginatedFeed = screenshots.slice(feedStartIdx, feedEndIdx);
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '18px' }}>
+                {paginatedFeed.map(item => (
+                  <ScreenshotCard
+                    key={item.id}
+                    item={item}
+                    showEmployeeHeader
+                    onInspect={() => setInspectModal({ open: true, data: item })}
+                    onDelete={(id, e) => handleDelete(id, e)}
+                  />
+                ))}
+              </div>
+
+              {/* Feed View Pagination Bar */}
+              {screenshots.length > 0 && (
+                <div
+                  style={{
+                    background: 'var(--card-bg, #ffffff)',
+                    border: '1px solid var(--border-color, #e2e8f0)',
+                    padding: '14px 20px',
+                    borderRadius: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '500' }}>
+                    Showing <strong style={{ color: '#0f172a' }}>{feedStartIdx + 1}</strong> to{' '}
+                    <strong style={{ color: '#0f172a' }}>{feedEndIdx}</strong> of{' '}
+                    <strong style={{ color: '#0f172a' }}>{screenshots.length}</strong> activity captures
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: '#64748b' }}>
+                      <span>Captures per page:</span>
+                      <select
+                        value={feedPageSize}
+                        onChange={(e) => {
+                          setFeedPageSize(Number(e.target.value));
+                          setFeedPage(1);
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          backgroundColor: '#ffffff',
+                          color: '#0f172a',
+                          fontSize: '0.82rem',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value={8}>8</option>
+                        <option value={16}>16</option>
+                        <option value={32}>32</option>
+                        <option value={64}>64</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        disabled={safeFeedPage <= 1}
+                        onClick={() => setFeedPage(prev => Math.max(1, prev - 1))}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          backgroundColor: safeFeedPage <= 1 ? '#f1f5f9' : '#2563eb',
+                          color: safeFeedPage <= 1 ? '#94a3b8' : '#ffffff',
+                          fontSize: '0.8rem',
+                          fontWeight: '700',
+                          cursor: safeFeedPage <= 1 ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        ◀ Prev
+                      </button>
+
+                      <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: '600', padding: '0 4px' }}>
+                        Page {safeFeedPage} of {totalFeedPages}
+                      </span>
+
+                      <button
+                        type="button"
+                        disabled={safeFeedPage >= totalFeedPages}
+                        onClick={() => setFeedPage(prev => Math.min(totalFeedPages, prev + 1))}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          backgroundColor: safeFeedPage >= totalFeedPages ? '#f1f5f9' : '#2563eb',
+                          color: safeFeedPage >= totalFeedPages ? '#94a3b8' : '#ffffff',
+                          fontSize: '0.8rem',
+                          fontWeight: '700',
+                          cursor: safeFeedPage >= totalFeedPages ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        Next ▶
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()
 
       )}
 
