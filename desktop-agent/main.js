@@ -6,6 +6,11 @@ const screenshot = require('screenshot-desktop');
 const axios = require('axios');
 const AutoLaunch = require('auto-launch');
 
+// Enable Wayland / PipeWire screen capture for modern Linux/Ubuntu distributions
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
+}
+
 let mainWindow = null;
 let tray = null;
 let captureTimer = null;
