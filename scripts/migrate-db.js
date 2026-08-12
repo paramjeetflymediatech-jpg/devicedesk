@@ -117,6 +117,19 @@ async function runMigration() {
       try { await connection.query(statement); } catch (e) { /* column exists */ }
     }
 
+    console.log('--> Checking/Creating table: agent_logs...');
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS agent_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        employeeId VARCHAR(100) NOT NULL,
+        employeeName VARCHAR(150) NOT NULL,
+        action VARCHAR(100) NOT NULL,
+        details TEXT,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    console.log('Agent logs table ready.');
+
     // 3. Table: employees
     console.log('--> Checking/Creating table: employees...');
     await connection.query(`
