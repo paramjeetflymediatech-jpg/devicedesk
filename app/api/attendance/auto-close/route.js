@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getPool } from '../../../db/db.js';
+import { getPool } from '../../db/db.js';
 
 function formatLocalDate(d) {
   // Convert to IST to get the exact "todayStr" in India
