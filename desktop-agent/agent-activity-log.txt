@@ -1,0 +1,6 @@
+[2026-08-12T04:44:36.267Z] [INFO] DeviceDesk Agent is starting...
+[2026-08-12T04:44:36.389Z] [INFO] Loaded config. isLoggedIn: true, isConfigured: true
+[2026-08-12T04:44:38.044Z] [INFO] Ping Heartbeat sent successfully for Amandeep [STATUS: ONLINE]
+[2026-08-12T04:44:38.045Z] [INFO] Agent registered online for Amandeep (emp_1784533455177_tort) [STATUS: ONLINE]
+[2026-08-12T04:44:45.887Z] [INFO] User logged out from desktop agent.
+[2026-08-12T04:44:46.914Z] [INFO] SCREENSHOT UPLOAD SUCCESS: Desktop Screenshot uploaded successfully for Amandeep (emp_1784533455177_tort) -> Status: 200

@@ -6,6 +6,34 @@ const screenshot = require('screenshot-desktop');
 const axios = require('axios');
 const AutoLaunch = require('auto-launch');
 
+// Logger function to capture everything to a file
+function logToFile(message, type = 'INFO') {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] [${type}] ${message}`;
+  
+  if (type === 'ERROR') {
+    console.error(logMessage);
+  } else if (type === 'WARN') {
+    console.warn(logMessage);
+  } else {
+    console.log(logMessage);
+  }
+  
+  try {
+    // Write to standard appData log path
+    let logDir;
+    try { logDir = app.getPath('userData'); } catch (e) { logDir = __dirname; }
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(path.join(logDir, 'agent-log.txt'), logMessage + '\n', 'utf8');
+
+    // ALSO write to current directory (d:\\devicedesk\\desktop-agent) so it is easily visible to developers
+    const localLogPath = path.join(__dirname, 'agent-activity-log.txt');
+    fs.appendFileSync(localLogPath, logMessage + '\n', 'utf8');
+  } catch (err) {
+    console.error(`[${timestamp}] [ERROR] Failed to write to log file:`, err.message);
+  }
+}
+
 // Enable Wayland / PipeWire screen capture for modern Linux/Ubuntu distributions
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
@@ -36,7 +64,7 @@ function loadConfig() {
       return JSON.parse(content);
     }
   } catch (err) {
-    console.warn('Load agent config warning:', err.message);
+    logToFile(`Load agent config warning: ${err.message}`, 'WARN');
   }
   return {};
 }
@@ -49,7 +77,7 @@ function saveConfig(data) {
     fs.writeFileSync(filePath, JSON.stringify(merged, null, 2), 'utf8');
     return merged;
   } catch (err) {
-    console.warn('Save agent config warning:', err.message);
+    logToFile(`Save agent config warning: ${err.message}`, 'WARN');
     return data;
   }
 }
@@ -63,11 +91,15 @@ function setupAutoLaunch() {
     });
     agentAutoLauncher.isEnabled().then((isEnabled) => {
       if (!isEnabled) {
-        agentAutoLauncher.enable().catch(() => {});
+        agentAutoLauncher.enable().catch((err) => {
+          logToFile(`AutoLaunch enable error: ${err.message}`, 'ERROR');
+        });
       }
-    }).catch(() => {});
+    }).catch((err) => {
+      logToFile(`AutoLaunch check error: ${err.message}`, 'ERROR');
+    });
   } catch (e) {
-    console.warn('AutoLaunch notice:', e.message);
+    logToFile(`AutoLaunch notice: ${e.message}`, 'WARN');
   }
 }
 
@@ -206,9 +238,9 @@ async function registerAgentOnline() {
       osPlatform: process.platform || 'windows',
       serverUrl: config.serverUrl
     }, { timeout: 15000 });
-    console.log(`[${new Date().toLocaleTimeString()}] Agent registered online for ${config.employeeName} (${config.employeeId})`);
+    logToFile(`Agent registered online for ${config.employeeName} (${config.employeeId}) [STATUS: ONLINE]`, 'INFO');
   } catch (e) {
-    console.warn(`[${new Date().toLocaleTimeString()}] Agent online registration notice:`, e.message);
+    logToFile(`Agent online registration failed: ${e.message} [STATUS: OFFLINE]`, 'WARN');
   }
 }
 
@@ -227,8 +259,9 @@ async function sendPingHeartbeat() {
       osPlatform: process.platform || 'windows',
       agentVersion: '1.0.0'
     }, { timeout: 10000 });
+    logToFile(`Ping Heartbeat sent successfully for ${config.employeeName} [STATUS: ONLINE]`, 'INFO');
   } catch (e) {
-    // Silent fail on network ping timeout
+    logToFile(`Ping Heartbeat failed: ${e.message} [STATUS: OFFLINE]`, 'WARN');
   }
 }
 
@@ -254,7 +287,7 @@ async function captureAndUpload() {
       }
     }
   } catch (nativeErr) {
-    console.warn('Native desktopCapturer notice:', nativeErr.message);
+    logToFile(`Native desktopCapturer notice: ${nativeErr.message}`, 'WARN');
   }
 
   // Method 2: Fallback to screenshot-desktop
@@ -270,12 +303,12 @@ async function captureAndUpload() {
         base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
       }
     } catch (scErr) {
-      console.warn('screenshot-desktop fallback notice:', scErr.message);
+      logToFile(`screenshot-desktop fallback notice: ${scErr.message}`, 'WARN');
     }
   }
 
   if (!base64Image) {
-    console.warn(`[${new Date().toLocaleTimeString()}] Desktop capture produced empty image. Skipping upload cycle.`);
+    logToFile('SCREENSHOT FAILED: Desktop capture produced empty image. No screenshot to upload.', 'WARN');
     return;
   }
 
@@ -298,9 +331,10 @@ async function captureAndUpload() {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    console.log(`[${new Date().toLocaleTimeString()}] Desktop Screenshot uploaded successfully for ${config.employeeName} (${config.employeeId}) -> Status: ${res.status}`);
+    logToFile(`SCREENSHOT UPLOAD SUCCESS: Desktop Screenshot uploaded successfully for ${config.employeeName} (${config.employeeId}) -> Status: ${res.status}`, 'INFO');
   } catch (err) {
-    console.warn(`[${new Date().toLocaleTimeString()}] Agent upload warning:`, err.response?.status || err.message);
+    const errorDetails = err.response ? `Status: ${err.response.status}, Data: ${JSON.stringify(err.response.data)}` : err.message;
+    logToFile(`SCREENSHOT UPLOAD FAILED (Error): ${errorDetails}`, 'ERROR');
   }
 }
 
@@ -339,16 +373,19 @@ ipcMain.on('agent-login', async (event, { identifier, password, serverUrl }) => 
       });
 
       // Trigger immediate registration & activity loops
+      logToFile(`Login successful for user: ${user.name} (${user.id})`, 'INFO');
       registerAgentOnline();
       sendPingHeartbeat();
       startCaptureTimer();
 
       event.reply('login-result', { success: true, userConfig });
     } else {
+      logToFile(`Login failed: ${res.data?.message || 'Unknown reason'}`, 'WARN');
       event.reply('login-result', { success: false, message: res.data?.message || 'Login failed.' });
     }
   } catch (err) {
     const errorMsg = err.response?.data?.message || err.message || 'Server connection error.';
+    logToFile(`Login error: ${errorMsg}`, 'ERROR');
     event.reply('login-result', { success: false, message: errorMsg });
   }
 });
@@ -359,7 +396,7 @@ ipcMain.on('agent-logout', () => {
     isConfigured: false
   });
   if (captureTimer) clearInterval(captureTimer);
-  console.log('User logged out from desktop agent.');
+  logToFile('User logged out from desktop agent.', 'INFO');
 });
 
 ipcMain.on('hide-window', () => {
@@ -379,11 +416,13 @@ function startCaptureTimer() {
 }
 
 app.whenReady().then(() => {
+  logToFile('DeviceDesk Agent is starting...', 'INFO');
   setupAutoLaunch();
   createWindow();
   createTray();
 
   const config = getActiveConfig();
+  logToFile(`Loaded config. isLoggedIn: ${config.isLoggedIn}, isConfigured: ${config.isConfigured}`, 'INFO');
 
   if (mainWindow) {
     mainWindow.show();
