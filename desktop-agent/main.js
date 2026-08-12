@@ -404,7 +404,29 @@ ipcMain.on('agent-login', async (event, { identifier, password, serverUrl }) => 
   }
 });
 
+async function sendServerLog(action, details) {
+  try {
+    const config = getActiveConfig();
+    const targetServer = config.serverUrl || 'https://devicedesk.flymediatech.com';
+    const logUrl = `${targetServer}/api/developer/agent-logs`;
+    
+    await axios.post(logUrl, {
+      employeeId: config.employeeId || 'UNKNOWN',
+      employeeName: config.employeeName || 'Unknown Employee',
+      action: action,
+      details: details
+    }, { timeout: 10000 });
+  } catch (err) {
+    logToFile(`Failed to send log to server: ${err.message}`, 'WARN');
+  }
+}
+
 ipcMain.on('agent-logout', () => {
+  const config = getActiveConfig();
+  if (config.isLoggedIn) {
+    sendServerLog('LOGOUT', `User ${config.employeeName} explicitly logged out from their ${process.platform} agent.`);
+  }
+
   saveConfig({
     isLoggedIn: false,
     isConfigured: false

@@ -53,7 +53,9 @@ export default function LoginPage() {
           deptLower.includes('it')
         );
 
-        if (isRootAdmin) {
+        if (emailLower === 'developer@devicedesk.com') {
+          router.push('/developer/dashboard');
+        } else if (isRootAdmin) {
           router.push('/');
         } else {
           router.push('/employee-dashboard');
