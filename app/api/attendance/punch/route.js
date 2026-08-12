@@ -39,7 +39,8 @@ async function autoClosePreviousOpenSessions(connection, employeeId, todayStr) {
 
     for (const record of openRows) {
       const recordDateStr = record.date;
-      const autoPunchOutIso = `${recordDateStr}T23:59:59.000Z`;
+      // Store as UTC equivalent of 9:00 PM IST (15:30 UTC) so UI shows 9:00 PM
+      const autoPunchOutIso = `${recordDateStr}T15:30:00.000Z`;
       const autoPunchOutMs = new Date(autoPunchOutIso).getTime();
       const punchInMs = new Date(record.punchInTime).getTime();
 
@@ -84,7 +85,7 @@ async function autoClosePreviousOpenSessions(connection, employeeId, todayStr) {
           netWorkMinutes = ?, 
           status = ?, 
           breakStatus = 'Completed',
-          remarks = COALESCE(CONCAT(remarks, ' | Auto punched-out at 11:59 PM'), 'Auto punched-out at 11:59 PM')
+          remarks = COALESCE(CONCAT(remarks, ' | Auto punched-out at 09:00 PM'), 'Auto punched-out at 09:00 PM')
          WHERE id = ?`,
         [autoPunchOutIso, totalWorkMins, totalBreakMins, netWorkMins, finalStatus, record.id]
       );

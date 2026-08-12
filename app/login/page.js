@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -83,6 +84,75 @@ export default function LoginPage() {
       <div style={{ position: "fixed", top: "20px", right: "20px", zIndex: 100 }}>
         <ThemeToggle />
       </div>
+
+      <div 
+        className="hidden lg:flex"
+        onMouseEnter={() => setShowQR(true)}
+        onMouseLeave={() => setShowQR(false)}
+        style={{
+          position: "fixed",
+          right: "0",
+          top: "50%",
+          transform: "translateY(-50%)",
+          zIndex: 90,
+          display: "flex",
+          alignItems: "center",
+          cursor: "pointer"
+        }}
+      >
+        <div style={{
+          background: "var(--bg-secondary)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid var(--glass-border)",
+          borderRight: "none",
+          borderRadius: "16px 0 0 16px",
+          padding: showQR ? "1.5rem" : "1.5rem 0.75rem",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          boxShadow: "-10px 0 25px rgba(0,0,0,0.15)",
+          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          width: showQR ? "220px" : "45px",
+          overflow: "hidden",
+          whiteSpace: "nowrap"
+        }}>
+          {showQR ? (
+            <div style={{ animation: "fadeIn 0.3s ease forwards", textAlign: "center", width: "100%" }}>
+              <h3 style={{ fontSize: "1.05rem", fontWeight: "600", marginBottom: "0.25rem", color: "var(--text-primary)" }}>DeviceDesk App</h3>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "1rem", lineHeight: "1.4", whiteSpace: "normal" }}>Scan to download on Android</p>
+              <div style={{ background: "white", padding: "8px", borderRadius: "12px", display: "inline-block" }}>
+                <img 
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://play.google.com/store/apps/details?id=com.devicedesk.app" 
+                  alt="Download DeviceDesk App" 
+                  width={130} 
+                  height={130} 
+                  style={{ display: "block", borderRadius: "4px" }} 
+                />
+              </div>
+            </div>
+          ) : (
+            <span style={{ 
+              writingMode: 'vertical-rl', 
+              transform: 'rotate(180deg)', 
+              fontWeight: "600", 
+              fontSize: "0.9rem", 
+              color: "var(--text-primary)", 
+              letterSpacing: "1px",
+              display: "block",
+              animation: "fadeIn 0.3s ease forwards"
+            }}>
+              APP DOWNLOAD
+            </span>
+          )}
+        </div>
+        <style jsx>{`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+        `}</style>
+      </div>
+
       <div
         style={{
           width: "100%",

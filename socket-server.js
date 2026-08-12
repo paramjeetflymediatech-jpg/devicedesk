@@ -15,6 +15,7 @@ for (const envName of envCandidates) {
 const http = require('http');
 const https = require('https');
 const { Server } = require('socket.io');
+const cron = require('node-cron');
 
 const server = http.createServer();
 const io = new Server(server, {
@@ -32,6 +33,34 @@ const lastSeenMap = new Map();
 function broadcastPresence() {
   io.emit('online-users', Array.from(onlineUsers.keys()));
   io.emit('last-seen', Object.fromEntries(lastSeenMap));
+}
+
+// Trigger 9:00 PM Auto Punch Out via the Next.js auto-close API
+async function triggerAutoClose() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const secret = process.env.SOCKET_INTERNAL_SECRET || 'devicedesk_socket_secret_2026';
+  const body = JSON.stringify({ secret });
+
+  const url = new URL('/api/attendance/auto-close', appUrl);
+  const lib = url.protocol === 'https:' ? https : http;
+
+  console.log(`[Cron] Triggering 9:00 PM IST Auto Punch-Out Sweep...`);
+  return new Promise((resolve) => {
+    const req = lib.request(
+      { hostname: url.hostname, port: url.port || (url.protocol === 'https:' ? 443 : 80), path: url.pathname, method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
+      (res) => { 
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          console.log(`[Cron] Auto Punch-Out API Response: ${data}`);
+          resolve();
+        });
+      }
+    );
+    req.on('error', (err) => { console.error('[Cron] triggerAutoClose error:', err.message); resolve(); });
+    req.write(body);
+    req.end();
+  });
 }
 
 // Persist lastSeen to the database via the Next.js presence API
@@ -168,4 +197,13 @@ io.on('connection', (socket) => {
 const PORT = process.env.SOCKET_PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Socket.io server running on port ${PORT}`);
+});
+
+// Start the Cron Job for Auto Punch-Out (9:00 PM IST daily)
+cron.schedule('0 21 * * *', () => {
+  console.log(`[Cron] Executing daily 9:00 PM IST Auto Punch-Out script...`);
+  triggerAutoClose();
+}, {
+  scheduled: true,
+  timezone: "Asia/Kolkata"
 });
