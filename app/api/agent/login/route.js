@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 export async function POST(req) {
   try {
     const body = await req.json();
+    console.log(`[API /agent/login] Incoming login request for identifier: ${body.identifier}, System: ${body.systemNumber || 'Unknown'}`);
     const { identifier, password } = body;
     const systemNumber = body.systemNumber || 'DESKTOP-AGENT';
     const serverUrl = body.serverUrl || 'https://devicedesk.flymediatech.com';

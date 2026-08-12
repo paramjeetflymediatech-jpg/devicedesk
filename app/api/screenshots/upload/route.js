@@ -18,6 +18,7 @@ export async function OPTIONS() {
 
 export async function POST(req) {
   try {
+    console.log(`[API /screenshots/upload] Incoming screenshot upload request at ${new Date().toISOString()}`);
     const pool = await getDbConnection();
     const contentType = req.headers.get('content-type') || '';
     let employeeId = '';

@@ -6,6 +6,7 @@ export async function POST(req) {
   try {
     const pool = await getDbConnection();
     const body = await req.json();
+    console.log(`[API /agent/ping] Heartbeat received from ${body.employeeName || 'Unknown'} (${body.employeeId || 'Unknown'})`);
 
     const employeeId = body.employeeId || 'EMP-UNKNOWN';
     const employeeName = body.employeeName || 'Unknown Employee';
