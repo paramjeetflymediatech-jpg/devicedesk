@@ -281,6 +281,7 @@ export async function deleteFile(fileUrlOrName) {
   } catch (e) {}
 
   try {
+    const provider = process.env.STORAGE_PROVIDER || 'local';
     if (provider === 'sftp') {
       const sftp = new Client();
       try {

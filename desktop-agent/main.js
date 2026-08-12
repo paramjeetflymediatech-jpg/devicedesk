@@ -421,10 +421,10 @@ async function sendServerLog(action, details) {
   }
 }
 
-ipcMain.on('agent-logout', () => {
+ipcMain.on('agent-logout', async () => {
   const config = getActiveConfig();
   if (config.isLoggedIn) {
-    sendServerLog('LOGOUT', `User ${config.employeeName} explicitly logged out from their ${process.platform} agent.`);
+    await sendServerLog('LOGOUT', `User ${config.employeeName} explicitly logged out from their ${process.platform} agent.`);
   }
 
   saveConfig({
