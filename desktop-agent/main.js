@@ -34,6 +34,21 @@ function logToFile(message, type = 'INFO') {
   }
 }
 
+// Helper to extract detailed server error info dynamically
+function formatAxiosError(err) {
+  if (err.response) {
+    // The server responded with a status code outside the 2xx range
+    const dataStr = typeof err.response.data === 'object' ? JSON.stringify(err.response.data) : err.response.data;
+    return `[Status: ${err.response.status}] [URL: ${err.config?.url}] Response: ${dataStr}`;
+  } else if (err.request) {
+    // The request was made but no response was received (e.g. server down, network issue)
+    return `[Network/Timeout] [URL: ${err.config?.url}] Code: ${err.code || 'UNKNOWN_ERROR'}`;
+  } else {
+    // Something happened in setting up the request
+    return `[Client Error] ${err.message}`;
+  }
+}
+
 // Enable Wayland / PipeWire screen capture for modern Linux/Ubuntu distributions
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
@@ -240,7 +255,7 @@ async function registerAgentOnline() {
     }, { timeout: 15000 });
     logToFile(`Agent registered online for ${config.employeeName} (${config.employeeId}) [STATUS: ONLINE]`, 'INFO');
   } catch (e) {
-    logToFile(`Agent online registration failed: ${e.message} [STATUS: OFFLINE]`, 'WARN');
+    logToFile(`Agent online registration failed: ${formatAxiosError(e)} [STATUS: OFFLINE]`, 'WARN');
   }
 }
 
@@ -261,7 +276,7 @@ async function sendPingHeartbeat() {
     }, { timeout: 10000 });
     logToFile(`Ping Heartbeat sent successfully for ${config.employeeName} [STATUS: ONLINE]`, 'INFO');
   } catch (e) {
-    logToFile(`Ping Heartbeat failed: ${e.message} [STATUS: OFFLINE]`, 'WARN');
+    logToFile(`Ping Heartbeat failed: ${formatAxiosError(e)} [STATUS: OFFLINE]`, 'WARN');
   }
 }
 
@@ -333,8 +348,7 @@ async function captureAndUpload() {
 
     logToFile(`SCREENSHOT UPLOAD SUCCESS: Desktop Screenshot uploaded successfully for ${config.employeeName} (${config.employeeId}) -> Status: ${res.status}`, 'INFO');
   } catch (err) {
-    const errorDetails = err.response ? `Status: ${err.response.status}, Data: ${JSON.stringify(err.response.data)}` : err.message;
-    logToFile(`SCREENSHOT UPLOAD FAILED (Error): ${errorDetails}`, 'ERROR');
+    logToFile(`SCREENSHOT UPLOAD FAILED (Error): ${formatAxiosError(err)}`, 'ERROR');
   }
 }
 
@@ -384,9 +398,9 @@ ipcMain.on('agent-login', async (event, { identifier, password, serverUrl }) => 
       event.reply('login-result', { success: false, message: res.data?.message || 'Login failed.' });
     }
   } catch (err) {
-    const errorMsg = err.response?.data?.message || err.message || 'Server connection error.';
-    logToFile(`Login error: ${errorMsg}`, 'ERROR');
-    event.reply('login-result', { success: false, message: errorMsg });
+    const uiErrorMsg = err.response?.data?.message || 'Server connection error.';
+    logToFile(`Login error: ${formatAxiosError(err)}`, 'ERROR');
+    event.reply('login-result', { success: false, message: uiErrorMsg });
   }
 });
 
