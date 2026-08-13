@@ -103,7 +103,7 @@ export default function ScreenshotsTab() {
       if (searchQuery.trim()) queryParams.append('search', searchQuery.trim());
       queryParams.append('limit', limitFilter);
 
-      const res = await fetch(`/api/screenshots/list?${queryParams.toString()}`);
+      const res = await fetch(`/api/screenshots/list?${queryParams.toString()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setScreenshots(data.data || []);

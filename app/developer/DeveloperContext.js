@@ -15,8 +15,8 @@ export function DeveloperProvider({ children }) {
     setLoading(true);
     try {
       const [agentRes, logRes] = await Promise.all([
-        fetch('/api/developer/agents'),
-        fetch('/api/developer/agent-logs')
+        fetch('/api/developer/agents', { cache: 'no-store' }),
+        fetch('/api/developer/agent-logs', { cache: 'no-store' })
       ]);
       const agentData = await agentRes.json();
       const logData = await logRes.json();
