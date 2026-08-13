@@ -191,17 +191,20 @@ export default function ScreenshotsTab() {
       const lastSeenMs = parseUtcMs(reg.lastSeenAt);
       const isOnline = (Date.now() - lastSeenMs) < 300000; // Online if active within last 5 minutes
 
-      map[key] = {
-        employeeId: reg.employeeId,
-        employeeName: reg.employeeName || reg.employeeId,
-        department: reg.department || 'General',
-        systemNumber: reg.systemNumber || 'AGENT-SYSTEM',
-        ipAddress: reg.ipAddress || '',
-        osPlatform: reg.osPlatform || 'windows',
-        lastSeenAt: reg.lastSeenAt || null,
-        isOnline,
-        captures: []
-      };
+      // Keep the most recent registration for the employee
+      if (!map[key]) {
+        map[key] = {
+          employeeId: reg.employeeId,
+          employeeName: reg.employeeName || reg.employeeId,
+          department: reg.department || 'General',
+          systemNumber: reg.systemNumber || 'AGENT-SYSTEM',
+          ipAddress: reg.ipAddress || '',
+          osPlatform: reg.osPlatform || 'windows',
+          lastSeenAt: reg.lastSeenAt || null,
+          isOnline,
+          captures: []
+        };
+      }
     });
 
     // 2. Merge screenshots matching current search query & filters
