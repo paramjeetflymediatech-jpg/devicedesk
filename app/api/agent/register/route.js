@@ -10,9 +10,9 @@ export async function POST(req) {
     const employeeId = body.employeeId || 'EMP-UNKNOWN';
     const employeeName = body.employeeName || 'Unknown Employee';
     const department = body.department || 'General';
-    const systemNumber = body.systemNumber || 'DESKTOP-AGENT';
-    const serverUrl = body.serverUrl || 'https://devicedesk.flymediatech.com';
     const osPlatform = body.osPlatform || process.platform || 'windows';
+    const systemNumber = body.systemNumber || `AGENT-${osPlatform.toUpperCase()}`;
+    const serverUrl = body.serverUrl || 'https://devicedesk.flymediatech.com';
     const ipAddress = body.ipAddress || req.headers.get('x-forwarded-for') || '127.0.0.1';
 
     // 1. Ensure dedicated agent_registrations table exists

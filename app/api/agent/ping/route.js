@@ -6,13 +6,14 @@ export async function POST(req) {
   try {
     const pool = await getDbConnection();
     const body = await req.json();
+    console.log(body,"check agent ping hit");
     console.log(`[API /agent/ping] Heartbeat received from ${body.employeeName || 'Unknown'} (${body.employeeId || 'Unknown'})`);
 
     const employeeId = body.employeeId || 'EMP-UNKNOWN';
     const employeeName = body.employeeName || 'Unknown Employee';
-    const systemNumber = body.systemNumber || 'DESKTOP-AGENT';
-    const department = body.department || 'General';
     const osPlatform = body.osPlatform || process.platform || 'windows';
+    const systemNumber = body.systemNumber || `AGENT-${osPlatform.toUpperCase()}`;
+    const department = body.department || 'General';
     const ipAddress = body.ipAddress || req.headers.get('x-forwarded-for') || '127.0.0.1';
     const agentVersion = body.agentVersion || '1.0.0';
 

@@ -8,9 +8,9 @@ export async function POST(req) {
     const body = await req.json();
     console.log(`[API /agent/login] Incoming login request for identifier: ${body.identifier}, System: ${body.systemNumber || 'Unknown'}`);
     const { identifier, password } = body;
-    const systemNumber = body.systemNumber || 'DESKTOP-AGENT';
-    const serverUrl = body.serverUrl || 'https://devicedesk.flymediatech.com';
     const osPlatform = body.osPlatform || process.platform || 'windows';
+    const systemNumber = body.systemNumber || `AGENT-${osPlatform.toUpperCase()}`;
+    const serverUrl = body.serverUrl || 'https://devicedesk.flymediatech.com';
     const ipAddress = body.ipAddress || req.headers.get('x-forwarded-for') || '127.0.0.1';
 
     if (!identifier || !password) {
