@@ -165,6 +165,65 @@ export default function PrivacyPolicyPage() {
 
         {/* Content Sections Grid */}
         <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+
+          {/* Official App Support Callout Banner */}
+          <div
+            style={{
+              background: "rgba(2, 132, 199, 0.08)",
+              border: "1px solid rgba(2, 132, 199, 0.25)",
+              borderRadius: "16px",
+              padding: "1.25rem 1.5rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "1rem"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  borderRadius: "12px",
+                  background: "var(--accent-cyan)",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.2rem",
+                  flexShrink: 0
+                }}
+              >
+                <FiHelpCircle />
+              </div>
+              <div>
+                <h3 style={{ fontSize: "1rem", fontWeight: "700", margin: "0 0 2px", color: "var(--text-primary)" }}>
+                  Need Official App Support or Customer Assistance?
+                </h3>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0 }}>
+                  Email us directly at <a href="mailto:support@flymediatech.com" style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>support@flymediatech.com</a> or submit an inquiry at our dedicated Support Desk.
+                </p>
+              </div>
+            </div>
+            <a
+              href="/support"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 16px",
+                borderRadius: "10px",
+                background: "var(--accent-cyan)",
+                color: "#fff",
+                fontWeight: "700",
+                fontSize: "0.85rem",
+                textDecoration: "none"
+              }}
+            >
+              Go to Support Center →
+            </a>
+          </div>
           
           {/* Section 1 */}
           <section
