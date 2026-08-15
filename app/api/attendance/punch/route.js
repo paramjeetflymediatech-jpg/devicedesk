@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
+import { checkAndSendFullAttendanceReport } from '../../utils/fullAttendanceChecker.js';
 
 // In-memory concurrency locks per employee ID to block double-clicks & duplicate browser tab hits
 const activeLocks = new Set();
@@ -218,6 +219,12 @@ export async function POST(request) {
       );
 
       await connection.commit();
+
+      // Check if 100% full team attendance is reached for today and trigger notification
+      checkAndSendFullAttendanceReport().catch((err) =>
+        console.error('Full attendance report check error:', err)
+      );
+
       return NextResponse.json({
         success: true,
         message: `Punched in successfully as ${status}!`,

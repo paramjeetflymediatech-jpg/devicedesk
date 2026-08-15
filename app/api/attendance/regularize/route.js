@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
+import { checkAndSendFullAttendanceReport } from '../../utils/fullAttendanceChecker.js';
 
 export async function POST(request) {
   let body;
@@ -90,6 +91,12 @@ export async function POST(request) {
     }
 
     await connection.commit();
+
+    // Trigger 100% full attendance report check
+    checkAndSendFullAttendanceReport().catch((err) =>
+      console.error('Full attendance check error on regularize:', err)
+    );
+
     return NextResponse.json({
       success: true,
       message: 'Attendance regularized successfully!'

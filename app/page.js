@@ -247,10 +247,12 @@ export default function Home() {
   const [sysPage, setSysPage] = useState(1);
   const sysPerPage = 10;
 
-  // Employees Pagination State
+  // Employees Pagination & Filter State
   const [empPage, setEmpPage] = useState(1);
   const empPerPage = 10;
   const [empSearch, setEmpSearch] = useState("");
+  const [empFilterDept, setEmpFilterDept] = useState("all");
+  const [empFilterRole, setEmpFilterRole] = useState("all");
   
   // Employee Portal Form States
   const [portalEmployeeId, setPortalEmployeeId] = useState("");
@@ -2125,6 +2127,15 @@ export default function Home() {
   const currentSystems = filteredSystems.slice(indexOfFirstSys, indexOfLastSys);
   const totalSysPages = Math.ceil(filteredSystems.length / sysPerPage);
 
+  // Dynamic department and role lists for Team Member Directory filter dropdowns
+  const availableEmpDepartments = Array.from(
+    new Set(employees.map(e => e.department).filter(Boolean))
+  ).sort();
+
+  const availableEmpRoles = Array.from(
+    new Set(employees.map(e => e.role).filter(Boolean))
+  ).sort();
+
   // Filtered & Paginated Employees for Admin employee view
   const filteredEmployees = employees.filter(emp => {
     // 1. Don't show the currently logged-in user
@@ -2136,10 +2147,16 @@ export default function Home() {
     // 3. Team Leaders only see their own department
     if (isTeamLeader && leaderDepartment && emp.department?.toLowerCase() !== leaderDepartment.toLowerCase()) return false;
 
+    // 4. Department filter
+    if (empFilterDept !== "all" && (emp.department || "").toLowerCase() !== empFilterDept.toLowerCase()) return false;
+
+    // 5. Role filter
+    if (empFilterRole !== "all" && (emp.role || "").toLowerCase() !== empFilterRole.toLowerCase()) return false;
+
     const query = empSearch.toLowerCase();
-    return emp.name.toLowerCase().includes(query) || 
-           emp.department.toLowerCase().includes(query) || 
-           emp.role.toLowerCase().includes(query);
+    return (emp.name || "").toLowerCase().includes(query) || 
+           (emp.department || "").toLowerCase().includes(query) || 
+           (emp.role || "").toLowerCase().includes(query);
   });
 
   const indexOfLastEmp = empPage * empPerPage;
@@ -3135,9 +3152,9 @@ export default function Home() {
                 </div>
               </div>
               
-              {/* Search Bar */}
-              <div className="filter-row" style={{ marginBottom: "1.5rem" }}>
-                <div style={{ position: "relative", width: "100%" }}>
+              {/* Search Bar & Filters */}
+              <div className="filter-row" style={{ marginBottom: "1.5rem", display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ flexGrow: 1, minWidth: "240px", position: "relative" }}>
                   <input 
                     type="text" 
                     className="form-control search-box" 
@@ -3168,6 +3185,36 @@ export default function Home() {
                     </button>
                   )}
                 </div>
+
+                {/* Filter by Department */}
+                <div style={{ minWidth: "180px" }}>
+                  <select
+                    className="form-control"
+                    value={empFilterDept}
+                    onChange={(e) => { setEmpFilterDept(e.target.value); setEmpPage(1); }}
+                    style={{ background: "rgba(0,0,0,0.3)", color: "var(--text-primary)", width: "100%" }}
+                  >
+                    <option value="all">All Departments</option>
+                    {availableEmpDepartments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Filter by Role */}
+                <div style={{ minWidth: "160px" }}>
+                  <select
+                    className="form-control"
+                    value={empFilterRole}
+                    onChange={(e) => { setEmpFilterRole(e.target.value); setEmpPage(1); }}
+                    style={{ background: "rgba(0,0,0,0.3)", color: "var(--text-primary)", width: "100%" }}
+                  >
+                    <option value="all">All Roles</option>
+                    {availableEmpRoles.map(role => (
+                      <option key={role} value={role}>{role}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               
               {/* Table — Desktop */}
@@ -3184,80 +3231,93 @@ export default function Home() {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentEmployees.map(emp => {
-                      const assigned = systems.filter(s => s.assignedTo === emp.id);
-                      return (
-                        <tr key={emp.id}>
-                          <td>
-                            <strong>{emp.name}</strong>
-                            {emp.status === 'Paused' && (
-                              <span className="status-tag open" style={{ marginLeft: "8px", fontSize: "0.65rem", padding: "2px 6px", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }}>Paused</span>
-                            )}
-                          </td>
-                          <td>
-                            <span 
-                              className="status-tag resolved" 
-                              style={{ cursor: "pointer", transition: "transform 0.2s" }}
-                              onClick={() => { setSelectedViewDept(emp.department); setDeptModalTab("members"); }}
-                              title={`View details of ${emp.department} department`}
-                            >
-                              {emp.department}
-                            </span>
-                          </td>
-                          <td>{emp.role}</td>
-                          <td>
-                            {assigned.length > 0 ? (
-                              assigned.map(s => (
-                                <span 
-                                  className="timer-badge" 
-                                  style={{ color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)", marginRight: "4px", cursor: "pointer" }} 
-                                  key={s.id}
-                                  onClick={() => setSelectedViewSystem(s)}
-                                  title="Click to view details"
-                                >
-                                  {s.systemNumber}
-                                </span>
-                              ))
-                            ) : (<span style={{ color: "var(--text-muted)" }}>None</span>)}
-                          </td>
-                          <td>{emp.ticketLimit || 5}</td>
-                          <td style={{ textAlign: "right" }}>
-                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
-                              <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenAssignModal(emp)}>Assign Device</button>
-                              <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(59, 130, 246, 0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>Edit</button>
-                              <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(139, 92, 246, 0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }} onClick={() => handleOpenEmpReportModal(emp)}>View Report</button>
-                              {!['Admin'].includes(emp.role) && (
-                                <>
-                                  <button 
-                                    className="btn-action start" 
-                                    style={{ 
-                                      padding: "4px 8px", 
-                                      fontSize: "0.75rem", 
-                                      background: emp.status === 'Paused' ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)", 
-                                      color: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)", 
-                                      borderColor: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)" 
-                                    }} 
-                                    onClick={() => handleToggleEmployeeStatus(emp)}
-                                  >
-                                    {emp.status === 'Paused' ? 'Activate' : 'Pause'}
-                                  </button>
-                                  <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>Remove</button>
-                                </>
+                    {currentEmployees.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
+                          No team members match your selected department or role filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      currentEmployees.map(emp => {
+                        const assigned = systems.filter(s => s.assignedTo === emp.id);
+                        return (
+                          <tr key={emp.id}>
+                            <td>
+                              <strong>{emp.name}</strong>
+                              {emp.status === 'Paused' && (
+                                <span className="status-tag open" style={{ marginLeft: "8px", fontSize: "0.65rem", padding: "2px 6px", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }}>Paused</span>
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            </td>
+                            <td>
+                              <span 
+                                className="status-tag resolved" 
+                                style={{ cursor: "pointer", transition: "transform 0.2s" }}
+                                onClick={() => { setSelectedViewDept(emp.department); setDeptModalTab("members"); }}
+                                title={`View details of ${emp.department} department`}
+                              >
+                                {emp.department}
+                              </span>
+                            </td>
+                            <td>{emp.role}</td>
+                            <td>
+                              {assigned.length > 0 ? (
+                                assigned.map(s => (
+                                  <span 
+                                    className="timer-badge" 
+                                    style={{ color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)", marginRight: "4px", cursor: "pointer" }} 
+                                    key={s.id}
+                                    onClick={() => setSelectedViewSystem(s)}
+                                    title="Click to view details"
+                                  >
+                                    {s.systemNumber}
+                                  </span>
+                                ))
+                              ) : (<span style={{ color: "var(--text-muted)" }}>None</span>)}
+                            </td>
+                            <td>{emp.ticketLimit || 5}</td>
+                            <td style={{ textAlign: "right" }}>
+                              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                                <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenAssignModal(emp)}>Assign Device</button>
+                                <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(59, 130, 246, 0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>Edit</button>
+                                <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(139, 92, 246, 0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }} onClick={() => handleOpenEmpReportModal(emp)}>View Report</button>
+                                {!['Admin'].includes(emp.role) && (
+                                  <>
+                                    <button 
+                                      className="btn-action start" 
+                                      style={{ 
+                                        padding: "4px 8px", 
+                                        fontSize: "0.75rem", 
+                                        background: emp.status === 'Paused' ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)", 
+                                        color: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)", 
+                                        borderColor: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)" 
+                                      }} 
+                                      onClick={() => handleToggleEmployeeStatus(emp)}
+                                    >
+                                      {emp.status === 'Paused' ? 'Activate' : 'Pause'}
+                                    </button>
+                                    <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>Remove</button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
 
               {/* Cards — Mobile */}
               <div className="mobile-card-list mobile-only">
-                {currentEmployees.map(emp => {
-                  const assigned = systems.filter(s => s.assignedTo === emp.id);
-                  return (
+                {currentEmployees.length === 0 ? (
+                  <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem 0" }}>
+                    No team members match your selected department or role filters.
+                  </p>
+                ) : (
+                  currentEmployees.map(emp => {
+                    const assigned = systems.filter(s => s.assignedTo === emp.id);
+                    return (
                      <div className="mobile-card" key={emp.id}>
                        <div className="mobile-card-header">
                          <span className="mobile-card-title">
@@ -3316,7 +3376,7 @@ export default function Home() {
                       </div>
                     </div>
                   );
-                })}
+                }))}
               </div>
 
 
