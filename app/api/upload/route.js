@@ -34,18 +34,31 @@ export async function POST(request) {
       }
 
       // Upload file (either locally or to WHM SFTP)
-      const uniqueFilename = await uploadFile(buffer, file.name);
+      const uploadResult = await uploadFile(buffer, file.name);
 
-      // Determine return URL
-      const baseUrl = process.env.WHM_SFTP_BASE_URL;
-      if (baseUrl) {
-        // Direct URL to WHM storage
-        const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-        fileUrls.push(`${cleanBaseUrl}/${uniqueFilename}`);
-      } else {
-        // Proxied URL via Next.js
-        fileUrls.push(`/api/uploads/${uniqueFilename}`);
+      // Determine return URL safely without duplicate prefixes
+      let finalUrl = uploadResult;
+
+      if (typeof uploadResult === 'string') {
+        if (uploadResult.startsWith('http://') || uploadResult.startsWith('https://') || uploadResult.startsWith('/')) {
+          finalUrl = uploadResult;
+        } else {
+          const baseUrl = process.env.WHM_SFTP_BASE_URL;
+          if (baseUrl) {
+            const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+            finalUrl = `${cleanBaseUrl}/${uploadResult}`;
+          } else {
+            finalUrl = `/api/uploads/${uploadResult}`;
+          }
+        }
       }
+
+      // Clean up any potential double prefixing (e.g. repeated https://storage.flymediatech.com/uploads/)
+      if (typeof finalUrl === 'string') {
+        finalUrl = finalUrl.replace(/(https?:\/\/storage\.flymediatech\.com\/uploads\/)+/g, 'https://storage.flymediatech.com/uploads/');
+      }
+
+      fileUrls.push(finalUrl);
     };
 
     if (files && files.length > 0) {

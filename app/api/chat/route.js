@@ -345,6 +345,11 @@ export async function POST(request) {
     const timestamp = new Date().toISOString();
     const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
 
+    let cleanFileUrl = fileUrl || null;
+    if (cleanFileUrl && typeof cleanFileUrl === 'string') {
+      cleanFileUrl = cleanFileUrl.replace(/(https?:\/\/storage\.flymediatech\.com\/uploads\/)+/g, 'https://storage.flymediatech.com/uploads/');
+    }
+
     const messageData = {
       id: messageId,
       senderId: user.id,
@@ -352,7 +357,7 @@ export async function POST(request) {
       receiverId,
       messageType: messageType || 'text',
       content: content || null,
-      fileUrl: fileUrl || null,
+      fileUrl: cleanFileUrl,
       fileName: fileName || null,
       fileSize: fileSize || null,
       timestamp

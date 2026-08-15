@@ -6,6 +6,15 @@ export class ChatMessage {
     // Fetch messages the user is authorized to view
     // (General channel, their Department channel, DMs involving them, or any Group they are in)
     const deptChannel = `dept_${departmentName || ''}`;
+    // Auto-repair any corrupt double-prefixed fileUrl records in the database
+    try {
+      await db.execute(
+        `UPDATE chat_messages 
+         SET fileUrl = REPLACE(fileUrl, 'https://storage.flymediatech.com/uploads/https://storage.flymediatech.com/uploads/', 'https://storage.flymediatech.com/uploads/') 
+         WHERE fileUrl LIKE '%https://storage.flymediatech.com/uploads/https://storage.flymediatech.com/uploads/%'`
+      );
+    } catch (e) {}
+
     const [rows] = await db.execute(
       `SELECT * FROM chat_messages 
        WHERE receiverId = 'general'
@@ -17,7 +26,16 @@ export class ChatMessage {
        LIMIT 1000`,
       [deptChannel, userId, userId, userId]
     );
-    return rows;
+
+    // Sanitize any remaining malformed fileUrl strings before sending to client
+    const sanitizedRows = rows.map((row) => {
+      if (row.fileUrl && typeof row.fileUrl === 'string') {
+        row.fileUrl = row.fileUrl.replace(/(https?:\/\/storage\.flymediatech\.com\/uploads\/)+/g, 'https://storage.flymediatech.com/uploads/');
+      }
+      return row;
+    });
+
+    return sanitizedRows;
   }
 
   static async addMessage(msg) {
