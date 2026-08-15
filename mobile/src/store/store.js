@@ -600,6 +600,62 @@ export async function saveTasks(tasks) {
   notify();
 }
 
+// Helper: Send email notification to team member when assigned a new task
+export function sendTaskAssignmentEmail(newTask) {
+  try {
+    const employees = getEmployees();
+    const assignee = employees.find(e =>
+      (newTask.assignedTo && String(e.id).toLowerCase() === String(newTask.assignedTo).toLowerCase()) ||
+      (newTask.assignedToName && e.name.toLowerCase() === String(newTask.assignedToName).toLowerCase())
+    );
+
+    if (assignee && assignee.email) {
+      const assignerName = newTask.assignedByName || 'Team Leader / Admin';
+      const subject = `📋 New Task Assigned: ${newTask.title}`;
+      const body = `Hello ${assignee.name || newTask.assignedToName},\n\nYou have been assigned a new task on DeviceDesk by ${assignerName}.\n\nTask Details:\n- Title: ${newTask.title}\n- Description: ${newTask.description || 'No description provided'}\n- Assigned By: ${assignerName}\n- Status: Pending\n- Assigned Date: ${new Date(newTask.createdAt || Date.now()).toLocaleString()}\n\nPlease log in to your DeviceDesk portal to view and start work on this task.\n\nBest Regards,\nDeviceDesk Operations Team`;
+
+      sendMockEmail(assignee.email, subject, body);
+    }
+  } catch (err) {
+    console.error('Task assignment email error:', err);
+  }
+}
+
+// Helper: Send email notification to Team Leader / Superadmin / Assigner when task is completed
+export function sendTaskCompletionEmail(task, operatorName = 'Team Member', fileUrl = null) {
+  try {
+    const employees = getEmployees();
+    const assigner = employees.find(e =>
+      (task.assignedBy && String(e.id).toLowerCase() === String(task.assignedBy).toLowerCase()) ||
+      (task.assignedByName && e.name.toLowerCase() === String(task.assignedByName).toLowerCase())
+    );
+
+    const assignee = employees.find(e =>
+      (task.assignedTo && String(e.id).toLowerCase() === String(task.assignedTo).toLowerCase()) ||
+      (task.assignedToName && e.name.toLowerCase() === String(task.assignedToName).toLowerCase())
+    );
+
+    const assigneeName = assignee?.name || task.assignedToName || operatorName || 'Team Member';
+    const assignerName = assigner?.name || task.assignedByName || 'Team Leader / Admin';
+
+    let recipientEmail = assigner?.email;
+    if (!recipientEmail) {
+      const leaderOrAdmin = employees.find(e => e.role === 'admin' || e.role === 'Superadmin' || e.role === 'Team Leader' || e.email === 'admin@yopmail.com');
+      recipientEmail = leaderOrAdmin?.email || 'admin@yopmail.com';
+    }
+
+    if (recipientEmail) {
+      const durationMins = task.totalDuration ? Math.round(task.totalDuration / 60) : 0;
+      const subject = `✅ Task Completed: ${task.title}`;
+      const body = `Hello ${assignerName},\n\nThe task "${task.title}" assigned to ${assigneeName} has been marked as COMPLETED.\n\nTask Details:\n- Title: ${task.title}\n- Description: ${task.description || 'No description provided'}\n- Completed By: ${assigneeName}\n- Assigned By: ${assignerName}\n- Time Spent: ${durationMins} min(s)\n- Completion Date: ${new Date(task.completedAt || Date.now()).toLocaleString()}\n${fileUrl ? '- Work Proof: Attached in portal\n' : ''}\nPlease log in to DeviceDesk to review the completed task details.\n\nBest Regards,\nDeviceDesk Operations Team`;
+
+      sendMockEmail(recipientEmail, subject, body);
+    }
+  } catch (err) {
+    console.error('Task completion email error:', err);
+  }
+}
+
 export function addTask(taskData) {
   const tasks = getTasks();
   const newTask = {
@@ -626,6 +682,9 @@ export function addTask(taskData) {
     `Task Assigned: "${newTask.title}"`,
     newTask.assignedByName
   );
+
+  sendTaskAssignmentEmail(newTask);
+
   return newTask;
 }
 
@@ -633,6 +692,7 @@ export function updateTask(updatedTask, operatorName = 'Admin') {
   const tasks = getTasks();
   const index = tasks.findIndex(t => t.id === updatedTask.id);
   if (index !== -1) {
+    const oldTask = tasks[index];
     tasks[index] = { ...tasks[index], ...updatedTask };
     saveTasks(tasks);
 
@@ -643,6 +703,13 @@ export function updateTask(updatedTask, operatorName = 'Admin') {
       `Task Updated: "${tasks[index].title}"`,
       operatorName
     );
+
+    if (oldTask.status !== 'Completed' && updatedTask.status === 'Completed') {
+      sendTaskCompletionEmail(tasks[index], operatorName, updatedTask.fileUrl || null);
+    } else if (updatedTask.assignedTo && updatedTask.assignedTo !== oldTask.assignedTo) {
+      sendTaskAssignmentEmail(tasks[index]);
+    }
+
     return true;
   }
   return false;
@@ -736,6 +803,9 @@ export function completeTask(taskId, operatorName = 'System', fileUrl = null) {
       `Task Completed: "${tasks[index].title}"`,
       operatorName
     );
+
+    sendTaskCompletionEmail(tasks[index], operatorName, fileUrl);
+
     return true;
   }
   return false;
