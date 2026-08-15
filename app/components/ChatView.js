@@ -976,43 +976,75 @@ export default function ChatView({ user }) {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      
-      mediaRecorderRef.current.ondataavailable = (event) => {
+
+      // Dynamically detect supported mimeType for maximum browser compatibility (Safari, Chrome, Firefox)
+      let options = {};
+      if (typeof MediaRecorder !== "undefined" && typeof MediaRecorder.isTypeSupported === "function") {
+        if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+          options = { mimeType: "audio/webm;codecs=opus" };
+        } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+          options = { mimeType: "audio/webm" };
+        } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          options = { mimeType: "audio/mp4" };
+        } else if (MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")) {
+          options = { mimeType: "audio/ogg;codecs=opus" };
+        }
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
 
-      mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+      mediaRecorder.onstop = () => {
+        const mimeType = mediaRecorder.mimeType || options.mimeType || "audio/webm";
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
         setRecordedBlob(blob);
         setRecordedUrl(URL.createObjectURL(blob));
+
+        // Stop microphone tracks safely AFTER recording stops and data is collected
+        if (stream && stream.getTracks) {
+          stream.getTracks().forEach(track => track.stop());
+        }
       };
 
-      mediaRecorderRef.current.start();
+      // Start recording with 200ms timeslice to ensure continuous audio chunk collection
+      mediaRecorder.start(200);
       setIsRecording(true);
 
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
     } catch (err) {
       console.error("Failed to access microphone:", err);
-      Swal.fire("Microphone Error", "Could not access your microphone. Please verify permissions.", "error");
+      Swal.fire("Microphone Error", "Could not access your microphone. Please check browser microphone permissions.", "error");
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
-      stopRecordingStream();
+    }
+    setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
     }
   };
 
   const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
     stopRecordingStream();
     setRecordedBlob(null);
     setRecordedUrl(null);
+    audioChunksRef.current = [];
   };
 
   const stopRecordingStream = () => {
@@ -1027,12 +1059,17 @@ export default function ChatView({ user }) {
   };
 
   const sendVoiceNote = async () => {
-    if (!recordedBlob) return;
+    if (!recordedBlob || recordedBlob.size === 0) {
+      Swal.fire("Error", "No voice recording data found. Please record again.", "error");
+      return;
+    }
     setUploading(true);
 
     try {
+      const mimeType = recordedBlob.type || "";
+      const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("ogg") ? "ogg" : "webm";
       const formData = new FormData();
-      formData.append("file", recordedBlob, `voice_note_${Date.now()}.webm`);
+      formData.append("file", recordedBlob, `voice_note_${Date.now()}.${ext}`);
 
       const uploadRes = await fetch("/api/upload", {
         method: "POST",
@@ -1049,7 +1086,7 @@ export default function ChatView({ user }) {
         receiverId: activeChatId,
         messageType: "audio",
         fileUrl,
-        fileName: "Voice Note",
+        fileName: `Voice Note (${formatTimer(recordingTime || 1)})`,
         fileSize: formatBytes(recordedBlob.size)
       };
 
