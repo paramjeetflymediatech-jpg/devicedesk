@@ -19,7 +19,17 @@ export async function POST(request) {
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
 
-    const supportRecipient = 'support@flymediatech.com';
+    // Support recipients (comma separated list from SUPPORT_EMAILS env variable or default recipients)
+    const rawSupportEmails = process.env.SUPPORT_EMAILS || `support@flymediatech.com, ${user || ''}`;
+    const supportRecipients = Array.from(
+      new Set(
+        rawSupportEmails
+          .split(',')
+          .map((e) => e.trim())
+          .filter(Boolean)
+      )
+    ).join(', ');
+
     const categoryLabel = (category || 'General').toUpperCase();
     const emailSubject = `[DeviceDesk Support - ${categoryLabel}] ${subject || 'New Inquiry'} from ${name || email}`;
 
@@ -85,7 +95,7 @@ export async function POST(request) {
       await transporter.sendMail({
         from: `"${name || 'DeviceDesk User'}" <${user}>`,
         replyTo: email,
-        to: `${supportRecipient}, ${user}`,
+        to: supportRecipients,
         subject: emailSubject,
         text: textBody,
         html: htmlBody
@@ -129,7 +139,7 @@ export async function POST(request) {
 
       const info = await transporter.sendMail({
         from: `"DeviceDesk Support" <${testAccount.user}>`,
-        to: `${supportRecipient}, ${email}`,
+        to: `${supportRecipients}, ${email}`,
         subject: emailSubject,
         text: textBody,
         html: htmlBody
