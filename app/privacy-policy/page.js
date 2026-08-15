@@ -15,7 +15,12 @@ import {
   FiCpu,
   FiUsers,
   FiFileText,
-  FiClock
+  FiClock,
+  FiMail,
+  FiPhone,
+  FiHelpCircle,
+  FiMapPin,
+  FiMessageSquare
 } from "react-icons/fi";
 
 export default function PrivacyPolicyPage() {
@@ -414,6 +419,96 @@ export default function PrivacyPolicyPage() {
               >
                 <FiTrash2 /> Request Web Account & Data Deletion →
               </a>
+            </div>
+          </section>
+
+          {/* Section 6 - Support & Contact Information */}
+          <section
+            style={{
+              background: "var(--bg-tertiary)",
+              borderRadius: "16px",
+              padding: "1.5rem 1.75rem",
+              border: "1px solid var(--glass-border)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: "rgba(2, 132, 199, 0.12)",
+                  color: "var(--accent-cyan)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem"
+                }}
+              >
+                <FiHelpCircle />
+              </div>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
+                6. Official App Support & Contact Information
+              </h2>
+            </div>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "1rem" }}>
+              If you have questions, require technical support, or need assistance with your DeviceDesk account or mobile application, our customer support team is available to help.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.25rem" }}>
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  padding: "1rem",
+                  borderRadius: "12px",
+                  border: "1px solid var(--glass-border)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-cyan)" }}>
+                  <FiMail /> Support Email
+                </div>
+                <a
+                  href="mailto:support@flymediatech.com"
+                  style={{ fontSize: "0.85rem", color: "var(--accent-cyan)", textDecoration: "none", fontWeight: "600" }}
+                >
+                  support@flymediatech.com
+                </a>
+              </div>
+
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  padding: "1rem",
+                  borderRadius: "12px",
+                  border: "1px solid var(--glass-border)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-blue)" }}>
+                  <FiMessageSquare /> Support Desk Portal
+                </div>
+                <a
+                  href="/support"
+                  style={{ fontSize: "0.85rem", color: "var(--accent-blue)", textDecoration: "none", fontWeight: "600" }}
+                >
+                  Visit DeviceDesk Support Center →
+                </a>
+              </div>
+
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  padding: "1rem",
+                  borderRadius: "12px",
+                  border: "1px solid var(--glass-border)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-purple)" }}>
+                  <FiMapPin /> Company Headquarters
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
+                  Fly Media Technology, DeviceDesk Enterprise Operations
+                </p>
+              </div>
             </div>
           </section>
         </div>
