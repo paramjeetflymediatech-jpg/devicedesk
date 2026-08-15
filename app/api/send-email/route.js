@@ -16,13 +16,14 @@ export async function POST(request) {
     const port = process.env.SMTP_PORT || 587;
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
+    const emailSender = process.env.EMAIL_FROM 
 
     let isEthereal = false;
     let testMessageUrl = null;
     let transporter;
 
     const mailOptions = {
-      from: user || '"DeviceDesk Support" <noreply@devicedesk.com>',
+      from: emailSender || '"Device Desk" <noreply@devicedeskflymediatech.com>',
       to,
       subject,
       text: body
@@ -56,7 +57,7 @@ export async function POST(request) {
         }
       });
       info = await transporter.sendMail({
-        from: `"DeviceDesk Support" <${testAccount.user}>`,
+        from: `"Device Desk" <${testAccount.user}>`,
         to,
         subject,
         text: body
