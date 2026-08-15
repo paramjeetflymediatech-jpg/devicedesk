@@ -3429,23 +3429,27 @@ export default function Home() {
                 <table className="custom-table">
                   <thead>
                     <tr>
-                      <th>Ticket ID</th><th>Date Logged</th><th>Employee</th><th>System</th>
+                      <th>Ticket ID</th><th>Date Logged</th><th>Updated At</th><th>Employee</th><th>System</th>
                       <th>Category</th><th>Severity</th><th>Status</th><th>Notes</th>
                       <th style={{ textAlign: "right" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentAdminTickets.length === 0 ? (
-                      <tr><td colSpan="9" style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>No tickets match your filters.</td></tr>
+                      <tr><td colSpan="10" style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>No tickets match your filters.</td></tr>
                     ) : (
                       currentAdminTickets.map(ticket => {
                         const sys = systems.find(s => s.id === ticket.systemId);
                         const emp = employees.find(e => e.id === ticket.employeeId);
                         const isOpen = ticket.status === "Open";
+                        const updatedDate = ticket.updatedAt || ticket.resolvedAt || ticket.startedAt || ticket.createdAt;
                         return (
                           <tr key={ticket.id}>
                             <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{ticket.id}</td>
-                            <td style={{ fontSize: "0.85rem" }}>{new Date(ticket.createdAt).toLocaleDateString()} {new Date(ticket.createdAt).toLocaleTimeString()}</td>
+                            <td style={{ fontSize: "0.85rem" }}>{new Date(ticket.createdAt).toLocaleDateString()} {new Date(ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                            <td style={{ fontSize: "0.85rem", color: "var(--accent-cyan)", fontWeight: "600" }}>
+                              {updatedDate ? `${new Date(updatedDate).toLocaleDateString()} ${new Date(updatedDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "N/A"}
+                            </td>
                             <td><strong>{emp ? emp.name : "Unknown"}</strong></td>
                             <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{sys ? sys.systemNumber : "N/A"}</td>
                             <td>{ticket.category}</td>
@@ -3476,6 +3480,7 @@ export default function Home() {
                     const sys = systems.find(s => s.id === ticket.systemId);
                     const emp = employees.find(e => e.id === ticket.employeeId);
                     const isOpen = ticket.status === "Open";
+                    const updatedDate = ticket.updatedAt || ticket.resolvedAt || ticket.startedAt || ticket.createdAt;
                     return (
                       <div className="mobile-card" key={ticket.id}>
                         <div className="mobile-card-header">
@@ -3485,7 +3490,8 @@ export default function Home() {
                         <div className="mobile-card-row"><span className="mobile-card-label">System</span><span className="mobile-card-value" style={{ color: "var(--accent-cyan)", fontWeight: 600 }}>{sys ? sys.systemNumber : "N/A"}</span></div>
                         <div className="mobile-card-row"><span className="mobile-card-label">Category</span><span className="mobile-card-value">{ticket.category}</span></div>
                         <div className="mobile-card-row"><span className="mobile-card-label">Severity</span><span className="mobile-card-value"><span className={`status-tag ${ticket.severity.toLowerCase()}`}>{ticket.severity}</span></span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Date</span><span className="mobile-card-value" style={{ fontSize: "0.8rem" }}>{new Date(ticket.createdAt).toLocaleDateString()}</span></div>
+                        <div className="mobile-card-row"><span className="mobile-card-label">Date Logged</span><span className="mobile-card-value" style={{ fontSize: "0.8rem" }}>{new Date(ticket.createdAt).toLocaleDateString()}</span></div>
+                        <div className="mobile-card-row"><span className="mobile-card-label">Updated At</span><span className="mobile-card-value" style={{ fontSize: "0.8rem", color: "var(--accent-cyan)", fontWeight: 600 }}>{updatedDate ? `${new Date(updatedDate).toLocaleDateString()} ${new Date(updatedDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "N/A"}</span></div>
                         {ticket.notes && <div className="mobile-card-row"><span className="mobile-card-label">Notes</span><span className="mobile-card-value" style={{ fontStyle: "italic", color: "var(--text-secondary)" }}>{ticket.notes}</span></div>}
                         <div className="mobile-card-actions">
                           {isOpen ? (

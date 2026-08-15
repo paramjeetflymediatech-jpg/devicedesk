@@ -257,6 +257,15 @@ export default function ManageTickets() {
                   </Text>
                 </View>
 
+                {(selectedTicket.updatedAt || selectedTicket.resolvedAt || selectedTicket.startedAt) && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Updated at:</Text>
+                    <Text style={[styles.metaValue, { color: '#58a6ff', fontWeight: 'bold' }]}>
+                      {new Date(selectedTicket.updatedAt || selectedTicket.resolvedAt || selectedTicket.startedAt || selectedTicket.createdAt).toLocaleString()}
+                    </Text>
+                  </View>
+                )}
+
                 {selectedTicket.startedAt && (
                   <View style={styles.metaRow}>
                     <Text style={styles.metaLabel}>Started at:</Text>
