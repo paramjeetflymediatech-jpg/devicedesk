@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { getDbConnection } from '../db/db';
 
 export async function POST(request) {
   try {
@@ -184,10 +185,35 @@ export async function POST(request) {
       testMessageUrl = nodemailer.getTestMessageUrl(info);
     }
 
+    // Save support enquiry to MySQL database (support_enquiries table)
+    const enquiryId = 'sup_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+    let savedToDb = false;
+
+    try {
+      const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || null;
+      const db = await getDbConnection();
+      await db.execute(
+        `INSERT INTO support_enquiries (id, name, email, category, subject, message, status, created_at, ipAddress) VALUES (?, ?, ?, ?, ?, ?, 'Pending', ?, ?)`,
+        [
+          enquiryId,
+          trimmedName,
+          trimmedEmail,
+          category || 'General',
+          trimmedSubject,
+          trimmedMessage,
+          formattedTimestamp,
+          clientIp
+        ]
+      );
+      savedToDb = true;
+    } catch (dbError) {
+      console.error('Failed to save support enquiry to database:', dbError.message);
+    }
+
     // Append to sent_emails.log
     try {
       const logFilePath = path.join(process.cwd(), 'sent_emails.log');
-      const logEntry = `[${formattedTimestamp}] SUPPORT FORM | From: ${name} <${email}> | Category: ${categoryLabel} | Subject: ${subject} | EtherealURL: ${testMessageUrl || 'N/A'}\nMessage:\n${message}\n${'-'.repeat(60)}\n`;
+      const logEntry = `[${formattedTimestamp}] SUPPORT FORM (ID: ${enquiryId}) | From: ${trimmedName} <${trimmedEmail}> | Category: ${categoryLabel} | Subject: ${trimmedSubject} | SavedToDB: ${savedToDb}\nMessage:\n${trimmedMessage}\n${'-'.repeat(60)}\n`;
       await fs.appendFile(logFilePath, logEntry, 'utf8');
     } catch (logError) {
       console.error('Failed to log support email to sent_emails.log:', logError);
@@ -195,15 +221,34 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: 'Support request sent successfully.',
+      enquiryId,
+      savedToDb,
+      message: 'Support request sent successfully and saved.',
       testUrl: testMessageUrl,
       isEthereal
     });
 
   } catch (error) {
-    console.error('Support Route Nodemailer Error:', error);
+    console.error('Support Route Error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to send support email.' },
+      { status: 500 }
+    );
+  }
+}
+
+// GET handler to retrieve saved support enquiries (for Admin / System dashboard)
+export async function GET(request) {
+  try {
+    const db = await getDbConnection();
+    const [rows] = await db.execute(
+      `SELECT * FROM support_enquiries ORDER BY created_at DESC LIMIT 100`
+    );
+    return NextResponse.json({ success: true, enquiries: rows });
+  } catch (error) {
+    console.error('Failed to fetch support enquiries:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch support enquiries.' },
       { status: 500 }
     );
   }

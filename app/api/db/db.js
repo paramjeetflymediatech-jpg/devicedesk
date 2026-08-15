@@ -339,6 +339,23 @@ export async function getDbConnection() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS support_enquiries (
+      id VARCHAR(100) PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      email VARCHAR(150) NOT NULL,
+      category VARCHAR(50) DEFAULT 'General',
+      subject VARCHAR(255) NOT NULL,
+      message TEXT NOT NULL,
+      status VARCHAR(20) DEFAULT 'Pending',
+      created_at VARCHAR(50) NOT NULL,
+      ipAddress VARCHAR(45) DEFAULT NULL,
+      INDEX idx_support_email (email),
+      INDEX idx_support_status (status),
+      INDEX idx_support_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   // Check if DB was already seeded
   const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");
   const alreadySeeded = metaRows.length > 0 && metaRows[0].meta_value === 'true';
