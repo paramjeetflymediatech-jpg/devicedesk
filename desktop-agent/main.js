@@ -54,6 +54,17 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
 }
 
+// Disable GPU Hardware Acceleration on Windows to support RDP, Citrix, Virtual Desktops, and Multi-Monitor setups
+if (process.platform === 'win32') {
+  try {
+    app.disableHardwareAcceleration();
+    app.commandLine.appendSwitch('disable-gpu');
+    app.commandLine.appendSwitch('disable-software-rasterizer');
+  } catch (e) {
+    console.warn('Windows GPU flags initialization warning:', e.message);
+  }
+}
+
 let mainWindow = null;
 let tray = null;
 let captureTimer = null;
@@ -295,10 +306,12 @@ async function captureAndUpload() {
     });
 
     if (sources && sources.length > 0) {
-      const primarySource = sources[0];
-      const jpegBuf = primarySource.thumbnail.toJPEG(55);
-      if (jpegBuf && jpegBuf.length > 0) {
-        base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
+      const validSource = sources.find(s => s.thumbnail && !s.thumbnail.isEmpty()) || sources[0];
+      if (validSource && validSource.thumbnail && !validSource.thumbnail.isEmpty()) {
+        const jpegBuf = validSource.thumbnail.toJPEG(55);
+        if (jpegBuf && jpegBuf.length > 0) {
+          base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
+        }
       }
     }
   } catch (nativeErr) {

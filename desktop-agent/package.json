@@ -44,19 +44,31 @@
     },
     "win": {
       "target": [
-        "nsis",
-        "zip"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
       ],
       "icon": "assets/icon.png"
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "DeviceDesk Agent",
-      "artifactName": "DeviceDeskAgent-Setup.exe"
+      "artifactName": "DeviceDeskAgent-Setup-${arch}.${ext}"
     },
     "linux": {
       "maintainer": "DeviceDesk Team <support@flymediatech.com>",
