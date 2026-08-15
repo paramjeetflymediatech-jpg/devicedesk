@@ -62,6 +62,13 @@ export async function POST(request) {
     const categoryLabel = (category || 'General').toUpperCase();
     const emailSubject = `[DeviceDesk Support - ${categoryLabel}] ${subject || 'New Inquiry'} from ${name || email}`;
 
+    const formattedTimestamp = new Date().toLocaleString('en-US', {
+      timeZone: 'Asia/Kolkata',
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+      hour12: true
+    }) + ' (IST)';
+
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #ffffff;">
         <div style="background-color: #0284c7; padding: 16px 20px; border-radius: 8px 8px 0 0; color: #ffffff;">
@@ -97,12 +104,12 @@ export async function POST(request) {
 
         <div style="border-top: 1px solid #e0e0e0; padding-top: 15px; text-align: center; font-size: 12px; color: #888888;">
           DeviceDesk Support Desk • Fly Media Technology<br />
-          Sent at: ${new Date().toLocaleString()}
+          Sent at: ${formattedTimestamp}
         </div>
       </div>
     `;
 
-    const textBody = `New DeviceDesk Support Ticket\n\nSender: ${name || 'N/A'} <${email}>\nCategory: ${categoryLabel}\nSubject: ${subject || 'N/A'}\n\nMessage:\n${message}\n\nSent: ${new Date().toLocaleString()}`;
+    const textBody = `New DeviceDesk Support Ticket\n\nSender: ${name || 'N/A'} <${email}>\nCategory: ${categoryLabel}\nSubject: ${subject || 'N/A'}\n\nMessage:\n${message}\n\nSent: ${formattedTimestamp}`;
 
     let isEthereal = false;
     let testMessageUrl = null;
@@ -180,7 +187,7 @@ export async function POST(request) {
     // Append to sent_emails.log
     try {
       const logFilePath = path.join(process.cwd(), 'sent_emails.log');
-      const logEntry = `[${new Date().toISOString()}] SUPPORT FORM | From: ${name} <${email}> | Category: ${categoryLabel} | Subject: ${subject} | EtherealURL: ${testMessageUrl || 'N/A'}\nMessage:\n${message}\n${'-'.repeat(60)}\n`;
+      const logEntry = `[${formattedTimestamp}] SUPPORT FORM | From: ${name} <${email}> | Category: ${categoryLabel} | Subject: ${subject} | EtherealURL: ${testMessageUrl || 'N/A'}\nMessage:\n${message}\n${'-'.repeat(60)}\n`;
       await fs.appendFile(logFilePath, logEntry, 'utf8');
     } catch (logError) {
       console.error('Failed to log support email to sent_emails.log:', logError);
