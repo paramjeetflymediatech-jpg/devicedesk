@@ -18,6 +18,7 @@ export async function POST(request) {
     const port = process.env.SMTP_PORT || 587;
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
+    const emailSender = process.env.EMAIL_FROM;
 
     // Support recipients (comma separated list from SUPPORT_EMAILS env variable or default recipients)
     const rawSupportEmails = process.env.SUPPORT_EMAILS || `support@flymediatech.com, ${user || ''}`;
@@ -93,7 +94,7 @@ export async function POST(request) {
 
       // Send inquiry email to support team
       await transporter.sendMail({
-        from: `"${name || 'DeviceDesk User'}" <${user}>`,
+        from: `"${emailSender || 'Device Desk'}">`,
         replyTo: email,
         to: supportRecipients,
         subject: emailSubject,
@@ -103,7 +104,7 @@ export async function POST(request) {
 
       // Send automated confirmation back to the user
       await transporter.sendMail({
-        from: `"DeviceDesk Support" <${user}>`,
+        from: emailSender,
         to: email,
         subject: `[Received] We received your DeviceDesk support inquiry: ${subject || 'Support Ticket'}`,
         text: `Hello ${name || 'User'},\n\nThank you for contacting DeviceDesk Support. We have received your inquiry regarding "${subject || 'Support Ticket'}" and our support team will respond within 24 hours.\n\nYour message details:\nCategory: ${categoryLabel}\nMessage: ${message}\n\nBest regards,\nDeviceDesk Support Team\nFly Media Technology`,
