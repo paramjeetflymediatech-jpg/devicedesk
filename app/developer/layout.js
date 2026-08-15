@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { FiActivity, FiLogOut, FiCode, FiWifi, FiWifiOff, FiGrid, FiMenu, FiX, FiEye, FiTrash2 } from "react-icons/fi";
+import { FiActivity, FiLogOut, FiCode, FiWifi, FiWifiOff, FiGrid, FiMenu, FiX, FiEye, FiTrash2, FiHelpCircle } from "react-icons/fi";
 import { FaWindows, FaApple, FaLinux } from "react-icons/fa";
 import { useAuth } from "../auth/AuthContext";
 import { DeveloperProvider, useDeveloper } from "./DeveloperContext";
@@ -89,6 +89,7 @@ function SidebarContent() {
         <nav className="flex-1 flex flex-col gap-2">
           <div className="text-[10px] uppercase tracking-wider mb-1 mt-2 font-bold" style={{ color: "var(--text-muted)" }}>Views</div>
           <SidebarItem href="/developer/dashboard" icon={<FiGrid size={18} />} label="All Agents" count={stats.total} />
+          <SidebarItem href="/developer/support" icon={<FiHelpCircle size={18} />} label="Support Enquiries" />
           <SidebarItem href="/developer/screenshots" icon={<FiEye size={18} />} label="Activity Screenshots" />
           <SidebarItem href="/developer/logs" icon={<FiActivity size={18} />} label="Activity Logs" count={logs.length} />
           <SidebarItem href="/developer/uninstalled" icon={<FiTrash2 size={18} />} label="Uninstalled / Killed" count={stats.deleted} colorClass="text-red-500" />
