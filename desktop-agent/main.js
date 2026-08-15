@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, desktopCapturer, systemPreferences } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -469,6 +469,19 @@ app.whenReady().then(() => {
   setupAutoLaunch();
   createWindow();
   createTray();
+
+  // Check macOS Screen Recording permissions
+  if (process.platform === 'darwin' && systemPreferences && systemPreferences.getMediaAccessStatus) {
+    try {
+      const status = systemPreferences.getMediaAccessStatus('screen');
+      logToFile(`macOS Screen Recording Access Status: ${status}`, 'INFO');
+      if (status !== 'granted') {
+        logToFile('NOTICE: macOS Screen Recording permission required. Please enable DeviceDeskAgent in System Settings -> Privacy & Security -> Screen Recording.', 'WARN');
+      }
+    } catch (e) {
+      logToFile(`macOS media access check warning: ${e.message}`, 'WARN');
+    }
+  }
 
   const config = getActiveConfig();
   logToFile(`Loaded config. isLoggedIn: ${config.isLoggedIn}, isConfigured: ${config.isConfigured}`, 'INFO');

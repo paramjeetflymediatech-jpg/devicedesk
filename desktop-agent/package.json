@@ -83,12 +83,24 @@
     },
     "mac": {
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "icon": "assets/icon.png",
       "category": "public.app-category.utilities",
-      "artifactName": "DeviceDeskAgent.${ext}"
+      "artifactName": "DeviceDeskAgent-${arch}.${ext}"
     }
   }
 }
