@@ -466,6 +466,7 @@ export function createTicket(employeeId, systemId, category, description, severi
     employeeId, // Keep for legacy compatibility
     raisedByName: employee ? employee.name : 'Unknown',
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     startedAt: null,
     resolvedAt: null,
     resolutionRemarks: null,
@@ -482,6 +483,7 @@ export function startTicketWork(ticketId) {
   if (index !== -1 && tickets[index].status === 'Open') {
     tickets[index].status = 'In Progress';
     tickets[index].startedAt = new Date().toISOString();
+    tickets[index].updatedAt = new Date().toISOString();
     saveTickets(tickets);
     return tickets[index];
   }
@@ -495,6 +497,7 @@ export function resolveTicket(ticketId, notes = '') {
     const ticket = tickets[index];
     ticket.status = 'Resolved';
     ticket.resolvedAt = new Date().toISOString();
+    ticket.updatedAt = new Date().toISOString();
     ticket.notes = notes;
     if (!ticket.startedAt) {
       ticket.startedAt = ticket.createdAt; // fallback if marked resolved directly

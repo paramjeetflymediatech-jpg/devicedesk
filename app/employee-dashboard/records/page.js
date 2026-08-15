@@ -54,6 +54,24 @@ export default function MyRecordsPage() {
   const indexOfFirstTicket = indexOfLastTicket - ticketsPerPage;
   const currentTickets = filteredTickets.slice(indexOfFirstTicket, indexOfLastTicket);
 
+  const formatDate = (isoString) => {
+    if (!isoString) return null;
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      return d.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+      });
+    } catch (e) {
+      return isoString;
+    }
+  };
+
   return (
     <div className="page-container emp-container" style={{ overflowY: "auto" }}>
       <div className="page-section active">
@@ -91,42 +109,64 @@ export default function MyRecordsPage() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                {currentTickets.map((ticket) => (
-                  <div
-                    key={ticket.id}
-                    style={{
-                      background: "rgba(255, 255, 255, 0.02)",
-                      border: "1px solid var(--glass-border)",
-                      borderRadius: "12px",
-                      padding: "1.25rem"
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                      <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>ID: {ticket.id}</span>
-                      <span
-                        style={{
-                          fontSize: "0.75rem",
-                          fontWeight: "700",
-                          padding: "4px 8px",
-                          borderRadius: "20px",
-                          textTransform: "uppercase",
-                          background:
-                            ticket.status === "Resolved"
-                              ? "rgba(16, 185, 129, 0.15)"
-                              : ticket.status === "In Progress"
-                              ? "rgba(59, 130, 246, 0.15)"
-                              : "rgba(245, 158, 11, 0.15)",
-                          color:
-                            ticket.status === "Resolved"
-                              ? "var(--status-resolved)"
-                              : ticket.status === "In Progress"
-                              ? "var(--status-progress)"
-                              : "var(--status-open)"
-                        }}
-                      >
-                        {ticket.status}
-                      </span>
-                    </div>
+                {currentTickets.map((ticket) => {
+                  const updatedDate = ticket.updatedAt || ticket.resolvedAt || ticket.startedAt || ticket.createdAt;
+                  return (
+                    <div
+                      key={ticket.id}
+                      style={{
+                        background: "rgba(255, 255, 255, 0.02)",
+                        border: "1px solid var(--glass-border)",
+                        borderRadius: "12px",
+                        padding: "1.25rem"
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem", flexWrap: "wrap", gap: "8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: "600" }}>ID: {ticket.id}</span>
+                          {ticket.createdAt && (
+                            <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                              📅 Raised: {formatDate(ticket.createdAt)}
+                            </span>
+                          )}
+                          {updatedDate && (
+                            <span style={{
+                              fontSize: "0.78rem",
+                              color: "var(--accent-cyan)",
+                              fontWeight: "600",
+                              background: "rgba(2, 132, 199, 0.1)",
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              border: "1px solid rgba(2, 132, 199, 0.25)"
+                            }}>
+                              🔄 Updated At: {formatDate(updatedDate)}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            fontWeight: "700",
+                            padding: "4px 10px",
+                            borderRadius: "20px",
+                            textTransform: "uppercase",
+                            background:
+                              ticket.status === "Resolved"
+                                ? "rgba(16, 185, 129, 0.15)"
+                                : ticket.status === "In Progress"
+                                ? "rgba(59, 130, 246, 0.15)"
+                                : "rgba(245, 158, 11, 0.15)",
+                            color:
+                              ticket.status === "Resolved"
+                                ? "var(--status-resolved)"
+                                : ticket.status === "In Progress"
+                                ? "var(--status-progress)"
+                                : "var(--status-open)"
+                          }}
+                        >
+                          {ticket.status}
+                        </span>
+                      </div>
 
                     <div style={{ marginBottom: "0.5rem" }}>
                       <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginRight: "0.5rem" }}>Category:</span>
@@ -166,7 +206,8 @@ export default function MyRecordsPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                );
+              })}
               </div>
 
               {/* Pagination Controls */}
