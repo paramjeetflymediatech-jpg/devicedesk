@@ -56,16 +56,48 @@ export default function SupportPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.email || !formData.message) return;
+    setErrorMessage("");
+
+    const name = formData.name.trim();
+    const email = formData.email.trim();
+    const subject = formData.subject.trim();
+    const message = formData.message.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // Client-side Validation Checks
+    if (!name || name.length < 2) {
+      setErrorMessage("Please enter your full name (minimum 2 characters).");
+      return;
+    }
+
+    if (!email || !emailRegex.test(email)) {
+      setErrorMessage("Please enter a valid email address (e.g. name@company.com).");
+      return;
+    }
+
+    if (!subject || subject.length < 3) {
+      setErrorMessage("Please enter a subject for your request (minimum 3 characters).");
+      return;
+    }
+
+    if (!message || message.length < 10) {
+      setErrorMessage("Please describe your inquiry in detail (minimum 10 characters).");
+      return;
+    }
 
     setLoading(true);
-    setErrorMessage("");
 
     try {
       const res = await fetch("/api/support", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          name,
+          email,
+          category: formData.category,
+          subject,
+          message
+        })
       });
 
       const data = await res.json();
@@ -77,8 +109,7 @@ export default function SupportPage() {
       }
     } catch (err) {
       console.error("Support form submission error:", err);
-      // Fallback display so user experience remains seamless
-      setSubmitted(true);
+      setErrorMessage("Network error occurred. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }

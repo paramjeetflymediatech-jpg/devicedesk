@@ -7,9 +7,37 @@ export async function POST(request) {
   try {
     const { name, email, category, subject, message } = await request.json();
 
-    if (!email || !message) {
+    // Server-side Input Validation
+    const trimmedName = (name || '').trim();
+    const trimmedEmail = (email || '').trim();
+    const trimmedSubject = (subject || '').trim();
+    const trimmedMessage = (message || '').trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!trimmedName || trimmedName.length < 2) {
       return NextResponse.json(
-        { error: 'Email and message content are required.' },
+        { error: 'Please enter your full name (minimum 2 characters).' },
+        { status: 400 }
+      );
+    }
+
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      return NextResponse.json(
+        { error: 'Please enter a valid email address (e.g. name@company.com).' },
+        { status: 400 }
+      );
+    }
+
+    if (!trimmedSubject || trimmedSubject.length < 3) {
+      return NextResponse.json(
+        { error: 'Please enter a subject for your support request (minimum 3 characters).' },
+        { status: 400 }
+      );
+    }
+
+    if (!trimmedMessage || trimmedMessage.length < 10) {
+      return NextResponse.json(
+        { error: 'Please describe your inquiry in detail (minimum 10 characters).' },
         { status: 400 }
       );
     }
@@ -18,7 +46,7 @@ export async function POST(request) {
     const port = process.env.SMTP_PORT || 587;
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
-    const emailSender = process.env.EMAIL_FROM;
+    const emailSender = process.env.EMAIL_FROM || `"DeviceDesk Support" <${user || 'noreply@devicedesk.com'}>`;
 
     // Support recipients (comma separated list from SUPPORT_EMAILS env variable or default recipients)
     const rawSupportEmails = process.env.SUPPORT_EMAILS || `support@flymediatech.com, ${user || ''}`;
@@ -94,7 +122,7 @@ export async function POST(request) {
 
       // Send inquiry email to support team
       await transporter.sendMail({
-        from: `"${emailSender || 'Device Desk'}">`,
+        from: emailSender,
         replyTo: email,
         to: supportRecipients,
         subject: emailSubject,
