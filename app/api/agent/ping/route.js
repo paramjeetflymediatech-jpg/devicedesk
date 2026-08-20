@@ -6,8 +6,8 @@ export async function POST(req) {
   try {
     const pool = await getDbConnection();
     const body = await req.json();
-    console.log(body,"check agent ping hit");
-    console.log(`[API /agent/ping] Heartbeat received from ${body.employeeName || 'Unknown'} (${body.employeeId || 'Unknown'})`);
+    // console.log(body,"check agent ping hit");
+    // console.log(`[API /agent/ping] Heartbeat received from ${body.employeeName || 'Unknown'} (${body.employeeId || 'Unknown'})`);
 
     const employeeId = body.employeeId || 'EMP-UNKNOWN';
     const employeeName = body.employeeName || 'Unknown Employee';
@@ -62,7 +62,7 @@ export async function POST(req) {
     });
 
   } catch (err) {
-    console.error('Agent ping heartbeat error:', err);
+    // console.error('Agent ping heartbeat error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
