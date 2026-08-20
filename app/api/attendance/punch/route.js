@@ -110,25 +110,34 @@ export async function POST(request) {
     return NextResponse.json({ success: false, message: 'employeeId and action are required' }, { status: 400 });
   }
 
-  // Location validation for punch in and punch out
-  if (action === 'PUNCH_IN' || action === 'PUNCH_OUT') {
-    if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
-      return NextResponse.json({ success: false, message: 'Location access is required to punch in or out. Please enable GPS/Location settings.' }, { status: 400 });
-    }
+  const ipAddressRaw = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
+  const clientIp = ipAddressRaw.split(',')[0].trim();
+  
+  const officeIpsEnv = process.env.OFFICE_IPS || '127.0.0.1,::1';
+  const officeIps = officeIpsEnv.split(',').map(ip => ip.trim());
+  const isOfficeIp = officeIps.includes(clientIp) || clientIp.startsWith('192.168.');
 
-    if (action === 'PUNCH_IN') {
-      const distance = getHaversineDistance(
-        parseFloat(latitude),
-        parseFloat(longitude),
-        OFFICE_LAT,
-        OFFICE_LNG
-      );
+  // Location validation for punch in
+  if (action === 'PUNCH_IN') {
+    if (!isOfficeIp) {
+      if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
+        return NextResponse.json({ success: false, message: 'Location access is required to punch in. Please enable GPS/Location settings or connect to the office WiFi.' }, { status: 400 });
+      }
 
-      if (distance > OFFICE_RADIUS) {
-        return NextResponse.json({
-          success: false,
-          message: `Punch-in rejected. You must be within the office area (100 meters). You are currently ${Math.round(distance)} meters away.`
-        }, { status: 400 });
+      if (action === 'PUNCH_IN') {
+        const distance = getHaversineDistance(
+          parseFloat(latitude),
+          parseFloat(longitude),
+          OFFICE_LAT,
+          OFFICE_LNG
+        );
+
+        if (distance > OFFICE_RADIUS) {
+          return NextResponse.json({
+            success: false,
+            message: `Punch-in rejected. You must be within the office area (100 meters) or connected to the office WiFi. You are currently ${Math.round(distance)} meters away.`
+          }, { status: 400 });
+        }
       }
     }
   }
