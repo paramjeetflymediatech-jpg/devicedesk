@@ -10,6 +10,8 @@ import {
   Image,
   Modal,
   Switch,
+  BackHandler,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
@@ -37,6 +39,24 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records, profile, tasks, attendance, chat
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Back Button Handler
+  useEffect(() => {
+    const backAction = () => {
+      if (activeTab !== 'overview') {
+        setActiveTab('overview');
+        return true; // prevent default behavior
+      }
+      return false; // let default behavior happen (exit app)
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [activeTab]);
 
   // Calendar Modal State
   const [showCalendarModal, setShowCalendarModal] = useState(false);
@@ -623,7 +643,10 @@ export default function EmployeeDashboard({ user, onLogout }) {
       case 'overview':
       default:
         return (
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#3b82f6']} />}
+          >
             <View style={styles.rowBetween}>
               <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>My Workspace</Text>
             </View>

@@ -14,6 +14,8 @@ import {
   Image,
   Linking,
   PermissionsAndroid,
+  BackHandler,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,6 +35,34 @@ export default function ChatScreen({ user, onBack }) {
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Back Button Handler
+  useEffect(() => {
+    const backAction = () => {
+      if (showActiveChat) {
+        setShowActiveChat(false);
+        return true; // prevent default behavior
+      } else if (onBack) {
+        onBack();
+        return true; // prevent default behavior
+      }
+      return false; // let default behavior happen
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [showActiveChat, onBack]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchMessages();
+    setRefreshing(false);
+  };
 
   // Groups state
   const [groups, setGroups] = useState([]);
@@ -1043,7 +1073,10 @@ export default function ChatScreen({ user, onBack }) {
             ))}
           </View>
 
-          <ScrollView style={styles.scrollList}>
+          <ScrollView 
+            style={styles.scrollList}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />}
+          >
             {/* Channels Section */}
             <Text style={[styles.sectionHeader, { color: themeColors.textSecondary }]}>Channels</Text>
 

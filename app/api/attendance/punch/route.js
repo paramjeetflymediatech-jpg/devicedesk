@@ -167,17 +167,6 @@ export async function POST(request) {
     const activeRecord = existingRows.length > 0 ? existingRows[0] : null;
 
     if (action === 'PUNCH_IN') {
-      // Rule 1: Shift Cutoff Check - Unable to punch in after 06:30 PM (18:30)
-      const hours = now.getHours();
-      const minutes = now.getMinutes();
-
-      if (hours > 18 || (hours === 18 && minutes >= 30)) {
-        await connection.rollback();
-        return NextResponse.json({
-          success: false,
-          message: 'Punch-in restricted. Shift cutoff time (06:30 PM) has passed for today.'
-        }, { status: 400 });
-      }
 
       if (activeRecord) {
         if (!activeRecord.punchOutTime) {

@@ -10,6 +10,8 @@ import {
   Modal,
   Alert,
   Switch,
+  BackHandler,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
@@ -54,6 +56,25 @@ export default function AdminDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('overview'); // overview, systems, employees, tickets, profile
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Back Button Handler
+  useEffect(() => {
+    const backAction = () => {
+      if (activeTab !== 'overview') {
+        setActiveTab('overview');
+        return true; // prevent default behavior
+      }
+      return false; // let default behavior happen (exit app)
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [activeTab]);
+
   const [stats, setStats] = useState(() => getStats());
   const [refreshing, setRefreshing] = useState(false);
   const [recentTickets, setRecentTickets] = useState(() => {
@@ -104,7 +125,10 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const renderOverview = () => (
-    <ScrollView contentContainerStyle={styles.scrollContent}>
+    <ScrollView 
+      contentContainerStyle={styles.scrollContent}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#3b82f6']} />}
+    >
       {newTicketAlert && (
         <View style={styles.alertBanner}>
           <Text style={styles.alertBannerText}>🔔 New ticket raised! Check Tickets tab.</Text>

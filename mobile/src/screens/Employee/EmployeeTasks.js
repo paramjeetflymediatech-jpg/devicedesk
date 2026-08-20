@@ -11,8 +11,9 @@ import {
   Linking,
   TextInput,
   Platform,
+  RefreshControl,
 } from 'react-native';
-import { getTasks, addTask, updateTask, deleteTask, startTask, stopTask, completeTask, subscribe } from '../../store/store';
+import { getTasks, addTask, updateTask, deleteTask, startTask, stopTask, completeTask, subscribe, syncWithServer } from '../../store/store';
 import { pick } from '@react-native-documents/picker';
 import { getApiUrl } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
@@ -23,6 +24,14 @@ export default function EmployeeTasks({ currentUser }) {
   const { isDark, themeColors } = useTheme();
   const [tasks, setTasks] = useState(() => getTasks().filter(t => t.assignedTo === currentUser?.id));
   const [now, setNow] = useState(() => Date.now());
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await syncWithServer();
+    setTasks(getTasks().filter(t => t.assignedTo === currentUser?.id));
+    setRefreshing(false);
+  };
 
   // Task completion modal states
   const [completeModalVisible, setCompleteModalVisible] = useState(false);
@@ -256,7 +265,11 @@ export default function EmployeeTasks({ currentUser }) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />}
+      >
         {tasks.length === 0 ? (
           <View style={[styles.emptyContainer, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
             <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No tasks currently assigned to you.</Text>

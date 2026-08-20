@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,16 +8,42 @@ import {
   ActivityIndicator,
   TextInput,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { fetchAttendanceRecords } from '../../utils/api';
 import { useTheme } from '../../utils/ThemeContext';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return '--:--';
+  try {
+    const d = new Date(timeStr);
+    if (isNaN(d.getTime())) return '--:--';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch(e) {
+    return '--:--';
+  }
+};
+
+const formatDuration = (minutes) => {
+  if (!minutes) return '00:00:00';
+  const h = Math.floor(minutes / 60);
+  const m = Math.floor(minutes % 60);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`;
+};
 
 export default function AttendanceLogs({ user }) {
   const { isDark, themeColors } = useTheme();
   const [records, setRecords] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await getLogs();
+    setRefreshing(false);
+  };
 
   // Filters
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -36,7 +62,7 @@ export default function AttendanceLogs({ user }) {
   const getLogs = async () => {
     setLoading(true);
     try {
-      const data = await fetchAttendanceRecords(user.id, selectedMonth, statusFilter);
+      const data = await fetchAttendanceRecords(user.id, selectedMonth, 'ALL');
       if (data.success) {
         setRecords(data.records || []);
         setSummary(data.summary || null);
@@ -50,12 +76,36 @@ export default function AttendanceLogs({ user }) {
 
   useEffect(() => {
     getLogs();
-  }, [selectedMonth, statusFilter]);
+  }, [selectedMonth]);
 
-  // Apply Date Range Filter (From Date to To Date) client-side
+  // Apply Date Range and Status Filter client-side
   const filteredRecords = records.filter((r) => {
     if (fromDate && r.date < fromDate) return false;
     if (toDate && r.date > toDate) return false;
+
+    if (statusFilter !== 'ALL') {
+      const st = (r.status || '').toLowerCase().trim();
+      const rem = (r.remarks || '').toLowerCase();
+
+      if (statusFilter === 'Late') {
+        let isLate = st.includes('late') || rem.includes('late');
+        if (!isLate && r.punchInTime) {
+          try {
+            const pDate = new Date(r.punchInTime);
+            if (pDate.getHours() * 60 + pDate.getMinutes() > 580) { // Punched in after 09:40 AM
+              isLate = true;
+            }
+          } catch(e) {}
+        }
+        if (!isLate) return false;
+      } else if (statusFilter === 'Overtime') {
+        if (!st.includes('overtime') && !rem.includes('overtime')) return false;
+      } else if (statusFilter === 'Half Day') {
+        if (!st.includes('half') && !rem.includes('half')) return false;
+      } else {
+        if (st !== statusFilter.toLowerCase()) return false;
+      }
+    }
     return true;
   });
 
@@ -142,7 +192,11 @@ export default function AttendanceLogs({ user }) {
   }, [filteredRecords, summary, records.length]);
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      contentContainerStyle={styles.scrollContent} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />}
+    >
       <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>📅 Attendance Logs & Summary</Text>
 
       {/* Summary Stat Cards Grid */}
@@ -174,7 +228,7 @@ export default function AttendanceLogs({ user }) {
       </View>
 
       {/* Month Selector Bar */}
-      <Text style={[styles.filterSectionTitle, { color: themeColors.textPrimary }]}>Select Month</Text>
+      {/* <Text style={[styles.filterSectionTitle, { color: themeColors.textPrimary }]}>Select Month</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScrollContainer}>
         {getMonthsList().map((m) => (
           <TouchableOpacity
@@ -195,7 +249,7 @@ export default function AttendanceLogs({ user }) {
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </ScrollView> */}
 
       {/* Single Calendar Date Range Filter */}
       <View style={styles.dateInputRow}>
@@ -286,11 +340,11 @@ export default function AttendanceLogs({ user }) {
               <View style={styles.recordDetailsRow}>
                 <View style={styles.detailItem}>
                   <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>IN TIME</Text>
-                  <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.punchInTimeFormatted || 'N/A'}</Text>
+                  <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.punchInTimeFormatted || formatTime(r.punchInTime) || 'N/A'}</Text>
                 </View>
                 <View style={styles.detailItem}>
                   <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>OUT TIME</Text>
-                  <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.punchOutTimeFormatted || '--:--'}</Text>
+                  <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.punchOutTimeFormatted || formatTime(r.punchOutTime) || '--:--'}</Text>
                 </View>
                 <View style={styles.detailItem}>
                   <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>BREAKS</Text>
@@ -299,7 +353,7 @@ export default function AttendanceLogs({ user }) {
                 <View style={styles.detailItem}>
                   <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>NET WORK</Text>
                   <Text style={[styles.detailValue, { color: '#2563eb', fontWeight: '800' }]}>
-                    {r.netWorkHoursFormatted || '00:00:00'}
+                    {r.netWorkHoursFormatted || formatDuration(r.netWorkMinutes)}
                   </Text>
                 </View>
               </View>

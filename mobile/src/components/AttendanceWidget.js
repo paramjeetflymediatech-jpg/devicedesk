@@ -199,7 +199,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     let lat = null;
     let lng = null;
 
-    if (action === 'PUNCH_IN' || action === 'PUNCH_OUT') {
+    if (action === 'PUNCH_IN') {
       try {
         const coords = await getCurrentLocation();
         lat = coords.latitude;
@@ -256,22 +256,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
   const handlePunchAction = async (action, extraData = {}) => {
     if (submitting) return;
 
-    // Shift Cutoff Check: 06:30 PM (18:30)
     if (action === 'PUNCH_IN') {
-      const now = new Date();
-      const hrs = now.getHours();
-      const mins = now.getMinutes();
-      if (hrs > 18 || (hrs === 18 && mins >= 30)) {
-        sweetAlert({
-          title: 'Punch-in Restricted',
-          text: 'Shift cutoff time (06:30 PM) has passed for today. You cannot punch in for today\'s shift.',
-          type: 'error',
-        });
-        return;
-      }
-    }
-
-    if (action === 'PUNCH_IN' || action === 'PUNCH_OUT') {
       if (Platform.OS === 'android') {
         const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
         if (!hasPermission) {
@@ -304,9 +289,6 @@ export default function AttendanceWidget({ user, onStatusChange }) {
 
   const punchedIn = statusData?.punchedIn;
   const onBreak = statusData?.onBreak;
-
-  const nowObj = new Date();
-  const isPastCutoff = !punchedIn && (nowObj.getHours() > 18 || (nowObj.getHours() === 18 && nowObj.getMinutes() >= 30));
 
   const handlePunchOutClick = () => {
     sweetAlert({
@@ -371,12 +353,6 @@ export default function AttendanceWidget({ user, onStatusChange }) {
         </TouchableOpacity>
       </View>
 
-      {isPastCutoff && (
-        <View style={styles.cutoffWarningBadge}>
-          <Text style={styles.cutoffWarningText}>⚠️ Shift Cutoff Passed (6:30 PM)</Text>
-        </View>
-      )}
-
       {!punchedIn ? (
         <View style={styles.actionContainer}>
           <TextInput
@@ -388,14 +364,20 @@ export default function AttendanceWidget({ user, onStatusChange }) {
             placeholderTextColor={themeColors.textSecondary}
             value={remarks}
             onChangeText={setRemarks}
-            editable={!isPastCutoff}
           />
           <TouchableOpacity
-            style={[styles.punchBtn, (submitting || isPastCutoff) && styles.punchBtnDisabled]}
+            style={[styles.punchBtn, submitting && styles.punchBtnDisabled]}
             onPress={() => handlePunchAction('PUNCH_IN', { remarks })}
-            disabled={submitting || isPastCutoff}
+            disabled={submitting}
           >
-            <Text style={styles.punchBtnText}>📥 Punch In</Text>
+            {submitting ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ActivityIndicator size="small" color="#ffffff" />
+                <Text style={styles.punchBtnText}>Processing...</Text>
+              </View>
+            ) : (
+              <Text style={styles.punchBtnText}>📥 Punch In</Text>
+            )}
           </TouchableOpacity>
         </View>
       ) : (
@@ -403,27 +385,41 @@ export default function AttendanceWidget({ user, onStatusChange }) {
           {!onBreak ? (
             <>
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#f59e0b' }]}
+                style={[styles.actionBtn, { backgroundColor: '#f59e0b' }, submitting && { opacity: 0.5 }]}
                 onPress={() => setShowBreakModal(true)}
                 disabled={submitting}
               >
                 <Text style={styles.actionBtnText}>☕ Start Break</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#da3633' }]}
+                style={[styles.actionBtn, { backgroundColor: '#da3633' }, submitting && { opacity: 0.5 }]}
                 onPress={handlePunchOutClick}
                 disabled={submitting}
               >
-                <Text style={styles.actionBtnText}>📤 Punch Out</Text>
+                {submitting ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <ActivityIndicator size="small" color="#ffffff" />
+                    <Text style={styles.actionBtnText}>Processing...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.actionBtnText}>📤 Punch Out</Text>
+                )}
               </TouchableOpacity>
             </>
           ) : (
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#3fb950', flex: 1 }]}
+              style={[styles.actionBtn, { backgroundColor: '#3fb950', flex: 1 }, submitting && { opacity: 0.5 }]}
               onPress={() => handlePunchAction('END_BREAK')}
               disabled={submitting}
             >
-              <Text style={styles.actionBtnText}>▶️ End Break / Resume Work</Text>
+              {submitting ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ActivityIndicator size="small" color="#ffffff" />
+                  <Text style={styles.actionBtnText}>Processing...</Text>
+                </View>
+              ) : (
+                <Text style={styles.actionBtnText}>▶️ End Break / Resume Work</Text>
+              )}
             </TouchableOpacity>
           )}
         </View>
@@ -439,7 +435,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>☕ Select Break Type</Text>
-            
+
             <View style={styles.breakOptions}>
               {['Tea Break', 'Lunch Break', 'Personal Break', 'Other'].map((type) => (
                 <TouchableOpacity
@@ -468,10 +464,18 @@ export default function AttendanceWidget({ user, onStatusChange }) {
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalConfirmBtn}
+                style={[styles.modalConfirmBtn, submitting && { opacity: 0.5 }]}
                 onPress={() => handlePunchAction('START_BREAK', { breakType: selectedBreakType })}
+                disabled={submitting}
               >
-                <Text style={styles.modalConfirmText}>Start Break</Text>
+                {submitting ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <ActivityIndicator size="small" color="#ffffff" />
+                    <Text style={styles.modalConfirmText}>Processing...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.modalConfirmText}>Start Break</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
