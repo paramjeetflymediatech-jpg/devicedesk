@@ -38,10 +38,7 @@ export async function GET(request) {
       params.push(startDate, endDate);
     }
 
-    if (status && status !== 'ALL') {
-      query += ` AND LOWER(status) = LOWER(?)`;
-      params.push(status);
-    }
+
 
     if (search) {
       query += ` AND (LOWER(employeeName) LIKE ? OR LOWER(employeeId) LIKE ? OR LOWER(remarks) LIKE ?)`;

@@ -227,9 +227,29 @@ export default function AttendanceTab({ user }) {
   const filteredRecords = records.filter(r => {
     // 1. Status Filter check
     if (statusFilter && statusFilter !== "ALL") {
-      if ((r.status || "").toLowerCase() !== statusFilter.toLowerCase()) {
-        return false;
+      const st = (r.status || "").toLowerCase().trim();
+      const rem = (r.remarks || "").toLowerCase();
+      let isLate = st.includes('late') || rem.includes('late');
+      
+      if (!isLate && r.punchInTime) {
+        try {
+          const pDate = new Date(r.punchInTime);
+          if (pDate.getHours() * 60 + pDate.getMinutes() > 580) {
+            isLate = true;
+          }
+        } catch(e) {}
       }
+
+      const isPresent = isLate || st === 'present' || st === 'completed' || st === 'overtime' || st === 'active';
+      const isHalfDay = st.includes('half');
+      
+      const sf = statusFilter.toLowerCase();
+      if (sf === "present" && !isPresent) return false;
+      if (sf === "late" && !isLate) return false;
+      if (sf === "half day" && !isHalfDay) return false;
+      if (sf === "completed" && st !== 'completed') return false;
+      if (sf === "overtime" && st !== 'overtime') return false;
+      if (sf === "absent") return false; // Absent handled elsewhere or has no records
     }
 
     // 2. Month Filter check (client fallback)
@@ -246,7 +266,29 @@ export default function AttendanceTab({ user }) {
       }
     }
 
-    // 4. Employee & Search Filter check
+    // 4. Weekly Filter check (client fallback)
+    if (filterType === "weekly" && selectedWeekDate) {
+      const { startDate, endDate } = getWeekRange(selectedWeekDate);
+      if (r.date < startDate || r.date > endDate) {
+        return false;
+      }
+    }
+
+    // 5. Yearly Filter check (client fallback)
+    if (filterType === "yearly" && selectedYear) {
+      if (r.date && !r.date.startsWith(selectedYear)) {
+        return false;
+      }
+    }
+
+    // 6. Custom Filter check (client fallback)
+    if (filterType === "custom" && fromDate && toDate) {
+      if (r.date < fromDate || r.date > toDate) {
+        return false;
+      }
+    }
+
+    // 7. Employee & Search Filter check
     if (searchEmployee.trim()) {
       const term = searchEmployee.trim().toLowerCase();
       const nameMatch = r.employeeName && r.employeeName.toLowerCase().includes(term);

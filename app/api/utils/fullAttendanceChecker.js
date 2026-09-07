@@ -133,20 +133,22 @@ export async function checkAndSendSummaryReport(connectionOverride = null, perio
           </div>
 
           <div style="padding: 22px; color: #333333; line-height: 1.6;">
-            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 14px 18px; border-radius: 10px; margin-bottom: 20px; text-align: center; display: flex; justify-content: space-around;">
-              <div>
-                <span style="font-size: 12px; color: #166534; font-weight: bold; text-transform: uppercase;">Present</span>
-                <h3 style="margin: 6px 0 0 0; color: #15803d; font-size: 24px;">${presentEmps.length}</h3>
-              </div>
-              <div>
-                <span style="font-size: 12px; color: #9a3412; font-weight: bold; text-transform: uppercase;">Half Day</span>
-                <h3 style="margin: 6px 0 0 0; color: #c2410c; font-size: 24px;">${halfDayEmps.length}</h3>
-              </div>
-              <div>
-                <span style="font-size: 12px; color: #991b1b; font-weight: bold; text-transform: uppercase;">Absent</span>
-                <h3 style="margin: 6px 0 0 0; color: #b91c1c; font-size: 24px;">${missingEmps.length}</h3>
-              </div>
-            </div>
+            <table width="100%" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; margin-bottom: 20px; text-align: center; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 14px 10px; width: 33%;">
+                  <span style="font-size: 12px; color: #166534; font-weight: bold; text-transform: uppercase;">Present</span>
+                  <h3 style="margin: 6px 0 0 0; color: #15803d; font-size: 24px;">${presentEmps.length}</h3>
+                </td>
+                <td style="padding: 14px 10px; width: 33%;">
+                  <span style="font-size: 12px; color: #9a3412; font-weight: bold; text-transform: uppercase;">Half Day</span>
+                  <h3 style="margin: 6px 0 0 0; color: #c2410c; font-size: 24px;">${halfDayEmps.length}</h3>
+                </td>
+                <td style="padding: 14px 10px; width: 33%;">
+                  <span style="font-size: 12px; color: #991b1b; font-weight: bold; text-transform: uppercase;">Absent</span>
+                  <h3 style="margin: 6px 0 0 0; color: #b91c1c; font-size: 24px;">${missingEmps.length}</h3>
+                </td>
+              </tr>
+            </table>
 
             <h4 style="margin: 0 0 12px 0; color: #15803d; font-size: 15px;">✅ Present Employees</h4>
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
