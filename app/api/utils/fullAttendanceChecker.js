@@ -226,9 +226,11 @@ export async function checkAndSendSummaryReport(connectionOverride = null, perio
         html: htmlBody
       });
 
-      // Mark notification as sent for today and period
+      // Mark notification as sent for today and period (Update if forced)
       await db.execute(
-        `INSERT INTO full_attendance_notifs (date, sentAt, totalEmployees, recipientCount) VALUES (?, ?, ?, ?)`,
+        `INSERT INTO full_attendance_notifs (date, sentAt, totalEmployees, recipientCount) 
+         VALUES (?, ?, ?, ?) 
+         ON DUPLICATE KEY UPDATE sentAt=VALUES(sentAt), totalEmployees=VALUES(totalEmployees), recipientCount=VALUES(recipientCount)`,
         [trackingKey, new Date().toISOString(), activeEmps.length, recipientEmails.length]
       );
 
