@@ -101,6 +101,45 @@ export async function POST(req) {
       await connection.commit();
       console.log(`[API /attendance/auto-close] Successfully auto-closed ${closedCount} orphaned sessions.`);
 
+      // Additionally, generate 'Absent' records for employees who never punched in today
+      try {
+        await connection.beginTransaction();
+        const dayOfWeek = now.getDay();
+        // Skip Sundays
+        if (dayOfWeek !== 0) {
+          const [employees] = await connection.execute(
+            `SELECT id, name FROM employees WHERE (status IS NULL OR status != 'Paused') AND LOWER(role) NOT IN ('admin', 'superadmin', 'management')`
+          );
+          
+          const [todayRecords] = await connection.execute(
+            `SELECT employeeId FROM attendance_records WHERE date = ?`,
+            [todayStr]
+          );
+          const presentIds = new Set(todayRecords.map(r => r.employeeId));
+          
+          let absentCount = 0;
+          for (const emp of employees) {
+            if (!presentIds.has(emp.id)) {
+              const recordId = `absent_${emp.id}_${todayStr}`;
+              await connection.execute(
+                `INSERT IGNORE INTO attendance_records 
+                 (id, employeeId, employeeName, date, punchInTime, punchOutTime, status, totalWorkMinutes, totalBreakMinutes, netWorkMinutes, remarks)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                  recordId, emp.id, emp.name, todayStr, '', null, 'Absent', 0, 0, 0, 'Auto-generated Absent (End of Day)'
+                ]
+              );
+              absentCount++;
+            }
+          }
+          console.log(`[API /attendance/auto-close] Generated ${absentCount} absent records for today.`);
+        }
+        await connection.commit();
+      } catch (absentErr) {
+        await connection.rollback();
+        console.error('[API /attendance/auto-close] Error generating absent records:', absentErr);
+      }
+
       return NextResponse.json({ success: true, closedCount, message: 'Auto-close complete' });
     } catch (err) {
       await connection.rollback();
