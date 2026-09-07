@@ -12,7 +12,7 @@ function formatLocalDate(d) {
 /**
  * Checks attendance and dispatches a summary report email (Morning/Afternoon).
  */
-export async function checkAndSendSummaryReport(connectionOverride = null, period = 'Morning') {
+export async function checkAndSendSummaryReport(connectionOverride = null, period = 'Morning', force = false) {
   try {
     const pool = getPool();
     const db = connectionOverride || await pool.getConnection();
@@ -40,7 +40,7 @@ export async function checkAndSendSummaryReport(connectionOverride = null, perio
         [trackingKey]
       );
 
-      if (alreadySent.length > 0) {
+      if (alreadySent.length > 0 && !force) {
         if (shouldRelease) db.release();
         return { success: true, message: `Report already sent for ${trackingKey}.` };
       }
