@@ -53,6 +53,39 @@ export async function GET(request) {
 
     const [records] = await pool.query(query, params);
 
+    // If querying a specific single date, inject virtual 'Absent' records for missing employees
+    if (date) {
+      const [activeEmps] = await pool.query(
+        `SELECT id, name, role, department FROM employees WHERE status IS NULL OR status != 'Paused'`
+      );
+      
+      const recordEmpIds = new Set(records.map(r => r.employeeId));
+      
+      activeEmps.forEach(emp => {
+        if (!recordEmpIds.has(emp.id)) {
+          const isMatchSearch = !search || emp.name.toLowerCase().includes(search.toLowerCase()) || emp.id.toLowerCase().includes(search.toLowerCase());
+          const isMatchStatus = !status || status === 'ALL' || status === 'Absent';
+          const isMatchEmp = !employeeId || employeeId === emp.id;
+          
+          if (isMatchSearch && isMatchStatus && isMatchEmp) {
+            records.push({
+              id: `virtual_${emp.id}_${date}`,
+              employeeId: emp.id,
+              employeeName: emp.name,
+              date: date,
+              punchInTime: null,
+              punchOutTime: null,
+              status: 'Absent',
+              totalWorkMinutes: 0,
+              totalBreakMinutes: 0,
+              netWorkMinutes: 0,
+              remarks: 'Did not punch in',
+            });
+          }
+        }
+      });
+    }
+
     // Summary calculation
     const totalRecords = records.length;
     let totalNetMinutes = 0;

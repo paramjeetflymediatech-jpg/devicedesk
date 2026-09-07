@@ -633,6 +633,7 @@ export default function AttendanceTab({ user }) {
               >
                 <option value="ALL">All Statuses</option>
                 <option value="Present">Present</option>
+                <option value="Absent">Absent</option>
                 <option value="Late">Late</option>
                 <option value="Half Day">Half Day</option>
                 <option value="Completed">Completed</option>
@@ -802,15 +803,15 @@ export default function AttendanceTab({ user }) {
                             fontWeight: "700",
                             background: 
                               r.status === "Late" ? "rgba(245, 158, 11, 0.15)" :
-                              r.status === "Half Day" ? "rgba(239, 68, 68, 0.15)" :
+                              (r.status === "Half Day" || r.status === "Absent") ? "rgba(239, 68, 68, 0.15)" :
                               r.status === "Overtime" ? "rgba(139, 92, 246, 0.15)" : "rgba(16, 185, 129, 0.15)",
                             color:
                               r.status === "Late" ? "#f59e0b" :
-                              r.status === "Half Day" ? "var(--status-critical)" :
+                              (r.status === "Half Day" || r.status === "Absent") ? "var(--status-critical)" :
                               r.status === "Overtime" ? "var(--accent-purple)" : "var(--status-resolved)",
                             border:
                               r.status === "Late" ? "1px solid rgba(245, 158, 11, 0.3)" :
-                              r.status === "Half Day" ? "1px solid rgba(239, 68, 68, 0.3)" :
+                              (r.status === "Half Day" || r.status === "Absent") ? "1px solid rgba(239, 68, 68, 0.3)" :
                               r.status === "Overtime" ? "1px solid rgba(139, 92, 246, 0.3)" : "1px solid rgba(16, 185, 129, 0.3)"
                           }}
                         >
@@ -1051,6 +1052,7 @@ export default function AttendanceTab({ user }) {
                     }}
                   >
                     <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
                     <option value="Late">Late</option>
                     <option value="Half Day">Half Day</option>
                     <option value="Completed">Completed</option>

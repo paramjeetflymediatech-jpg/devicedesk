@@ -57,7 +57,7 @@ export default function AttendanceLogs({ user }) {
   // Calendar Modal State
   const [showCalendarModal, setShowCalendarModal] = useState(false);
 
-  const statuses = ['ALL', 'Present', 'Late', 'Half Day', 'Completed', 'Overtime', 'Auto Closed'];
+  const statuses = ['ALL', 'Present', 'Absent', 'Late', 'Half Day', 'Completed', 'Overtime', 'Auto Closed'];
 
   const getLogs = async () => {
     setLoading(true);
@@ -114,6 +114,7 @@ export default function AttendanceLogs({ user }) {
       case 'Late':
         return { bg: '#fffbeb', text: '#d97706', border: '#fde68a' };
       case 'Half Day':
+      case 'Absent':
         return { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5' };
       case 'Auto Closed':
         return { bg: '#f1f5f9', text: '#64748b', border: '#cbd5e1' };
