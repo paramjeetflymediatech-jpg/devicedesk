@@ -12,6 +12,7 @@ import {
   Switch,
   BackHandler,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
@@ -27,6 +28,7 @@ import {
 } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { playTicketSound } from '../../utils/sound';
+import { applyLeaveRequest, fetchEmployeeLeaves } from '../../utils/api';
 import EmployeeTasks from './EmployeeTasks';
 import ChatScreen from '../ChatScreen';
 import AttendanceWidget from '../../components/AttendanceWidget';
@@ -101,36 +103,36 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
   // Apply Leave State
   const [selectedLeaveDetails, setSelectedLeaveDetails] = useState(null);
-  const [leaveRequests, setLeaveRequests] = useState([
-    {
-      id: 'LV-101',
-      leaveType: 'Casual Leave',
-      fromDate: '2026-08-10',
-      toDate: '2026-08-12',
-      totalDays: 3,
-      reason: 'Family event and personal travel',
-      status: 'Approved',
-      appliedOn: '2026-08-01',
-      managerNotes: 'Approved by Line Manager. Work coverage assigned to Operations Team.',
-    },
-    {
-      id: 'LV-102',
-      leaveType: 'Sick Leave',
-      fromDate: '2026-07-15',
-      toDate: '2026-07-15',
-      totalDays: 1,
-      reason: 'Fever & viral infection recovery',
-      status: 'Approved',
-      appliedOn: '2026-07-15',
-      managerNotes: 'Medical leave approved. Hope you feel better soon!',
-    }
-  ]);
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [loadingLeaves, setLoadingLeaves] = useState(false);
+  const [submittingLeave, setSubmittingLeave] = useState(false);
   const [leaveType, setLeaveType] = useState('Casual Leave');
   const [leaveFromDate, setLeaveFromDate] = useState('');
   const [leaveToDate, setLeaveToDate] = useState('');
   const [leaveReason, setLeaveReason] = useState('');
 
-  const handleApplyLeave = () => {
+  const fetchLeaves = async () => {
+    if (!user?.id) return;
+    setLoadingLeaves(true);
+    try {
+      const data = await fetchEmployeeLeaves(user.id);
+      if (data && data.success) {
+        setLeaveRequests(data.requests || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch leaves on mobile:', err);
+    } finally {
+      setLoadingLeaves(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'apply-leave' && user?.id) {
+      fetchLeaves();
+    }
+  }, [activeTab, user?.id]);
+
+  const handleApplyLeave = async () => {
     if (!leaveFromDate.trim() || !leaveToDate.trim()) {
       sweetAlert({ title: 'Missing Dates', text: 'Please enter both From Date and To Date.', type: 'error' });
       return;
@@ -140,39 +142,44 @@ export default function EmployeeDashboard({ user, onLogout }) {
       return;
     }
 
-    let calculatedDays = 1;
+    setSubmittingLeave(true);
     try {
-      const d1 = new Date(leaveFromDate.trim());
-      const d2 = new Date(leaveToDate.trim());
-      if (!isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d2 >= d1) {
-        const diffTime = Math.abs(d2 - d1);
-        calculatedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      const res = await applyLeaveRequest({
+        employeeId: user.id,
+        employeeName: user.name || 'Employee',
+        leaveType,
+        fromDate: leaveFromDate.trim(),
+        toDate: leaveToDate.trim(),
+        reason: leaveReason.trim(),
+      });
+
+      if (res && res.success) {
+        setLeaveFromDate('');
+        setLeaveToDate('');
+        setLeaveReason('');
+        await fetchLeaves();
+
+        sweetAlert({
+          title: 'Leave Applied! 🌴',
+          text: 'Your leave request has been submitted to your manager for approval.',
+          type: 'success',
+        });
+      } else {
+        sweetAlert({
+          title: 'Leave Application Failed',
+          text: res?.message || 'Could not submit leave request.',
+          type: 'error',
+        });
       }
-    } catch (e) {
-      calculatedDays = 1;
+    } catch (err) {
+      sweetAlert({
+        title: 'Network Error',
+        text: 'Failed to connect to the server to submit leave. Please check your network connection.',
+        type: 'error',
+      });
+    } finally {
+      setSubmittingLeave(false);
     }
-
-    const newLeave = {
-      id: `LV-${Math.floor(100 + Math.random() * 900)}`,
-      leaveType,
-      fromDate: leaveFromDate.trim(),
-      toDate: leaveToDate.trim(),
-      totalDays: calculatedDays,
-      reason: leaveReason.trim(),
-      status: 'Pending Approval',
-      appliedOn: new Date().toISOString().split('T')[0],
-    };
-
-    setLeaveRequests([newLeave, ...leaveRequests]);
-    setLeaveFromDate('');
-    setLeaveToDate('');
-    setLeaveReason('');
-
-    sweetAlert({
-      title: 'Leave Applied! 🌴',
-      text: 'Your leave request has been submitted to your manager for approval.',
-      type: 'success',
-    });
   };
 
   // Search/Filters & Pagination
@@ -365,56 +372,75 @@ export default function EmployeeDashboard({ user, onLogout }) {
               />
 
               <TouchableOpacity
-                style={[styles.submitBtn, { backgroundColor: '#2563eb', marginTop: 14 }]}
+                style={[styles.submitBtn, { backgroundColor: '#2563eb', marginTop: 14, opacity: submittingLeave ? 0.7 : 1 }]}
                 onPress={handleApplyLeave}
+                disabled={submittingLeave}
               >
-                <Text style={styles.submitBtnText}>Submit Leave Application 🌴</Text>
+                {submittingLeave ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Submit Leave Application 🌴</Text>
+                )}
               </TouchableOpacity>
             </View>
 
             {/* Past Applied Leaves History */}
             <Text style={[styles.subTitle, { color: themeColors.textPrimary, marginTop: 12 }]}>My Leave Requests ({leaveRequests.length})</Text>
-            {leaveRequests.map(req => (
-              <View key={req.id} style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border, marginBottom: 10 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: themeColors.textPrimary }}>{req.leaveType}</Text>
-                  <View style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    borderRadius: 12,
-                    backgroundColor: req.status === 'Approved' ? '#dcfce7' : req.status === 'Rejected' ? '#fee2e2' : '#fef3c7',
-                  }}>
-                    <Text style={{
-                      fontSize: 11,
-                      fontWeight: '800',
-                      color: req.status === 'Approved' ? '#166534' : req.status === 'Rejected' ? '#991b1b' : '#92400e',
-                    }}>
-                      {req.status === 'Approved' ? 'Approved ✅' : req.status === 'Rejected' ? 'Rejected ❌' : 'Pending ⏳'}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={{ fontSize: 13, color: '#2563eb', fontWeight: '700', marginTop: 4 }}>
-                  📅 {req.fromDate} to {req.toDate} ({req.totalDays} Day{req.totalDays > 1 ? 's' : ''})
-                </Text>
-                <Text style={{ fontSize: 12, color: themeColors.textSecondary, marginTop: 4 }} numberOfLines={2}>{req.reason}</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                  <Text style={{ fontSize: 10, color: themeColors.textSecondary }}>Applied: {req.appliedOn}</Text>
-                  <TouchableOpacity
-                    style={{
-                      paddingVertical: 5,
-                      paddingHorizontal: 10,
-                      borderRadius: 8,
-                      backgroundColor: isDark ? '#334155' : '#f1f5f9',
-                      borderWidth: 1,
-                      borderColor: themeColors.border,
-                    }}
-                    onPress={() => setSelectedLeaveDetails(req)}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textPrimary }}>👁️ View Details</Text>
-                  </TouchableOpacity>
-                </View>
+            {loadingLeaves ? (
+              <View style={{ padding: 24, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#2563eb" />
+                <Text style={{ color: themeColors.textSecondary, marginTop: 8, fontSize: 12 }}>Loading leave history...</Text>
               </View>
-            ))}
+            ) : leaveRequests.length === 0 ? (
+              <View style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border, padding: 20, alignItems: 'center', marginBottom: 10 }]}>
+                <Text style={{ color: themeColors.textSecondary, fontStyle: 'italic', fontSize: 13 }}>No leave requests found.</Text>
+              </View>
+            ) : (
+              leaveRequests.map(req => {
+                const appliedDateStr = req.appliedAt ? new Date(req.appliedAt).toLocaleDateString() : (req.appliedOn || 'N/A');
+                return (
+                  <View key={req.id} style={[styles.card, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border, marginBottom: 10 }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: themeColors.textPrimary }}>{req.leaveType}</Text>
+                      <View style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 12,
+                        backgroundColor: req.status === 'Approved' ? '#dcfce7' : req.status === 'Rejected' ? '#fee2e2' : '#fef3c7',
+                      }}>
+                        <Text style={{
+                          fontSize: 11,
+                          fontWeight: '800',
+                          color: req.status === 'Approved' ? '#166534' : req.status === 'Rejected' ? '#991b1b' : '#92400e',
+                        }}>
+                          {req.status === 'Approved' ? 'Approved ✅' : req.status === 'Rejected' ? 'Rejected ❌' : 'Pending ⏳'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 13, color: '#2563eb', fontWeight: '700', marginTop: 4 }}>
+                      📅 {req.fromDate} to {req.toDate} ({req.totalDays} Day{req.totalDays > 1 ? 's' : ''})
+                    </Text>
+                    <Text style={{ fontSize: 12, color: themeColors.textSecondary, marginTop: 4 }} numberOfLines={2}>{req.reason}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                      <Text style={{ fontSize: 10, color: themeColors.textSecondary }}>Applied: {appliedDateStr}</Text>
+                      <TouchableOpacity
+                        style={{
+                          paddingVertical: 5,
+                          paddingHorizontal: 10,
+                          borderRadius: 8,
+                          backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                          borderWidth: 1,
+                          borderColor: themeColors.border,
+                        }}
+                        onPress={() => setSelectedLeaveDetails(req)}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textPrimary }}>👁️ View Details</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
           </ScrollView>
         );
 
@@ -1276,7 +1302,7 @@ export default function EmployeeDashboard({ user, onLogout }) {
                     <View style={{ borderRadius: 8, backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderWidth: 1, borderColor: themeColors.border, overflow: 'hidden' }}>
                       <ScrollView style={{ maxHeight: 100, padding: 10 }} nestedScrollEnabled={true} showsVerticalScrollIndicator={true}>
                         <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, fontStyle: 'italic', lineHeight: 17 }}>
-                          {selectedLeaveDetails.managerNotes || 'Submitted to Line Manager for review and approval.'}
+                          {selectedLeaveDetails.rejectionReason || selectedLeaveDetails.managerNotes || (selectedLeaveDetails.status === 'Pending' ? 'Submitted to HR / Manager for review and approval.' : (selectedLeaveDetails.reviewedBy ? `Reviewed by ${selectedLeaveDetails.reviewedBy} on ${selectedLeaveDetails.reviewedAt ? new Date(selectedLeaveDetails.reviewedAt).toLocaleDateString() : ''}` : 'Approved by Management.'))}
                         </Text>
                       </ScrollView>
                     </View>
@@ -1284,7 +1310,9 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
                     <Text style={{ fontSize: 11, color: themeColors.textSecondary }}>Submitted On:</Text>
-                    <Text style={{ fontSize: 11, color: themeColors.textSecondary, fontWeight: '600' }}>{selectedLeaveDetails.appliedOn}</Text>
+                    <Text style={{ fontSize: 11, color: themeColors.textSecondary, fontWeight: '600' }}>
+                      {selectedLeaveDetails.appliedAt ? new Date(selectedLeaveDetails.appliedAt).toLocaleDateString() : (selectedLeaveDetails.appliedOn || 'N/A')}
+                    </Text>
                   </View>
                 </View>
               </ScrollView>

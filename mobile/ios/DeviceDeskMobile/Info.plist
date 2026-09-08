@@ -38,6 +38,16 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app requires location permission to verify your presence at the office when punching in or out.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app requires location permission to verify your presence at the office when punching in or out.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app requires location permission to verify your presence at the office when punching in or out.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app requires access to your photo library to allow you to select and upload photos, profile pictures, and documents.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires access to your camera to allow you to capture photos for attendance, profile pictures, and documents.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app requires access to save photos to your photo library.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

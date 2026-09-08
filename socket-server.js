@@ -66,13 +66,25 @@ async function triggerAutoClose() {
 // Trigger Attendance Check Email via the Next.js API
 async function triggerAttendanceCheck(period) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const secret = process.env.SOCKET_INTERNAL_SECRET || 'devicedesk_socket_secret_2026';
+  const body = JSON.stringify({ period, secret });
+
   const url = new URL(`/api/attendance/check-full-attendance?period=${period}`, appUrl);
   const lib = url.protocol === 'https:' ? https : http;
 
   console.log(`[Cron] Triggering ${period} Attendance Check...`);
   return new Promise((resolve) => {
     const req = lib.request(
-      { hostname: url.hostname, port: url.port || (url.protocol === 'https:' ? 443 : 80), path: url.pathname, method: 'GET' },
+      {
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: `${url.pathname}${url.search}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body)
+        }
+      },
       (res) => { 
         let data = '';
         res.on('data', chunk => data += chunk);
@@ -83,6 +95,7 @@ async function triggerAttendanceCheck(period) {
       }
     );
     req.on('error', (err) => { console.error(`[Cron] triggerAttendanceCheck (${period}) error:`, err.message); resolve(); });
+    req.write(body);
     req.end();
   });
 }

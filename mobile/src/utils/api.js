@@ -233,3 +233,49 @@ export async function postAttendancePunch(employeeId, employeeName, action, brea
     throw err;
   }
 }
+
+export async function applyLeaveRequest({ employeeId, employeeName, leaveType, fromDate, toDate, reason }) {
+  const url = `${currentApiUrl}/api/leave/apply`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        employeeId,
+        employeeName,
+        leaveType,
+        fromDate,
+        toDate,
+        reason,
+      }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    console.error(`Apply leave request failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchEmployeeLeaves(employeeId, status = 'ALL') {
+  const url = `${currentApiUrl}/api/leave/list?employeeId=${encodeURIComponent(employeeId)}&status=${encodeURIComponent(status)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP Error ${response.status}`);
+    }
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    console.error(`Fetch employee leaves failed at ${url}:`, err);
+    throw err;
+  }
+}
