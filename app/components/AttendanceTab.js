@@ -128,7 +128,7 @@ export default function AttendanceTab({ user }) {
 
   useEffect(() => {
     requestAnimationFrame(() => fetchLogs());
-  }, [selectedMonth, selectedDate, selectedWeekDate, selectedYear, fromDate, toDate, filterType, statusFilter, searchEmployee, user?.id, isAdmin]);
+  }, [selectedMonth, selectedDate, selectedWeekDate, selectedYear, fromDate, toDate, filterType, searchEmployee, user?.id, isAdmin]);
 
   const handleRegularizeSubmit = async (e) => {
     e.preventDefault();
@@ -224,50 +224,23 @@ export default function AttendanceTab({ user }) {
     document.body.removeChild(link);
   };
 
-  const filteredRecords = records.filter(r => {
-    // 1. Status Filter check
-    if (statusFilter && statusFilter !== "ALL") {
-      const st = (r.status || "").toLowerCase().trim();
-      const rem = (r.remarks || "").toLowerCase();
-      let isLate = st.includes('late') || rem.includes('late');
-      
-      if (!isLate && r.punchInTime) {
-        try {
-          const pDate = new Date(r.punchInTime);
-          if (pDate.getHours() * 60 + pDate.getMinutes() > 580) {
-            isLate = true;
-          }
-        } catch(e) {}
-      }
-
-      const isPresent = isLate || st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || st === 'auto closed';
-      const isHalfDay = st.includes('half');
-      
-      const sf = statusFilter.toLowerCase();
-      if (sf === "present" && !isPresent) return false;
-      if (sf === "late" && !isLate) return false;
-      if (sf === "half day" && !isHalfDay) return false;
-      if (sf === "completed" && st !== 'completed') return false;
-      if (sf === "overtime" && st !== 'overtime') return false;
-      if (sf === "auto closed" && st !== 'auto closed') return false;
-      if (sf === "absent" && st !== 'absent') return false;
-    }
-
-    // 2. Month Filter check (client fallback)
+  // Base records matching period & search (independent of statusFilter)
+  const baseRecords = records.filter(r => {
+    // 1. Month Filter check (client fallback)
     if (filterType === "monthly" && selectedMonth) {
       if (r.date && !r.date.startsWith(selectedMonth)) {
         return false;
       }
     }
 
-    // 3. Daily Filter check (client fallback)
+    // 2. Daily Filter check (client fallback)
     if (filterType === "daily" && selectedDate) {
       if (r.date !== selectedDate) {
         return false;
       }
     }
 
-    // 4. Weekly Filter check (client fallback)
+    // 3. Weekly Filter check (client fallback)
     if (filterType === "weekly" && selectedWeekDate) {
       const { startDate, endDate } = getWeekRange(selectedWeekDate);
       if (r.date < startDate || r.date > endDate) {
@@ -275,21 +248,21 @@ export default function AttendanceTab({ user }) {
       }
     }
 
-    // 5. Yearly Filter check (client fallback)
+    // 4. Yearly Filter check (client fallback)
     if (filterType === "yearly" && selectedYear) {
       if (r.date && !r.date.startsWith(selectedYear)) {
         return false;
       }
     }
 
-    // 6. Custom Filter check (client fallback)
+    // 5. Custom Filter check (client fallback)
     if (filterType === "custom" && fromDate && toDate) {
       if (r.date < fromDate || r.date > toDate) {
         return false;
       }
     }
 
-    // 7. Employee & Search Filter check
+    // 6. Employee & Search Filter check
     if (searchEmployee.trim()) {
       const term = searchEmployee.trim().toLowerCase();
       const nameMatch = r.employeeName && r.employeeName.toLowerCase().includes(term);
@@ -307,6 +280,7 @@ export default function AttendanceTab({ user }) {
     return true;
   });
 
+  // Calculate summary stats from baseRecords so all card counts stay accurate regardless of current active status filter
   const summaryStats = React.useMemo(() => {
     let totalNetMinutes = 0;
     let presentCount = 0;
@@ -314,7 +288,7 @@ export default function AttendanceTab({ user }) {
     let halfDayCount = 0;
     let absentCount = 0;
 
-    filteredRecords.forEach(r => {
+    baseRecords.forEach(r => {
       totalNetMinutes += (r.netWorkMinutes || 0);
       const st = (r.status || '').toLowerCase().trim();
       const rem = (r.remarks || '').toLowerCase();
@@ -344,7 +318,7 @@ export default function AttendanceTab({ user }) {
       }
     });
 
-    if (summary && filteredRecords.length === records.length) {
+    if (summary && baseRecords.length === records.length) {
       presentCount = Math.max(presentCount, summary.presentCount || 0);
       lateCount = Math.max(lateCount, summary.lateCount || 0);
       if (summary.absentCount !== undefined) {
@@ -356,14 +330,55 @@ export default function AttendanceTab({ user }) {
     }
 
     return {
-      totalRecords: filteredRecords.length,
+      totalRecords: baseRecords.length,
       presentCount,
       lateCount,
       halfDayCount,
       absentCount,
       totalNetMinutes
     };
-  }, [filteredRecords, summary, records.length]);
+  }, [baseRecords, summary, records.length]);
+
+  // Filter baseRecords by statusFilter for table display
+  const filteredRecords = baseRecords.filter(r => {
+    if (statusFilter && statusFilter !== "ALL") {
+      const st = (r.status || "").toLowerCase().trim();
+      const rem = (r.remarks || "").toLowerCase();
+      let isLate = st.includes('late') || rem.includes('late');
+      
+      if (!isLate && r.punchInTime) {
+        try {
+          const pDate = new Date(r.punchInTime);
+          if (pDate.getHours() * 60 + pDate.getMinutes() > 580) {
+            isLate = true;
+          }
+        } catch(e) {}
+      }
+
+      const isPresent = isLate || st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || st === 'auto closed';
+      const isHalfDay = st.includes('half');
+      
+      const sf = statusFilter.toLowerCase();
+      if (sf === "present" && !isPresent) return false;
+      if (sf === "late" && !isLate) return false;
+      if (sf === "half day" && !isHalfDay) return false;
+      if (sf === "completed" && st !== 'completed') return false;
+      if (sf === "overtime" && st !== 'overtime') return false;
+      if (sf === "auto closed" && st !== 'auto closed') return false;
+      if (sf === "absent" && st !== 'absent') return false;
+    }
+
+    return true;
+  });
+
+  const handleCardClick = (targetStatus) => {
+    if (statusFilter === targetStatus && targetStatus !== "ALL") {
+      setStatusFilter("ALL");
+    } else {
+      setStatusFilter(targetStatus);
+    }
+    setCurrentPage(1);
+  };
 
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -388,68 +403,279 @@ export default function AttendanceTab({ user }) {
       {/* Employee Punch In/Out Widget (Only for non-Admin team members) */}
       {!isAdmin && <AttendanceWidget user={user} onStatusChange={() => fetchLogs()} />}
 
-      {/* Analytics Summary Cards */}
+      {/* Analytics Summary Cards (Clickable filters) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
+        {/* Total Logged */}
         <div
+          role="button"
+          tabIndex={0}
+          onClick={() => handleCardClick("ALL")}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick("ALL"); }}
           style={{
-            background: "var(--bg-secondary)",
+            background: statusFilter === "ALL" 
+              ? "linear-gradient(135deg, rgba(0, 240, 255, 0.12), rgba(0, 0, 0, 0.4))" 
+              : "var(--bg-secondary)",
             backdropFilter: "blur(20px)",
-            border: "1px solid var(--glass-border)",
+            border: statusFilter === "ALL" 
+              ? "1.5px solid var(--accent-cyan)" 
+              : "1px solid var(--glass-border)",
+            boxShadow: statusFilter === "ALL" 
+              ? "0 4px 20px rgba(0, 240, 255, 0.2)" 
+              : "0 2px 8px rgba(0, 0, 0, 0.1)",
             borderRadius: "14px",
             padding: "1.25rem",
-            }}
+            cursor: "pointer",
+            transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+            position: "relative",
+            userSelect: "none"
+          }}
+          onMouseEnter={(e) => {
+            if (statusFilter !== "ALL") {
+              e.currentTarget.style.borderColor = "var(--accent-cyan)";
+              e.currentTarget.style.transform = "translateY(-2px)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (statusFilter !== "ALL") {
+              e.currentTarget.style.borderColor = "var(--glass-border)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }
+          }}
+          title="Click to show all employee records"
         >
-          <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>Total Logged</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>Total Logged</div>
+            {statusFilter === "ALL" && (
+              <span style={{ fontSize: "0.68rem", fontWeight: "700", color: "#fff", background: "var(--accent-cyan)", padding: "2px 8px", borderRadius: "10px" }}>
+                Active
+              </span>
+            )}
+          </div>
           <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--accent-cyan)", marginTop: "4px" }}>
             {summaryStats.totalRecords}
           </div>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+            {statusFilter === "ALL" ? "✓ Viewing all employees" : "👆 Click to view all"}
+          </div>
         </div>
 
+        {/* Present Days */}
         <div
+          role="button"
+          tabIndex={0}
+          onClick={() => handleCardClick("Present")}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick("Present"); }}
           style={{
-            background: "var(--bg-secondary)",
+            background: statusFilter === "Present" 
+              ? "linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(0, 0, 0, 0.4))" 
+              : "var(--bg-secondary)",
             backdropFilter: "blur(20px)",
-            border: "1px solid var(--glass-border)",
+            border: statusFilter === "Present" 
+              ? "1.5px solid var(--status-resolved)" 
+              : "1px solid var(--glass-border)",
+            boxShadow: statusFilter === "Present" 
+              ? "0 4px 20px rgba(16, 185, 129, 0.25)" 
+              : "0 2px 8px rgba(0, 0, 0, 0.1)",
             borderRadius: "14px",
             padding: "1.25rem",
-            }}
+            cursor: "pointer",
+            transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+            position: "relative",
+            userSelect: "none"
+          }}
+          onMouseEnter={(e) => {
+            if (statusFilter !== "Present") {
+              e.currentTarget.style.borderColor = "var(--status-resolved)";
+              e.currentTarget.style.transform = "translateY(-2px)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (statusFilter !== "Present") {
+              e.currentTarget.style.borderColor = "var(--glass-border)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }
+          }}
+          title="Click to view list of present employees"
         >
-          <div style={{ fontSize: "0.8rem", color: "var(--status-resolved)", fontWeight: "600" }}>Present Days</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--status-resolved)", fontWeight: "600" }}>Present Days</div>
+            {statusFilter === "Present" && (
+              <span style={{ fontSize: "0.68rem", fontWeight: "700", color: "#fff", background: "var(--status-resolved)", padding: "2px 8px", borderRadius: "10px" }}>
+                Active
+              </span>
+            )}
+          </div>
           <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--status-resolved)", marginTop: "4px" }}>
             {summaryStats.presentCount}
           </div>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+            {statusFilter === "Present" ? "✓ Viewing present list" : "👆 Click to view list"}
+          </div>
         </div>
 
+        {/* Late Days */}
         <div
+          role="button"
+          tabIndex={0}
+          onClick={() => handleCardClick("Late")}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick("Late"); }}
           style={{
-            background: "var(--bg-secondary)",
+            background: statusFilter === "Late" 
+              ? "linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(0, 0, 0, 0.4))" 
+              : "var(--bg-secondary)",
             backdropFilter: "blur(20px)",
-            border: "1px solid var(--glass-border)",
+            border: statusFilter === "Late" 
+              ? "1.5px solid #f59e0b" 
+              : "1px solid var(--glass-border)",
+            boxShadow: statusFilter === "Late" 
+              ? "0 4px 20px rgba(245, 158, 11, 0.25)" 
+              : "0 2px 8px rgba(0, 0, 0, 0.1)",
             borderRadius: "14px",
             padding: "1.25rem",
-            }}
+            cursor: "pointer",
+            transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+            position: "relative",
+            userSelect: "none"
+          }}
+          onMouseEnter={(e) => {
+            if (statusFilter !== "Late") {
+              e.currentTarget.style.borderColor = "#f59e0b";
+              e.currentTarget.style.transform = "translateY(-2px)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (statusFilter !== "Late") {
+              e.currentTarget.style.borderColor = "var(--glass-border)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }
+          }}
+          title="Click to view list of late employees"
         >
-          <div style={{ fontSize: "0.8rem", color: "#f59e0b", fontWeight: "600" }}>Late Days</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: "0.8rem", color: "#f59e0b", fontWeight: "600" }}>Late Days</div>
+            {statusFilter === "Late" && (
+              <span style={{ fontSize: "0.68rem", fontWeight: "700", color: "#fff", background: "#f59e0b", padding: "2px 8px", borderRadius: "10px" }}>
+                Active
+              </span>
+            )}
+          </div>
           <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "#f59e0b", marginTop: "4px" }}>
             {summaryStats.lateCount}
           </div>
-        </div>
-
-        <div
-          style={{
-            background: "var(--bg-secondary)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid var(--glass-border)",
-            borderRadius: "14px",
-            padding: "1.25rem",
-            }}
-        >
-          <div style={{ fontSize: "0.8rem", color: "var(--status-critical, #ef4444)", fontWeight: "600" }}>Absent / Pending</div>
-          <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--status-critical, #ef4444)", marginTop: "4px" }}>
-            {summaryStats.absentCount}
+          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+            {statusFilter === "Late" ? "✓ Viewing late list" : "👆 Click to view list"}
           </div>
         </div>
 
+        {/* Half Day */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => handleCardClick("Half Day")}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick("Half Day"); }}
+          style={{
+            background: statusFilter === "Half Day" 
+              ? "linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(0, 0, 0, 0.4))" 
+              : "var(--bg-secondary)",
+            backdropFilter: "blur(20px)",
+            border: statusFilter === "Half Day" 
+              ? "1.5px solid #ec4899" 
+              : "1px solid var(--glass-border)",
+            boxShadow: statusFilter === "Half Day" 
+              ? "0 4px 20px rgba(236, 72, 153, 0.25)" 
+              : "0 2px 8px rgba(0, 0, 0, 0.1)",
+            borderRadius: "14px",
+            padding: "1.25rem",
+            cursor: "pointer",
+            transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+            position: "relative",
+            userSelect: "none"
+          }}
+          onMouseEnter={(e) => {
+            if (statusFilter !== "Half Day") {
+              e.currentTarget.style.borderColor = "#ec4899";
+              e.currentTarget.style.transform = "translateY(-2px)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (statusFilter !== "Half Day") {
+              e.currentTarget.style.borderColor = "var(--glass-border)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }
+          }}
+          title="Click to view list of half day employees"
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: "0.8rem", color: "#ec4899", fontWeight: "600" }}>Half Day</div>
+            {statusFilter === "Half Day" && (
+              <span style={{ fontSize: "0.68rem", fontWeight: "700", color: "#fff", background: "#ec4899", padding: "2px 8px", borderRadius: "10px" }}>
+                Active
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "#ec4899", marginTop: "4px" }}>
+            {summaryStats.halfDayCount}
+          </div>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+            {statusFilter === "Half Day" ? "✓ Viewing half day list" : "👆 Click to view list"}
+          </div>
+        </div>
+
+        {/* Absent / Pending */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => handleCardClick("Absent")}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick("Absent"); }}
+          style={{
+            background: statusFilter === "Absent" 
+              ? "linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(0, 0, 0, 0.4))" 
+              : "var(--bg-secondary)",
+            backdropFilter: "blur(20px)",
+            border: statusFilter === "Absent" 
+              ? "1.5px solid var(--status-critical, #ef4444)" 
+              : "1px solid var(--glass-border)",
+            boxShadow: statusFilter === "Absent" 
+              ? "0 4px 20px rgba(239, 68, 68, 0.25)" 
+              : "0 2px 8px rgba(0, 0, 0, 0.1)",
+            borderRadius: "14px",
+            padding: "1.25rem",
+            cursor: "pointer",
+            transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+            position: "relative",
+            userSelect: "none"
+          }}
+          onMouseEnter={(e) => {
+            if (statusFilter !== "Absent") {
+              e.currentTarget.style.borderColor = "var(--status-critical, #ef4444)";
+              e.currentTarget.style.transform = "translateY(-2px)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (statusFilter !== "Absent") {
+              e.currentTarget.style.borderColor = "var(--glass-border)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }
+          }}
+          title="Click to view list of absent/pending employees"
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--status-critical, #ef4444)", fontWeight: "600" }}>Absent / Pending</div>
+            {statusFilter === "Absent" && (
+              <span style={{ fontSize: "0.68rem", fontWeight: "700", color: "#fff", background: "var(--status-critical, #ef4444)", padding: "2px 8px", borderRadius: "10px" }}>
+                Active
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--status-critical, #ef4444)", marginTop: "4px" }}>
+            {summaryStats.absentCount}
+          </div>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+            {statusFilter === "Absent" ? "✓ Viewing absent list" : "👆 Click to view list"}
+          </div>
+        </div>
+
+        {/* Total Work Hours */}
         <div
           style={{
             background: "var(--bg-secondary)",
@@ -457,12 +683,16 @@ export default function AttendanceTab({ user }) {
             border: "1px solid var(--glass-border)",
             borderRadius: "14px",
             padding: "1.25rem",
-            }}
+            userSelect: "none"
+          }}
         >
           <div style={{ fontSize: "0.8rem", color: "var(--accent-purple)", fontWeight: "600" }}>Total Work Hours</div>
           <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--accent-purple)", marginTop: "4px", lineHeight: 1 }}>
             {Math.floor(summaryStats.totalNetMinutes / 60)}<span style={{ fontSize: "1rem", fontWeight: "600" }}>h </span>
             {summaryStats.totalNetMinutes % 60}<span style={{ fontSize: "1rem", fontWeight: "600" }}>m</span>
+          </div>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "6px" }}>
+            Cumulative duration
           </div>
         </div>
       </div>
@@ -685,7 +915,10 @@ export default function AttendanceTab({ user }) {
               </label>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
                 style={{
                   padding: "8px 12px",
                   borderRadius: "8px",
