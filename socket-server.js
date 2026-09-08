@@ -63,6 +63,30 @@ async function triggerAutoClose() {
   });
 }
 
+// Trigger Attendance Check Email via the Next.js API
+async function triggerAttendanceCheck(period) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const url = new URL(`/api/attendance/check-full-attendance?period=${period}`, appUrl);
+  const lib = url.protocol === 'https:' ? https : http;
+
+  console.log(`[Cron] Triggering ${period} Attendance Check...`);
+  return new Promise((resolve) => {
+    const req = lib.request(
+      { hostname: url.hostname, port: url.port || (url.protocol === 'https:' ? 443 : 80), path: url.pathname, method: 'GET' },
+      (res) => { 
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          console.log(`[Cron] ${period} Attendance API Response: ${data}`);
+          resolve();
+        });
+      }
+    );
+    req.on('error', (err) => { console.error(`[Cron] triggerAttendanceCheck (${period}) error:`, err.message); resolve(); });
+    req.end();
+  });
+}
+
 // Persist lastSeen to the database via the Next.js presence API
 async function persistLastSeen(userId, isoTimestamp) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -203,6 +227,24 @@ server.listen(PORT, () => {
 cron.schedule('0 21 * * *', () => {
   console.log(`[Cron] Executing daily 9:00 PM IST Auto Punch-Out script...`);
   triggerAutoClose();
+}, {
+  scheduled: true,
+  timezone: "Asia/Kolkata"
+});
+
+// Start the Cron Job for Morning Attendance Check (11:00 AM IST daily)
+cron.schedule('0 11 * * *', () => {
+  console.log(`[Cron] Executing daily 11:00 AM IST Morning Attendance Check...`);
+  triggerAttendanceCheck('Morning');
+}, {
+  scheduled: true,
+  timezone: "Asia/Kolkata"
+});
+
+// Start the Cron Job for Afternoon Attendance Check (3:00 PM IST daily)
+cron.schedule('0 15 * * *', () => {
+  console.log(`[Cron] Executing daily 3:00 PM IST Afternoon Attendance Check...`);
+  triggerAttendanceCheck('Afternoon');
 }, {
   scheduled: true,
   timezone: "Asia/Kolkata"

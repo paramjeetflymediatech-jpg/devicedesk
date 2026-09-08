@@ -249,7 +249,7 @@ export default function AttendanceTab({ user }) {
       if (sf === "half day" && !isHalfDay) return false;
       if (sf === "completed" && st !== 'completed') return false;
       if (sf === "overtime" && st !== 'overtime') return false;
-      if (sf === "absent") return false; // Absent handled elsewhere or has no records
+      if (sf === "absent" && st !== 'absent') return false;
     }
 
     // 2. Month Filter check (client fallback)
