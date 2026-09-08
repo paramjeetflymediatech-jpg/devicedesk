@@ -178,8 +178,15 @@ export async function fetchAttendanceStatus(employeeId) {
   }
 }
 
-export async function fetchAttendanceRecords(employeeId, month, status = 'ALL') {
-  let url = `${currentApiUrl}/api/attendance/list?month=${month}&status=${status}`;
+export async function fetchAttendanceRecords(employeeId, month, status = 'ALL', date = null, startDate = null, endDate = null) {
+  let url = `${currentApiUrl}/api/attendance/list?status=${encodeURIComponent(status)}`;
+  if (date) {
+    url += `&date=${encodeURIComponent(date)}`;
+  } else if (startDate && endDate) {
+    url += `&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+  } else if (month) {
+    url += `&month=${encodeURIComponent(month)}`;
+  }
   if (employeeId) {
     url += `&employeeId=${encodeURIComponent(employeeId)}`;
   }

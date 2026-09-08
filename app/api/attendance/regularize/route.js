@@ -38,7 +38,9 @@ export async function POST(request) {
       netWorkMins = totalWorkMins;
     }
 
-    if (recordId) {
+    const isRealRecordId = recordId && !recordId.startsWith('virtual_');
+
+    if (isRealRecordId) {
       // Update existing record
       await connection.execute(
         `UPDATE attendance_records SET 
@@ -66,12 +68,21 @@ export async function POST(request) {
         ]
       );
     } else {
-      // Create new regularized record
+      // Create new regularized record or update if already present for (employeeId, date)
       const newRecordId = `att_reg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       await connection.execute(
         `INSERT INTO attendance_records 
          (id, employeeId, employeeName, date, punchInTime, punchOutTime, status, totalWorkMinutes, netWorkMinutes, remarks, modifiedBy, modifiedReason, breakStatus)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           punchInTime = VALUES(punchInTime),
+           punchOutTime = VALUES(punchOutTime),
+           status = VALUES(status),
+           totalWorkMinutes = VALUES(totalWorkMinutes),
+           netWorkMinutes = VALUES(netWorkMinutes),
+           remarks = VALUES(remarks),
+           modifiedBy = VALUES(modifiedBy),
+           modifiedReason = VALUES(modifiedReason)`,
         [
           newRecordId,
           employeeId,

@@ -240,7 +240,7 @@ export default function AttendanceTab({ user }) {
         } catch(e) {}
       }
 
-      const isPresent = isLate || st === 'present' || st === 'completed' || st === 'overtime' || st === 'active';
+      const isPresent = isLate || st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || st === 'auto closed';
       const isHalfDay = st.includes('half');
       
       const sf = statusFilter.toLowerCase();
@@ -249,6 +249,7 @@ export default function AttendanceTab({ user }) {
       if (sf === "half day" && !isHalfDay) return false;
       if (sf === "completed" && st !== 'completed') return false;
       if (sf === "overtime" && st !== 'overtime') return false;
+      if (sf === "auto closed" && st !== 'auto closed') return false;
       if (sf === "absent" && st !== 'absent') return false;
     }
 
@@ -311,6 +312,7 @@ export default function AttendanceTab({ user }) {
     let presentCount = 0;
     let lateCount = 0;
     let halfDayCount = 0;
+    let absentCount = 0;
 
     filteredRecords.forEach(r => {
       totalNetMinutes += (r.netWorkMinutes || 0);
@@ -333,16 +335,21 @@ export default function AttendanceTab({ user }) {
       if (isLate) {
         lateCount++;
         presentCount++;
-      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active') {
+      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || st === 'auto closed') {
         presentCount++;
       } else if (st.includes('half')) {
         halfDayCount++;
+      } else if (st === 'absent') {
+        absentCount++;
       }
     });
 
     if (summary && filteredRecords.length === records.length) {
       presentCount = Math.max(presentCount, summary.presentCount || 0);
       lateCount = Math.max(lateCount, summary.lateCount || 0);
+      if (summary.absentCount !== undefined) {
+        absentCount = summary.absentCount;
+      }
       if (summary.totalNetMinutes && summary.totalNetMinutes > totalNetMinutes) {
         totalNetMinutes = summary.totalNetMinutes;
       }
@@ -353,6 +360,7 @@ export default function AttendanceTab({ user }) {
       presentCount,
       lateCount,
       halfDayCount,
+      absentCount,
       totalNetMinutes
     };
   }, [filteredRecords, summary, records.length]);
@@ -381,7 +389,7 @@ export default function AttendanceTab({ user }) {
       {!isAdmin && <AttendanceWidget user={user} onStatusChange={() => fetchLogs()} />}
 
       {/* Analytics Summary Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
         <div
           style={{
             background: "var(--bg-secondary)",
@@ -391,7 +399,7 @@ export default function AttendanceTab({ user }) {
             padding: "1.25rem",
             }}
         >
-          <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>Days Logged</div>
+          <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>Total Logged</div>
           <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--accent-cyan)", marginTop: "4px" }}>
             {summaryStats.totalRecords}
           </div>
@@ -424,6 +432,21 @@ export default function AttendanceTab({ user }) {
           <div style={{ fontSize: "0.8rem", color: "#f59e0b", fontWeight: "600" }}>Late Days</div>
           <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "#f59e0b", marginTop: "4px" }}>
             {summaryStats.lateCount}
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: "var(--bg-secondary)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: "14px",
+            padding: "1.25rem",
+            }}
+        >
+          <div style={{ fontSize: "0.8rem", color: "var(--status-critical, #ef4444)", fontWeight: "600" }}>Absent / Pending</div>
+          <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "var(--status-critical, #ef4444)", marginTop: "4px" }}>
+            {summaryStats.absentCount}
           </div>
         </div>
 
@@ -680,6 +703,7 @@ export default function AttendanceTab({ user }) {
                 <option value="Half Day">Half Day</option>
                 <option value="Completed">Completed</option>
                 <option value="Overtime">Overtime</option>
+                <option value="Auto Closed">Auto Closed</option>
               </select>
             </div>
 
@@ -875,14 +899,15 @@ export default function AttendanceTab({ user }) {
                         {isAdmin && (
                           <button
                             onClick={() => {
+                              const isVirtual = r.isVirtual || (r.id && r.id.startsWith('virtual_'));
                               setRegData({
-                                recordId: r.id,
+                                recordId: isVirtual ? "" : r.id,
                                 employeeId: r.employeeId,
                                 employeeName: r.employeeName,
                                 date: r.date,
                                 punchInTime: r.punchInTime ? r.punchInTime.substring(0, 16) : "",
                                 punchOutTime: r.punchOutTime ? r.punchOutTime.substring(0, 16) : "",
-                                status: r.status,
+                                status: r.status === 'Absent' ? 'Present' : r.status,
                                 reason: "",
                                 remarks: r.remarks || "",
                               });
@@ -891,7 +916,7 @@ export default function AttendanceTab({ user }) {
                             className="btn-secondary"
                             style={{ padding: "4px 10px", fontSize: "0.75rem" }}
                           >
-                            Edit
+                            {r.status === 'Absent' ? 'Regularize' : 'Edit'}
                           </button>
                         )}
                       </td>

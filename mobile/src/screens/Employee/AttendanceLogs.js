@@ -62,7 +62,14 @@ export default function AttendanceLogs({ user }) {
   const getLogs = async () => {
     setLoading(true);
     try {
-      const data = await fetchAttendanceRecords(user.id, selectedMonth, 'ALL');
+      let data;
+      if (fromDate && toDate && fromDate === toDate) {
+        data = await fetchAttendanceRecords(user.id, null, 'ALL', fromDate);
+      } else if (fromDate && toDate) {
+        data = await fetchAttendanceRecords(user.id, null, 'ALL', null, fromDate, toDate);
+      } else {
+        data = await fetchAttendanceRecords(user.id, selectedMonth, 'ALL');
+      }
       if (data.success) {
         setRecords(data.records || []);
         setSummary(data.summary || null);
@@ -76,7 +83,7 @@ export default function AttendanceLogs({ user }) {
 
   useEffect(() => {
     getLogs();
-  }, [selectedMonth]);
+  }, [selectedMonth, fromDate, toDate]);
 
   // Apply Date Range and Status Filter client-side
   const filteredRecords = records.filter((r) => {

@@ -50,12 +50,78 @@ export async function GET(request) {
 
     const [records] = await pool.query(query, params);
 
+    // If querying by specific date, dynamically synthesize absent records for active employees who haven't punched in
+    if (date) {
+      if (employeeId) {
+        if (records.length === 0) {
+          const [empRows] = await pool.query(
+            `SELECT id, name FROM employees WHERE id = ? AND (status IS NULL OR status != 'Paused')`,
+            [employeeId]
+          );
+          if (empRows.length > 0) {
+            records.push({
+              id: `virtual_absent_${empRows[0].id}_${date}`,
+              employeeId: empRows[0].id,
+              employeeName: empRows[0].name,
+              date: date,
+              punchInTime: null,
+              punchOutTime: null,
+              status: 'Absent',
+              totalWorkMinutes: 0,
+              totalBreakMinutes: 0,
+              netWorkMinutes: 0,
+              ipAddress: null,
+              deviceInfo: null,
+              remarks: 'Not Punched In / Absent',
+              breakStatus: 'None',
+              isVirtual: true
+            });
+          }
+        }
+      } else {
+        const [empRows] = await pool.query(
+          `SELECT id, name FROM employees WHERE (status IS NULL OR status != 'Paused') AND LOWER(role) NOT IN ('admin', 'superadmin', 'management')`
+        );
+        const existingEmpIds = new Set(records.map(r => r.employeeId));
+
+        empRows.forEach(emp => {
+          if (!existingEmpIds.has(emp.id)) {
+            if (search) {
+              const s = search.toLowerCase().trim();
+              const nameMatch = (emp.name || '').toLowerCase().includes(s);
+              const idMatch = (emp.id || '').toLowerCase().includes(s);
+              if (!nameMatch && !idMatch) return;
+            }
+
+            records.push({
+              id: `virtual_absent_${emp.id}_${date}`,
+              employeeId: emp.id,
+              employeeName: emp.name,
+              date: date,
+              punchInTime: null,
+              punchOutTime: null,
+              status: 'Absent',
+              totalWorkMinutes: 0,
+              totalBreakMinutes: 0,
+              netWorkMinutes: 0,
+              ipAddress: null,
+              deviceInfo: null,
+              remarks: 'Not Punched In / Absent',
+              breakStatus: 'None',
+              isVirtual: true
+            });
+          }
+        });
+      }
+    }
+
     // Summary calculation
     const totalRecords = records.length;
     let totalNetMinutes = 0;
     let presentCount = 0;
     let lateCount = 0;
     let halfDayCount = 0;
+    let absentCount = 0;
 
     records.forEach(r => {
       totalNetMinutes += (r.netWorkMinutes || 0);
@@ -78,10 +144,12 @@ export async function GET(request) {
       if (isLate) {
         lateCount++;
         presentCount++;
-      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active') {
+      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || st === 'auto closed') {
         presentCount++;
       } else if (st.includes('half')) {
         halfDayCount++;
+      } else if (st === 'absent') {
+        absentCount++;
       }
     });
 
@@ -96,6 +164,7 @@ export async function GET(request) {
         presentCount,
         lateCount,
         halfDayCount,
+        absentCount,
         totalWorkHours,
         totalNetMinutes,
         avgWorkHours
