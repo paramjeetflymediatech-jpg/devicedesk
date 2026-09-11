@@ -88,4 +88,27 @@ export function findTaskBySlug(tasks, slug) {
   }) || null;
 }
 
+// Domain slug
+export function getDomainSlug(domain) {
+  if (!domain) return '';
+  const name = typeof domain === 'string' ? domain : (domain.domain_name || domain.name || '');
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
+}
+
+export function findDomainBySlug(domains, slug) {
+  if (!domains || !slug) return null;
+  const decoded = decodeURIComponent(slug).toLowerCase();
+  return domains.find(d => {
+    if (!d) return false;
+    const dSlug = getDomainSlug(d).toLowerCase();
+    const dName = (typeof d === 'string' ? d : (d.domain_name || d.name || '')).toLowerCase();
+    return dSlug === decoded || dName === decoded || String(d.id) === slug;
+  }) || null;
+}
+
+
 

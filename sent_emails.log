@@ -1,0 +1,70 @@
+[2026-09-11T12:00:54.221Z] DOMAIN_EXPIRY_ALERT | To: client@flymediatech.com | Subject: ⚠️ URGENT: Domain Renewal Notice - flymediatech.com (EXPIRING IN 14 DAYS) | ID: <7201d034-55da-3b05-4361-89ae78d2bbd6@workontap.com>
+Body:
+Dear Flymedia Tech HQ,
+
+This is an automated renewal alert for your domain registered with DeviceDesk / Fly Media Technology.
+
+Domain Name: flymediatech.com
+Registrar: GoDaddy
+Expiry Date: 2026-09-25
+Status: EXPIRING IN 14 DAYS
+Renewal Cost: $18.99
+
+Please contact your account manager or renewal team immediately to ensure uninterrupted DNS and website services.
+
+Thank you,
+DeviceDesk Support Team
+--------------------------------------------------
+[2026-09-11T12:00:57.704Z] DOMAIN_EXPIRY_ALERT | To: admin@flymediatech.com | Subject: 🚨 [Super Admin Alert] Domain Expiry Notice: flymediatech.com (EXPIRING IN 14 DAYS) | ID: <554f649a-3cdb-3505-1a9b-ba7a806aba9e@workontap.com>
+Body:
+Super Admin Notification:
+
+The following domain is expiring soon and requires administrative review / renewal action:
+
+- Domain Name: flymediatech.com
+- Client: Flymedia Tech HQ (client@flymediatech.com)
+- Registrar: GoDaddy
+- Expiry Date: 2026-09-25
+- Days Remaining: 14 days
+- Auto-Renew: Enabled
+- Estimated Renewal Cost: $18.99
+
+Please login to the Super Admin Domain Management Portal at /admin/domains to renew or contact the client.
+
+DeviceDesk Automated Fleet Monitor
+--------------------------------------------------
+[2026-09-11T12:03:32.435Z] DOMAIN_EXPIRY_ALERT | To: client@flymediatech.com | Subject: ⚠️ URGENT: Domain Renewal Notice - flymediatech.com (EXPIRING IN 14 DAYS) | ID: <d6240a00-73fd-3a28-b96e-d0ce965106da@workontap.com>
+Body:
+Dear Flymedia Tech HQ,
+
+This is an automated renewal alert for your domain registered with DeviceDesk / Fly Media Technology.
+
+Domain Name: flymediatech.com
+Registrar: GoDaddy
+Expiry Date: 2026-09-25
+Status: EXPIRING IN 14 DAYS
+Renewal Cost: $18.99
+
+Please contact your account manager or renewal team immediately to ensure uninterrupted DNS and website services.
+
+Thank you,
+DeviceDesk Support Team
+--------------------------------------------------
+[2026-09-11T12:03:35.342Z] DOMAIN_EXPIRY_ALERT | To: admin@flymediatech.com | Subject: 🚨 [Super Admin Alert] Domain Expiry Notice: flymediatech.com (EXPIRING IN 14 DAYS) | ID: <c0f5f40c-e893-e07b-3a2c-b78e44c58f22@workontap.com>
+Body:
+Super Admin Notification:
+
+The following domain is expiring soon and requires administrative review / renewal action:
+
+- Domain Name: flymediatech.com
+- Client: Flymedia Tech HQ (client@flymediatech.com)
+- Registrar: GoDaddy
+- Expiry Date: 2026-09-25
+- Days Remaining: 14 days
+- Auto-Renew: Enabled
+- Estimated Renewal Cost: $18.99
+
+Please login to the Super Admin Domain Management Portal at /admin/domains to renew or contact the client.
+
+DeviceDesk Automated Fleet Monitor
+--------------------------------------------------

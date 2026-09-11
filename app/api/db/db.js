@@ -453,6 +453,29 @@ export async function getDbConnection() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS domains (
+      id VARCHAR(100) PRIMARY KEY,
+      domain_name VARCHAR(255) NOT NULL UNIQUE,
+      client_id VARCHAR(50) DEFAULT NULL,
+      client_name VARCHAR(150) DEFAULT NULL,
+      client_email VARCHAR(150) DEFAULT NULL,
+      registrar VARCHAR(100) DEFAULT 'GoDaddy',
+      registration_date VARCHAR(50) DEFAULT NULL,
+      expiry_date VARCHAR(50) NOT NULL,
+      auto_renew INT DEFAULT 0,
+      renewal_cost DECIMAL(10, 2) DEFAULT 0,
+      status VARCHAR(50) DEFAULT 'Active',
+      last_notified_at VARCHAR(50) DEFAULT NULL,
+      notes TEXT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_domain_name (domain_name),
+      INDEX idx_expiry_date (expiry_date),
+      INDEX idx_domain_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   // Check if DB was already seeded
   const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");
   const alreadySeeded = metaRows.length > 0 && metaRows[0].meta_value === 'true';

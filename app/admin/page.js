@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   FiUsers, FiMonitor, FiBriefcase, FiCheckSquare, FiAlertCircle, 
   FiCalendar, FiClock, FiLayers, FiActivity, FiArrowRight, 
-  FiTrendingUp, FiFolder, FiFileText, FiShield, FiLink 
+  FiTrendingUp, FiFolder, FiFileText, FiShield, FiLink, FiGlobe 
 } from 'react-icons/fi';
 import { getEmployees, getSystems, getTickets, getTasks, getDepartments } from '../store.js';
 
@@ -39,6 +39,7 @@ export default function AdminMainDashboard() {
   const adminNavSections = [
     { title: 'Users & Staff', desc: 'Manage employees, roles & profile slugs', icon: FiUsers, href: '/admin/users', count: employees.length, color: 'var(--accent-cyan, #06b6d4)' },
     { title: 'Hardware Fleet', desc: 'Specs, allocations & hardware system slugs', icon: FiMonitor, href: '/admin/systems', count: systems.length, color: '#38bdf8' },
+    { title: 'Domain Portfolio', desc: 'Domain names, registrars & expiry alert scanner', icon: FiGlobe, href: '/admin/domains', count: 'Active', color: '#06b6d4' },
     { title: 'Departments', desc: 'Department units, settings & metrics', icon: FiBriefcase, href: '/admin/departments', count: departments.length, color: 'var(--accent-purple, #a855f7)' },
     { title: 'Tasks & Sprints', desc: 'Task assignment, tracking & duration', icon: FiCheckSquare, href: '/admin/tasks', count: tasks.length, color: '#f59e0b' },
     { title: 'Support Tickets', desc: 'IT issues, resolution status & system logs', icon: FiAlertCircle, href: '/admin/tickets', count: tickets.length, color: '#ef4444' },

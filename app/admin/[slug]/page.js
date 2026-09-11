@@ -37,6 +37,8 @@ export default function AdminDynamicSlugPage() {
       "attendance": "/admin/attendance",
       "leaves": "/admin/leaves",
       "projects": "/admin/projects",
+      "domains": "/admin/domains",
+      "domain": "/admin/domains",
       "marketing": "/admin/marketing",
       "submissions": "/admin/submissions",
       "audit-logs": "/admin/audit-logs",

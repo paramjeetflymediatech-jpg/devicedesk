@@ -26,6 +26,7 @@ import {
   FiFolder,
   FiTrendingUp,
   FiLayers,
+  FiGlobe,
   FiTrash2
 } from "react-icons/fi";
 
@@ -165,6 +166,7 @@ export default function AdminLayout({ children }) {
       badge: leaveCount
     },
     { name: "Projects", path: "/admin/projects", icon: <FiFolder /> },
+    { name: "Domain Portfolio", path: "/admin/domains", icon: <FiGlobe /> },
     { name: "Marketing", path: "/admin/marketing", icon: <FiTrendingUp /> },
     { name: "Work Submissions", path: "/admin/submissions", icon: <FiLayers /> },
     { name: "My Profile", path: "/?tab=profile", icon: <FiUser /> }
