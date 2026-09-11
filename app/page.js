@@ -44,6 +44,27 @@ import ScreenshotsTab from "./components/ScreenshotsTab.js";
 import ChatView from "./components/ChatView.js";
 import ThemeToggle from "./components/ThemeToggle.js";
 import Logo from "./components/Logo.js";
+import DashboardTab from "./components/DashboardTab.js";
+import SystemsTab from "./components/SystemsTab.js";
+import EmployeesTab from "./components/EmployeesTab.js";
+import TicketsTab from "./components/TicketsTab.js";
+import DepartmentsTab from "./components/DepartmentsTab.js";
+import HistoryTab from "./components/HistoryTab.js";
+import TasksTab from "./components/TasksTab.js";
+import LeaveRequestsTab from "./components/LeaveRequestsTab.js";
+import ProfileTab from "./components/ProfileTab.js";
+import DangerZoneTab from "./components/DangerZoneTab.js";
+import EmployeePortalTab from "./components/EmployeePortalTab.js";
+import SystemModal from "./components/modals/SystemModal.js";
+import AssignDeviceModal from "./components/modals/AssignDeviceModal.js";
+import ResolveTicketModal from "./components/modals/ResolveTicketModal.js";
+import TaskModals from "./components/modals/TaskModals.js";
+import EmployeeModals from "./components/modals/EmployeeModals.js";
+import DepartmentModals from "./components/modals/DepartmentModals.js";
+import SystemHistoryModal from "./components/modals/SystemHistoryModal.js";
+import DeviceDetailsModal from "./components/modals/DeviceDetailsModal.js";
+import SystemImportModal from "./components/modals/SystemImportModal.js";
+import AuxiliaryModals from "./components/modals/AuxiliaryModals.js";
 import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock, FiCalendar, FiCheck, FiX } from "react-icons/fi";
 
 export default function Home() {
@@ -69,14 +90,31 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("devicedesk_admin_view");
-      if (saved) setCurrentView(saved);
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabFromQuery = urlParams.get("tab") || urlParams.get("view");
+      const hashFromUrl = window.location.hash.replace("#", "");
+      const validViews = [
+        "dashboard", "systems", "employees", "tickets", "departments",
+        "history", "tasks", "attendance", "screenshots", "chat",
+        "leave-requests", "profile", "danger-zone", "employee-portal"
+      ];
+
+      if (tabFromQuery && validViews.includes(tabFromQuery)) {
+        setCurrentView(tabFromQuery);
+      } else if (hashFromUrl && validViews.includes(hashFromUrl)) {
+        setCurrentView(hashFromUrl);
+      } else {
+        const saved = localStorage.getItem("devicedesk_admin_view");
+        if (saved && validViews.includes(saved)) setCurrentView(saved);
+      }
     }
   }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("devicedesk_admin_view", currentView);
+      const newUrl = currentView === "dashboard" ? window.location.pathname : `?tab=${currentView}`;
+      window.history.replaceState(null, "", newUrl);
     }
   }, [currentView]);
 
@@ -1011,6 +1049,15 @@ export default function Home() {
         playBeep(400, 0.15, 'sawtooth');
       }
     });
+  };
+
+  const handleDeleteAccountConfirm = () => {
+    setShowDeleteConfirm(false);
+    if (user?.id) {
+      removeEmployee(user.id, user?.name || "Admin");
+      logout();
+      router.push("/login");
+    }
   };
 
   const handleToggleEmployeeStatus = (emp) => {
@@ -2649,4251 +2696,410 @@ export default function Home() {
 
           {/* ================= VIEW: PROFILE ================= */}
           {currentView === "profile" && (
-            <div className="page-section active">
-              <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "10px" }}><FiUser /> Admin Profile Details</h2>
-              
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "2rem", marginBottom: "2rem" }}>
-                {/* User card info */}
-                <div style={{
-                  flex: "1 1 300px",
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid var(--glass-border)",
-                  borderRadius: "16px",
-                  padding: "1.5rem"
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
-                    {(() => {
-                      const empDetails = employees.find(e => e.id === user?.id);
-                      return (
-                        <div 
-                          onClick={handleProfilePictureUpload}
-                          style={{ position: "relative", cursor: "pointer" }}
-                          title="Change Profile Picture"
-                        >
-                          {renderProfileAvatar(empDetails || { name: user?.name || "A" }, "60px")}
-                          <div style={{
-                            position: "absolute",
-                            bottom: -2,
-                            right: -2,
-                            background: "var(--accent-cyan)",
-                            borderRadius: "50%",
-                            width: "18px",
-                            height: "18px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "9px",
-                            color: "#000",
-                                                        border: "2px solid var(--bg-tertiary)"
-                          }}>
-                            📷
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: "700" }}>{user?.name || "Administrator"}</h3>
-                      <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.85rem" }}>Root Admin Access</p>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.9rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "6px" }}>
-                      <span style={{ color: "var(--text-muted)" }}>Email:</span>
-                      <span>{user?.email || "admin@devicedesk.com"}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: "6px" }}>
-                      <span style={{ color: "var(--text-muted)" }}>Access Level:</span>
-                      <span style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>Full Owner</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Account Actions card */}
-                <div style={{
-                  flex: "1 1 300px",
-                  background: "rgba(239, 68, 68, 0.03)",
-                  border: "1px dashed rgba(239, 68, 68, 0.3)",
-                  borderRadius: "16px",
-                  padding: "1.5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center"
-                }}>
-                  <h4 style={{ color: "var(--status-critical)", fontSize: "1.1rem", fontWeight: "700", marginBottom: "0.75rem" }}>⚠️ Permanent Account Deletion</h4>
-                  <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5", marginBottom: "1.5rem" }}>
-                    Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. This action is irreversible.
-                  </p>
-                  <button 
-                    onClick={() => {
-                      if (user?.id === "admin") {
-                        alert("Default root admin account cannot be deleted.");
-                      } else {
-                        setShowDeleteConfirm(true);
-                      }
-                    }}
-                    className="btn-danger"
-                    style={{
-                      padding: "10px 16px",
-                      borderRadius: "8px",
-                      fontSize: "0.85rem",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      border: "none",
-                      backgroundColor: "var(--status-critical)",
-                      color: "#fff",
-                      alignSelf: "flex-start"
-                    }}
-                  >
-                    Delete My Account
-                  </button>
-                </div>
-              </div>
-            </div>
+            <ProfileTab
+              employees={employees}
+              user={user}
+              handleProfilePictureUpload={handleProfilePictureUpload}
+              renderProfileAvatar={renderProfileAvatar}
+              setShowDeleteConfirm={setShowDeleteConfirm}
+            />
           )}
 
           {/* ================= VIEW: DANGER ZONE ================= */}
-          {currentView === "danger-zone" && user?.dbRole === "Admin" && (
-            <div className="page-section active">
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--status-critical)', margin: '0 0 6px 0' }}>⚠️ Danger Zone</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>All actions here are <strong style={{ color: 'var(--status-critical)' }}>permanent and irreversible</strong>. You will be asked to confirm twice before any data is deleted.</p>
-              </div>
-
-              {/* Delete per section */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-
-                {/* Systems */}
-                <div style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: '12px', padding: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '1.5rem' }}>🖥️</span>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>Delete All Systems</h3>
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '14px', lineHeight: '1.5' }}>
-                    Permanently removes <strong>{systems.length}</strong> system records, clears all assignments and hardware inventory.
-                  </p>
-                  <button
-                    onClick={() => handleDangerDelete('systems', 'Systems')}
-                    style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(220,38,38,0.5)', background: 'rgba(220,38,38,0.1)', color: '#ef4444', fontWeight: '700', cursor: 'pointer', fontSize: '0.82rem' }}>
-                    🗑️ Delete All Systems ({systems.length})
-                  </button>
-                </div>
-
-                {/* Tickets */}
-                <div style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: '12px', padding: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '1.5rem' }}>🎫</span>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>Delete All Tickets</h3>
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '14px', lineHeight: '1.5' }}>
-                    Permanently removes <strong>{tickets.length}</strong> IT complaint tickets and all resolution records.
-                  </p>
-                  <button
-                    onClick={() => handleDangerDelete('tickets', 'Tickets')}
-                    style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(220,38,38,0.5)', background: 'rgba(220,38,38,0.1)', color: '#ef4444', fontWeight: '700', cursor: 'pointer', fontSize: '0.82rem' }}>
-                    🗑️ Delete All Tickets ({tickets.length})
-                  </button>
-                </div>
-
-                {/* History */}
-                <div style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: '12px', padding: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '1.5rem' }}>📜</span>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>Delete Transfer Logs</h3>
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '14px', lineHeight: '1.5' }}>
-                    Permanently removes all assignment history and transfer audit logs from the system.
-                  </p>
-                  <button
-                    onClick={() => handleDangerDelete('history', 'Transfer Logs')}
-                    style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(220,38,38,0.5)', background: 'rgba(220,38,38,0.1)', color: '#ef4444', fontWeight: '700', cursor: 'pointer', fontSize: '0.82rem' }}>
-                    🗑️ Delete All Transfer Logs
-                  </button>
-                </div>
-              </div>
-
-              {/* Nuclear option */}
-              <div style={{
-                background: 'rgba(220,38,38,0.08)', border: '2px solid rgba(220,38,38,0.5)',
-                borderRadius: '14px', padding: '24px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                  <span style={{ fontSize: '2rem' }}>☢️</span>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: '#ef4444' }}>Delete Everything</h3>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Wipes all systems, employees, tickets and history in one action</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleDangerDelete('all', 'All Data')}
-                  style={{
-                    padding: '12px 28px', borderRadius: '10px', border: 'none',
-                    background: 'var(--status-critical)', color: '#fff',
-                    fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem',
-                    boxShadow: 'none'
-                  }}>
-                  ☢️ Wipe All Data — Full Reset
-                </button>
-              </div>
-            </div>
+          {currentView === "danger-zone" && !isITSupport && (
+            <DangerZoneTab
+              systems={systems}
+              tickets={tickets}
+              handleDangerDelete={handleDangerDelete}
+            />
           )}
 
           {/* ================= VIEW: DASHBOARD ================= */}
-          {currentView === "dashboard" && (userRole === "admin" || isITSupport) && (
-            <div className="page-section active space-y-6">
-              
-              {/* Test Mode Banner */}
-              <div className="test-mode-banner">
-                <div className="test-mode-text">
-                  <strong>Fast Alert Test Mode</strong>
-                  <span className="test-mode-subtext">Shorten warning beep interval from 15 mins to 30 seconds for quick testing.</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "var(--accent-purple)" }}>
-                    {fastTestMode ? "30 seconds" : "15 minutes"}
-                  </span>
-                  <label className="toggle-switch">
-                    <input type="checkbox" checked={fastTestMode} onChange={handleFastTestToggle} />
-                    <span className="slider"></span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Metrics Grid */}
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <span className="stat-label">Total Systems</span>
-                  <span className="stat-value">{stats.totalSystems}</span>
-                </div>
-                <div className="stat-card purple">
-                  <span className="stat-label">Active Assignments</span>
-                  <span className="stat-value">{stats.activeAssignments}</span>
-                </div>
-                <div className="stat-card orange">
-                  <span className="stat-label">Pending Complaints</span>
-                  <span className="stat-value">{stats.pendingComplaints}</span>
-                </div>
-                <div className="stat-card green">
-                  <span className="stat-label">Avg Resolve Time</span>
-                  <span className="stat-value">{stats.avgResolutionTimeStr}</span>
-                </div>
-              </div>
-
-              {/* Split Screen */}
-              <div className="dashboard-split">
-                
-                {/* Active Tickets Queue */}
-                <div className="panel-card">
-                  <div className="panel-header">
-                    <span className="panel-title">Active Complaints Queue</span>
-                    <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>Sorted by Severity</span>
-                  </div>
-                  <div className="ticket-list">
-                    {activeTickets.length === 0 ? (
-                      <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
-                        No active complaints. System functioning normally! ⚡
-                      </div>
-                    ) : (
-                      activeTickets.map(ticket => {
-                        const sys = systems.find(s => s.id === ticket.systemId);
-                        const emp = employees.find(e => e.id === ticket.employeeId);
-                        const timings = getTicketTimings(ticket);
-                        const isOpen = ticket.status === "Open";
-                        
-                        let timerClass = "timer-badge ticking";
-                        if (isOpen) {
-                          const limit = fastTestMode ? 30 * 1000 : 15 * 60 * 1000;
-                          const elapsed = Date.now() - new Date(ticket.createdAt).getTime();
-                          if (elapsed >= limit) {
-                            timerClass = "timer-badge alert-escalated";
-                          }
-                        }
-                        
-                        const activeElapsedStr = isOpen ? timings.totalDowntimeStr : timings.resolutionTimeStr;
-                        const elapsedLabel = isOpen ? "Open: " : "Working: ";
-
-                        return (
-                          <div className="ticket-item" key={ticket.id}>
-                            <div className="ticket-details">
-                              <div className="ticket-meta">
-                                <span className={`status-tag ${ticket.status.toLowerCase().replace(" ", "")}`}>{ticket.status}</span>
-                                <span className={`status-tag ${ticket.severity.toLowerCase()}`}>{ticket.severity}</span>
-                                <span><strong>{sys ? sys.systemNumber : "N/A"}</strong> - {emp ? emp.name : "Unknown"}</span>
-                              </div>
-                              <div className="ticket-desc">{ticket.description}</div>
-                              <div style={{ marginTop: "6px", display: "flex", gap: "10px" }}>
-                                <span className={timerClass}>{elapsedLabel}{activeElapsedStr}</span>
-                                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                                  Logged: {new Date(ticket.createdAt).toLocaleTimeString()}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="ticket-actions">
-                              {isOpen ? (
-                                <button className="btn-action start" onClick={() => handleStartTicket(ticket.id)}>Start Work</button>
-                              ) : (
-                                <button className="btn-action resolve" onClick={() => handleOpenResolveModal(ticket.id)}>Resolve</button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                {/* RAM Capacity distribution charts */}
-                <div className="panel-card">
-                  <div className="panel-header">
-                    <span className="panel-title">RAM Capacity Distribution</span>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    {chartEntries.map(([ram, count]) => {
-                      const percentage = (count / maxCount) * 100;
-                      return (
-                        <div style={{ margin: "10px 0" }} key={ram}>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "4px" }}>
-                            <span>{ram}</span>
-                            <span style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{count} system{count > 1 ? "s" : ""}</span>
-                          </div>
-                          <div style={{ width: "100%", height: "8px", background: "rgba(255,255,255,0.05)", borderRadius: "4px", overflow: "hidden" }}>
-                            <div style={{ width: `${percentage}%`, height: "100%", background: "linear-gradient(to right, var(--accent-cyan), var(--accent-blue))", borderRadius: "4px" }}></div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-              </div>
-            </div>
+          {currentView === "dashboard" && (
+            <DashboardTab
+              fastTestMode={fastTestMode}
+              handleFastTestToggle={handleFastTestToggle}
+              stats={stats}
+              activeTickets={activeTickets}
+              systems={systems}
+              employees={employees}
+              getTicketTimings={getTicketTimings}
+              handleStartTicket={handleStartTicket}
+              handleOpenResolveModal={handleOpenResolveModal}
+              chartEntries={chartEntries}
+              maxCount={maxCount}
+            />
           )}
 
-          {/* ================= VIEW: SYSTEMS INVENTORY ================= */}
-          {currentView === "systems" && (userRole === "admin" || isITSupport) && (
-            <div className="page-section active">
-              <div className="section-header">
-                <h2 style={{ fontSize: "1.4rem" }}>Hardware Directory</h2>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <button className="btn-secondary" onClick={handleExportSystemsToExcel}>📥 Export Systems</button>
-                  <button className="btn-secondary" onClick={() => { setShowImportModal(true); setImportStatus(null); setImportFile(null); setImportParsed([]); setImportResult(null); }} style={{ background: 'linear-gradient(135deg,#1a6b3c,#22a05a)', color: '#fff', border: 'none' }}>📤 Import Excel</button>
-                  <button className="btn-primary" onClick={handleOpenAddSysModal}>+ Add New System</button>
-                </div>
-              </div>
-
-              {/* Filters */}
-              <div className="filter-row">
-                <div style={{ position: "relative", flexGrow: 1 }}>
-                  <input 
-                    type="text" 
-                    className="form-control search-box" 
-                    placeholder="Search System Number, CPU, RAM, Model..." 
-                    value={sysSearch}
-                    onChange={(e) => { setSysSearch(e.target.value); setSysPage(1); }}
-                    style={{ width: "100%", paddingRight: "35px" }}
-                  />
-                  {sysSearch && (
-                    <button
-                      type="button"
-                      onClick={() => { setSysSearch(""); setSysPage(1); }}
-                      style={{
-                        position: "absolute",
-                        right: "10px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none",
-                        border: "none",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                        fontSize: "1.2rem",
-                        padding: "4px",
-                        lineHeight: 1
-                      }}
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-                <select className="form-control select-filter" value={sysFilterOS} onChange={(e) => { setSysFilterOS(e.target.value); setSysPage(1); }}>
-                  <option value="all">All OS</option>
-                  <option value="Windows 11">Windows 11</option>
-                  <option value="Windows 10">Windows 10</option>
-                  <option value="macOS">macOS</option>
-                  <option value="Ubuntu">Ubuntu</option>
-                </select>
-                <select className="form-control select-filter" value={sysFilterStatus} onChange={(e) => { setSysFilterStatus(e.target.value); setSysPage(1); }}>
-                  <option value="all">All Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Idle">Idle</option>
-                  <option value="In Repair">In Repair</option>
-                  <option value="Retired">Retired</option>
-                </select>
-              </div>
-
-              {/* Table — Desktop */}
-              <div className="table-wrapper desktop-only">
-                <table className="custom-table">
-                  <thead>
-                    <tr>
-                      <th>System ID</th>
-                      <th>Status</th>
-                      <th>Assigned To</th>
-                      <th>CPU Spec</th>
-                      <th>GPU</th>
-                      <th>RAM</th>
-                      <th>Storage</th>
-                      <th>OS</th>
-                      <th style={{ textAlign: "right" }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentSystems.length === 0 ? (
-                      <tr><td colSpan="9" style={{ textAlign: "center", color: "var(--text-muted)" }}>No matching systems found.</td></tr>
-                    ) : (
-                      currentSystems.map(sys => {
-                        const emp = employees.find(e => e.id === sys.assignedTo);
-                        return (
-                          <tr key={sys.id}>
-                            <td style={{ fontWeight: 700, color: "var(--accent-cyan)" }}>{sys.systemNumber}</td>
-                            <td><span className={`status-tag ${sys.status.toLowerCase().replace(" ", "")}`}>{sys.status}</span></td>
-                            <td><strong>{emp ? emp.name : <span style={{ color: "var(--text-muted)" }}>Unassigned</span>}</strong></td>
-                            <td>{sys.cpu}</td>
-                            <td><span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{sys.gpu || "—"}</span></td>
-                            <td><span className="timer-badge">{sys.ram}</span></td>
-                            <td>{sys.storage}</td>
-                            <td>{sys.os}</td>
-                            <td style={{ textAlign: "right" }}>
-                                <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
-                                  <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenEditSysModal(sys)}>Edit</button>
-                                  <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenHistoryModal(sys)}>History</button>
-                                  {userRole === 'admin' && (
-                                    <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveSystem(sys.id, sys.systemNumber)}>Delete</button>
-                                  )}
-                                </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Cards — Mobile */}
-              <div className="mobile-card-list mobile-only">
-                {currentSystems.length === 0 ? (
-                  <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem 0" }}>No matching systems found.</p>
-                ) : (
-                  currentSystems.map(sys => {
-                    const emp = employees.find(e => e.id === sys.assignedTo);
-                    return (
-                      <div className="mobile-card" key={sys.id}>
-                        <div className="mobile-card-header">
-                          <span className="mobile-card-title">🖥️ {sys.systemNumber}</span>
-                          <span className={`status-tag ${sys.status.toLowerCase().replace(" ", "")}`}>{sys.status}</span>
-                        </div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Assigned To</span><span className="mobile-card-value">{emp ? emp.name : <span style={{ color: "var(--text-muted)" }}>Unassigned</span>}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">CPU</span><span className="mobile-card-value">{sys.cpu || "—"}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">GPU</span><span className="mobile-card-value">{sys.gpu || "—"}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">RAM</span><span className="mobile-card-value">{sys.ram || "—"}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Storage</span><span className="mobile-card-value">{sys.storage || "—"}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">OS</span><span className="mobile-card-value">{sys.os || "—"}</span></div>
-                        <div className="mobile-card-actions" style={{ display: "flex", gap: "8px" }}>
-                          <button className="btn-action start" onClick={() => handleOpenEditSysModal(sys)}>✏️ Edit</button>
-                          <button className="btn-action resolve" onClick={() => handleOpenHistoryModal(sys)}>📜 History</button>
-                          {userRole === 'admin' && (
-                            <button className="btn-action resolve" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveSystem(sys.id, sys.systemNumber)}>🗑️ Delete</button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Systems Pagination Controls */}
-              {totalSysPages > 1 && (
-                <div className="pagination-controls">
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setSysPage(prev => Math.max(prev - 1, 1))}
-                    disabled={sysPage === 1}
-                    style={{ padding: "6px 12px", opacity: sysPage === 1 ? 0.5 : 1, cursor: sysPage === 1 ? "not-allowed" : "pointer" }}
-                  >
-                    ← Previous
-                  </button>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                    Page {sysPage} of {totalSysPages}
-                  </span>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setSysPage(prev => Math.min(prev + 1, totalSysPages))}
-                    disabled={sysPage === totalSysPages}
-                    style={{ padding: "6px 12px", opacity: sysPage === totalSysPages ? 0.5 : 1, cursor: sysPage === totalSysPages ? "not-allowed" : "pointer" }}
-                  >
-                    Next →
-                  </button>
-                </div>
-              )}
-            </div>
+          {/* ================= VIEW: SYSTEMS / HARDWARE ================= */}
+          {currentView === "systems" && (
+            <SystemsTab
+              handleExportSystemsToExcel={handleExportSystemsToExcel}
+              setShowImportModal={setShowImportModal}
+              setImportStatus={setImportStatus}
+              setImportFile={setImportFile}
+              setImportParsed={setImportParsed}
+              setImportResult={setImportResult}
+              handleOpenAddSysModal={handleOpenAddSysModal}
+              sysSearch={sysSearch}
+              setSysSearch={setSysSearch}
+              setSysPage={setSysPage}
+              sysFilterOS={sysFilterOS}
+              setSysFilterOS={setSysFilterOS}
+              sysFilterStatus={sysFilterStatus}
+              setSysFilterStatus={setSysFilterStatus}
+              currentSystems={currentSystems}
+              employees={employees}
+              handleOpenEditSysModal={handleOpenEditSysModal}
+              handleOpenHistoryModal={handleOpenHistoryModal}
+              userRole={userRole}
+              handleRemoveSystem={handleRemoveSystem}
+              sysPage={sysPage}
+              totalSysPages={totalSysPages}
+            />
           )}
 
-          {/* ================= VIEW: EMPLOYEE DIRECTORY ================= */}
-          {currentView === "employees" && (userRole === "admin" || isITSupport) && (
-            <div className="page-section active">
-              <div className="section-header">
-                <h2 style={{ fontSize: "1.4rem", margin: 0 }}>Team Member Assignments</h2>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <button className="btn-secondary" onClick={handleExportEmployeesToExcel}>📥 Export Team Members</button>
-                  <button className="btn-secondary" onClick={() => { setShowEmpImportModal(true); setEmpImportStatus(null); setEmpImportFile(null); setEmpImportParsed([]); setEmpImportResult(null); }} style={{ background: 'linear-gradient(135deg,#1a3a6b,#2260d4)', color: '#fff', border: 'none' }}>📤 Import Excel</button>
-                  <button className="btn-primary" onClick={() => setShowAddEmpModal(true)}>
-                    + Add Team Member
-                  </button>
-                </div>
-              </div>
-              
-              {/* Search Bar & Filters */}
-              <div className="filter-row" style={{ marginBottom: "1.5rem", display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
-                <div style={{ flexGrow: 1, minWidth: "240px", position: "relative" }}>
-                  <input 
-                    type="text" 
-                    className="form-control search-box" 
-                    placeholder="Search by Team Member name, department, or role..." 
-                    value={empSearch}
-                    onChange={(e) => { setEmpSearch(e.target.value); setEmpPage(1); }}
-                    style={{ width: "100%", paddingRight: "35px" }}
-                  />
-                  {empSearch && (
-                    <button
-                      type="button"
-                      onClick={() => { setEmpSearch(""); setEmpPage(1); }}
-                      style={{
-                        position: "absolute",
-                        right: "10px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none",
-                        border: "none",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                        fontSize: "1.2rem",
-                        padding: "4px",
-                        lineHeight: 1
-                      }}
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-
-                {/* Filter by Department */}
-                <div style={{ minWidth: "180px" }}>
-                  <select
-                    className="form-control"
-                    value={empFilterDept}
-                    onChange={(e) => { setEmpFilterDept(e.target.value); setEmpPage(1); }}
-                    style={{ background: "rgba(0,0,0,0.3)", color: "var(--text-primary)", width: "100%" }}
-                  >
-                    <option value="all">All Departments</option>
-                    {availableEmpDepartments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Filter by Role */}
-                <div style={{ minWidth: "160px" }}>
-                  <select
-                    className="form-control"
-                    value={empFilterRole}
-                    onChange={(e) => { setEmpFilterRole(e.target.value); setEmpPage(1); }}
-                    style={{ background: "rgba(0,0,0,0.3)", color: "var(--text-primary)", width: "100%" }}
-                  >
-                    <option value="all">All Roles</option>
-                    {availableEmpRoles.map(role => (
-                      <option key={role} value={role}>{role}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              
-              {/* Table — Desktop */}
-              <div className="table-wrapper desktop-only">
-                <table className="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Team Member Name</th>
-                      <th>Department</th>
-                      <th>Role</th>
-                      <th>Assigned Devices</th>
-                      <th>Ticket Limit</th>
-                      <th style={{ textAlign: "right" }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentEmployees.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
-                          No team members match your selected department or role filters.
-                        </td>
-                      </tr>
-                    ) : (
-                      currentEmployees.map(emp => {
-                        const assigned = systems.filter(s => s.assignedTo === emp.id);
-                        return (
-                          <tr key={emp.id}>
-                            <td>
-                              <strong>{emp.name}</strong>
-                              {emp.status === 'Paused' && (
-                                <span className="status-tag open" style={{ marginLeft: "8px", fontSize: "0.65rem", padding: "2px 6px", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }}>Paused</span>
-                              )}
-                            </td>
-                            <td>
-                              <span 
-                                className="status-tag resolved" 
-                                style={{ cursor: "pointer", transition: "transform 0.2s" }}
-                                onClick={() => { setSelectedViewDept(emp.department); setDeptModalTab("members"); }}
-                                title={`View details of ${emp.department} department`}
-                              >
-                                {emp.department}
-                              </span>
-                            </td>
-                            <td>{emp.role}</td>
-                            <td>
-                              {assigned.length > 0 ? (
-                                assigned.map(s => (
-                                  <span 
-                                    className="timer-badge" 
-                                    style={{ color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)", marginRight: "4px", cursor: "pointer" }} 
-                                    key={s.id}
-                                    onClick={() => setSelectedViewSystem(s)}
-                                    title="Click to view details"
-                                  >
-                                    {s.systemNumber}
-                                  </span>
-                                ))
-                              ) : (<span style={{ color: "var(--text-muted)" }}>None</span>)}
-                            </td>
-                            <td>{emp.ticketLimit || 5}</td>
-                            <td style={{ textAlign: "right" }}>
-                              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
-                                <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleOpenAssignModal(emp)}>Assign Device</button>
-                                <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(59, 130, 246, 0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>Edit</button>
-                                <button className="btn-action start" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(139, 92, 246, 0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }} onClick={() => handleOpenEmpReportModal(emp)}>View Report</button>
-                                {!['Admin'].includes(emp.role) && (
-                                  <>
-                                    <button 
-                                      className="btn-action start" 
-                                      style={{ 
-                                        padding: "4px 8px", 
-                                        fontSize: "0.75rem", 
-                                        background: emp.status === 'Paused' ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)", 
-                                        color: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)", 
-                                        borderColor: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)" 
-                                      }} 
-                                      onClick={() => handleToggleEmployeeStatus(emp)}
-                                    >
-                                      {emp.status === 'Paused' ? 'Activate' : 'Pause'}
-                                    </button>
-                                    <button className="btn-action resolve" style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>Remove</button>
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Cards — Mobile */}
-              <div className="mobile-card-list mobile-only">
-                {currentEmployees.length === 0 ? (
-                  <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem 0" }}>
-                    No team members match your selected department or role filters.
-                  </p>
-                ) : (
-                  currentEmployees.map(emp => {
-                    const assigned = systems.filter(s => s.assignedTo === emp.id);
-                    return (
-                     <div className="mobile-card" key={emp.id}>
-                       <div className="mobile-card-header">
-                         <span className="mobile-card-title">
-                           <FiUser style={{ fontSize: "0.85rem", verticalAlign: "middle", marginRight: "4px" }} /> {emp.name}
-                           {emp.status === 'Paused' && (
-                             <span className="status-tag open" style={{ marginLeft: "6px", fontSize: "0.65rem", padding: "1px 5px", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }}>Paused</span>
-                           )}
-                         </span>
-                         <span 
-                           className="status-tag resolved" 
-                           style={{ cursor: "pointer" }}
-                           onClick={() => { setSelectedViewDept(emp.department); setDeptModalTab("members"); }}
-                           title={`View all devices in ${emp.department}`}
-                         >
-                           {emp.department}
-                         </span>
-                       </div>
-                       <div className="mobile-card-row"><span className="mobile-card-label">Role</span><span className="mobile-card-value">{emp.role}</span></div>
-                       <div className="mobile-card-row">
-                         <span className="mobile-card-label">Devices</span>
-                         <span className="mobile-card-value">
-                           {assigned.length > 0 ? assigned.map(s => (
-                             <span 
-                               key={s.id} 
-                               className="timer-badge" 
-                               style={{ color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)", marginRight: "4px", cursor: "pointer" }}
-                               onClick={() => setSelectedViewSystem(s)}
-                               title="Click to view details"
-                             >
-                               {s.systemNumber}
-                             </span>
-                           )) : <span style={{ color: "var(--text-muted)" }}>None</span>}
-                         </span>
-                       </div>
-                      <div className="mobile-card-row"><span className="mobile-card-label">Ticket Limit</span><span className="mobile-card-value">{emp.ticketLimit || 5}</span></div>
-                      <div className="mobile-card-actions">
-                        <button className="btn-action start" onClick={() => handleOpenAssignModal(emp)}>Assign</button>
-                        <button className="btn-action start" style={{ background: "rgba(59,130,246,0.15)", color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)" }} onClick={() => handleOpenEditEmpModal(emp)}>Edit</button>
-                        <button className="btn-action start" style={{ background: "rgba(139,92,246,0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }} onClick={() => handleOpenEmpReportModal(emp)}>Report</button>
-                        {!['Admin'].includes(emp.role) && (
-                           <>
-                             <button 
-                               className="btn-action start" 
-                               style={{ 
-                                 background: emp.status === 'Paused' ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)", 
-                                 color: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)", 
-                                 borderColor: emp.status === 'Paused' ? "var(--status-resolved)" : "var(--status-open)" 
-                               }} 
-                               onClick={() => handleToggleEmployeeStatus(emp)}
-                             >
-                               {emp.status === 'Paused' ? 'Activate' : 'Pause'}
-                             </button>
-                             <button className="btn-action resolve" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-critical)", borderColor: "var(--status-critical)" }} onClick={() => handleRemoveEmployee(emp.id)}>Remove</button>
-                           </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }))}
-              </div>
-
-
-
-              {/* Employees Pagination Controls */}
-              {totalEmpPages > 1 && (
-                <div className="pagination-controls">
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setEmpPage(prev => Math.max(prev - 1, 1))}
-                    disabled={empPage === 1}
-                    style={{ padding: "6px 12px", opacity: empPage === 1 ? 0.5 : 1, cursor: empPage === 1 ? "not-allowed" : "pointer" }}
-                  >
-                    ← Previous
-                  </button>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                    Page {empPage} of {totalEmpPages}
-                  </span>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setEmpPage(prev => Math.min(prev + 1, totalEmpPages))}
-                    disabled={empPage === totalEmpPages}
-                    style={{ padding: "6px 12px", opacity: empPage === totalEmpPages ? 0.5 : 1, cursor: empPage === totalEmpPages ? "not-allowed" : "pointer" }}
-                  >
-                    Next →
-                  </button>
-                </div>
-              )}
-            </div>
+          {/* ================= VIEW: EMPLOYEES / USERS ================= */}
+          {currentView === "employees" && (
+            <EmployeesTab
+              handleExportEmployeesToExcel={handleExportEmployeesToExcel}
+              setShowEmpImportModal={setShowEmpImportModal}
+              setEmpImportStatus={setEmpImportStatus}
+              setEmpImportFile={setEmpImportFile}
+              setEmpImportParsed={setEmpImportParsed}
+              setEmpImportResult={setEmpImportResult}
+              setShowAddEmpModal={setShowAddEmpModal}
+              empSearch={empSearch}
+              setEmpSearch={setEmpSearch}
+              setEmpPage={setEmpPage}
+              empFilterDept={empFilterDept}
+              setEmpFilterDept={setEmpFilterDept}
+              availableEmpDepartments={availableEmpDepartments}
+              empFilterRole={empFilterRole}
+              setEmpFilterRole={setEmpFilterRole}
+              availableEmpRoles={availableEmpRoles}
+              currentEmployees={currentEmployees}
+              systems={systems}
+              setSelectedViewDept={setSelectedViewDept}
+              setDeptModalTab={setDeptModalTab}
+              setSelectedViewSystem={setSelectedViewSystem}
+              handleOpenAssignModal={handleOpenAssignModal}
+              handleOpenEditEmpModal={handleOpenEditEmpModal}
+              handleOpenEmpReportModal={handleOpenEmpReportModal}
+              handleToggleEmployeeStatus={handleToggleEmployeeStatus}
+              handleRemoveEmployee={handleRemoveEmployee}
+              totalEmpPages={totalEmpPages}
+              empPage={empPage}
+              router={router}
+            />
           )}
 
-          {/* ================= VIEW: RAISE RECORDS ================= */}
-          {currentView === "tickets" && (userRole === "admin" || isITSupport) && (
-            <div className="page-section active">
-              <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2 style={{ fontSize: "1.4rem", margin: 0 }}>Raise Records (All Tickets)</h2>
-                <button 
-                  onClick={handleExportTicketsToExcel} 
-                  className="btn-action start" 
-                  style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px" }}
-                >
-                  Export Reports
-                </button>
-              </div>
-
-              {/* Filters & Search */}
-              <div className="filter-row">
-                <div style={{ flexGrow: 1, minWidth: "250px", position: "relative" }}>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Search by Employee, System, ID, Description..."
-                    value={ticketSearch}
-                    onChange={(e) => { setTicketSearch(e.target.value); setTicketPage(1); }}
-                    style={{ width: "100%", paddingRight: "35px" }}
-                  />
-                  {ticketSearch && (
-                    <button
-                      type="button"
-                      onClick={() => { setTicketSearch(""); setTicketPage(1); }}
-                      style={{
-                        position: "absolute",
-                        right: "10px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none",
-                        border: "none",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                        fontSize: "1.2rem",
-                        padding: "4px",
-                        lineHeight: 1
-                      }}
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-                <div>
-                  <select
-                    className="form-control"
-                    value={ticketFilterStatus}
-                    onChange={(e) => { setTicketFilterStatus(e.target.value); setTicketPage(1); }}
-                    style={{ background: "rgba(0,0,0,0.3)", color: "var(--text-primary)" }}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="Open">Open</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Resolved">Resolved</option>
-                  </select>
-                </div>
-                <div>
-                  <select
-                    className="form-control"
-                    value={ticketFilterSeverity}
-                    onChange={(e) => { setTicketFilterSeverity(e.target.value); setTicketPage(1); }}
-                    style={{ background: "rgba(0,0,0,0.3)", color: "var(--text-primary)" }}
-                  >
-                    <option value="all">All Severities</option>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Table — Desktop */}
-              <div className="table-wrapper desktop-only">
-                <table className="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Ticket ID</th><th>Date Logged</th><th>Updated At</th><th>Employee</th><th>System</th>
-                      <th>Category</th><th>Severity</th><th>Status</th><th>Notes</th>
-                      <th style={{ textAlign: "right" }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentAdminTickets.length === 0 ? (
-                      <tr><td colSpan="10" style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>No tickets match your filters.</td></tr>
-                    ) : (
-                      currentAdminTickets.map(ticket => {
-                        const sys = systems.find(s => s.id === ticket.systemId);
-                        const emp = employees.find(e => e.id === ticket.employeeId);
-                        const isOpen = ticket.status === "Open";
-                        const updatedDate = ticket.updatedAt || ticket.resolvedAt || ticket.startedAt || ticket.createdAt;
-                        return (
-                          <tr key={ticket.id}>
-                            <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{ticket.id}</td>
-                            <td style={{ fontSize: "0.85rem" }}>{new Date(ticket.createdAt).toLocaleDateString()} {new Date(ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                            <td style={{ fontSize: "0.85rem", color: "var(--accent-cyan)", fontWeight: "600" }}>
-                              {updatedDate ? `${new Date(updatedDate).toLocaleDateString()} ${new Date(updatedDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "N/A"}
-                            </td>
-                            <td><strong>{emp ? emp.name : "Unknown"}</strong></td>
-                            <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{sys ? sys.systemNumber : "N/A"}</td>
-                            <td>{ticket.category}</td>
-                            <td><span className={`status-tag ${ticket.severity.toLowerCase()}`}>{ticket.severity}</span></td>
-                            <td><span className={`status-tag ${ticket.status.toLowerCase().replace(" ", "")}`}>{ticket.status}</span></td>
-                            <td style={{ fontSize: "0.85rem", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={ticket.notes || ""}>{ticket.notes || <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>None</span>}</td>
-                            <td style={{ textAlign: "right" }}>
-                              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
-                                {isOpen ? <button className="btn-action start" onClick={() => handleStartTicket(ticket.id)}>Start Work</button>
-                                  : ticket.status === "In Progress" ? <button className="btn-action resolve" onClick={() => handleOpenResolveModal(ticket.id)}>Resolve</button>
-                                  : <span style={{ color: "var(--status-resolved)", fontSize: "0.85rem", fontWeight: "600" }}>Resolved</span>}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Cards — Mobile */}
-              <div className="mobile-card-list mobile-only">
-                {currentAdminTickets.length === 0 ? (
-                  <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem 0" }}>No tickets match your filters.</p>
-                ) : (
-                  currentAdminTickets.map(ticket => {
-                    const sys = systems.find(s => s.id === ticket.systemId);
-                    const emp = employees.find(e => e.id === ticket.employeeId);
-                    const isOpen = ticket.status === "Open";
-                    const updatedDate = ticket.updatedAt || ticket.resolvedAt || ticket.startedAt || ticket.createdAt;
-                    return (
-                      <div className="mobile-card" key={ticket.id}>
-                        <div className="mobile-card-header">
-                          <span className="mobile-card-title">{emp ? emp.name : "Unknown"}</span>
-                          <span className={`status-tag ${ticket.status.toLowerCase().replace(" ", "")}`}>{ticket.status}</span>
-                        </div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">System</span><span className="mobile-card-value" style={{ color: "var(--accent-cyan)", fontWeight: 600 }}>{sys ? sys.systemNumber : "N/A"}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Category</span><span className="mobile-card-value">{ticket.category}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Severity</span><span className="mobile-card-value"><span className={`status-tag ${ticket.severity.toLowerCase()}`}>{ticket.severity}</span></span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Date Logged</span><span className="mobile-card-value" style={{ fontSize: "0.8rem" }}>{new Date(ticket.createdAt).toLocaleDateString()}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Updated At</span><span className="mobile-card-value" style={{ fontSize: "0.8rem", color: "var(--accent-cyan)", fontWeight: 600 }}>{updatedDate ? `${new Date(updatedDate).toLocaleDateString()} ${new Date(updatedDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "N/A"}</span></div>
-                        {ticket.notes && <div className="mobile-card-row"><span className="mobile-card-label">Notes</span><span className="mobile-card-value" style={{ fontStyle: "italic", color: "var(--text-secondary)" }}>{ticket.notes}</span></div>}
-                        <div className="mobile-card-actions">
-                          {isOpen ? (
-                            <button className="btn-action start" onClick={() => handleStartTicket(ticket.id)}>Start Work</button>
-                          ) : ticket.status === "In Progress" ? (
-                            <button className="btn-action resolve" onClick={() => handleOpenResolveModal(ticket.id)}>Resolve</button>
-                          ) : (
-                            <span style={{ color: "var(--status-resolved)", fontWeight: 600, padding: "6px 0" }}>Resolved</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-
-
-              {/* Pagination controls */}
-              {totalAdminTicketPages > 1 && (
-                <div className="pagination-controls">
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setTicketPage(prev => Math.max(prev - 1, 1))}
-                    disabled={ticketPage === 1}
-                    style={{ padding: "6px 12px", opacity: ticketPage === 1 ? 0.5 : 1, cursor: ticketPage === 1 ? "not-allowed" : "pointer" }}
-                  >
-                    ← Previous
-                  </button>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                    Page {ticketPage} of {totalAdminTicketPages}
-                  </span>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setTicketPage(prev => Math.min(prev + 1, totalAdminTicketPages))}
-                    disabled={ticketPage === totalAdminTicketPages}
-                    style={{ padding: "6px 12px", opacity: ticketPage === totalAdminTicketPages ? 0.5 : 1, cursor: ticketPage === totalAdminTicketPages ? "not-allowed" : "pointer" }}
-                  >
-                    Next →
-                  </button>
-                </div>
-              )}
-            </div>
+          {/* ================= VIEW: TICKETS / RAISE RECORD ================= */}
+          {currentView === "tickets" && (
+            <TicketsTab
+              handleExportTicketsToExcel={handleExportTicketsToExcel}
+              ticketSearch={ticketSearch}
+              setTicketSearch={setTicketSearch}
+              setTicketPage={setTicketPage}
+              ticketFilterStatus={ticketFilterStatus}
+              setTicketFilterStatus={setTicketFilterStatus}
+              ticketFilterSeverity={ticketFilterSeverity}
+              setTicketFilterSeverity={setTicketFilterSeverity}
+              currentAdminTickets={currentAdminTickets}
+              systems={systems}
+              employees={employees}
+              handleStartTicket={handleStartTicket}
+              handleOpenResolveModal={handleOpenResolveModal}
+              totalAdminTicketPages={totalAdminTicketPages}
+              ticketPage={ticketPage}
+            />
           )}
 
-          {/* ================= VIEW: DEPARTMENTS MANAGEMENT ================= */}
-          {currentView === "departments" && (userRole === "admin" || isITSupport) && (
-            <div className="page-section active">
-              <div className="section-header">
-                <h2 style={{ fontSize: "1.4rem" }}>Department Settings</h2>
-              </div>
-
-              <div className="dashboard-split" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                {/* Add Department Form */}
-                <div className="panel-card">
-                  <div className="panel-header">
-                    <span className="panel-title">Add Department</span>
-                  </div>
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!newDeptName.trim()) return;
-                    const added = addDepartment(newDeptName, user?.name || "Admin");
-                    if (added) {
-                      setNewDeptName("");
-                      setDeptError("");
-                      setDepartments(getDepartments());
-                      playBeep(600, 0.1);
-                    } else {
-                      setDeptError("Department already exists or name is invalid.");
-                      playBeep(400, 0.2);
-                    }
-                  }}>
-                    <div className="form-group" style={{ marginBottom: "1rem" }}>
-                      <label>Department Name</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="e.g. Sales, Marketing, HR"
-                        value={newDeptName}
-                        onChange={(e) => setNewDeptName(e.target.value)}
-                        required
-                      />
-                    </div>
-                    {deptError && (
-                      <div style={{ color: "var(--status-critical)", fontSize: "0.85rem", marginBottom: "1rem" }}>
-                        ⚠️ {deptError}
-                      </div>
-                    )}
-                    <button type="submit" className="btn-primary" style={{ width: "100%", justifyContent: "center" }}>
-                      Add Department
-                    </button>
-                  </form>
-                </div>
-
-                {/* Departments List */}
-                <div className="panel-card">
-                  <div className="panel-header">
-                    <span className="panel-title">Existing Departments</span>
-                  </div>
-                  <div className="table-wrapper">
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>Name</th>
-                          <th style={{ textAlign: "right" }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {departments.length === 0 ? (
-                          <tr><td colSpan="2" style={{ textAlign: "center", color: "var(--text-muted)" }}>No departments configured.</td></tr>
-                        ) : (
-                          departments.map(dept => {
-                            const count = employees.filter(e => e.department && e.department.toLowerCase() === dept.name.toLowerCase()).length;
-                            return (
-                              <tr key={dept.id}>
-                                <td style={{ fontWeight: 600 }}>
-                                  <span 
-                                    style={{ cursor: "pointer", color: "var(--accent-cyan)", textDecoration: "underline" }}
-                                    onClick={() => { setSelectedViewDept(dept.name); setDeptModalTab("members"); }}
-                                    title={`View details of ${dept.name} department`}
-                                  >
-                                    {dept.name}
-                                  </span>
-                                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "8px" }}>({count} employees)</span>
-                                </td>
-                                <td style={{ textAlign: "right" }}>
-                                  <button
-                                    type="button"
-                                    className="btn-action resolve"
-                                    onClick={() => {
-                                      if (count > 0) {
-                                        alert(`Cannot delete department "${dept.name}" because it is currently assigned to ${count} employee(s).`);
-                                        playBeep(400, 0.2);
-                                        return;
-                                      }
-                                      if (confirm(`Are you sure you want to delete the department "${dept.name}"?`)) {
-                                        deleteDepartment(dept.id, user?.name || "Admin");
-                                        setDepartments(getDepartments());
-                                        playBeep(700, 0.1);
-                                      }
-                                    }}
-                                    style={{
-                                      padding: "4px 8px",
-                                      fontSize: "0.75rem",
-                                      background: "rgba(239, 68, 68, 0.15)",
-                                      color: "var(--status-critical)",
-                                      borderColor: "var(--status-critical)"
-                                    }}
-                                  >
-                                    Remove
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* ================= VIEW: DEPARTMENTS ================= */}
+          {currentView === "departments" && !isITSupport && (
+            <DepartmentsTab
+              departments={departments}
+              setDepartments={setDepartments}
+              employees={employees}
+              newDeptName={newDeptName}
+              setNewDeptName={setNewDeptName}
+              deptError={deptError}
+              setDeptError={setDeptError}
+              addDepartment={addDepartment}
+              deleteDepartment={deleteDepartment}
+              getDepartments={getDepartments}
+              user={user}
+              playBeep={playBeep}
+              setSelectedViewDept={setSelectedViewDept}
+              setDeptModalTab={setDeptModalTab}
+            />
           )}
 
-          {/* ================= VIEW: SYSTEM HISTORY LOGS ================= */}
-          {currentView === "history" && (userRole === "admin" || isITSupport) && (
-            <div className="page-section active">
-              <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2 style={{ fontSize: "1.4rem", margin: 0 }}>System Tracking & Audit Logs</h2>
-                <button 
-                  onClick={handleExportHistoryToExcel} 
-                  className="btn-action start" 
-                  style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px" }}
-                >
-                  Export Audit Logs
-                </button>
-              </div>
-
-              {/* Filters */}
-              <div className="filter-row">
-                <div style={{ position: "relative", flexGrow: 1 }}>
-                  <input 
-                    type="text" 
-                    className="form-control search-box" 
-                    placeholder="Search Employee, System, Action, Department..." 
-                    style={{ width: "100%", paddingRight: "35px" }}
-                    value={historySearch}
-                    onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
-                  />
-                  {historySearch && (
-                    <button
-                      type="button"
-                      onClick={() => { setHistorySearch(""); setHistoryPage(1); }}
-                      style={{
-                        position: "absolute",
-                        right: "10px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none",
-                        border: "none",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                        fontSize: "1.2rem",
-                        padding: "4px",
-                        lineHeight: 1
-                      }}
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Table — Desktop */}
-              <div className="table-wrapper desktop-only">
-                <table className="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Log ID</th>
-                      <th>Action</th>
-                      <th>System Number</th>
-                      <th>Team Member Name</th>
-                      <th>Timestamp</th>
-                      <th>Performed By</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentHistory.length === 0 ? (
-                      <tr><td colSpan="6" style={{ textAlign: "center", color: "var(--text-muted)" }}>No matching audit logs found.</td></tr>
-                    ) : (
-                      currentHistory.map(log => {
-                        const emp = employees.find(e => e.id === log.employeeId);
-                        const act = log.action.toLowerCase();
-                        let statusClass = 'open';
-                        if (act === 'assigned') statusClass = 'resolved';
-                        else if (act === 'unassigned') statusClass = 'open';
-                        else if (act.includes('added') || act.includes('add')) statusClass = 'progress';
-                        else if (act.includes('updated') || act.includes('update')) statusClass = 'open';
-                        else if (act.includes('removed') || act.includes('delete') || act.includes('unassigned')) statusClass = 'critical';
-
-                        return (
-                          <tr key={log.id}>
-                            <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{log.id}</td>
-                            <td>
-                              <span className={`status-tag ${statusClass}`}>
-                                {log.action}
-                              </span>
-                            </td>
-                            <td style={{ fontWeight: 700, color: log.systemNumber ? "var(--accent-cyan)" : "var(--text-muted)" }}>{log.systemNumber || "N/A"}</td>
-                            <td><strong>{emp ? emp.name : (log.employeeId ? (log.employeeId.startsWith('emp_') ? "Unknown" : log.employeeId) : "N/A")}</strong></td>
-                            <td>{new Date(log.timestamp).toLocaleString()}</td>
-                            <td><span className="timer-badge">{log.assignedBy || "System"}</span></td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Cards — Mobile */}
-              <div className="mobile-card-list mobile-only">
-                {currentHistory.length === 0 ? (
-                  <p style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem 0" }}>No audit logs found.</p>
-                ) : (
-                  currentHistory.map(log => {
-                    const emp = employees.find(e => e.id === log.employeeId);
-                    const act = log.action.toLowerCase();
-                    let statusClass = 'open';
-                    if (act === 'assigned') statusClass = 'resolved';
-                    else if (act === 'unassigned') statusClass = 'open';
-                    else if (act.includes('added') || act.includes('add')) statusClass = 'progress';
-                    else if (act.includes('updated') || act.includes('update')) statusClass = 'open';
-                    else if (act.includes('removed') || act.includes('delete') || act.includes('unassigned')) statusClass = 'critical';
-
-                    let title = "Audit Log";
-                    if (log.systemNumber) title = log.systemNumber;
-                    else if (act.includes('employee')) title = "Employee Log";
-                    else if (act.includes('department')) title = "Department Log";
-
-                    return (
-                      <div className="mobile-card" key={log.id}>
-                        <div className="mobile-card-header">
-                          <span className="mobile-card-title">{title}</span>
-                          <span className={`status-tag ${statusClass}`}>{log.action}</span>
-                        </div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Employee</span><span className="mobile-card-value">{emp ? emp.name : (log.employeeId ? (log.employeeId.startsWith('emp_') ? "Unknown" : log.employeeId) : "N/A")}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Timestamp</span><span className="mobile-card-value">{new Date(log.timestamp).toLocaleString()}</span></div>
-                        <div className="mobile-card-row"><span className="mobile-card-label">Performed By</span><span className="mobile-card-value">{log.assignedBy || "System"}</span></div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* History Pagination Controls */}
-              {totalHistoryPages > 1 && (
-                <div className="pagination-controls">
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setHistoryPage(prev => Math.max(prev - 1, 1))}
-                    disabled={historyPage === 1}
-                    style={{ padding: "6px 12px", opacity: historyPage === 1 ? 0.5 : 1, cursor: historyPage === 1 ? "not-allowed" : "pointer" }}
-                  >
-                    ← Previous
-                  </button>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                    Page {historyPage} of {totalHistoryPages} (Total {filteredHistory.length} logs)
-                  </span>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setHistoryPage(prev => Math.min(prev + 1, totalHistoryPages))}
-                    disabled={historyPage === totalHistoryPages}
-                    style={{ padding: "6px 12px", opacity: historyPage === totalHistoryPages ? 0.5 : 1, cursor: historyPage === totalHistoryPages ? "not-allowed" : "pointer" }}
-                  >
-                    Next →
-                  </button>
-                </div>
-              )}
-            </div>
+          {/* ================= VIEW: HISTORY / LOGS ================= */}
+          {currentView === "history" && !isITSupport && (
+            <HistoryTab
+              handleExportHistoryToExcel={handleExportHistoryToExcel}
+              historySearch={historySearch}
+              setHistorySearch={setHistorySearch}
+              setHistoryPage={setHistoryPage}
+              currentHistory={currentHistory}
+              employees={employees}
+              totalHistoryPages={totalHistoryPages}
+              historyPage={historyPage}
+              filteredHistory={filteredHistory}
+            />
           )}
 
-          {/* ================= VIEW: TASK BOARD (ADMIN/LEADER) ================= */}
-          {currentView === "tasks" && userRole === "admin" && !isITSupport && (
-            <div className="page-section active">
-              <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h2 style={{ fontSize: "1.4rem", margin: 0 }}>📅 Team Task Board</h2>
-                  <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginTop: "4px" }}>
-                    {isTeamLeader
-                      ? `Showing tasks for your department: ${leaderDepartment}`
-                      : "Assign tasks, view daily performance reports, and track employee task logs"}
-                  </p>
-                  {isTeamLeader && (
-                    <span style={{ display: "inline-block", marginTop: "6px", padding: "2px 10px", background: "rgba(0,204,255,0.12)", border: "1px solid rgba(0,204,255,0.3)", borderRadius: "20px", fontSize: "0.75rem", color: "var(--accent-cyan)", fontWeight: "600" }}>
-                      🏷️ Dept: {leaderDepartment}
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <button 
-                    onClick={handleExportTasksToCSV} 
-                    className="btn-secondary" 
-                  >
-                    📥 Export All Tasks
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setEmpReportTarget(null);
-                      const today = new Date();
-                      const thirtyDaysAgo = new Date();
-                      thirtyDaysAgo.setDate(today.getDate() - 30);
-                      setEmpReportFrom(thirtyDaysAgo.toISOString().split('T')[0]);
-                      setEmpReportTo(today.toISOString().split('T')[0]);
-                      setShowEmpReportModal(true);
-                    }} 
-                    className="btn-secondary"
-                    style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(139, 92, 246, 0.15)", color: "var(--accent-purple)", borderColor: "var(--accent-purple)" }}
-                  >
-                    📊 Performance Reports
-                  </button>
-                  <button 
-                    className="btn-primary" 
-                    onClick={() => {
-                      setNewTaskTitle("");
-                      setNewTaskDesc("");
-                      const assignableEmps = employees.filter(e => 
-                        e.role !== "Admin" && e.role !== "Management" &&
-                        (!isTeamLeader || !leaderDepartment || e.department?.toLowerCase() === leaderDepartment.toLowerCase())
-                      );
-                      setNewTaskAssignee(assignableEmps.length > 0 ? assignableEmps[0].id : "");
-                      setShowAddTaskModal(true);
-                    }}
-                  >
-                    + Assign New Task
-                  </button>
-                </div>
-              </div>
-
-              {/* Sub-Tabs */}
-              <div className="tab-container" style={{ display: "flex", gap: "15px", marginBottom: "1.5rem", borderBottom: "1px solid var(--glass-border)", paddingBottom: "10px" }}>
-                <button 
-                  onClick={() => setTaskPage(1)} 
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--accent-cyan)",
-                    fontWeight: "bold",
-                    borderBottom: "2px solid var(--accent-cyan)",
-                    paddingBottom: "5px",
-                    cursor: "pointer"
-                  }}
-                >
-                  Tasks List
-                </button>
-              </div>
-
-              {/* Filters */}
-              <div className="filter-row" style={{ marginBottom: "1.5rem" }}>
-                <div style={{ position: "relative", flexGrow: 1 }}>
-                  <input 
-                    type="text" 
-                    className="form-control search-box" 
-                    placeholder="Search by task title, description, or assignee..." 
-                    style={{ width: "100%", paddingRight: "35px" }}
-                    value={taskSearch}
-                    onChange={(e) => { setTaskSearch(e.target.value); setTaskPage(1); }}
-                  />
-                  {taskSearch && (
-                    <button
-                      type="button"
-                      onClick={() => { setTaskSearch(""); setTaskPage(1); }}
-                      style={{
-                        position: "absolute",
-                        right: "10px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none",
-                        border: "none",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                        fontSize: "1.2rem",
-                        padding: "4px",
-                        lineHeight: 1
-                      }}
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Table — Tasks List */}
-              <div className="table-wrapper">
-                <table className="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Task Title</th>
-                      <th>Description</th>
-                      <th>Assigned To</th>
-                      <th>Assigned By</th>
-                      <th>Status</th>
-                      <th>Time Spent</th>
-                      <th>Created</th>
-                      <th>Completed</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentTasks.length === 0 ? (
-                      <tr>
-                        <td colSpan="9" style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
-                          No tasks found.
-                        </td>
-                      </tr>
-                    ) : (
-                      currentTasks.map(t => {
-                        let displayDuration = t.totalDuration || 0;
-                        if (t.status === 'In Progress' && t.startedAt) {
-                          const elapsed = Math.floor((now - new Date(t.startedAt).getTime()) / 1000);
-                          displayDuration += Math.max(0, elapsed);
-                        }
-
-                        const formatTime = (secs) => {
-                          const h = Math.floor(secs / 3600);
-                          const m = Math.floor((secs % 3600) / 60);
-                          const s = secs % 60;
-                          return `${h}h ${m}m ${s}s`;
-                        };
-
-                        return (
-                          <tr key={t.id}>
-                            <td style={{ fontWeight: "600" }}>{t.title}</td>
-                            <td>{t.description || "—"}</td>
-                            <td><strong>{t.assignedToName || "Unassigned"}</strong></td>
-                            <td>{t.assignedByName || "System"}</td>
-                            <td>
-                              <span className={`status-badge badge-${t.status === 'In Progress' ? 'progress' : (t.status === 'Completed' ? 'resolved' : 'open')}`}>
-                                {t.status}
-                              </span>
-                            </td>
-                            <td style={{ fontFamily: "monospace", color: "var(--accent-cyan)" }}>{formatTime(displayDuration)}</td>
-                            <td>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
-                            <td>{t.completedAt ? new Date(t.completedAt).toLocaleString() : "—"}</td>
-                            <td>
-                              <div style={{ display: "flex", gap: "6px" }}>
-                                <button
-                                  className="btn-secondary"
-                                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                                  onClick={() => {
-                                    setSelectedTaskDetails(t);
-                                    setShowTaskDetailsModal(true);
-                                  }}
-                                >
-                                  👁️ View
-                                </button>
-                                <button
-                                  className="btn-action start"
-                                  style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(88, 166, 255, 0.15)", color: "#58a6ff", borderColor: "rgba(88, 166, 255, 0.3)" }}
-                                  onClick={() => {
-                                    setEditingTask(t);
-                                    setEditTaskTitle(t.title);
-                                    setEditTaskDesc(t.description || "");
-                                    setEditTaskAssignee(t.assignedTo || "");
-                                    setEditTaskStatus(t.status || "Pending");
-                                    setShowEditTaskModal(true);
-                                  }}
-                                >
-                                  ✏️ Edit
-                                </button>
-                                <button
-                                  className="btn-action resolve"
-                                  style={{ padding: "4px 8px", fontSize: "0.75rem", background: "rgba(239, 68, 68, 0.15)", color: "var(--status-critical)", borderColor: "rgba(239, 68, 68, 0.3)" }}
-                                  onClick={() => handleDeleteTask(t.id, t.title)}
-                                >
-                                  🗑️ Delete
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Task Pagination Controls */}
-              {totalTaskPages > 1 && (
-                <div className="pagination-controls" style={{ marginTop: "1rem" }}>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setTaskPage(prev => Math.max(prev - 1, 1))}
-                    disabled={taskPage === 1}
-                    style={{ padding: "6px 12px", opacity: taskPage === 1 ? 0.5 : 1, cursor: taskPage === 1 ? "not-allowed" : "pointer" }}
-                  >
-                    ← Previous
-                  </button>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                    Page {taskPage} of {totalTaskPages} (Total {filteredTasks.length} tasks)
-                  </span>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => setTaskPage(prev => Math.min(prev + 1, totalTaskPages))}
-                    disabled={taskPage === totalTaskPages}
-                    style={{ padding: "6px 12px", opacity: taskPage === totalTaskPages ? 0.5 : 1, cursor: taskPage === totalTaskPages ? "not-allowed" : "pointer" }}
-                  >
-                    Next →
-                  </button>
-                </div>
-              )}
-
-              {/* Performance Summary section */}
-              <div style={{ marginTop: "3rem" }}>
-                {/* ── Chart Header ── */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "1.5rem" }}>
-                  <div>
-                    <h3 style={{ fontSize: "1.2rem", color: "var(--accent-cyan)", margin: 0 }}>📊 Team Performance Chart</h3>
-                    <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "4px" }}>Task completion rates per team member across time periods</p>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                    {/* Seed / Clear demo buttons */}
-                    {/* <button
-                      onClick={seedDummyTasks}
-                      title="Inject demo tasks for all employees across all time periods"
-                      style={{
-                        padding: "5px 13px",
-                        borderRadius: "8px",
-                        border: "1px solid rgba(0,204,255,0.3)",
-                        background: "rgba(0,204,255,0.08)",
-                        color: "var(--accent-cyan)",
-                        fontSize: "0.72rem",
-                        fontWeight: "600",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "5px",
-                        transition: "all 0.2s ease"
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = "rgba(0,204,255,0.18)"}
-                      onMouseLeave={e => e.currentTarget.style.background = "rgba(0,204,255,0.08)"}
-                    >
-                      🧪 Seed Demo Data
-                    </button>
-                    <button
-                      onClick={() => {
-                        Swal.fire({
-                          title: "Clear all demo tasks?",
-                          text: "This removes tasks with IDs starting with 'demo_'. Real tasks are kept.",
-                          icon: "warning",
-                          showCancelButton: true,
-                          confirmButtonText: "Yes, clear",
-                          confirmButtonColor: "#ef4444"
-                        }).then(r => {
-                          if (r.isConfirmed) {
-                            const cleaned = tasks.filter(t => !t.id.startsWith("demo_"));
-                            saveTasks(cleaned);
-                            setTasks(getTasks());
-                            Swal.fire({ icon: "success", title: "Cleared", text: "Demo tasks removed." });
-                          }
-                        });
-                      }}
-                      title="Remove all seeded demo tasks"
-                      style={{
-                        padding: "5px 13px",
-                        borderRadius: "8px",
-                        border: "1px solid rgba(239,68,68,0.3)",
-                        background: "rgba(239,68,68,0.06)",
-                        color: "#ef4444",
-                        fontSize: "0.72rem",
-                        fontWeight: "600",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "5px",
-                        transition: "all 0.2s ease"
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.15)"}
-                      onMouseLeave={e => e.currentTarget.style.background = "rgba(239,68,68,0.06)"}
-                    >
-                      🗑️ Clear Demo
-                    </button> */}
-                    {/* Tab Switcher */}
-                    <div style={{ display: "flex", gap: "6px", background: "rgba(255,255,255,0.04)", padding: "4px", borderRadius: "10px", border: "1px solid var(--glass-border)" }}>
-                      {["daily", "weekly", "monthly", "yearly"].map(tab => (
-                        <button
-                          key={tab}
-                          onClick={() => setPerfChartTab(tab)}
-                          style={{
-                            padding: "5px 14px",
-                            borderRadius: "7px",
-                            border: "none",
-                            fontSize: "0.75rem",
-                            fontWeight: "600",
-                            cursor: "pointer",
-                            textTransform: "capitalize",
-                            background: perfChartTab === tab ? "linear-gradient(135deg, var(--accent-cyan), var(--accent-purple))" : "transparent",
-                            color: perfChartTab === tab ? "#fff" : "var(--text-secondary)",
-                            transition: "all 0.2s ease",
-                            boxShadow: perfChartTab === tab ? "0 2px 10px rgba(0,204,255,0.3)" : "none"
-                          }}
-                        >
-                          {tab === "daily" ? "Today" : tab === "weekly" ? "Week" : tab === "monthly" ? "Month" : "Year"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Bar Chart ── */}
-                {(() => {
-                  const now2 = new Date();
-                  const chartData = performanceEmployees.map(e => {
-                    let empTasks = tasks.filter(t => t.assignedTo === e.id);
-
-                    // Filter by time period
-                    if (perfChartTab === "daily") {
-                      empTasks = empTasks.filter(t => {
-                        const d = new Date(t.createdAt || t.updatedAt || 0);
-                        return d.toDateString() === now2.toDateString();
-                      });
-                    } else if (perfChartTab === "weekly") {
-                      const weekAgo = new Date(now2); weekAgo.setDate(weekAgo.getDate() - 7);
-                      empTasks = empTasks.filter(t => new Date(t.createdAt || t.updatedAt || 0) >= weekAgo);
-                    } else if (perfChartTab === "monthly") {
-                      empTasks = empTasks.filter(t => {
-                        const d = new Date(t.createdAt || t.updatedAt || 0);
-                        return d.getMonth() === now2.getMonth() && d.getFullYear() === now2.getFullYear();
-                      });
-                    } else if (perfChartTab === "yearly") {
-                      empTasks = empTasks.filter(t => {
-                        const d = new Date(t.createdAt || t.updatedAt || 0);
-                        return d.getFullYear() === now2.getFullYear();
-                      });
-                    }
-
-                    const total = empTasks.length;
-                    const completed = empTasks.filter(t => t.status === "Completed").length;
-                    const pending = total - completed;
-                    const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
-                    const shortName = e.name.split(" ")[0];
-                    return { name: shortName, Completed: completed, Pending: pending, Rate: rate, total };
-                  }).filter(d => d.total > 0 || true); // show all employees
-
-                  const hasData = chartData.some(d => d.total > 0);
-
-                  return (
-                    <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border)", borderRadius: "16px", padding: "1.5rem", marginBottom: "2rem" }}>
-                      {!hasData ? (
-                        <div style={{ textAlign: "center", padding: "3rem 0", color: "var(--text-muted)" }}>
-                          <div style={{ fontSize: "2.5rem", marginBottom: "8px" }}>📭</div>
-                          <p style={{ margin: 0 }}>No tasks found for this time period.</p>
-                        </div>
-                      ) : (
-                        <>
-                          {/* Stacked Bar Chart */}
-                          <div style={{ marginBottom: "1.5rem" }}>
-                            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "8px" }}>Tasks: Completed vs Pending</p>
-                            <ResponsiveContainer width="100%" height={260}>
-                              <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                                <XAxis dataKey="name" tick={{ fill: "var(--text-secondary)", fontSize: 12 }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fill: "var(--text-secondary)", fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                                <Tooltip
-                                  contentStyle={{ background: "rgba(15,15,25,0.95)", border: "1px solid var(--glass-border)", borderRadius: "10px", fontSize: "0.8rem" }}
-                                  labelStyle={{ color: "var(--accent-cyan)", fontWeight: "bold" }}
-                                  cursor={{ fill: "rgba(255,255,255,0.04)" }}
-                                />
-                                <Legend wrapperStyle={{ fontSize: "0.75rem", paddingTop: "10px" }} />
-                                <Bar dataKey="Completed" stackId="a" fill="#00ccff" radius={[0, 0, 0, 0]} />
-                                <Bar dataKey="Pending" stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} />
-                              </BarChart>
-                            </ResponsiveContainer>
-                          </div>
-
-                          {/* Completion Rate Bar Chart */}
-                          <div>
-                            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "8px" }}>Completion Rate (%)</p>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                              {chartData.map((d, i) => (
-                                <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                  <span style={{ width: "90px", fontSize: "0.75rem", color: "var(--text-secondary)", textAlign: "right", flexShrink: 0 }}>{d.name}</span>
-                                  <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: "20px", height: "10px", overflow: "hidden" }}>
-                                    <div style={{
-                                      height: "100%",
-                                      width: `${d.Rate}%`,
-                                      background: d.Rate === 100 ? "linear-gradient(90deg, #00ccff, #00ff99)" : d.Rate >= 50 ? "linear-gradient(90deg, #00ccff, #a855f7)" : "linear-gradient(90deg, #f59e0b, #ef4444)",
-                                      borderRadius: "20px",
-                                      transition: "width 0.8s ease"
-                                    }} />
-                                  </div>
-                                  <span style={{ width: "38px", fontSize: "0.75rem", fontWeight: "700", color: d.Rate === 100 ? "#00ff99" : d.Rate >= 50 ? "var(--accent-cyan)" : "#f59e0b", textAlign: "left" }}>{d.Rate}%</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                <h3 style={{ fontSize: "1.1rem", color: "var(--accent-cyan)", marginBottom: "1rem" }}>📈 Team Performance Table</h3>
-                <div className="table-wrapper">
-                  <table className="custom-table">
-                    <thead>
-                      <tr>
-                        <th>Team Member</th>
-                        <th>Department</th>
-                        <th>Role</th>
-                        <th style={{ textAlign: "center" }}>Total Assigned</th>
-                        <th style={{ textAlign: "center" }}>Completed</th>
-                        <th style={{ textAlign: "center" }}>Pending</th>
-                        <th>Total Time Spent</th>
-                        <th>Rate (%)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentPerfEmployees.length === 0 ? (
-                        <tr>
-                          <td colSpan="8" style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
-                            No team members found.
-                          </td>
-                        </tr>
-                      ) : (
-                        currentPerfEmployees.map(e => {
-                          const empTasks = tasks.filter(t => t.assignedTo === e.id);
-                          const completed = empTasks.filter(t => t.status === "Completed");
-                          const pending = empTasks.filter(t => t.status !== "Completed");
-                          
-                          let totalTime = 0;
-                          empTasks.forEach(t => {
-                            let displayDuration = t.totalDuration || 0;
-                            if (t.status === 'In Progress' && t.startedAt) {
-                              const elapsed = Math.floor((now - new Date(t.startedAt).getTime()) / 1000);
-                              displayDuration += Math.max(0, elapsed);
-                            }
-                            totalTime += displayDuration;
-                          });
-
-                          const formatTime = (secs) => {
-                            const h = Math.floor(secs / 3600);
-                            const m = Math.floor((secs % 3600) / 60);
-                            const s = secs % 60;
-                            return `${h}h ${m}m ${s}s`;
-                          };
-
-                          const rate = empTasks.length > 0 
-                            ? Math.round((completed.length / empTasks.length) * 100) 
-                            : 0;
-
-                          return (
-                            <tr key={e.id}>
-                              <td><strong>{e.name}</strong></td>
-                              <td>{e.department || "Operations"}</td>
-                              <td>{e.role}</td>
-                              <td style={{ textAlign: "center" }}>{empTasks.length}</td>
-                              <td style={{ textAlign: "center", color: "var(--status-resolved)" }}>{completed.length}</td>
-                              <td style={{ textAlign: "center", color: "var(--status-progress)" }}>{pending.length}</td>
-                              <td style={{ fontFamily: "monospace", color: "var(--accent-cyan)" }}>{formatTime(totalTime)}</td>
-                              <td>
-                                <span style={{ fontWeight: "bold", color: rate === 100 ? "var(--status-resolved)" : "var(--text-primary)" }}>
-                                  {rate}%
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Performance Report Pagination Controls */}
-                {totalPerfPages > 1 && (
-                  <div className="pagination-controls" style={{ marginTop: "1rem" }}>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => setPerfPage(prev => Math.max(prev - 1, 1))}
-                      disabled={perfPage === 1}
-                      style={{ padding: "6px 12px", opacity: perfPage === 1 ? 0.5 : 1, cursor: perfPage === 1 ? "not-allowed" : "pointer" }}
-                    >
-                      ← Previous
-                    </button>
-                    <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                      Page {perfPage} of {totalPerfPages} (Total {performanceEmployees.length} team members)
-                    </span>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => setPerfPage(prev => Math.min(prev + 1, totalPerfPages))}
-                      disabled={perfPage === totalPerfPages}
-                      style={{ padding: "6px 12px", opacity: perfPage === totalPerfPages ? 0.5 : 1, cursor: perfPage === totalPerfPages ? "not-allowed" : "pointer" }}
-                    >
-                      Next →
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+          {/* ================= VIEW: TASKS ================= */}
+          {currentView === "tasks" && !isITSupport && (
+            <TasksTab
+              isTeamLeader={isTeamLeader}
+              leaderDepartment={leaderDepartment}
+              handleExportTasksToCSV={handleExportTasksToCSV}
+              setEmpReportTarget={setEmpReportTarget}
+              setEmpReportFrom={setEmpReportFrom}
+              setEmpReportTo={setEmpReportTo}
+              setShowEmpReportModal={setShowEmpReportModal}
+              employees={employees}
+              setNewTaskTitle={setNewTaskTitle}
+              setNewTaskDesc={setNewTaskDesc}
+              setNewTaskAssignee={setNewTaskAssignee}
+              setShowAddTaskModal={setShowAddTaskModal}
+              setTaskPage={setTaskPage}
+              taskSearch={taskSearch}
+              setTaskSearch={setTaskSearch}
+              currentTasks={currentTasks}
+              now={now}
+              setSelectedTaskDetails={setSelectedTaskDetails}
+              setShowTaskDetailsModal={setShowTaskDetailsModal}
+              setEditingTask={setEditingTask}
+              setEditTaskTitle={setEditTaskTitle}
+              setEditTaskDesc={setEditTaskDesc}
+              setEditTaskAssignee={setEditTaskAssignee}
+              setEditTaskStatus={setEditTaskStatus}
+              setShowEditTaskModal={setShowEditTaskModal}
+              handleDeleteTask={handleDeleteTask}
+              totalTaskPages={totalTaskPages}
+              taskPage={taskPage}
+              filteredTasks={filteredTasks}
+              perfChartTab={perfChartTab}
+              setPerfChartTab={setPerfChartTab}
+              performanceEmployees={performanceEmployees}
+              tasks={tasks}
+              currentPerfEmployees={currentPerfEmployees}
+              totalPerfPages={totalPerfPages}
+              perfPage={perfPage}
+              setPerfPage={setPerfPage}
+            />
           )}
 
-          {/* ================= VIEW: LEAVE REQUESTS (ADMIN) ================= */}
-          {currentView === "leave-requests" && userRole === "admin" && !isITSupport && (
-            <div className="page-section active">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-                <div>
-                  <h2 style={{ fontSize: "1.4rem", margin: 0 }}>📅 Leave Requests Management</h2>
-                  <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginTop: "4px" }}>Manage and review team member leave applications</p>
-                </div>
-              </div>
-
-              {/* Leave Statistics Summary Grid */}
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                gap: "1rem",
-                marginBottom: "2rem"
-              }}>
-                <div style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid var(--glass-border)", padding: "1.25rem", borderRadius: "12px", textAlign: "center" }}>
-                  <p style={{ color: "var(--text-secondary)", fontSize: "0.8rem", margin: "0 0 4px 0" }}>Total Applications</p>
-                  <p style={{ fontSize: "1.8rem", fontWeight: "700", color: "var(--text-primary)", margin: 0 }}>{leaveSummary.total}</p>
-                </div>
-                <div style={{ background: "rgba(240, 136, 62, 0.1)", border: "1px solid rgba(240, 136, 62, 0.2)", padding: "1.25rem", borderRadius: "12px", textAlign: "center" }}>
-                  <p style={{ color: "#f0883e", fontSize: "0.8rem", margin: "0 0 4px 0" }}>Pending Review</p>
-                  <p style={{ fontSize: "1.8rem", fontWeight: "700", color: "#f0883e", margin: 0 }}>{leaveSummary.pending}</p>
-                </div>
-                <div style={{ background: "rgba(46, 160, 67, 0.1)", border: "1px solid rgba(46, 160, 67, 0.2)", padding: "1.25rem", borderRadius: "12px", textAlign: "center" }}>
-                  <p style={{ color: "var(--status-resolved)", fontSize: "0.8rem", margin: "0 0 4px 0" }}>Approved Leaves</p>
-                  <p style={{ fontSize: "1.8rem", fontWeight: "700", color: "var(--status-resolved)", margin: 0 }}>{leaveSummary.approved}</p>
-                </div>
-                <div style={{ background: "rgba(248, 81, 73, 0.1)", border: "1px solid rgba(248, 81, 73, 0.2)", padding: "1.25rem", borderRadius: "12px", textAlign: "center" }}>
-                  <p style={{ color: "var(--status-critical)", fontSize: "0.8rem", margin: "0 0 4px 0" }}>Rejected Leaves</p>
-                  <p style={{ fontSize: "1.8rem", fontWeight: "700", color: "var(--status-critical)", margin: 0 }}>{leaveSummary.rejected}</p>
-                </div>
-              </div>
-
-              {/* Toolbar & Filter */}
-              <div style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                background: "rgba(255, 255, 255, 0.01)",
-                border: "1px solid var(--glass-border)",
-                padding: "12px 18px",
-                borderRadius: "10px",
-                marginBottom: "1rem"
-              }}>
-                <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>
-                  Showing {leaveRequests.length} leave application(s)
-                </span>
-                
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>Status Filter:</span>
-                  <select
-                    value={leaveFilterStatus}
-                    onChange={(e) => setLeaveFilterStatus(e.target.value)}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: "8px",
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--glass-border)",
-                      color: "var(--text-primary)",
-                      outline: "none",
-                      fontSize: "0.85rem"
-                    }}
-                  >
-                    <option value="ALL">All Status</option>
-                    <option value="Pending">Pending Review</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Table Wrapper */}
-              {leaveRequests.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "4rem", background: "rgba(255,255,255,0.01)", borderRadius: "12px", border: "1px dashed var(--glass-border)", color: "var(--text-muted)" }}>
-                  <p style={{ fontSize: "1rem", margin: 0 }}>No leave applications found matching the filter.</p>
-                </div>
-              ) : (
-                (() => {
-                  const totalLeavePages = Math.max(1, Math.ceil(leaveRequests.length / leavePageSize));
-                  const safeLeavePage = Math.min(leaveCurrentPage, totalLeavePages);
-                  const leaveStartIndex = (safeLeavePage - 1) * leavePageSize;
-                  const leaveEndIndex = Math.min(leaveStartIndex + leavePageSize, leaveRequests.length);
-                  const paginatedLeaveRequests = leaveRequests.slice(leaveStartIndex, leaveEndIndex);
-
-                  return (
-                    <div className="table-wrapper">
-                      <table className="custom-table">
-                        <thead>
-                          <tr>
-                            <th>Team Member</th>
-                            <th>Leave Type</th>
-                            <th>Dates & Duration</th>
-                            <th>Reason</th>
-                            <th>Status</th>
-                            <th style={{ textAlign: "right" }}>Actions / Review</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {paginatedLeaveRequests.map(req => {
-                            const emp = employees.find(e => e.id === req.employeeId);
-                            return (
-                              <tr key={req.id}>
-                                <td>
-                                  <strong>{req.employeeName}</strong>
-                                  {emp && (
-                                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                                      {emp.role} • {emp.department}
-                                    </div>
-                                  )}
-                                </td>
-                                <td>
-                                  <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{req.leaveType}</span>
-                                </td>
-                                <td>
-                                  <div style={{ fontWeight: "500" }}>{req.fromDate} to {req.toDate}</div>
-                                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                                    Total: {req.totalDays} {req.totalDays === 1 ? 'day' : 'days'}
-                                  </div>
-                                </td>
-                                <td style={{ minWidth: "240px", maxWidth: "320px" }}>
-                                  <div style={{
-                                    fontSize: "0.85rem",
-                                    color: "var(--text-secondary)",
-                                    lineHeight: "1.4"
-                                  }}>
-                                    <div style={{
-                                      display: "-webkit-box",
-                                      WebkitLineClamp: 2,
-                                      WebkitBoxOrient: "vertical",
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                      wordBreak: "break-word"
-                                    }}>
-                                      {req.reason || "No reason provided."}
-                                    </div>
-                                    {req.reason && (req.reason.length > 70 || req.reason.includes("\n")) && (
-                                      <button
-                                        onClick={() => setSelectedReasonModal(req)}
-                                        style={{
-                                          background: "none",
-                                          border: "none",
-                                          color: "#2563eb",
-                                          fontSize: "0.78rem",
-                                          fontWeight: "700",
-                                          cursor: "pointer",
-                                          padding: 0,
-                                          marginTop: "4px",
-                                          display: "inline-flex",
-                                          alignItems: "center",
-                                          gap: "4px"
-                                        }}
-                                      >
-                                        📄 Read Full Reason
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                                <td>
-                                  <span className={`status-badge badge-${req.status === 'Approved' ? 'resolved' : (req.status === 'Rejected' ? 'critical' : 'progress')}`}>
-                                    {req.status}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: "right" }}>
-                                  {req.status === 'Pending' ? (
-                                    <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-                                      <button
-                                        onClick={() => handleViewLeave(req)}
-                                        className="btn-action"
-                                        title="View Details"
-                                        style={{
-                                          padding: "6px 10px",
-                                          background: "rgba(0, 240, 255, 0.15)",
-                                          color: "var(--accent-cyan)",
-                                          borderColor: "var(--accent-cyan)",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center"
-                                        }}
-                                      >
-                                        <FiEye style={{ fontSize: "1rem" }} />
-                                      </button>
-                                      <button
-                                        onClick={() => handleReviewLeave(req.id, 'Approved')}
-                                        disabled={leaveActionLoading === req.id}
-                                        className="btn-action resolve"
-                                        title="Approve"
-                                        style={{
-                                          padding: "6px 10px",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center"
-                                        }}
-                                      >
-                                        <FiCheck style={{ fontSize: "1.05rem" }} />
-                                      </button>
-                                      <button
-                                        onClick={() => handleReviewLeave(req.id, 'Rejected')}
-                                        disabled={leaveActionLoading === req.id}
-                                        className="btn-action"
-                                        title="Reject"
-                                        style={{
-                                          padding: "6px 10px",
-                                          background: "rgba(239, 68, 68, 0.15)",
-                                          color: "var(--status-critical)",
-                                          borderColor: "var(--status-critical)",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center"
-                                        }}
-                                      >
-                                        <FiX style={{ fontSize: "1.05rem" }} />
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <div style={{ display: "flex", gap: "10px", alignItems: "center", justifyContent: "flex-end" }}>
-                                      <button
-                                        onClick={() => handleViewLeave(req)}
-                                        className="btn-action"
-                                        title="View Details"
-                                        style={{
-                                          padding: "6px 10px",
-                                          background: "rgba(0, 240, 255, 0.15)",
-                                          color: "var(--accent-cyan)",
-                                          borderColor: "var(--accent-cyan)",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center"
-                                        }}
-                                      >
-                                        <FiEye style={{ fontSize: "1rem" }} />
-                                      </button>
-                                      <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "right" }}>
-                                        {req.status === 'Rejected' && req.rejectionReason && (
-                                          <div style={{ color: "var(--status-critical)", fontSize: "0.75rem", fontStyle: "italic", marginBottom: "2px", maxWidth: "200px" }}>
-                                            Reason: "{req.rejectionReason}"
-                                          </div>
-                                        )}
-                                        <div>
-                                          By {req.reviewedBy} on {new Date(req.reviewedAt).toLocaleDateString()}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-
-                      {/* Leave Pagination Controls Bar - Automatically shows after 10 records */}
-                      {leaveRequests.length > 10 && (
-                        <div
-                          className="pagination-controls"
-                          style={{
-                            padding: "1rem 1.5rem",
-                            borderTop: "1px solid var(--glass-border)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            flexWrap: "wrap",
-                            gap: "12px",
-                            background: "rgba(0, 0, 0, 0.15)"
-                          }}
-                        >
-                          <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "500" }}>
-                            Showing <strong style={{ color: "var(--text-primary)" }}>{leaveStartIndex + 1}</strong> to{" "}
-                            <strong style={{ color: "var(--text-primary)" }}>{leaveEndIndex}</strong> of{" "}
-                            <strong style={{ color: "var(--text-primary)" }}>{leaveRequests.length}</strong> leave applications
-                          </div>
-
-                          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                            <button
-                              type="button"
-                              className="btn-secondary"
-                              disabled={safeLeavePage <= 1}
-                              onClick={() => setLeaveCurrentPage(prev => Math.max(1, prev - 1))}
-                              style={{
-                                padding: "6px 14px",
-                                fontSize: "0.82rem",
-                                opacity: safeLeavePage <= 1 ? 0.5 : 1,
-                                cursor: safeLeavePage <= 1 ? "not-allowed" : "pointer"
-                              }}
-                            >
-                              ← Previous
-                            </button>
-
-                            <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "600" }}>
-                              Page {safeLeavePage} of {totalLeavePages}
-                            </span>
-
-                            <button
-                              type="button"
-                              className="btn-secondary"
-                              disabled={safeLeavePage >= totalLeavePages}
-                              onClick={() => setLeaveCurrentPage(prev => Math.min(totalLeavePages, prev + 1))}
-                              style={{
-                                padding: "6px 14px",
-                                fontSize: "0.82rem",
-                                opacity: safeLeavePage >= totalLeavePages ? 0.5 : 1,
-                                cursor: safeLeavePage >= totalLeavePages ? "not-allowed" : "pointer"
-                              }}
-                            >
-                              Next →
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()
-              )}
-            </div>
+          {/* ================= VIEW: LEAVE REQUESTS ================= */}
+          {currentView === "leaves" && !isITSupport && (
+            <LeaveRequestsTab
+              leaveSummary={leaveSummary}
+              leaveRequests={leaveRequests}
+              leaveFilterStatus={leaveFilterStatus}
+              setLeaveFilterStatus={setLeaveFilterStatus}
+              leavePageSize={leavePageSize}
+              leaveCurrentPage={leaveCurrentPage}
+              setLeaveCurrentPage={setLeaveCurrentPage}
+              employees={employees}
+              setSelectedReasonModal={setSelectedReasonModal}
+              handleViewLeave={handleViewLeave}
+              handleReviewLeave={handleReviewLeave}
+              leaveActionLoading={leaveActionLoading}
+            />
           )}
 
-          {/* ================= VIEW: EMPLOYEE PORTAL ================= */}
-          {currentView === "employee-portal" && userRole === "employee" && (
-            <div className="page-section active">
-              <div className="mobile-device-frame">
-                <div className="complaint-card">
-                  <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-                    <h2 style={{ fontSize: "1.3rem", fontWeight: 700 }}>IT Desk Complaint Box</h2>
-                    <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "4px" }}>Report a hardware or software issue with your system.</p>
-                  </div>
-                  
-                  <form onSubmit={handleComplaintSubmit}>
-                    <div className="form-group">
-                      <label>My Name</label>
-                      <select className="form-control" value={portalEmployeeId} onChange={(e) => handlePortalEmployeeChange(e.target.value)} required>
-                        <option value="">-- Choose Your Name --</option>
-                        {employees.map(emp => (
-                          <option value={emp.id} key={emp.id}>{emp.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>My Assigned System</label>
-                      <select className="form-control" value={portalSystemId} onChange={(e) => setPortalSystemId(e.target.value)} required disabled={!portalEmployeeId}>
-                        <option value="">{portalEmployeeId ? "-- Select System --" : "-- Select Team Member First --"}</option>
-                        {portalEmployeeId && (
-                          (() => {
-                            const assigned = systems.filter(s => s.assignedTo === portalEmployeeId);
-                            if (assigned.length === 0) {
-                              return (
-                                <>
-                                  <option value="">No system assigned. Choose other:</option>
-                                  {systems.map(s => (
-                                    <option value={s.id} key={s.id}>{s.systemNumber} - ({s.cpu})</option>
-                                  ))}
-                                </>
-                              );
-                            }
-                            return assigned.map(s => (
-                              <option value={s.id} key={s.id}>{s.systemNumber} - {s.model}</option>
-                            ));
-                          })()
-                        )}
-                      </select>
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Issue Category</label>
-                      <select className="form-control" value={portalCategory} onChange={(e) => setPortalCategory(e.target.value)} required>
-                        <option value="RAM/Speed">System Slow / Lagging (RAM/CPU)</option>
-                        <option value="Hardware">Physical Hardware Fault (Keyboard/Mouse/SSD)</option>
-                        <option value="Display">Monitor / Screen Flickering</option>
-                        <option value="Network">Internet / Wi-Fi Connection</option>
-                        <option value="Software">Software Crash / License Expired</option>
-                        <option value="Other">Other Issues</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label>Issue Severity</label>
-                      <select className="form-control" value={portalSeverity} onChange={(e) => setPortalSeverity(e.target.value)} required>
-                        <option value="Low">Low - Cosmetic issue, system usable</option>
-                        <option value="Medium">Medium - Distracting issue, work delayed</option>
-                        <option value="High">High - Major blocker, critical apps failing</option>
-                        <option value="Critical">Critical - System crash, unable to work</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label>Problem Description</label>
-                      <textarea 
-                        className="form-control" 
-                        rows="3" 
-                        placeholder="Provide details..." 
-                        value={portalDesc}
-                        onChange={(e) => setPortalDesc(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <button type="submit" className="btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: "1rem" }}>
-                      🚨 Send IT Complaint
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </div>
+          {/* ================= VIEW: EMPLOYEE COMPLAINT PORTAL ================= */}
+          {currentView === "portal" && (
+            <EmployeePortalTab
+              handleComplaintSubmit={handleComplaintSubmit}
+              portalEmployeeId={portalEmployeeId}
+              handlePortalEmployeeChange={handlePortalEmployeeChange}
+              employees={employees}
+              portalSystemId={portalSystemId}
+              setPortalSystemId={setPortalSystemId}
+              systems={systems}
+              portalCategory={portalCategory}
+              setPortalCategory={setPortalCategory}
+              portalSeverity={portalSeverity}
+              setPortalSeverity={setPortalSeverity}
+              portalDesc={portalDesc}
+              setPortalDesc={setPortalDesc}
+            />
           )}
 
         </main>
       </div>
 
-      {/* ================= MODAL: SYSTEM SAVE FORM ================= */}
-      <div className={`modal-overlay ${showSysModal ? "active" : ""}`}>
-        <div className="modal-card">
-          <div className="modal-header">
-            <h3 className="modal-title">{editingSys.id ? "Edit Hardware Details" : "Add Hardware System"}</h3>
-            <button className="modal-close" onClick={() => setShowSysModal(false)}>&times;</button>
-          </div>
-          <form onSubmit={handleSaveSystemSubmit}>
-            
-            <div className="form-group">
-              <label>System Number</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                value={editingSys.systemNumber}
-                onChange={(e) => setEditingSys({ ...editingSys, systemNumber: e.target.value })}
-                placeholder="e.g. SN15" 
-                required 
-              />
-            </div>
-            
-            <div className="form-group">
-              <label>Model / Motherboard</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                value={editingSys.model}
-                onChange={(e) => setEditingSys({ ...editingSys, model: e.target.value })}
-                placeholder="e.g. MSI MS-7D48" 
-              />
-            </div>
+      {/* ================= MODALS ================= */}
+      <SystemModal
+        showSysModal={showSysModal}
+        setShowSysModal={setShowSysModal}
+        editingSys={editingSys}
+        setEditingSys={setEditingSys}
+        handleSaveSystemSubmit={handleSaveSystemSubmit}
+        empSearchQuery={empSearchQuery}
+        setEmpSearchQuery={setEmpSearchQuery}
+        showSearchDropdown={showSearchDropdown}
+        setShowSearchDropdown={setShowSearchDropdown}
+        employees={employees}
+      />
+
+      <AssignDeviceModal
+        showAssignModal={showAssignModal}
+        setShowAssignModal={setShowAssignModal}
+        handleAssignSubmit={handleAssignSubmit}
+        assigningEmp={assigningEmp}
+        assigningSysId={assigningSysId}
+        setAssigningSysId={setAssigningSysId}
+        systems={systems}
+      />
+
+      <ResolveTicketModal
+        showResolveModal={showResolveModal}
+        setShowResolveModal={setShowResolveModal}
+        handleResolveTicketSubmit={handleResolveTicketSubmit}
+        resolveNotes={resolveNotes}
+        setResolveNotes={setResolveNotes}
+      />
+
+      <TaskModals
+        showAddTaskModal={showAddTaskModal}
+        setShowAddTaskModal={setShowAddTaskModal}
+        handleAddTaskSubmit={handleAddTaskSubmit}
+        newTaskTitle={newTaskTitle}
+        setNewTaskTitle={setNewTaskTitle}
+        newTaskDesc={newTaskDesc}
+        setNewTaskDesc={setNewTaskDesc}
+        newTaskAssignee={newTaskAssignee}
+        setNewTaskAssignee={setNewTaskAssignee}
+        employees={employees}
+        isTeamLeader={isTeamLeader}
+        leaderDepartment={leaderDepartment}
+        showEditTaskModal={showEditTaskModal}
+        setShowEditTaskModal={setShowEditTaskModal}
+        handleEditTaskSubmit={handleEditTaskSubmit}
+        editTaskTitle={editTaskTitle}
+        setEditTaskTitle={setEditTaskTitle}
+        editTaskDesc={editTaskDesc}
+        setEditTaskDesc={setEditTaskDesc}
+        editTaskAssignee={editTaskAssignee}
+        setEditTaskAssignee={setEditTaskAssignee}
+        editTaskStatus={editTaskStatus}
+        setEditTaskStatus={setEditTaskStatus}
+        showTaskDetailsModal={showTaskDetailsModal}
+        setShowTaskDetailsModal={setShowTaskDetailsModal}
+        selectedTaskDetails={selectedTaskDetails}
+        setSelectedTaskDetails={setSelectedTaskDetails}
+        setPreviewMediaUrl={setPreviewMediaUrl}
+      />
+
+      <EmployeeModals
+        showAddEmpModal={showAddEmpModal}
+        setShowAddEmpModal={setShowAddEmpModal}
+        handleAddEmployeeSubmit={handleAddEmployeeSubmit}
+        newEmpName={newEmpName}
+        setNewEmpName={setNewEmpName}
+        newEmpEmail={newEmpEmail}
+        setNewEmpEmail={setNewEmpEmail}
+        newEmpPassword={newEmpPassword}
+        setNewEmpPassword={setNewEmpPassword}
+        showNewEmpPassword={showNewEmpPassword}
+        setShowNewEmpPassword={setShowNewEmpPassword}
+        newEmpRole={newEmpRole}
+        setNewEmpRole={setNewEmpRole}
+        newEmpDept={newEmpDept}
+        setNewEmpDept={setNewEmpDept}
+        departments={departments}
+        newEmpLimit={newEmpLimit}
+        setNewEmpLimit={setNewEmpLimit}
+        showEditEmpModal={showEditEmpModal}
+        setShowEditEmpModal={setShowEditEmpModal}
+        handleEditEmployeeSubmit={handleEditEmployeeSubmit}
+        editingEmp={editingEmp}
+        setEditingEmp={setEditingEmp}
+        showEmpReportModal={showEmpReportModal}
+        setShowEmpReportModal={setShowEmpReportModal}
+        empReportTarget={empReportTarget}
+        setEmpReportTarget={setEmpReportTarget}
+        empReportFrom={empReportFrom}
+        setEmpReportFrom={setEmpReportFrom}
+        empReportTo={empReportTo}
+        setEmpReportTo={setEmpReportTo}
+        handleDownloadEmpReport={handleDownloadEmpReport}
+        employees={employees}
+        systems={systems}
+        assignmentHistory={assignmentHistory}
+        tickets={tickets}
+        tasks={tasks}
+        showEmpImportModal={showEmpImportModal}
+        setShowEmpImportModal={setShowEmpImportModal}
+        empImportStatus={empImportStatus}
+        setEmpImportStatus={setEmpImportStatus}
+        empImportFile={empImportFile}
+        setEmpImportFile={setEmpImportFile}
+        empImportParsed={empImportParsed}
+        setEmpImportParsed={setEmpImportParsed}
+        empImportResult={empImportResult}
+        handleDownloadEmpTemplate={handleDownloadEmpTemplate}
+        handleEmpImportFileChange={handleEmpImportFileChange}
+        handleConfirmEmpImport={handleConfirmEmpImport}
+      />
+
+      <DepartmentModals
+        selectedViewDept={selectedViewDept}
+        setSelectedViewDept={setSelectedViewDept}
+        deptModalTab={deptModalTab}
+        setDeptModalTab={setDeptModalTab}
+        employees={employees}
+        systems={systems}
+      />
+
+      <SystemHistoryModal
+        isHistoryModalOpen={isHistoryModalOpen}
+        setIsHistoryModalOpen={setIsHistoryModalOpen}
+        selectedHistorySys={selectedHistorySys}
+        handleDownloadSystemReport={handleDownloadSystemReport}
+        assignmentHistory={assignmentHistory}
+        employees={employees}
+        tickets={tickets}
+      />
+
+      <DeviceDetailsModal
+        selectedViewSystem={selectedViewSystem}
+        setSelectedViewSystem={setSelectedViewSystem}
+        assignmentHistory={assignmentHistory}
+        employees={employees}
+      />
+
+      <SystemImportModal
+        showImportModal={showImportModal}
+        setShowImportModal={setShowImportModal}
+        importStatus={importStatus}
+        setImportStatus={setImportStatus}
+        importFile={importFile}
+        setImportFile={setImportFile}
+        importParsed={importParsed}
+        setImportParsed={setImportParsed}
+        importResult={importResult}
+        handleDownloadTemplate={handleDownloadTemplate}
+        handleImportFileChange={handleImportFileChange}
+        handleConfirmImport={handleConfirmImport}
+      />
+
+      <AuxiliaryModals
+        showDeleteConfirm={showDeleteConfirm}
+        setShowDeleteConfirm={setShowDeleteConfirm}
+        handleDeleteAccountConfirm={handleDeleteAccountConfirm}
+        previewMediaUrl={previewMediaUrl}
+        setPreviewMediaUrl={setPreviewMediaUrl}
+        selectedReasonModal={selectedReasonModal}
+        setSelectedReasonModal={setSelectedReasonModal}
+      />
 
-            <div className="modal-form-grid">
-              <div className="form-group">
-                <label>CPU Spec</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={editingSys.cpu}
-                  onChange={(e) => setEditingSys({ ...editingSys, cpu: e.target.value })}
-                  placeholder="e.g. Core i5" 
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label>Graphic Card (GPU)</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={editingSys.gpu || ""}
-                  onChange={(e) => setEditingSys({ ...editingSys, gpu: e.target.value })}
-                  placeholder="e.g. NVIDIA RTX 4060 / Integrated" 
-                />
-              </div>
-            </div>
 
-            <div className="modal-form-grid">
-              <div className="form-group">
-                <label>RAM Installed</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={editingSys.ram}
-                  onChange={(e) => setEditingSys({ ...editingSys, ram: e.target.value })}
-                  placeholder="e.g. 16 GB DDR4" 
-                  required 
-                />
-              </div>
-            </div>
-
-            <div className="modal-form-grid">
-              <div className="form-group">
-                <label>Storage Drive</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={editingSys.storage}
-                  onChange={(e) => setEditingSys({ ...editingSys, storage: e.target.value })}
-                  placeholder="e.g. 512 GB SSD" 
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label>Operating System</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={editingSys.os}
-                  onChange={(e) => setEditingSys({ ...editingSys, os: e.target.value })}
-                  placeholder="e.g. Windows 11 Pro" 
-                  required 
-                />
-              </div>
-            </div>
-
-            <div className="form-group searchable-select-container">
-              <label>Assigned Employee</label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Search & select employee..."
-                  value={empSearchQuery}
-                  onChange={(e) => {
-                    setEmpSearchQuery(e.target.value);
-                    setShowSearchDropdown(true);
-                    if (!e.target.value) {
-                      setEditingSys({ ...editingSys, assignedTo: null });
-                    }
-                  }}
-                  onFocus={() => setShowSearchDropdown(true)}
-                  onBlur={() => {
-                    setTimeout(() => {
-                      setShowSearchDropdown(false);
-                    }, 250);
-                  }}
-                />
-                {editingSys.assignedTo && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingSys({ ...editingSys, assignedTo: null });
-                      setEmpSearchQuery("");
-                    }}
-                    style={{
-                      position: "absolute",
-                      right: "10px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "none",
-                      border: "none",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                      fontSize: "1.2rem",
-                      padding: "4px"
-                    }}
-                  >
-                    &times;
-                  </button>
-                )}
-                
-                {showSearchDropdown && (
-                  <div className="searchable-select-dropdown">
-                    <div 
-                      className="searchable-select-item"
-                      onClick={() => {
-                        setEditingSys({ ...editingSys, assignedTo: null });
-                        setEmpSearchQuery("");
-                        setShowSearchDropdown(false);
-                      }}
-                      style={{ fontStyle: "italic", color: "var(--text-secondary)" }}
-                    >
-                      -- Unassigned --
-                    </div>
-                    {employees
-                      .filter(emp => emp.name.toLowerCase().includes(empSearchQuery.toLowerCase()))
-                      .map(emp => (
-                        <div
-                          key={emp.id}
-                          className="searchable-select-item"
-                          onClick={() => {
-                            setEditingSys({ ...editingSys, assignedTo: emp.id });
-                            setEmpSearchQuery(emp.name);
-                            setShowSearchDropdown(false);
-                          }}
-                        >
-                          <strong>{emp.name}</strong> <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>({emp.role} - {emp.department})</span>
-                        </div>
-                      ))}
-                    {employees.filter(emp => emp.name.toLowerCase().includes(empSearchQuery.toLowerCase())).length === 0 && (
-                      <div className="searchable-select-item" style={{ color: "var(--text-muted)", pointerEvents: "none" }}>
-                        No matching employees found.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Status</label>
-              <select 
-                className="form-control" 
-                value={editingSys.status} 
-                onChange={(e) => setEditingSys({ ...editingSys, status: e.target.value })}
-              >
-                <option value="Active">Active</option>
-                <option value="Idle">Idle</option>
-                <option value="In Repair">In Repair</option>
-                <option value="Retired">Retired</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Remarks & Maintenance Notes</label>
-              <textarea 
-                className="form-control" 
-                value={editingSys.remarks}
-                onChange={(e) => setEditingSys({ ...editingSys, remarks: e.target.value })}
-                placeholder="Upgrade logs, repair dates..." 
-              />
-            </div>
-
-            <button type="submit" className="btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: "1rem" }}>
-              Save Changes
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* ================= MODAL: ASSIGN DEVICE ================= */}
-      <div className={`modal-overlay ${showAssignModal ? "active" : ""}`}>
-        <div className="modal-card">
-          <div className="modal-header">
-            <h3 className="modal-title">Device Assignment</h3>
-            <button className="modal-close" onClick={() => setShowAssignModal(false)}>&times;</button>
-          </div>
-          <form onSubmit={handleAssignSubmit}>
-            <div style={{ marginBottom: "1rem" }}>
-              Assigning hardware device for employee: <strong style={{ color: "var(--accent-cyan)" }}>{assigningEmp.name}</strong>
-            </div>
-            
-            <div className="form-group">
-              <label>Select System Device</label>
-              <select className="form-control" value={assigningSysId} onChange={(e) => setAssigningSysId(e.target.value)}>
-                <option value="">-- Unassign All Devices --</option>
-                {systems.map(sys => {
-                  if (!sys.assignedTo || sys.assignedTo === assigningEmp.id) {
-                    return (
-                      <option value={sys.id} key={sys.id}>
-                        {sys.systemNumber} - {sys.cpu} ({sys.ram})
-                      </option>
-                    );
-                  }
-                  return null;
-                })}
-              </select>
-            </div>
-
-            <button type="submit" className="btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: "1rem" }}>
-              Confirm Assignment
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* ================= MODAL: RESOLVE TICKET ================= */}
-      <div className={`modal-overlay ${showResolveModal ? "active" : ""}`}>
-        <div className="modal-card">
-          <div className="modal-header">
-            <h3 className="modal-title">Resolve Complaint Ticket</h3>
-            <button className="modal-close" onClick={() => setShowResolveModal(false)}>&times;</button>
-          </div>
-          <form onSubmit={handleResolveTicketSubmit}>
-            
-            <div className="form-group">
-              <label>IT Resolution & Repair Notes</label>
-              <textarea 
-                className="form-control" 
-                rows="4" 
-                placeholder="Describe the fix (e.g. Upgraded RAM, reinstalled drivers...)" 
-                value={resolveNotes}
-                onChange={(e) => setResolveNotes(e.target.value)}
-                required 
-              />
-              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "5px" }}>
-                💡 Typing "RAM" in the notes will automatically update the system specs in the Hardware Directory.
-              </p>
-            </div>
-
-            <button type="submit" className="btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: "1rem" }}>
-              Mark as Fixed & Log Time
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* ================= MODAL: ASSIGN TASK ================= */}
-      <div className={`modal-overlay ${showAddTaskModal ? "active" : ""}`}>
-        <div className="modal-card">
-          <div className="modal-header">
-            <h3 className="modal-title">Assign New Task</h3>
-            <button className="modal-close" onClick={() => setShowAddTaskModal(false)}>&times;</button>
-          </div>
-          <form onSubmit={handleAddTaskSubmit}>
-            <div className="form-group">
-              <label>Task Title</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder="e.g. Complete System Tracking UI"
-                required 
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Task Description</label>
-              <textarea 
-                className="form-control" 
-                value={newTaskDesc}
-                onChange={(e) => setNewTaskDesc(e.target.value)}
-                placeholder="Describe the task instructions here..."
-                style={{ height: "100px", resize: "none" }}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Assign to Team Member</label>
-              <select 
-                className="form-control" 
-                value={newTaskAssignee}
-                onChange={(e) => setNewTaskAssignee(e.target.value)}
-                required
-              >
-                {employees.filter(e => 
-                  e.role !== "Admin" && e.role !== "Management" &&
-                  (!isTeamLeader || !leaderDepartment || e.department?.toLowerCase() === leaderDepartment.toLowerCase())
-                ).map(emp => (
-                  <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="modal-footer" style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "1.5rem" }}>
-              <button type="button" className="btn-secondary" onClick={() => setShowAddTaskModal(false)}>Cancel</button>
-              <button type="submit" className="btn-primary">Assign Task</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      {/* ================= MODAL: EDIT TASK ================= */}
-      {showEditTaskModal && (
-        <div className="modal-overlay active">
-          <div className="modal-card">
-            <div className="modal-header">
-              <h3 className="modal-title">✏️ Edit Task Details</h3>
-              <button className="modal-close" onClick={() => setShowEditTaskModal(false)}>&times;</button>
-            </div>
-            <form onSubmit={handleEditTaskSubmit}>
-              <div className="form-group">
-                <label>Task Title</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={editTaskTitle}
-                  onChange={(e) => setEditTaskTitle(e.target.value)}
-                  required 
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Task Description</label>
-                <textarea 
-                  className="form-control" 
-                  value={editTaskDesc}
-                  onChange={(e) => setEditTaskDesc(e.target.value)}
-                  style={{ height: "100px", resize: "none" }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Assign to Team Member</label>
-                <select 
-                  className="form-control" 
-                  value={editTaskAssignee}
-                  onChange={(e) => setEditTaskAssignee(e.target.value)}
-                >
-                  <option value="">Unassigned</option>
-                  {employees.filter(e => e.role !== "Admin" && e.role !== "Management").map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Task Status</label>
-                <select 
-                  className="form-control" 
-                  value={editTaskStatus}
-                  onChange={(e) => setEditTaskStatus(e.target.value)}
-                  required
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Completed">Completed</option>
-                </select>
-              </div>
-
-              <div className="modal-footer" style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "1.5rem" }}>
-                <button type="button" className="btn-secondary" onClick={() => setShowEditTaskModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">Save Changes</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL: VIEW TASK DETAILS ================= */}
-      <div className={`modal-overlay ${showTaskDetailsModal ? "active" : ""}`} style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: "var(--bg-primary)",
-        zIndex: 1500,
-        overflowY: "auto",
-        display: showTaskDetailsModal ? "block" : "none",
-        padding: "2rem"
-      }}>
-        <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-          {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: "1rem", marginBottom: "1.5rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <button 
-                type="button" 
-                className="btn-secondary" 
-                onClick={() => { setShowTaskDetailsModal(false); setSelectedTaskDetails(null); }}
-                style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.9rem", padding: "8px 16px" }}
-              >
-                ⬅️ Back to Task Board
-              </button>
-              <h2 style={{ margin: 0, fontSize: "1.5rem", color: "var(--text-primary)", fontWeight: "700" }}>Task Details & Attachment Viewer</h2>
-            </div>
-            <button 
-              onClick={() => { setShowTaskDetailsModal(false); setSelectedTaskDetails(null); }}
-              style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: "1.8rem", cursor: "pointer" }}
-            >
-              &times;
-            </button>
-          </div>
-
-          {selectedTaskDetails && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "2rem" }}>
-              {/* Left Column: Details Card */}
-              <div style={{ 
-                background: "rgba(255, 255, 255, 0.02)", 
-                border: "1px solid rgba(255, 255, 255, 0.06)", 
-                borderRadius: "12px", 
-                padding: "2rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "20px"
-              }}>
-                <div>
-                  <h3 style={{ margin: "0 0 10px 0", fontSize: "1.3rem", color: "var(--accent-cyan)", fontWeight: "700" }}>
-                    {selectedTaskDetails.title}
-                  </h3>
-                  <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.95rem", lineHeight: "1.6" }}>
-                    {selectedTaskDetails.description || "No description provided."}
-                  </p>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "10px" }}>
-                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Status</span>
-                    <span className={`status-badge badge-${selectedTaskDetails.status === 'In Progress' ? 'progress' : (selectedTaskDetails.status === 'Completed' ? 'resolved' : 'open')}`} style={{ marginTop: "6px", display: "inline-block" }}>
-                      {selectedTaskDetails.status}
-                    </span>
-                  </div>
-
-                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "10px" }}>
-                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Time Spent</span>
-                    <span style={{ color: "var(--accent-cyan)", fontSize: "1.2rem", fontFamily: "monospace", fontWeight: "bold", display: "block", marginTop: "4px" }}>
-                      {(() => {
-                        let displayDuration = selectedTaskDetails.totalDuration || 0;
-                        if (selectedTaskDetails.status === 'In Progress' && selectedTaskDetails.startedAt) {
-                          const elapsed = Math.floor((Date.now() - new Date(selectedTaskDetails.startedAt).getTime()) / 1000);
-                          displayDuration += Math.max(0, elapsed);
-                        }
-                        const h = Math.floor(displayDuration / 3600);
-                        const m = Math.floor((displayDuration % 3600) / 60);
-                        const s = displayDuration % 60;
-                        return `${h}h ${m}m ${s}s`;
-                      })()}
-                    </span>
-                  </div>
-
-                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "10px" }}>
-                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Assigned To</span>
-                    <span style={{ color: "var(--text-primary)", fontSize: "0.95rem", fontWeight: "600", display: "block", marginTop: "4px" }}>
-                      {selectedTaskDetails.assignedToName || "Unassigned"}
-                    </span>
-                  </div>
-
-                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "10px" }}>
-                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Assigned By</span>
-                    <span style={{ color: "var(--text-primary)", fontSize: "0.95rem", display: "block", marginTop: "4px" }}>
-                      {selectedTaskDetails.assignedByName || "System"}
-                    </span>
-                  </div>
-
-                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "10px" }}>
-                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Created Date</span>
-                    <span style={{ color: "var(--text-primary)", fontSize: "0.9rem", display: "block", marginTop: "4px" }}>
-                      {selectedTaskDetails.createdAt ? new Date(selectedTaskDetails.createdAt).toLocaleString() : "—"}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span style={{ display: "block", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: "600" }}>Completed Date</span>
-                    <span style={{ color: "var(--text-primary)", fontSize: "0.9rem", display: "block", marginTop: "4px" }}>
-                      {selectedTaskDetails.completedAt ? new Date(selectedTaskDetails.completedAt).toLocaleString() : "—"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Files & Galleries */}
-              <div style={{ 
-                background: "rgba(255, 255, 255, 0.02)", 
-                border: "1px solid rgba(255, 255, 255, 0.06)", 
-                borderRadius: "12px", 
-                padding: "2rem",
-                minHeight: "450px"
-              }}>
-                <h3 style={{ margin: "0 0 20px 0", fontSize: "1.2rem", color: "var(--text-primary)", fontWeight: "600", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "10px" }}>
-                  📁 Uploaded Attachments & Proofs Gallery
-                </h3>
-
-                {selectedTaskDetails.fileUrl ? (() => {
-                  let urls = [];
-                  try {
-                    if (selectedTaskDetails.fileUrl.startsWith('[')) {
-                      urls = JSON.parse(selectedTaskDetails.fileUrl);
-                    } else {
-                      urls = [selectedTaskDetails.fileUrl];
-                    }
-                  } catch (e) {
-                    urls = [selectedTaskDetails.fileUrl];
-                  }
-
-                  return (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-                      {urls.map((url, idx) => {
-                        const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(url);
-                        const isVideo = /\.(mp4|webm|ogg|mov|mkv|avi|m4v|3gp)$/i.test(url);
-                        const isAudio = /\.(mp3|wav|ogg|m4a|aac)$/i.test(url);
-                        const isPdf = /\.pdf$/i.test(url);
-
-                        return (
-                          <div key={idx} style={{ 
-                            border: "1px solid rgba(255, 255, 255, 0.08)", 
-                            borderRadius: "10px", 
-                            padding: "16px", 
-                            background: "rgba(255, 255, 255, 0.01)"
-                          }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                              <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem", fontWeight: "600" }}>
-                                {isVideo ? "🎥 Video Attachment" : isImage ? "🖼️ Image Attachment" : isAudio ? "🎙️ Audio Attachment" : "📄 File Attachment"} #{idx + 1}
-                              </span>
-                              <div style={{ display: "flex", gap: "8px" }}>
-                                <button 
-                                  onClick={() => setPreviewMediaUrl(url)}
-                                  className="btn-primary" 
-                                  style={{ padding: "6px 14px", fontSize: "0.8rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
-                                >
-                                  👁️ View Fullscreen
-                                </button>
-                                <a 
-                                  href={url} 
-                                  download
-                                  className="btn-secondary" 
-                                  style={{ padding: "6px 14px", fontSize: "0.8rem", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px" }}
-                                >
-                                  📥 Download
-                                </a>
-                              </div>
-                            </div>
-                            
-                            {isImage ? (
-                              <div 
-                                style={{ display: "flex", justifyContent: "center", background: "rgba(0,0,0,0.3)", borderRadius: "8px", padding: "10px", cursor: "pointer" }}
-                                onClick={() => setPreviewMediaUrl(url)}
-                                title="Click to view fullscreen"
-                              >
-                                <img 
-                                  src={url} 
-                                  alt={`Attachment Proof ${idx + 1}`} 
-                                  style={{ 
-                                    maxWidth: "100%", 
-                                    maxHeight: "500px", 
-                                    borderRadius: "8px", 
-                                    border: "1px solid rgba(255, 255, 255, 0.05)",
-                                    objectFit: "contain"
-                                  }} 
-                                />
-                              </div>
-                            ) : isVideo ? (
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(0,0,0,0.4)", borderRadius: "8px", padding: "10px" }}>
-                                <video 
-                                  src={url} 
-                                  controls 
-                                  preload="metadata"
-                                  style={{ 
-                                    width: "100%", 
-                                    maxHeight: "450px", 
-                                    borderRadius: "8px", 
-                                    background: "#000",
-                                                                      }} 
-                                />
-                              </div>
-                            ) : isAudio ? (
-                              <div style={{ padding: "12px", background: "rgba(255,255,255,0.02)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                                <audio controls src={url} style={{ width: "100%" }} />
-                              </div>
-                            ) : (
-                              <div 
-                                style={{ 
-                                  display: "flex", 
-                                  alignItems: "center", 
-                                  gap: "12px", 
-                                  padding: "16px", 
-                                  background: "rgba(255,255,255,0.02)", 
-                                  borderRadius: "8px",
-                                  border: "1px solid rgba(255,255,255,0.05)",
-                                  cursor: "pointer"
-                                }}
-                                onClick={() => setPreviewMediaUrl(url)}
-                              >
-                                <span style={{ fontSize: "2rem" }}>{isPdf ? "📕" : "📄"}</span>
-                                <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
-                                  <span style={{ color: "var(--text-primary)", fontSize: "0.9rem", fontWeight: "500", wordBreak: "break-all" }}>
-                                    {url.split('/').pop()}
-                                  </span>
-                                  <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: "2px" }}>
-                                    {isPdf ? "PDF Document — Click to preview" : "Document / File Attachment — Click to view"}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })() : (
-                  <div style={{ 
-                    display: "flex", 
-                    flexDirection: "column", 
-                    alignItems: "center", 
-                    justifyContent: "center", 
-                    height: "200px", 
-                    border: "1px dashed rgba(255,255,255,0.1)", 
-                    borderRadius: "12px" 
-                  }}>
-                    <span style={{ fontSize: "2.5rem", marginBottom: "10px" }}>📁</span>
-                    <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic" }}>
-                      No attachments uploaded for this task.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ================= MODAL: ADD EMPLOYEE ================= */}
-      <div className={`modal-overlay ${showAddEmpModal ? "active" : ""}`}>
-        <div className="modal-card">
-          <div className="modal-header">
-            <h3 className="modal-title">Add New Team Member</h3>
-            <button className="modal-close" onClick={() => setShowAddEmpModal(false)}>&times;</button>
-          </div>
-          <form onSubmit={handleAddEmployeeSubmit}>
-            <div className="form-group">
-              <label>Team Member Name</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                value={newEmpName}
-                onChange={(e) => setNewEmpName(e.target.value)}
-                placeholder="Please enter name"
-                required 
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Email Address</label>
-              <input 
-                type="email" 
-                className="form-control" 
-                value={newEmpEmail}
-                onChange={(e) => setNewEmpEmail(e.target.value)}
-                placeholder="Please enter your company email" 
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label>Password</label>
-              <div style={{ position: "relative" }}>
-                <input 
-                  type={showNewEmpPassword ? "text" : "password"} 
-                  className="form-control" 
-                  value={newEmpPassword}
-                  onChange={(e) => setNewEmpPassword(e.target.value)}
-                  placeholder="e.g. password123" 
-                  required
-                  style={{ paddingRight: "40px" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewEmpPassword(!showNewEmpPassword)}
-                  aria-label={showNewEmpPassword ? "Hide password" : "Show password"}
-                  style={{
-                    position: "absolute",
-                    right: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    color: "var(--text-secondary)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "4px"
-                  }}
-                >
-                  {showNewEmpPassword ? <FiEyeOff style={{ fontSize: "1.1rem" }} /> : <FiEye style={{ fontSize: "1.1rem" }} />}
-                </button>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Role</label>
-              <select 
-                className="form-control" 
-                value={newEmpRole}
-                onChange={(e) => setNewEmpRole(e.target.value)}
-              >
-                <option value="Team Member">Team Member</option>
-                <option value="Team Leader">Team Leader</option>
-                <option value="IT Engineer">IT Engineer</option>
-                <option value="Management">Management</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Department</label>
-              <select 
-                className="form-control" 
-                value={newEmpDept}
-                onChange={(e) => setNewEmpDept(e.target.value)}
-              >
-                {departments.map(dept => (
-                  <option value={dept.name} key={dept.id}>{dept.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Ticket Limit (Raise limit)</label>
-              <input 
-                type="number" 
-                className="form-control" 
-                value={newEmpLimit}
-                onChange={(e) => setNewEmpLimit(parseInt(e.target.value) || 100)}
-                min="1"
-                max="99999"
-                required 
-              />
-            </div>
-
-            <button type="submit" className="btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: "1rem" }}>
-              Add Team Member
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* ================= MODAL: EDIT EMPLOYEE ================= */}
-      <div className={`modal-overlay ${showEditEmpModal ? "active" : ""}`}>
-        <div className="modal-card">
-          <div className="modal-header">
-            <h3 className="modal-title">Edit Team Member Profile</h3>
-            <button className="modal-close" onClick={() => setShowEditEmpModal(false)}>&times;</button>
-          </div>
-          <form onSubmit={handleEditEmployeeSubmit}>
-            <div className="form-group">
-              <label>Team Member Name</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                value={editingEmp.name}
-                onChange={(e) => setEditingEmp({ ...editingEmp, name: e.target.value })}
-                placeholder="Please enter name"
-                required 
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Email Address</label>
-              <input 
-                type="email" 
-                className="form-control" 
-                value={editingEmp.email}
-                onChange={(e) => setEditingEmp({ ...editingEmp, email: e.target.value })}
-                placeholder="Please enter your company email"
-                required 
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Role</label>
-              <select 
-                className="form-control" 
-                value={editingEmp.role}
-                onChange={(e) => setEditingEmp({ ...editingEmp, role: e.target.value })}
-              >
-                <option value="Team Member">Team Member</option>
-                <option value="Team Leader">Team Leader</option>
-                <option value="IT Engineer">IT Engineer</option>
-                <option value="Management">Management</option>
-                <option value="Admin">Admin</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Department</label>
-              <select 
-                className="form-control" 
-                value={editingEmp.department}
-                onChange={(e) => setEditingEmp({ ...editingEmp, department: e.target.value })}
-              >
-                {departments.map(dept => (
-                  <option value={dept.name} key={dept.id}>{dept.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Ticket Limit (Raise limit)</label>
-              <input 
-                type="number" 
-                className="form-control" 
-                value={editingEmp.ticketLimit}
-                onChange={(e) => setEditingEmp({ ...editingEmp, ticketLimit: parseInt(e.target.value) || 100 })}
-                min="1"
-                max="99999"
-                required 
-              />
-            </div>
-
-            <button type="submit" className="btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: "1rem" }}>
-              Save Changes
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* ================= MODAL: SYSTEM HISTORY REPORT ================= */}
-      {isHistoryModalOpen && selectedHistorySys && (
-        <div className="modal-overlay active">
-          <div className="modal-card" style={{ maxWidth: "750px", width: "90%" }}>
-            <div className="modal-header">
-              <h3 className="modal-title">🖥️ System History: {selectedHistorySys.systemNumber}</h3>
-              <button className="modal-close" onClick={() => setIsHistoryModalOpen(false)}>&times;</button>
-            </div>
-            
-            <div className="modal-body" style={{ maxHeight: "65vh", overflowY: "auto", paddingRight: "6px" }}>
-              {/* Spec Overview */}
-              <div className="panel-card" style={{ marginBottom: "15px", background: "rgba(255,255,255,0.02)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <h4 style={{ margin: 0, color: "var(--accent-cyan)", fontSize: "1.1rem" }}>{selectedHistorySys.model || "Generic PC"}</h4>
-                    <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                      CPU: {selectedHistorySys.cpu} | GPU: {selectedHistorySys.gpu || "Integrated"} | RAM: {selectedHistorySys.ram} | Storage: {selectedHistorySys.storage} | OS: {selectedHistorySys.os}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => handleDownloadSystemReport(selectedHistorySys)}
-                    className="btn-action start"
-                    style={{ padding: "8px 14px", background: "var(--accent-cyan)", color: "#000" }}
-                  >
-                    📥 Download Report
-                  </button>
-                </div>
-              </div>
-
-              {/* Assignment logs section */}
-              <div style={{ marginBottom: "20px" }}>
-                <h4 style={{ borderBottom: "1px solid #30363d", paddingBottom: "6px", marginBottom: "10px" }}>Assignment History Logs</h4>
-                {assignmentHistory.filter(h => h.systemId === selectedHistorySys.id).length === 0 ? (
-                  <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No assignment logs recorded for this machine.</p>
-                ) : (
-                  <div className="table-wrapper" style={{ maxHeight: "180px", overflowY: "auto" }}>
-                    <table className="custom-table" style={{ fontSize: "0.85rem" }}>
-                      <thead>
-                        <tr>
-                          <th>Action</th>
-                          <th>Team Member</th>
-                          <th>Timestamp</th>
-                          <th>Assigned By</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {assignmentHistory.filter(h => h.systemId === selectedHistorySys.id).map(log => {
-                          const emp = employees.find(e => e.id === log.employeeId);
-                          return (
-                            <tr key={log.id}>
-                              <td><span className={`status-tag ${log.action.toLowerCase() === "assigned" ? "resolved" : "open"}`}>{log.action}</span></td>
-                              <td><strong>{emp ? emp.name : "Unknown"}</strong></td>
-                              <td>{new Date(log.timestamp).toLocaleString()}</td>
-                              <td>{log.assignedBy || "System"}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              {/* Related Tickets section */}
-              <div>
-                <h4 style={{ borderBottom: "1px solid #30363d", paddingBottom: "6px", marginBottom: "10px" }}>Related IT Issues & Complaints</h4>
-                {tickets.filter(t => t.systemId === selectedHistorySys.id).length === 0 ? (
-                  <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No issues raised for this machine.</p>
-                ) : (
-                  <div className="table-wrapper" style={{ maxHeight: "200px", overflowY: "auto" }}>
-                    <table className="custom-table" style={{ fontSize: "0.85rem" }}>
-                      <thead>
-                        <tr>
-                          <th>ID</th>
-                          <th>Category</th>
-                          <th>Description</th>
-                          <th>Severity</th>
-                          <th>Status</th>
-                          <th>Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tickets.filter(t => t.systemId === selectedHistorySys.id).map(t => (
-                          <tr key={t.id}>
-                            <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{t.id}</td>
-                            <td>{t.category}</td>
-                            <td style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description}</td>
-                            <td><span className={`status-tag ${t.severity.toLowerCase()}`}>{t.severity}</span></td>
-                            <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
-                            <td>{new Date(t.createdAt).toLocaleDateString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL: EMPLOYEE PERFORMANCE & ACTIVITY REPORT ================= */}
-      {showEmpReportModal && (() => {
-        const from = empReportFrom ? new Date(empReportFrom + "T00:00:00") : null;
-        const to = empReportTo ? new Date(empReportTo + "T23:59:59") : null;
-
-        const currentDevices = empReportTarget ? systems.filter(s => s.assignedTo === empReportTarget.id) : [];
-
-        const empLogs = empReportTarget ? assignmentHistory.filter(h => {
-          if (h.employeeId !== empReportTarget.id) return false;
-          if (!h.timestamp) return false;
-          const ts = new Date(h.timestamp);
-          if (from && ts < from) return false;
-          if (to && ts > to) return false;
-          return true;
-        }) : [];
-
-        const empTickets = empReportTarget ? tickets.filter(t => {
-          const matchEmp = t.raisedBy === empReportTarget.id || t.employeeId === empReportTarget.id;
-          if (!matchEmp) return false;
-          if (!t.createdAt) return false;
-          const ts = new Date(t.createdAt);
-          if (from && ts < from) return false;
-          if (to && ts > to) return false;
-          return true;
-        }) : [];
-
-        const empTasks = empReportTarget ? tasks.filter(t => {
-          if (t.assignedTo !== empReportTarget.id) return false;
-          if (!t.createdAt) return false;
-          const ts = new Date(t.createdAt);
-          if (from && ts < from) return false;
-          if (to && ts > to) return false;
-          return true;
-        }) : [];
-
-        return (
-          <div className="modal-overlay active">
-            <div className="modal-card" style={{ maxWidth: "850px", width: "95%" }}>
-              <div className="modal-header" style={{ paddingBottom: "10px" }}>
-                <h3 className="modal-title">📊 Team Member Performance Report</h3>
-                <button className="modal-close" onClick={() => setShowEmpReportModal(false)}>&times;</button>
-              </div>
-
-              {/* Selection & Filters Banner */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "flex-end", marginBottom: "20px", background: "rgba(255,255,255,0.01)", padding: "12px", borderRadius: "8px", border: "1px solid var(--glass-border)" }}>
-                
-                <div style={{ flex: "1 1 200px" }}>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>Select Team Member</label>
-                  <select 
-                    className="form-control"
-                    value={empReportTarget?.id || ""}
-                    onChange={(e) => {
-                      const selectedEmp = employees.find(emp => emp.id === e.target.value);
-                      setEmpReportTarget(selectedEmp || null);
-                    }}
-                    style={{ width: "100%", padding: "6px 10px" }}
-                  >
-                    <option value="">-- Choose Team Member --</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.department} - {emp.role})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ flex: "1 1 150px" }}>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>From Date</label>
-                  <input 
-                    type="date" 
-                    className="form-control" 
-                    value={empReportFrom} 
-                    onChange={(e) => setEmpReportFrom(e.target.value)} 
-                    style={{ width: "100%", padding: "6px 10px" }}
-                  />
-                </div>
-                <div style={{ flex: "1 1 150px" }}>
-                  <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>To Date</label>
-                  <input 
-                    type="date" 
-                    className="form-control" 
-                    value={empReportTo} 
-                    onChange={(e) => setEmpReportTo(e.target.value)} 
-                    style={{ width: "100%", padding: "6px 10px" }}
-                  />
-                </div>
-                <div>
-                  <button 
-                    onClick={() => {
-                      if (!empReportTarget) {
-                        Swal.fire({ icon: 'warning', title: 'Selection Required', text: 'Please select a team member first.' });
-                        return;
-                      }
-                      handleDownloadEmpReport(empReportTarget, empReportFrom, empReportTo);
-                    }}
-                    className="btn-action start"
-                    style={{ padding: "8px 14px", background: "var(--accent-cyan)", color: "#000", fontWeight: "600", whiteSpace: "nowrap" }}
-                  >
-                    📥 Download CSV Report
-                  </button>
-                </div>
-              </div>
-
-              {/* Modal body */}
-              <div className="modal-body" style={{ maxHeight: "55vh", overflowY: "auto", paddingRight: "6px" }}>
-                {!empReportTarget ? (
-                  <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", fontStyle: "italic" }}>
-                    Please select a team member from the dropdown list above to generate their performance and activity report.
-                  </div>
-                ) : (
-                  <>
-                    {/* Employee Info Details Banner */}
-                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "20px", padding: "10px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
-                      <div><strong>Dept:</strong> {empReportTarget.department || "N/A"}</div>
-                      <div><strong>Role:</strong> {empReportTarget.role || "N/A"}</div>
-                      <div><strong>Email:</strong> {empReportTarget.email || "N/A"}</div>
-                      <div><strong>Ticket Limit:</strong> {empReportTarget.ticketLimit || 5}</div>
-                    </div>
-
-                    {/* Section 1: Assigned Devices */}
-                    <div style={{ marginBottom: "24px" }}>
-                      <h4 style={{ color: "var(--accent-cyan)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "12px", fontSize: "1rem" }}>
-                        <span>🖥️ Assigned Devices ({currentDevices.length})</span>
-                      </h4>
-                      {currentDevices.length === 0 ? (
-                        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No devices currently assigned to this team member.</p>
-                      ) : (
-                        <div className="table-wrapper">
-                          <table className="custom-table" style={{ fontSize: "0.85rem" }}>
-                            <thead>
-                              <tr>
-                                <th>System Number</th>
-                                <th>Model</th>
-                                <th>OS</th>
-                                <th>Specs</th>
-                                <th>Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {currentDevices.map(s => (
-                                <tr key={s.id}>
-                                  <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{s.systemNumber}</td>
-                                  <td>{s.model || "Generic PC"}</td>
-                                  <td>{s.os || "Windows 11"}</td>
-                                  <td>{s.cpu} / {s.ram} / {s.storage}</td>
-                                  <td><span className={`status-tag ${s.status?.toLowerCase() === "active" ? "resolved" : "open"}`}>{s.status}</span></td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-
-                      {/* Device Assignment History Logs */}
-                      <h5 style={{ marginTop: "12px", marginBottom: "8px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>Device Transfer Logs In Range ({empLogs.length})</h5>
-                      {empLogs.length === 0 ? (
-                        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No device assignment or transfer logs recorded for this period.</p>
-                      ) : (
-                        <div className="table-wrapper" style={{ maxHeight: "150px", overflowY: "auto" }}>
-                          <table className="custom-table" style={{ fontSize: "0.8rem" }}>
-                            <thead>
-                              <tr>
-                                <th>Action</th>
-                                <th>System Number</th>
-                                <th>Timestamp</th>
-                                <th>Assigned By</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {empLogs.map(log => (
-                                <tr key={log.id}>
-                                  <td><span className={`status-tag ${log.action.toLowerCase().includes("assign") ? "resolved" : "open"}`}>{log.action}</span></td>
-                                  <td><strong>{log.systemNumber}</strong></td>
-                                  <td>{new Date(log.timestamp).toLocaleString()}</td>
-                                  <td>{log.assignedBy || "System"}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Section 2: Complaints & Tickets */}
-                    <div style={{ marginBottom: "24px" }}>
-                      <h4 style={{ color: "var(--accent-purple)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "12px", fontSize: "1rem" }}>
-                        📋 Issues & Complaints Raised In Range ({empTickets.length})
-                      </h4>
-                      {empTickets.length === 0 ? (
-                        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No issues or complaints registered by this team member during this period.</p>
-                      ) : (
-                        <div className="table-wrapper" style={{ maxHeight: "200px", overflowY: "auto" }}>
-                          <table className="custom-table" style={{ fontSize: "0.85rem" }}>
-                            <thead>
-                              <tr>
-                                <th>ID</th>
-                                <th>Category</th>
-                                <th>Description</th>
-                                <th>Severity</th>
-                                <th>Status</th>
-                                <th>Date Raised</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {empTickets.map(t => (
-                                <tr key={t.id}>
-                                  <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{t.id}</td>
-                                  <td>{t.category}</td>
-                                  <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description}</td>
-                                  <td><span className={`status-tag ${t.severity.toLowerCase()}`}>{t.severity}</span></td>
-                                  <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
-                                  <td>{new Date(t.createdAt).toLocaleDateString()}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Section 3: Tasks Assigned */}
-                    <div style={{ marginBottom: "12px" }}>
-                      <h4 style={{ color: "var(--accent-blue)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "12px", fontSize: "1rem" }}>
-                        📅 Assigned Tasks In Range ({empTasks.length})
-                      </h4>
-                      {empTasks.length === 0 ? (
-                        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No tasks assigned to this team member during this period.</p>
-                      ) : (
-                        <div className="table-wrapper" style={{ maxHeight: "200px", overflowY: "auto" }}>
-                          <table className="custom-table" style={{ fontSize: "0.85rem" }}>
-                            <thead>
-                              <tr>
-                                <th>Task Title</th>
-                                <th>Description</th>
-                                <th>Status</th>
-                                <th>Duration (mins)</th>
-                                <th>Date Assigned</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {empTasks.map(t => {
-                                const durationMins = t.totalDuration ? Math.round(t.totalDuration / 60) : 0;
-                                return (
-                                  <tr key={t.id}>
-                                    <td><strong>{t.title}</strong></td>
-                                    <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description || "—"}</td>
-                                    <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
-                                    <td>{durationMins > 0 ? `${durationMins} mins` : "—"}</td>
-                                    <td>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {showDeleteConfirm && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0, 0, 0, 0.8)",
-          backdropFilter: "blur(8px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 9999,
-          padding: "20px",
-        }}>
-          <div style={{
-            background: "var(--bg-secondary)",
-            border: "1px solid var(--glass-border)",
-            borderRadius: "16px",
-            padding: "24px",
-            width: "100%",
-            maxWidth: "420px",
-                        textAlign: "center",
-          }}>
-            <div style={{
-              width: "60px",
-              height: "60px",
-              borderRadius: "50%",
-              border: "3px solid var(--status-critical)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.8rem",
-              margin: "0 auto 1rem auto"
-            }}>
-              ⚠️
-            </div>
-            <h3 style={{ fontSize: "1.25rem", fontWeight: "700", color: "var(--text-primary)", marginBottom: "8px" }}>Are you sure?</h3>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: "1.5", marginBottom: "1.5rem" }}>
-              You will not be able to revert this account deletion! All assignments and tickets will be permanently removed.
-            </p>
-            <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  fontSize: "0.85rem",
-                  fontWeight: "600",
-                  border: "1px solid var(--glass-border)",
-                  background: "var(--bg-tertiary)",
-                  color: "var(--text-primary)",
-                  cursor: "pointer"
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  removeEmployee(user.id);
-                  logout();
-                  router.push("/login");
-                }}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  fontSize: "0.85rem",
-                  fontWeight: "600",
-                  border: "none",
-                  background: "var(--status-critical)",
-                  color: "#fff",
-                  cursor: "pointer"
-                }}
-              >
-                Yes, delete it!
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-    {/* ====================== BULK IMPORT SYSTEMS MODAL ====================== */}
-    {showImportModal && (
-      <div style={{
-        position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        zIndex: 9999, padding: "20px"
-      }}>
-        <div style={{
-          background: "var(--bg-secondary)", border: "1px solid var(--glass-border)",
-          borderRadius: "16px", padding: "28px", width: "100%", maxWidth: "760px",
-          maxHeight: "90vh", overflowY: "auto"
-        }}>
-          {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <div>
-              <h2 style={{ fontSize: "1.3rem", fontWeight: "700", color: "var(--text-primary)", margin: 0 }}>📤 Bulk Import Systems</h2>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginTop: "4px" }}>Upload an Excel (.xlsx) or CSV file to add multiple systems at once</p>
-            </div>
-            <button onClick={() => setShowImportModal(false)}
-              style={{ background: "var(--bg-tertiary)", border: "1px solid var(--glass-border)", color: "var(--text-primary)", borderRadius: "8px", padding: "6px 14px", cursor: "pointer", fontSize: "0.9rem" }}>✕ Close</button>
-          </div>
-
-          {/* Template Download */}
-          <div style={{
-            background: "rgba(34,160,90,0.08)", border: "1px solid rgba(34,160,90,0.3)",
-            borderRadius: "10px", padding: "12px 16px", marginBottom: "18px",
-            display: "flex", alignItems: "center", gap: "12px"
-          }}>
-            <span style={{ fontSize: "1.4rem" }}>📋</span>
-            <div style={{ flex: 1 }}>
-              <p style={{ margin: 0, fontWeight: "600", color: "var(--text-primary)", fontSize: "0.88rem" }}>Download Import Template</p>
-              <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.78rem" }}>Columns: System Number, Model, OS, CPU, GPU, RAM, Storage, Status, <strong style={{color:"#22a05a"}}>Assigned To</strong> (employee name or email — optional), Remarks</p>
-            </div>
-            <button onClick={handleDownloadTemplate}
-              style={{ background: "linear-gradient(135deg,#1a6b3c,#22a05a)", color: "#fff", border: "none", borderRadius: "8px", padding: "7px 16px", cursor: "pointer", fontWeight: "600", fontSize: "0.82rem", whiteSpace: "nowrap" }}>
-              ⬇ Get Template
-            </button>
-          </div>
-
-          {/* File picker */}
-          {importStatus !== 'done' && (
-            <div style={{
-              border: "2px dashed var(--glass-border)", borderRadius: "10px",
-              padding: "24px", textAlign: "center", marginBottom: "18px",
-              background: "var(--bg-tertiary)", cursor: "pointer"
-            }}>
-              <div style={{ fontSize: "2.5rem", marginBottom: "8px" }}>📁</div>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "12px" }}>
-                {importFile ? `Selected: ${importFile.name}` : 'Choose your Excel (.xlsx) or CSV file'}
-              </p>
-              <label style={{ cursor: "pointer" }}>
-                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleImportFileChange}
-                  style={{ display: "none" }} />
-                <span style={{
-                  background: "var(--accent-cyan)", color: "#0d1117", fontWeight: "700",
-                  borderRadius: "8px", padding: "8px 20px", fontSize: "0.85rem", cursor: "pointer"
-                }}>Browse File</span>
-              </label>
-            </div>
-          )}
-
-          {/* Preview table */}
-          {importStatus === 'preview' && importParsed.length > 0 && (
-            <div style={{ marginBottom: "18px" }}>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginBottom: "8px" }}>
-                📊 Preview — <strong style={{ color: "var(--text-primary)" }}>{importParsed.length} rows</strong> detected. Review before importing.
-              </p>
-              <div style={{ overflowX: "auto", maxHeight: "220px", overflowY: "auto", borderRadius: "8px", border: "1px solid var(--glass-border)" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.76rem" }}>
-                  <thead>
-                    <tr style={{ background: "var(--bg-tertiary)", position: "sticky", top: 0 }}>
-                      {Object.keys(importParsed[0]).slice(0, 9).map(h => (
-                        <th key={h} style={{ padding: "6px 10px", textAlign: "left", color: "var(--accent-cyan)", borderBottom: "1px solid var(--glass-border)", whiteSpace: "nowrap" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {importParsed.slice(0, 20).map((row, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                        {Object.values(row).slice(0, 9).map((val, j) => (
-                          <td key={j} style={{ padding: "5px 10px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{String(val)}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {importParsed.length > 20 && <p style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "6px" }}>...and {importParsed.length - 20} more rows</p>}
-
-              <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
-                <button onClick={() => { setImportFile(null); setImportParsed([]); setImportStatus(null); }}
-                  style={{ padding: "9px 18px", borderRadius: "8px", border: "1px solid var(--glass-border)", background: "var(--bg-tertiary)", color: "var(--text-primary)", cursor: "pointer", fontWeight: "600", fontSize: "0.85rem" }}>
-                  ↩ Change File
-                </button>
-                <button onClick={handleConfirmImport}
-                  style={{ padding: "9px 20px", borderRadius: "8px", border: "none", background: "linear-gradient(135deg,#1a6b3c,#22a05a)", color: "#fff", cursor: "pointer", fontWeight: "700", fontSize: "0.85rem" }}>
-                  ✅ Confirm & Import {importParsed.length} Systems
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Loading */}
-          {importStatus === 'loading' && (
-            <div style={{ textAlign: "center", padding: "30px" }}>
-              <div style={{ fontSize: "2rem", marginBottom: "10px" }}>⏳</div>
-              <p style={{ color: "var(--text-secondary)" }}>Importing systems, please wait...</p>
-            </div>
-          )}
-
-          {/* Result */}
-          {importStatus === 'done' && importResult && (
-            <div>
-              <div style={{
-                background: "rgba(34,160,90,0.1)", border: "1px solid rgba(34,160,90,0.4)",
-                borderRadius: "10px", padding: "16px", marginBottom: "14px"
-              }}>
-                <h3 style={{ color: "#22a05a", margin: "0 0 6px 0", fontSize: "1.05rem" }}>✅ Import Complete!</h3>
-                <p style={{ color: "var(--text-primary)", margin: 0, fontSize: "0.88rem" }}>
-                  <strong>{importResult.imported}</strong> systems imported successfully.
-                </p>
-              </div>
-
-              {importResult.duplicates?.length > 0 && (
-                <div style={{
-                  background: "rgba(255,168,0,0.08)", border: "1px solid rgba(255,168,0,0.35)",
-                  borderRadius: "10px", padding: "14px", marginBottom: "10px"
-                }}>
-                  <p style={{ color: "#ffa800", fontWeight: "700", margin: "0 0 6px 0", fontSize: "0.88rem" }}>
-                    ⚠️ {importResult.duplicates.length} Duplicate(s) Skipped
-                  </p>
-                  <p style={{ color: "var(--text-secondary)", fontSize: "0.8rem", margin: 0 }}>
-                    These System Numbers already exist: <em>{importResult.duplicates.join(', ')}</em>
-                  </p>
-                </div>
-              )}
-
-              {importResult.errors?.length > 0 && (
-                <div style={{
-                  background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)",
-                  borderRadius: "10px", padding: "14px", marginBottom: "10px"
-                }}>
-                  <p style={{ color: "#dc2626", fontWeight: "700", margin: "0 0 6px 0", fontSize: "0.88rem" }}>
-                    ❌ {importResult.errors.length} Row(s) Had Errors
-                  </p>
-                  <p style={{ color: "var(--text-secondary)", fontSize: "0.8rem", margin: 0 }}>
-                    Rows missing a System Number were skipped.
-                  </p>
-                </div>
-              )}
-
-              <button onClick={() => { setShowImportModal(false); window.location.reload(); }}
-                style={{ marginTop: "10px", padding: "9px 22px", borderRadius: "8px", border: "none", background: "var(--accent-cyan)", color: "#0d1117", fontWeight: "700", cursor: "pointer" }}>
-                Done — Refresh Page
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    )}
-
-    {/* ====================== BULK IMPORT EMPLOYEES MODAL ====================== */}
-    {showEmpImportModal && (
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 9999, padding: '20px'
-      }}>
-        <div style={{
-          background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)',
-          borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '780px',
-          maxHeight: '90vh', overflowY: 'auto'
-        }}>
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div>
-              <h2 style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>📤 Bulk Import Employees</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>Upload an Excel (.xlsx) or CSV file — passwords will be bcrypt encrypted automatically</p>
-            </div>
-            <button onClick={() => setShowEmpImportModal(false)}
-              style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', borderRadius: '8px', padding: '6px 14px', cursor: 'pointer', fontSize: '0.9rem' }}>✕ Close</button>
-          </div>
-
-          {/* Template download */}
-          <div style={{
-            background: 'rgba(34,96,212,0.08)', border: '1px solid rgba(34,96,212,0.3)',
-            borderRadius: '10px', padding: '12px 16px', marginBottom: '18px',
-            display: 'flex', alignItems: 'center', gap: '12px'
-          }}>
-            <span style={{ fontSize: '1.4rem' }}>📋</span>
-            <div style={{ flex: 1 }}>
-              <p style={{ margin: 0, fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.88rem' }}>Download Import Template</p>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.78rem' }}>Columns: Name, Email, Password, Role, Department, Ticket Limit — passwords auto-encrypted</p>
-            </div>
-            <button onClick={handleDownloadEmpTemplate}
-              style={{ background: 'linear-gradient(135deg,#1a3a6b,#2260d4)', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 16px', cursor: 'pointer', fontWeight: '600', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-              ⬇ Get Template
-            </button>
-          </div>
-
-          {/* File picker */}
-          {empImportStatus !== 'done' && (
-            <div style={{
-              border: '2px dashed var(--glass-border)', borderRadius: '10px',
-              padding: '24px', textAlign: 'center', marginBottom: '18px',
-              background: 'var(--bg-tertiary)'
-            }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>👥</div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '12px' }}>
-                {empImportFile ? `Selected: ${empImportFile.name}` : 'Choose your Excel (.xlsx) or CSV file'}
-              </p>
-              <label style={{ cursor: 'pointer' }}>
-                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleEmpImportFileChange} style={{ display: 'none' }} />
-                <span style={{
-                  background: 'var(--accent-cyan)', color: '#0d1117', fontWeight: '700',
-                  borderRadius: '8px', padding: '8px 20px', fontSize: '0.85rem', cursor: 'pointer'
-                }}>Browse File</span>
-              </label>
-            </div>
-          )}
-
-          {/* Preview table */}
-          {empImportStatus === 'preview' && empImportParsed.length > 0 && (
-            <div style={{ marginBottom: '18px' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '8px' }}>
-                📊 Preview — <strong style={{ color: 'var(--text-primary)' }}>{empImportParsed.length} rows</strong> detected. Review before importing.
-              </p>
-              <div style={{ overflowX: 'auto', maxHeight: '220px', overflowY: 'auto', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-tertiary)', position: 'sticky', top: 0 }}>
-                      {Object.keys(empImportParsed[0]).slice(0, 6).map(h => (
-                        <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: 'var(--accent-cyan)', borderBottom: '1px solid var(--glass-border)', whiteSpace: 'nowrap' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {empImportParsed.slice(0, 20).map((row, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        {Object.values(row).slice(0, 6).map((val, j) => (
-                          <td key={j} style={{ padding: '5px 10px', color: j === 2 ? '#888' : 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                            {j === 2 ? '••••••••' : String(val)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {empImportParsed.length > 20 && <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '6px' }}>...and {empImportParsed.length - 20} more rows</p>}
-              <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
-                <button onClick={() => { setEmpImportFile(null); setEmpImportParsed([]); setEmpImportStatus(null); }}
-                  style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>
-                  ↩ Change File
-                </button>
-                <button onClick={handleConfirmEmpImport}
-                  style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#2260d4)', color: '#fff', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem' }}>
-                  ✅ Confirm & Import {empImportParsed.length} Employees
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Loading */}
-          {empImportStatus === 'loading' && (
-            <div style={{ textAlign: 'center', padding: '30px' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>⏳</div>
-              <p style={{ color: 'var(--text-secondary)' }}>Encrypting passwords & importing employees...</p>
-            </div>
-          )}
-
-          {/* Result */}
-          {empImportStatus === 'done' && empImportResult && (
-            <div>
-              <div style={{
-                background: 'rgba(34,96,212,0.1)', border: '1px solid rgba(34,96,212,0.4)',
-                borderRadius: '10px', padding: '16px', marginBottom: '14px'
-              }}>
-                <h3 style={{ color: '#4d90fe', margin: '0 0 6px 0', fontSize: '1.05rem' }}>✅ Import Complete!</h3>
-                <p style={{ color: 'var(--text-primary)', margin: 0, fontSize: '0.88rem' }}>
-                  <strong>{empImportResult.imported}</strong> employees imported successfully with encrypted passwords.
-                </p>
-              </div>
-
-              {empImportResult.duplicates?.length > 0 && (
-                <div style={{
-                  background: 'rgba(255,168,0,0.08)', border: '1px solid rgba(255,168,0,0.35)',
-                  borderRadius: '10px', padding: '14px', marginBottom: '10px'
-                }}>
-                  <p style={{ color: '#ffa800', fontWeight: '700', margin: '0 0 6px 0', fontSize: '0.88rem' }}>
-                    ⚠️ {empImportResult.duplicates.length} Duplicate(s) Skipped
-                  </p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: 0 }}>
-                    Already exist: <em>{empImportResult.duplicates.join(', ')}</em>
-                  </p>
-                </div>
-              )}
-
-              {empImportResult.errors?.length > 0 && (
-                <div style={{
-                  background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.35)',
-                  borderRadius: '10px', padding: '14px', marginBottom: '10px'
-                }}>
-                  <p style={{ color: '#dc2626', fontWeight: '700', margin: '0 0 6px 0', fontSize: '0.88rem' }}>
-                    ❌ {empImportResult.errors.length} Row(s) Had Errors
-                  </p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: 0 }}>Rows missing a Name were skipped.</p>
-                </div>
-              )}
-
-              <button onClick={() => { setShowEmpImportModal(false); window.location.reload(); }}
-                style={{ marginTop: '10px', padding: '9px 22px', borderRadius: '8px', border: 'none', background: 'var(--accent-cyan)', color: '#0d1117', fontWeight: '700', cursor: 'pointer' }}>
-                Done — Refresh Page
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    )}
-      {/* ================= MODAL: DETAILED SYSTEM INFO ================= */}
-      {selectedViewSystem && (
-        <div className="modal-overlay active">
-          <div className="modal-card" style={{ maxWidth: "600px", width: "90%" }}>
-            <div className="modal-header">
-              <h3 className="modal-title">💻 Device Specification Details</h3>
-              <button className="modal-close" onClick={() => setSelectedViewSystem(null)}>&times;</button>
-            </div>
-            <div style={{ color: "var(--text-primary)", padding: "1rem 0", maxHeight: "70vh", overflowY: "auto" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
-                  <strong style={{ color: "var(--text-muted)" }}>System Number:</strong>
-                  <span style={{ color: "var(--accent-blue)", fontWeight: "bold" }}>{selectedViewSystem.systemNumber}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
-                  <strong style={{ color: "var(--text-muted)" }}>Model:</strong>
-                  <span>{selectedViewSystem.model}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
-                  <strong style={{ color: "var(--text-muted)" }}>OS:</strong>
-                  <span>{selectedViewSystem.os}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
-                  <strong style={{ color: "var(--text-muted)" }}>CPU:</strong>
-                  <span>{selectedViewSystem.cpu}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
-                  <strong style={{ color: "var(--text-muted)" }}>GPU:</strong>
-                  <span>{selectedViewSystem.gpu || "N/A"}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
-                  <strong style={{ color: "var(--text-muted)" }}>RAM:</strong>
-                  <span>{selectedViewSystem.ram}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
-                  <strong style={{ color: "var(--text-muted)" }}>Storage:</strong>
-                  <span>{selectedViewSystem.storage}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
-                  <strong style={{ color: "var(--text-muted)" }}>Status:</strong>
-                  <span className={`status-tag ${selectedViewSystem.status === 'Active' ? 'resolved' : 'progress'}`}>{selectedViewSystem.status}</span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.75rem" }}>
-                  <strong style={{ color: "var(--text-muted)" }}>Remarks / Hardware Issues:</strong>
-                  <div style={{ backgroundColor: "rgba(255,255,255,0.05)", padding: "8px", borderRadius: "6px", fontSize: "0.85rem", minHeight: "40px" }}>
-                    {selectedViewSystem.remarks || "No remarks or known hardware issues."}
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", marginTop: "0.5rem" }}>
-                  <strong style={{ color: "var(--text-muted)", borderBottom: "1px solid #30363d", paddingBottom: "6px", marginBottom: "8px" }}>📜 Device Assignment History (Past Users):</strong>
-                  {(() => {
-                    const sysLogs = assignmentHistory.filter(h => h.systemId === selectedViewSystem.id);
-                    if (sysLogs.length === 0) {
-                      return <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", margin: 0 }}>No past assignment logs recorded for this machine.</p>;
-                    }
-                    return (
-                      <div className="table-wrapper" style={{ maxHeight: "150px", overflowY: "auto", marginTop: "4px" }}>
-                        <table className="custom-table" style={{ fontSize: "0.8rem", width: "100%" }}>
-                          <thead>
-                            <tr>
-                              <th>Action</th>
-                              <th>Team Member</th>
-                              <th>Timestamp</th>
-                              <th>Assigned By</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sysLogs.map(log => {
-                              const emp = employees.find(e => e.id === log.employeeId);
-                              return (
-                                <tr key={log.id}>
-                                  <td><span className={`status-tag ${log.action.toLowerCase() === "assigned" ? "resolved" : "open"}`} style={{ fontSize: "0.7rem", padding: "2px 6px" }}>{log.action}</span></td>
-                                  <td><strong style={{ fontSize: "0.8rem" }}>{emp ? emp.name : "Unknown"}</strong></td>
-                                  <td style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{new Date(log.timestamp).toLocaleString()}</td>
-                                  <td style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{log.assignedBy || "System"}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-              </div>
-            </div>
-            <div style={{ textAlign: "right", marginTop: "1rem", borderTop: "1px solid var(--border-color)", paddingTop: "0.75rem" }}>
-              <button className="btn-action start" onClick={() => setSelectedViewSystem(null)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL: DEPARTMENT SYSTEMS LIST ================= */}
-      {selectedViewDept && (
-        <div className="modal-overlay active">
-          <div className="modal-card" style={{ maxWidth: "800px", width: "95%" }}>
-            <div className="modal-header">
-              <h3 className="modal-title">🏢 {selectedViewDept} Department Details</h3>
-              <button className="modal-close" onClick={() => setSelectedViewDept(null)}>&times;</button>
-            </div>
-            <div style={{ color: "var(--text-primary)", padding: "1rem 0" }}>
-              {(() => {
-                const deptEmployees = employees.filter(e => e.department?.toLowerCase() === selectedViewDept.toLowerCase());
-                const deptSystems = systems.filter(s => deptEmployees.some(e => e.id === s.assignedTo));
-                
-                return (
-                  <>
-                    {/* Tab Navigation */}
-                    <div style={{ display: "flex", gap: "10px", borderBottom: "1px solid var(--border-color)", paddingBottom: "10px", marginBottom: "15px" }}>
-                      <button 
-                        onClick={() => setDeptModalTab("members")} 
-                        className="btn-action start"
-                        style={{ 
-                          background: deptModalTab === 'members' ? 'var(--accent-blue)' : 'rgba(255,255,255,0.05)',
-                          color: deptModalTab === 'members' ? '#fff' : 'var(--text-secondary)',
-                          borderColor: deptModalTab === 'members' ? 'var(--accent-blue)' : 'var(--border-color)',
-                          padding: "6px 12px",
-                          fontSize: "0.85rem"
-                        }}
-                      >
-                        👥 Team Members ({deptEmployees.length})
-                      </button>
-                      <button 
-                        onClick={() => setDeptModalTab("devices")} 
-                        className="btn-action start"
-                        style={{ 
-                          background: deptModalTab === 'devices' ? 'var(--accent-blue)' : 'rgba(255,255,255,0.05)',
-                          color: deptModalTab === 'devices' ? '#fff' : 'var(--text-secondary)',
-                          borderColor: deptModalTab === 'devices' ? 'var(--accent-blue)' : 'var(--border-color)',
-                          padding: "6px 12px",
-                          fontSize: "0.85rem"
-                        }}
-                      >
-                        🖥️ Assigned Devices ({deptSystems.length})
-                      </button>
-                    </div>
-
-                    {/* Tab Content */}
-                    {deptModalTab === "members" ? (
-                      deptEmployees.length === 0 ? (
-                        <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
-                          No team members are currently assigned to the {selectedViewDept} department.
-                        </div>
-                      ) : (
-                        <div className="table-wrapper">
-                          <table className="custom-table">
-                            <thead>
-                              <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Role</th>
-                                <th>Status</th>
-                                <th>Assigned Devices</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {deptEmployees.map(emp => {
-                                const empSystems = systems.filter(s => s.assignedTo === emp.id);
-                                return (
-                                  <tr key={emp.id}>
-                                    <td><strong>{emp.name}</strong></td>
-                                    <td>{emp.email}</td>
-                                    <td>{emp.role}</td>
-                                    <td>
-                                      <span className={`status-tag ${emp.status === 'Active' ? 'resolved' : 'open'}`}>
-                                        {emp.status || 'Active'}
-                                      </span>
-                                    </td>
-                                    <td>
-                                      {empSystems.length > 0 ? (
-                                        empSystems.map(s => (
-                                          <span 
-                                            className="timer-badge" 
-                                            style={{ color: "var(--accent-cyan)", borderColor: "var(--accent-cyan)", marginRight: "4px" }} 
-                                            key={s.id}
-                                          >
-                                            {s.systemNumber}
-                                          </span>
-                                        ))
-                                      ) : (
-                                        <span style={{ color: "var(--text-muted)" }}>None</span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )
-                    ) : (
-                      deptSystems.length === 0 ? (
-                        <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
-                          No systems are currently assigned to team members in the {selectedViewDept} department.
-                        </div>
-                      ) : (
-                        <div className="table-wrapper">
-                          <table className="custom-table">
-                            <thead>
-                              <tr>
-                                <th>System Number</th>
-                                <th>Model</th>
-                                <th>Specs (CPU/RAM/GPU)</th>
-                                <th>Assigned Team Member</th>
-                                <th>Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {deptSystems.map(sys => {
-                                const assignee = employees.find(e => e.id === sys.assignedTo);
-                                return (
-                                  <tr key={sys.id}>
-                                    <td><strong style={{ color: "var(--accent-blue)" }}>{sys.systemNumber}</strong></td>
-                                    <td>{sys.model}</td>
-                                    <td>
-                                      <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                                        CPU: {sys.cpu} | RAM: {sys.ram} | GPU: {sys.gpu || "N/A"}
-                                      </div>
-                                    </td>
-                                    <td>{assignee ? `${assignee.name} (${assignee.email})` : "Unassigned"}</td>
-                                    <td>
-                                      <span className={`status-tag ${sys.status === 'Active' ? 'resolved' : 'progress'}`}>{sys.status}</span>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-            <div style={{ textAlign: "right", marginTop: "1rem" }}>
-              <button className="btn-action start" onClick={() => setSelectedViewDept(null)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* IN-PAGE MEDIA LIGHTBOX VIEWER MODAL */}
-      {previewMediaUrl && (
-        <div 
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.88)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            zIndex: 999999,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px"
-          }}
-          onClick={() => setPreviewMediaUrl(null)}
-        >
-          {/* Top Control Bar */}
-          <div 
-            style={{
-              position: "absolute",
-              top: "20px",
-              right: "20px",
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              zIndex: 1000000
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <a 
-              href={previewMediaUrl} 
-              download
-              className="btn-secondary"
-              style={{
-                background: "rgba(255, 255, 255, 0.15)",
-                color: "#fff",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                textDecoration: "none",
-                fontSize: "0.85rem",
-                fontWeight: "600",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                border: "1px solid rgba(255,255,255,0.2)"
-              }}
-            >
-              📥 Download File
-            </a>
-            <button
-              onClick={() => setPreviewMediaUrl(null)}
-              style={{
-                background: "rgba(255, 255, 255, 0.2)",
-                border: "1px solid rgba(255, 255, 255, 0.3)",
-                color: "#fff",
-                fontSize: "1.4rem",
-                width: "40px",
-                height: "40px",
-                borderRadius: "50%",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "background 0.2s"
-              }}
-              title="Close Preview (Esc)"
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Media Content Display */}
-          <div 
-            style={{
-              maxWidth: "92vw",
-              maxHeight: "88vh",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "hidden"
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/\.(mp4|webm|ogg|mov|mkv|avi|m4v|3gp)$/i.test(previewMediaUrl) ? (
-              <video 
-                src={previewMediaUrl} 
-                controls 
-                autoPlay
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "85vh",
-                  borderRadius: "12px",
-                                    outline: "none"
-                }} 
-              />
-            ) : /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(previewMediaUrl) ? (
-              <img 
-                src={previewMediaUrl} 
-                alt="Media Preview" 
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "85vh",
-                  objectFit: "contain",
-                  borderRadius: "12px",
-                                  }} 
-              />
-            ) : /\.pdf$/i.test(previewMediaUrl) ? (
-              <iframe 
-                src={previewMediaUrl} 
-                style={{
-                  width: "82vw",
-                  height: "82vh",
-                  border: "none",
-                  borderRadius: "12px",
-                  background: "#fff"
-                }}
-                title="PDF Document Preview"
-              />
-            ) : (
-              <div style={{ background: "#161b22", padding: "2.5rem", borderRadius: "16px", textAlign: "center", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <span style={{ fontSize: "3.5rem" }}>📄</span>
-                <h4 style={{ margin: "1rem 0 0.5rem 0" }}>File Preview</h4>
-                <p style={{ margin: "0 0 1.5rem 0", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-                  {previewMediaUrl.split('/').pop()}
-                </p>
-                <a href={previewMediaUrl} download className="btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                  📥 Download Attachment
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Full Leave Reason Modal Inspector */}
-      {selectedReasonModal && (() => {
-        const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
-        const modalBg = isLight ? '#ffffff' : '#1e293b';
-        const textColor = isLight ? '#0f172a' : '#f8fafc';
-        const subTextColor = isLight ? '#64748b' : '#94a3b8';
-        const reasonBoxBg = isLight ? '#f1f5f9' : '#0f172a';
-        const borderCol = isLight ? '#cbd5e1' : '#334155';
-
-        return (
-          <div style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(15, 23, 42, 0.75)",
-            backdropFilter: "blur(4px)",
-            zIndex: 99999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px"
-          }}>
-            <div style={{
-              backgroundColor: modalBg,
-              border: `1px solid ${borderCol}`,
-              borderRadius: "16px",
-              padding: "24px",
-              maxWidth: "580px",
-              width: "100%",
-              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)",
-              color: textColor
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", borderBottom: `1px solid ${borderCol}`, paddingBottom: "12px" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "800", color: textColor }}>
-                    📄 Leave Application Details
-                  </h3>
-                  <span style={{ fontSize: "0.82rem", color: subTextColor }}>
-                    Applicant: <strong style={{ color: textColor }}>{selectedReasonModal.employeeName}</strong> ({selectedReasonModal.leaveType})
-                  </span>
-                </div>
-                <button
-                  onClick={() => setSelectedReasonModal(null)}
-                  style={{ background: "none", border: "none", fontSize: "1.2rem", color: subTextColor, cursor: "pointer" }}
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div style={{ fontSize: "0.82rem", fontWeight: "800", marginBottom: "8px", color: textColor, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Full Reason for Leave:
-              </div>
-
-              <div style={{
-                maxHeight: "360px",
-                overflowY: "auto",
-                backgroundColor: reasonBoxBg,
-                padding: "16px",
-                borderRadius: "10px",
-                border: `1px solid ${borderCol}`,
-                fontSize: "0.92rem",
-                fontWeight: "500",
-                color: textColor,
-                lineHeight: "1.6",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word"
-              }}>
-                {selectedReasonModal.reason || "No reason provided."}
-              </div>
-
-              <div style={{ marginTop: "20px", textAlign: "right" }}>
-                <button
-                  onClick={() => setSelectedReasonModal(null)}
-                  style={{ padding: "10px 22px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", backgroundColor: "#2563eb", color: "#ffffff", border: "none" }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
     </div>
   );

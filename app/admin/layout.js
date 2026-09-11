@@ -1,29 +1,35 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import Swal from "sweetalert2";
 import { useAuth } from "../auth/AuthContext";
-import { getEmployees, isSoundEnabled } from "../store";
+import { getEmployees, getTickets } from "../store";
 import ThemeToggle from "../components/ThemeToggle.js";
 import Logo from "../components/Logo.js";
-import TabScreenshotLogger from "../components/TabScreenshotLogger.js";
 import {
   FiGrid,
-  FiClock,
-  FiAlertCircle,
-  FiClipboard,
-  FiMessageSquare,
+  FiServer,
+  FiUsers,
+  FiTag,
+  FiBriefcase,
+  FiFileText,
   FiCheckSquare,
+  FiClock,
+  FiMessageSquare,
   FiUser,
+  FiAlertTriangle,
   FiLogOut,
+  FiEye,
   FiShield,
   FiCalendar,
+  FiFolder,
+  FiTrendingUp,
+  FiLayers,
   FiTrash2
 } from "react-icons/fi";
 
-export default function EmployeeLayout({ children }) {
+export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -32,78 +38,40 @@ export default function EmployeeLayout({ children }) {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [employees, setEmployees] = useState([]);
-
-  // Audio state
-  const audioCtxRef = useRef(null);
-  const [soundOn, setSoundOn] = useState(false);
+  const [leaveCount, setLeaveCount] = useState(0);
 
   useEffect(() => {
     setMounted(true);
-    setSoundOn(isSoundEnabled());
     setEmployees(getEmployees());
+    fetchLeaves();
   }, []);
 
-  // Listen for database syncs to refresh local employee details
-  useEffect(() => {
-    const handleSync = () => {
-      setEmployees(getEmployees());
-    };
-    window.addEventListener("devicedesk_db_synced", handleSync);
-    return () => window.removeEventListener("devicedesk_db_synced", handleSync);
-  }, []);
+  const fetchLeaves = async () => {
+    try {
+      const res = await fetch("/api/leave/list?status=Pending");
+      const data = await res.json();
+      if (data.success) {
+        setLeaveCount((data.data || []).length);
+      }
+    } catch (e) {}
+  };
 
   // Sync unread chat count
   useEffect(() => {
-    const stored = localStorage.getItem("devicedesk_unread_chat_count");
-    if (stored) setUnreadChatCount(Number(stored));
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("devicedesk_unread_chat_count");
+      if (stored) setUnreadChatCount(Number(stored));
 
-    const handleUnreadChange = (e) => {
-      setUnreadChatCount(Number(e.detail || 0));
-    };
+      const handleUnreadChange = (e) => {
+        setUnreadChatCount(Number(e.detail || 0));
+      };
 
-    window.addEventListener("devicedesk_unread_chat_changed", handleUnreadChange);
-    return () => {
-      window.removeEventListener("devicedesk_unread_chat_changed", handleUnreadChange);
-    };
-  }, []);
-
-  // Audio Context initialization
-  const initAudio = () => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      window.addEventListener("devicedesk_unread_chat_changed", handleUnreadChange);
+      return () => {
+        window.removeEventListener("devicedesk_unread_chat_changed", handleUnreadChange);
+      };
     }
-    if (audioCtxRef.current.state === "suspended") {
-      audioCtxRef.current.resume();
-    }
-    return audioCtxRef.current;
-  };
-
-  useEffect(() => {
-    const enableAudio = () => {
-      initAudio();
-    };
-    window.addEventListener("click", enableAudio, { once: true });
-    return () => window.removeEventListener("click", enableAudio);
   }, []);
-
-  const empDetails = employees.find((e) => e.id === user?.id) || user || {};
-  const deptStr = `${user?.department || empDetails?.department || ''}`.toLowerCase().trim();
-  const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
-  const isITDepartment = 
-    deptStr === 'it' || 
-    deptStr.startsWith('it ') || 
-    deptStr.includes('it support') || 
-    deptStr.includes('information technology') || 
-    deptStr.includes('it department') ||
-    dbRoleStr.includes('it');
-  const isAdminUser = 
-    dbRoleStr === 'admin' || 
-    dbRoleStr === 'superadmin' || 
-    dbRoleStr === 'management' ||
-    user?.email === 'admin@yopmail.com' || 
-    user?.email === 'pravi@yopmail.com';
-
-  const showITSupportDesk = isAdminUser || isITDepartment;
 
   // Auth check
   useEffect(() => {
@@ -127,9 +95,11 @@ export default function EmployeeLayout({ children }) {
     return null;
   }
 
+  const empDetails = employees.find((e) => e.id === user?.id) || user || {};
+
   const renderProfileAvatar = (emp, size = "24px") => {
     const getInitials = (name) => {
-      if (!name) return "";
+      if (!name) return "AD";
       const parts = name.split(" ");
       if (parts.length >= 2) {
         return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -167,44 +137,60 @@ export default function EmployeeLayout({ children }) {
           color: "#000"
         }}
       >
-        {getInitials(emp?.name || "")}
+        {getInitials(emp?.name || "Admin")}
       </div>
     );
   };
 
   const navItems = [
-    { name: "Overview", path: "/employee-dashboard", icon: <FiGrid /> },
-    { name: "Attendance", path: "/employee-dashboard/attendance", icon: <FiClock /> },
-    { name: "File Complaint", path: "/employee-dashboard/complaint", icon: <FiAlertCircle /> },
-    { name: "My Records", path: "/employee-dashboard/records", icon: <FiClipboard /> },
-    { name: "Task Board", path: "/employee-dashboard/tasks", icon: <FiCheckSquare /> },
+    { name: "Dashboard", path: "/", icon: <FiGrid />, exact: true },
+    { name: "Systems Inventory", path: "/admin/systems", icon: <FiServer /> },
+    { name: "Team Member Directory", path: "/admin/users", icon: <FiUsers /> },
+    { name: "Raise Records", path: "/admin/tickets", icon: <FiTag /> },
+    { name: "Departments", path: "/admin/departments", icon: <FiBriefcase /> },
+    { name: "System Logs & Audit", path: "/admin/audit-logs", icon: <FiFileText /> },
+    { name: "Task Board", path: "/admin/tasks", icon: <FiCheckSquare /> },
+    { name: "Attendance", path: "/admin/attendance", icon: <FiClock /> },
+    { name: "Activity Screenshots", path: "/?tab=screenshots", icon: <FiEye /> },
     {
       name: "Chat Workspace",
-      path: "/employee-dashboard/chat",
+      path: "/?tab=chat",
       icon: <FiMessageSquare />,
       badge: unreadChatCount
     },
-    { name: "Apply Leave", path: "/employee-dashboard/leave", icon: <FiCalendar /> },
-    { name: "My Profile", path: "/employee-dashboard/profile", icon: <FiUser /> }
+    {
+      name: "Leave Requests",
+      path: "/admin/leaves",
+      icon: <FiCalendar />,
+      badge: leaveCount
+    },
+    { name: "Projects", path: "/admin/projects", icon: <FiFolder /> },
+    { name: "Marketing", path: "/admin/marketing", icon: <FiTrendingUp /> },
+    { name: "Work Submissions", path: "/admin/submissions", icon: <FiLayers /> },
+    { name: "My Profile", path: "/?tab=profile", icon: <FiUser /> }
   ];
+
+  const isNavActive = (item) => {
+    if (item.exact) return pathname === "/admin" || pathname === "/";
+    return pathname.startsWith(item.path);
+  };
 
   return (
     <div style={{ display: "contents" }}>
-      {/* Background Activity Screenshot Logger */}
-      <TabScreenshotLogger user={user} isPunchedIn={true} />
-
       {/* Sidebar Navigation (Desktop) */}
       <aside className="sidebar">
         <div className="logo-container">
-          <Logo height="36px" />
+          <Link href="/" style={{ textDecoration: "none" }}>
+            <Logo height="36px" />
+          </Link>
         </div>
 
-        <nav style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <nav style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
           <ul className="nav-links">
             {navItems.map((item) => {
-              const active = pathname === item.path;
+              const active = isNavActive(item);
               return (
-                <li key={item.path} className={`nav-item ${active ? "active" : ""}`}>
+                <li key={item.name} className={`nav-item ${active ? "active" : ""}`}>
                   <Link href={item.path} style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
                     <span className="nav-icon">{item.icon}</span>
                     {item.name}
@@ -217,7 +203,7 @@ export default function EmployeeLayout({ children }) {
                           padding: "2px 6px",
                           fontSize: "0.7rem",
                           fontWeight: "700",
-                          marginLeft: "8px"
+                          marginLeft: "auto"
                         }}
                       >
                         {item.badge}
@@ -227,16 +213,6 @@ export default function EmployeeLayout({ children }) {
                 </li>
               );
             })}
-            {showITSupportDesk && (
-              <li className="nav-item" style={{ marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}>
-                <button
-                  onClick={() => { window.location.href = "/"; }}
-                  style={{ color: "var(--accent-cyan)", fontWeight: "600" }}
-                >
-                  <span className="nav-icon"><FiShield /></span> IT Support Desk
-                </button>
-              </li>
-            )}
           </ul>
 
           <div style={{ marginTop: "auto", paddingTop: "1rem", borderTop: "1px solid var(--glass-border)" }}>
@@ -267,7 +243,7 @@ export default function EmployeeLayout({ children }) {
         </nav>
       </aside>
 
-      {/* ── Mobile Hamburger Drawer ── */}
+      {/* Mobile Drawer */}
       <div
         className={`mobile-drawer-backdrop ${mobileMenuOpen ? "open" : ""}`}
         onClick={() => setMobileMenuOpen(false)}
@@ -282,14 +258,14 @@ export default function EmployeeLayout({ children }) {
         <div style={{ padding: "0.5rem 0 1rem", borderBottom: "1px solid var(--glass-border)", marginBottom: "0.5rem" }}>
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>Logged in as</p>
           <p style={{ fontWeight: "600", color: "var(--accent-cyan)" }}>{empDetails.name}</p>
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{empDetails.department || "General"}</p>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{empDetails.role || "Administrator"}</p>
         </div>
         <nav className="mobile-drawer-nav">
           {navItems.map((item) => {
-            const active = pathname === item.path;
+            const active = isNavActive(item);
             return (
               <Link
-                key={item.path}
+                key={item.name}
                 href={item.path}
                 className={`mobile-drawer-item ${active ? "active" : ""}`}
                 onClick={() => setMobileMenuOpen(false)}
@@ -316,15 +292,6 @@ export default function EmployeeLayout({ children }) {
               </Link>
             );
           })}
-          {showITSupportDesk && (
-            <button
-              className="mobile-drawer-item"
-              onClick={() => { window.location.href = "/"; setMobileMenuOpen(false); }}
-              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", color: "var(--accent-cyan)", fontWeight: "600", marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}
-            >
-              <span style={{ display: "inline-flex" }}><FiShield /></span> IT Support Desk
-            </button>
-          )}
         </nav>
         <div className="mobile-drawer-footer" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "10px", background: "var(--bg-tertiary)", border: "1px solid var(--glass-border)" }}>
@@ -422,12 +389,12 @@ export default function EmployeeLayout({ children }) {
                       {empDetails?.name}
                     </div>
                     <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-                      {empDetails?.department || "General"}
+                      {empDetails?.role || "Administrator"}
                     </div>
                   </div>
 
                   <Link
-                    href="/employee-dashboard/profile"
+                    href="/?tab=profile"
                     onClick={() => setUserDropdownOpen(false)}
                     style={{
                       background: "none",
@@ -442,6 +409,7 @@ export default function EmployeeLayout({ children }) {
                       alignItems: "center",
                       gap: "8px",
                       width: "100%",
+                      textDecoration: "none",
                       transition: "background 0.2s"
                     }}
                     className="dropdown-link-btn"
@@ -465,34 +433,12 @@ export default function EmployeeLayout({ children }) {
                       alignItems: "center",
                       gap: "8px",
                       width: "100%",
+                      textDecoration: "none",
                       transition: "background 0.2s"
                     }}
                     className="dropdown-link-btn"
                   >
                     <FiShield style={{ fontSize: "1rem", flexShrink: 0 }} /> Privacy & Terms
-                  </Link>
-
-                  <Link
-                    href="/account-deletion"
-                    onClick={() => setUserDropdownOpen(false)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--text-primary)",
-                      padding: "8px",
-                      borderRadius: "6px",
-                      textAlign: "left",
-                      fontSize: "0.8rem",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      width: "100%",
-                      transition: "background 0.2s"
-                    }}
-                    className="dropdown-link-btn"
-                  >
-                    <FiTrash2 style={{ fontSize: "1rem", flexShrink: 0 }} /> Account Deletion
                   </Link>
 
                   <button
@@ -527,8 +473,10 @@ export default function EmployeeLayout({ children }) {
           </div>
         </header>
 
-        {/* Dynamic page contents nested inside */}
-        {children}
+        {/* Dynamic nested contents inside */}
+        <main style={{ padding: "1.5rem", maxWidth: "1400px", margin: "0 auto", width: "100%" }}>
+          {children}
+        </main>
       </div>
 
       <style jsx global>{`

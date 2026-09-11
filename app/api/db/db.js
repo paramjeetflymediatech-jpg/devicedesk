@@ -356,6 +356,103 @@ export async function getDbConnection() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id VARCHAR(100) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      client_id VARCHAR(50) NOT NULL,
+      description TEXT,
+      status VARCHAR(50) DEFAULT 'planning',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS project_departments (
+      project_id VARCHAR(100) NOT NULL,
+      department_id VARCHAR(50) NOT NULL,
+      PRIMARY KEY (project_id, department_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id VARCHAR(100) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      start_date VARCHAR(50),
+      end_date VARCHAR(50),
+      budget DECIMAL(12, 2) DEFAULT 0,
+      status VARCHAR(50) DEFAULT 'Active',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id VARCHAR(100) PRIMARY KEY,
+      campaign_id VARCHAR(100),
+      name VARCHAR(150),
+      email VARCHAR(150),
+      phone VARCHAR(50),
+      status VARCHAR(50) DEFAULT 'New',
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS marketing_locations (
+      id VARCHAR(100) PRIMARY KEY,
+      employee_id VARCHAR(50) NOT NULL,
+      latitude DECIMAL(10, 8) NOT NULL,
+      longitude DECIMAL(11, 8) NOT NULL,
+      address TEXT,
+      timestamp VARCHAR(50) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS marketing_attendance (
+      id VARCHAR(100) PRIMARY KEY,
+      employee_id VARCHAR(50) NOT NULL,
+      date VARCHAR(20) NOT NULL,
+      punch_in VARCHAR(50),
+      punch_out VARCHAR(50),
+      status VARCHAR(50) DEFAULT 'Present'
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  try {
+    await db.execute(`ALTER TABLE work_submissions ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`);
+  } catch (err) {}
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS work_submissions (
+      id VARCHAR(100) PRIMARY KEY,
+      task_id VARCHAR(50) NOT NULL,
+      project_id VARCHAR(100) NOT NULL,
+      submitted_by VARCHAR(50) NOT NULL,
+      status VARCHAR(50) DEFAULT 'Draft',
+      description TEXT,
+      file_url TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS work_submission_history (
+      id VARCHAR(100) PRIMARY KEY,
+      submission_id VARCHAR(100) NOT NULL,
+      changed_by VARCHAR(50) NOT NULL,
+      old_status VARCHAR(50),
+      new_status VARCHAR(50),
+      comment TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   // Check if DB was already seeded
   const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");
   const alreadySeeded = metaRows.length > 0 && metaRows[0].meta_value === 'true';
