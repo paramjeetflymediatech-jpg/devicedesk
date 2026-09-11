@@ -55,8 +55,16 @@ export default function LoginPage() {
 
         if (emailLower === 'developer@devicedesk.com') {
           router.push('/developer/dashboard');
+        } else if (dbRoleLower === 'client') {
+          router.push('/portal/client');
+        } else if (dbRoleLower === 'marketing') {
+          router.push('/portal/marketing');
+        } else if (dbRoleLower === 'dept_team_leader') {
+          router.push('/portal/leader');
+        } else if (dbRoleLower === 'dept_team_member') {
+          router.push('/portal/member');
         } else if (isRootAdmin) {
-          router.push('/');
+          router.push('/portal/admin');
         } else {
           router.push('/employee-dashboard');
         }
