@@ -350,7 +350,7 @@
       <div class="title-area">
         <h2>
           DeviceDesk Agent
-          <span class="badge-tag">v1.0</span>
+          <span class="badge-tag" id="appVersionBadge">v1.0.0</span>
         </h2>
         <p>Automated Desktop Monitor</p>
       </div>
@@ -451,6 +451,11 @@
 
     ipcRenderer.on('config-data', (event, config) => {
       if (config) {
+        if (config.agentVersion) {
+          const badge = document.getElementById('appVersionBadge');
+          if (badge) badge.innerText = `v${config.agentVersion}`;
+        }
+
         if (config.serverUrl) {
           document.getElementById('serverUrl').value = config.serverUrl;
         }
@@ -522,11 +527,141 @@
 
     // Logout Button
     document.getElementById('logoutBtn').addEventListener('click', () => {
+      stopPersistentStream();
       ipcRenderer.send('agent-logout');
       showLoginView();
     });
 
+    // Persistent Screen Capture Engine (Prevents repeated GNOME Wayland ScreenCast prompts)
+    let persistentStream = null;
+    let streamVideoElement = null;
+    let streamCanvas = null;
+
+    function isStreamLive() {
+      if (!persistentStream || !persistentStream.active) return false;
+      const tracks = persistentStream.getVideoTracks();
+      return tracks.length > 0 && tracks[0].readyState === 'live';
+    }
+
+    async function ensurePersistentStream() {
+      if (isStreamLive()) {
+        return true;
+      }
+
+      try {
+        if (persistentStream) {
+          persistentStream.getTracks().forEach(t => t.stop());
+          persistentStream = null;
+        }
+
+        persistentStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 1 }
+          },
+          audio: false
+        });
+
+        if (!streamVideoElement) {
+          streamVideoElement = document.createElement('video');
+          streamVideoElement.style.display = 'none';
+          streamVideoElement.muted = true;
+          streamVideoElement.autoplay = true;
+          document.body.appendChild(streamVideoElement);
+        }
+
+        streamVideoElement.srcObject = persistentStream;
+        await streamVideoElement.play().catch(() => {});
+
+        const videoTrack = persistentStream.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.addEventListener('ended', () => {
+            persistentStream = null;
+            if (streamVideoElement) streamVideoElement.srcObject = null;
+          });
+        }
+
+        return isStreamLive();
+      } catch (err) {
+        console.warn('Persistent stream initialization notice:', err.message);
+        return false;
+      }
+    }
+
+    function stopPersistentStream() {
+      if (persistentStream) {
+        persistentStream.getTracks().forEach(t => t.stop());
+        persistentStream = null;
+      }
+      if (streamVideoElement) {
+        streamVideoElement.srcObject = null;
+      }
+    }
+
+    async function grabCurrentFrame() {
+      if (!isStreamLive()) {
+        const started = await ensurePersistentStream();
+        if (!started || !isStreamLive()) return null;
+      }
+
+      const track = persistentStream.getVideoTracks()[0];
+
+      // Method A: ImageCapture (Direct hardware frame grab, immune to background tab throttling)
+      if (typeof window.ImageCapture !== 'undefined' || typeof ImageCapture !== 'undefined') {
+        try {
+          const capturer = new ImageCapture(track);
+          const bitmap = await capturer.grabFrame();
+          if (!streamCanvas) streamCanvas = document.createElement('canvas');
+          const targetWidth = 1024;
+          const targetHeight = Math.round((bitmap.height / bitmap.width) * targetWidth) || 576;
+          streamCanvas.width = targetWidth;
+          streamCanvas.height = targetHeight;
+          const ctx = streamCanvas.getContext('2d');
+          ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+          bitmap.close();
+          return streamCanvas.toDataURL('image/jpeg', 0.55);
+        } catch (icErr) {
+          console.warn('ImageCapture grab warning, falling back to video element:', icErr.message);
+        }
+      }
+
+      // Method B: Video Element to Canvas
+      if (streamVideoElement && (streamVideoElement.videoWidth > 0 || streamVideoElement.readyState >= 1)) {
+        if (!streamCanvas) streamCanvas = document.createElement('canvas');
+        const vWidth = streamVideoElement.videoWidth || 1920;
+        const vHeight = streamVideoElement.videoHeight || 1080;
+        const targetWidth = 1024;
+        const targetHeight = Math.round((vHeight / vWidth) * targetWidth) || 576;
+        streamCanvas.width = targetWidth;
+        streamCanvas.height = targetHeight;
+        const ctx = streamCanvas.getContext('2d');
+        ctx.drawImage(streamVideoElement, 0, 0, targetWidth, targetHeight);
+        return streamCanvas.toDataURL('image/jpeg', 0.55);
+      }
+
+      return null;
+    }
+
+    ipcRenderer.on('init-stream-capture', () => {
+      ensurePersistentStream();
+    });
+
+    ipcRenderer.on('request-frame-capture', async () => {
+      try {
+        const base64Image = await grabCurrentFrame();
+        if (base64Image) {
+          ipcRenderer.send('frame-capture-response', { success: true, base64Image });
+        } else {
+          ipcRenderer.send('frame-capture-response', { success: false });
+        }
+      } catch (err) {
+        ipcRenderer.send('frame-capture-response', { success: false, error: err.message });
+      }
+    });
+
     function showLoginView() {
+      stopPersistentStream();
       loginView.style.display = 'flex';
       activeView.style.display = 'none';
       document.getElementById('password').value = '';
@@ -547,6 +682,11 @@
 
       const firstChar = name.charAt(0).toUpperCase();
       userAvatar.innerText = firstChar || 'E';
+
+      // On Linux Wayland, proactively initialize persistent capture stream so user only allows once
+      if (process.platform === 'linux') {
+        ensurePersistentStream();
+      }
     }
 
     function showError(msg) {
