@@ -44,8 +44,26 @@ export async function POST(req) {
         // If it's today, auto close at the current time (which should be 9:00 PM IST when triggered).
         const isToday = record.date === todayStr;
         const autoPunchOutIso = isToday ? nowIso : `${record.date}T15:30:00.000Z`;
+
+        // If this is an Absent/Leave record or has no valid punchInTime, close it safely with 0 minutes
+        if (!record.punchInTime || record.punchInTime.trim() === '' || record.status === 'Absent' || record.status === 'On Leave') {
+          await connection.execute(
+            `UPDATE attendance_records SET 
+              punchOutTime = ?, 
+              totalWorkMinutes = 0, 
+              totalBreakMinutes = 0, 
+              netWorkMinutes = 0, 
+              breakStatus = 'Completed' 
+             WHERE id = ?`,
+            [autoPunchOutIso, record.id]
+          );
+          closedCount++;
+          continue;
+        }
+
         const autoPunchOutMs = new Date(autoPunchOutIso).getTime();
-        const punchInMs = new Date(record.punchInTime).getTime();
+        const punchInDate = new Date(record.punchInTime);
+        const punchInMs = isNaN(punchInDate.getTime()) ? null : punchInDate.getTime();
 
         // 1. Close any open breaks
         await connection.execute(
@@ -64,16 +82,21 @@ export async function POST(req) {
           if (b.startTime && b.endTime) {
             const s = new Date(b.startTime).getTime();
             const e = new Date(b.endTime).getTime();
-            totalBreakSecs += Math.max(0, Math.floor((e - s) / 1000));
+            if (Number.isFinite(s) && Number.isFinite(e) && e > s) {
+              totalBreakSecs += Math.floor((e - s) / 1000);
+            }
           }
         }
 
-        const totalWorkSecs = Math.max(0, Math.floor((autoPunchOutMs - punchInMs) / 1000));
+        let totalWorkSecs = 0;
+        if (punchInMs !== null && Number.isFinite(punchInMs) && Number.isFinite(autoPunchOutMs) && autoPunchOutMs > punchInMs) {
+          totalWorkSecs = Math.max(0, Math.floor((autoPunchOutMs - punchInMs) / 1000));
+        }
         const netWorkSecs = Math.max(0, totalWorkSecs - totalBreakSecs);
 
-        const totalWorkMins = Math.floor(totalWorkSecs / 60);
-        const totalBreakMins = Math.floor(totalBreakSecs / 60);
-        const netWorkMins = Math.floor(netWorkSecs / 60);
+        const totalWorkMins = Number.isFinite(totalWorkSecs) ? Math.floor(totalWorkSecs / 60) : 0;
+        const totalBreakMins = Number.isFinite(totalBreakSecs) ? Math.floor(totalBreakSecs / 60) : 0;
+        const netWorkMins = Number.isFinite(netWorkSecs) ? Math.floor(netWorkSecs / 60) : 0;
 
         let finalStatus = record.status;
         if (finalStatus === 'Present' || finalStatus === 'Late') {
@@ -121,12 +144,13 @@ export async function POST(req) {
           for (const emp of employees) {
             if (!presentIds.has(emp.id)) {
               const recordId = `absent_${emp.id}_${todayStr}`;
+              const absentPunchOut = `${todayStr}T23:59:59.000Z`;
               await connection.execute(
                 `INSERT IGNORE INTO attendance_records 
                  (id, employeeId, employeeName, date, punchInTime, punchOutTime, status, totalWorkMinutes, totalBreakMinutes, netWorkMinutes, remarks)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                  recordId, emp.id, emp.name, todayStr, '', null, 'Absent', 0, 0, 0, 'Auto-generated Absent (End of Day)'
+                  recordId, emp.id, emp.name, todayStr, '', absentPunchOut, 'Absent', 0, 0, 0, 'Auto-generated Absent (End of Day)'
                 ]
               );
               absentCount++;

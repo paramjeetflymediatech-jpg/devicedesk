@@ -19,14 +19,19 @@ export async function GET() {
           h.created_at,
           e.name as employee_name
         FROM work_submission_history h
-        LEFT JOIN employees e ON h.changed_by = e.id
+        LEFT JOIN employees e ON (h.changed_by COLLATE utf8mb4_unicode_ci = e.id COLLATE utf8mb4_unicode_ci)
         ORDER BY h.created_at DESC
         LIMIT 100
       `);
       auditLogs = rows || [];
     } catch (queryErr) {
       console.warn('work_submission_history table query warning:', queryErr.message);
-      auditLogs = [];
+      try {
+        const [rows] = await db.query(`SELECT * FROM work_submission_history ORDER BY created_at DESC LIMIT 100`);
+        auditLogs = rows || [];
+      } catch (fallbackErr) {
+        auditLogs = [];
+      }
     }
 
     return NextResponse.json({

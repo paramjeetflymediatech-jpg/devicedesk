@@ -158,10 +158,8 @@ export async function getDbConnection() {
   }
 
   try {
-    await db.execute(`ALTER TABLE tasks MODIFY COLUMN fileUrl TEXT DEFAULT NULL`);
-  } catch (err) {
-    // Ignore
-  }
+    await db.execute(`ALTER TABLE tasks ADD COLUMN project_id VARCHAR(50) DEFAULT NULL`);
+  } catch (err) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS departments (
@@ -194,7 +192,8 @@ export async function getDbConnection() {
       startedAt VARCHAR(50),
       completedAt VARCHAR(50),
       totalDuration INT DEFAULT 0,
-      fileUrl VARCHAR(512) DEFAULT NULL
+      fileUrl VARCHAR(512) DEFAULT NULL,
+      project_id VARCHAR(50) DEFAULT NULL
     )
   `);
 
@@ -453,6 +452,10 @@ export async function getDbConnection() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  try {
+    await db.execute(`ALTER TABLE domains ADD COLUMN card_details VARCHAR(255) DEFAULT NULL`);
+  } catch (err) {}
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS domains (
       id VARCHAR(100) PRIMARY KEY,
@@ -465,6 +468,7 @@ export async function getDbConnection() {
       expiry_date VARCHAR(50) NOT NULL,
       auto_renew INT DEFAULT 0,
       renewal_cost DECIMAL(10, 2) DEFAULT 0,
+      card_details VARCHAR(255) DEFAULT NULL,
       status VARCHAR(50) DEFAULT 'Active',
       last_notified_at VARCHAR(50) DEFAULT NULL,
       notes TEXT DEFAULT NULL,

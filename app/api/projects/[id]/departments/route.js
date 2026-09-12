@@ -3,14 +3,14 @@ import { getDbConnection } from '../../../db/db.js';
 
 export async function GET(request, { params }) {
   try {
-    const { id: projectId } = params;
+    const { id: projectId } = await params;
     const db = await getDbConnection();
 
     const [rows] = await db.query(
       `SELECT pd.*, d.name as department_name, e.name as team_leader_name 
        FROM project_departments pd
-       JOIN departments d ON pd.department_id = d.id
-       LEFT JOIN employees e ON pd.team_leader_id = e.id
+       JOIN departments d ON (pd.department_id COLLATE utf8mb4_unicode_ci = d.id COLLATE utf8mb4_unicode_ci)
+       LEFT JOIN employees e ON (pd.team_leader_id COLLATE utf8mb4_unicode_ci = e.id COLLATE utf8mb4_unicode_ci)
        WHERE pd.project_id = ?`,
       [projectId]
     );
@@ -23,7 +23,7 @@ export async function GET(request, { params }) {
 
 export async function POST(request, { params }) {
   try {
-    const { id: projectId } = params;
+    const { id: projectId } = await params;
     const { department_id, team_leader_id } = await request.json();
 
     if (!department_id) {
