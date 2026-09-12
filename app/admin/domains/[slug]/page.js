@@ -6,7 +6,7 @@ import Link from "next/link";
 import { 
   FiGlobe, FiArrowLeft, FiClock, FiCalendar, FiDollarSign, 
   FiUser, FiMail, FiCheckCircle, FiAlertTriangle, FiLink, 
-  FiRefreshCw, FiEdit2, FiShield, FiCreditCard 
+  FiEdit2, FiShield, FiCreditCard, FiExternalLink 
 } from "react-icons/fi";
 import { getDomainSlug } from "../../../utils/slugUtils.js";
 
@@ -19,10 +19,6 @@ export default function SingleDomainSlugPage() {
   const [loading, setLoading] = useState(true);
   const [sendingAlert, setSendingAlert] = useState(false);
   const [alertSentNotice, setAlertSentNotice] = useState("");
-
-  useEffect(() => {
-    fetchDomainDetail();
-  }, [slug]);
 
   const fetchDomainDetail = async () => {
     try {
@@ -38,6 +34,35 @@ export default function SingleDomainSlugPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDetail() {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/domains/${slug}`);
+        const data = await res.json();
+        if (isMounted && data.success && data.data) {
+          setDomain(data.data);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    if (slug) {
+      loadDetail();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [slug]);
 
   const handleSendSingleAlert = async () => {
     if (!domain) return;
@@ -58,34 +83,6 @@ export default function SingleDomainSlugPage() {
     }
   };
 
-  const handleQuickRenew = async () => {
-    if (!domain) return;
-    const currentExp = domain.expiry_date ? new Date(domain.expiry_date) : new Date();
-    currentExp.setFullYear(currentExp.getFullYear() + 1);
-    const newExpDateStr = currentExp.toISOString().split("T")[0];
-
-    if (!confirm(`Extend expiry date for "${domain.domain_name}" to ${newExpDateStr}?`)) return;
-
-    try {
-      const res = await fetch(`/api/domains/${domain.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          expiry_date: newExpDateStr,
-          status: "Active"
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        fetchDomainDetail();
-      } else {
-        alert(data.error || "Failed to renew domain");
-      }
-    } catch (e) {
-      alert("Error updating renewal date");
-    }
-  };
-
   if (loading) {
     return (
       <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -99,7 +96,7 @@ export default function SingleDomainSlugPage() {
       <div style={{ padding: "3rem", textAlign: "center" }}>
         <h2>Domain Record Not Found</h2>
         <p style={{ color: "var(--text-secondary, #94a3b8)", margin: "1rem 0 2rem" }}>
-          No domain matching slug "{slug}" was found in the portfolio.
+          No domain matching slug &quot;{slug}&quot; was found in the portfolio.
         </p>
         <Link href="/admin/domains" className="btn-primary" style={{ textDecoration: "none" }}>
           Return to Domains Directory
@@ -156,13 +153,6 @@ export default function SingleDomainSlugPage() {
             style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
           >
             <FiMail style={{ color: "#ec4899" }} /> {sendingAlert ? "Sending Alert..." : "Send Expiry Alert Email"}
-          </button>
-          <button
-            onClick={handleQuickRenew}
-            className="btn-primary"
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-          >
-            <FiRefreshCw /> +1 Year Quick Renew
           </button>
         </div>
       </div>
