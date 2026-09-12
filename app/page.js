@@ -65,7 +65,7 @@ import SystemHistoryModal from "./components/modals/SystemHistoryModal.js";
 import DeviceDetailsModal from "./components/modals/DeviceDetailsModal.js";
 import SystemImportModal from "./components/modals/SystemImportModal.js";
 import AuxiliaryModals from "./components/modals/AuxiliaryModals.js";
-import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock, FiCalendar, FiCheck, FiX } from "react-icons/fi";
+import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock, FiCalendar, FiCheck, FiX, FiFolder, FiGlobe, FiTrendingUp, FiActivity, FiChevronDown, FiChevronRight } from "react-icons/fi";
 
 export default function Home() {
   const { user, logout } = useAuth();
@@ -87,7 +87,11 @@ export default function Home() {
   }, []);
 
   const [currentView, setCurrentView] = useState("dashboard");
-
+  const [openMenu, setOpenMenu] = useState("Core Workspace");
+  
+  const toggleMenu = (menuName) => {
+    setOpenMenu(prev => prev === menuName ? null : menuName);
+  };
   useEffect(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -2276,96 +2280,152 @@ export default function Home() {
           <ul className="nav-links">
             {['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin', 'team leader'].includes((userRole || '').toLowerCase()) && (
               <>
-                <li className={`nav-item ${currentView === "dashboard" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("dashboard")}><span className="nav-icon"><FiGrid /></span> Dashboard</button>
-                </li>
-                <li className={`nav-item ${currentView === "systems" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("systems")}><span className="nav-icon"><FiServer /></span> Systems Inventory</button>
-                </li>
-                <li className={`nav-item ${currentView === "employees" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("employees")}><span className="nav-icon"><FiUsers /></span> Team Member Directory</button>
-                </li>
-                <li className={`nav-item ${currentView === "tickets" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("tickets")}><span className="nav-icon"><FiTag /></span> Raise Records</button>
-                </li>
-                <li className={`nav-item ${currentView === "departments" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("departments")}><span className="nav-icon"><FiBriefcase /></span> Departments</button>
-                </li>
-                <li className={`nav-item ${currentView === "history" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("history")}><span className="nav-icon"><FiFileText /></span> System Logs</button>
-                </li>
-                {!isITSupport && (
-                  <li className={`nav-item ${currentView === "tasks" ? "active" : ""}`}>
-                    <button onClick={() => setCurrentView("tasks")}><span className="nav-icon"><FiCheckSquare /></span> Task Board</button>
-                  </li>
-                )}
-                {!isITSupport && (
-                  <li className={`nav-item ${currentView === "attendance" ? "active" : ""}`}>
-                    <button onClick={() => setCurrentView("attendance")}><span className="nav-icon"><FiClock /></span> Attendance</button>
-                  </li>
-                )}
-                {!isITSupport && (
-                  <li className={`nav-item ${currentView === "screenshots" ? "active" : ""}`}>
-                    <button onClick={() => setCurrentView("screenshots")}><span className="nav-icon"><FiEye /></span> Activity Screenshots</button>
-                  </li>
-                )}
-                {!isITSupport && (
-                  <li className={`nav-item ${currentView === "chat" ? "active" : ""}`}>
-                    <button onClick={() => setCurrentView("chat")}>
-                      <span className="nav-icon"><FiMessageSquare /></span> Chat Workspace
-                      {isMounted && unreadChatCount > 0 && (
-                        <span style={{
-                          background: "var(--status-critical)",
-                          color: "#fff",
-                          borderRadius: "50%",
-                          padding: "2px 6px",
-                          fontSize: "0.7rem",
-                          fontWeight: "700",
-                          marginLeft: "8px"
-                        }}>
-                          {unreadChatCount}
-                        </span>
+                {/* 1. Core Workspace */}
+                <div style={{ marginBottom: "12px" }}>
+                  <button onClick={() => toggleMenu("Core Workspace")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer" }}>
+                    Core Workspace
+                    {openMenu === "Core Workspace" ? <FiChevronDown /> : <FiChevronRight />}
+                  </button>
+                  {openMenu === "Core Workspace" && (
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      <li className={`nav-item ${currentView === "dashboard" ? "active" : ""}`}>
+                        <button onClick={() => setCurrentView("dashboard")}><span className="nav-icon"><FiGrid /></span> Dashboard</button>
+                      </li>
+                      {!isITSupport && (
+                        <li className={`nav-item ${currentView === "chat" ? "active" : ""}`}>
+                          <button onClick={() => setCurrentView("chat")}>
+                            <span className="nav-icon"><FiMessageSquare /></span> Chat Workspace
+                            {isMounted && unreadChatCount > 0 && (
+                              <span style={{ background: "var(--status-critical)", color: "#fff", borderRadius: "50%", padding: "2px 6px", fontSize: "0.7rem", fontWeight: "700", marginLeft: "8px" }}>
+                                {unreadChatCount}
+                              </span>
+                            )}
+                          </button>
+                        </li>
                       )}
-                    </button>
-                  </li>
-                )}
-                {!isITSupport && (
-                  <li className={`nav-item ${currentView === "leave-requests" ? "active" : ""}`}>
-                    <button onClick={() => setCurrentView("leave-requests")}>
-                      <span className="nav-icon"><FiCalendar /></span> Leave Requests
-                      {isMounted && leaveRequests.filter(r => r.status === 'Pending').length > 0 && (
-                        <span style={{
-                          background: "var(--status-critical)",
-                          color: "#fff",
-                          borderRadius: "50%",
-                          padding: "2px 6px",
-                          fontSize: "0.7rem",
-                          fontWeight: "700",
-                          marginLeft: "8px"
-                        }}>
-                          {leaveRequests.filter(r => r.status === 'Pending').length}
-                        </span>
+                      <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
+                        <button onClick={() => setCurrentView("profile")}><span className="nav-icon"><FiUser /></span> My Profile</button>
+                      </li>
+                    </ul>
+                  )}
+                </div>
+
+                {/* 2. Organization & HR */}
+                <div style={{ marginBottom: "12px" }}>
+                  <button onClick={() => toggleMenu("Organization & HR")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer" }}>
+                    Organization & HR
+                    {openMenu === "Organization & HR" ? <FiChevronDown /> : <FiChevronRight />}
+                  </button>
+                  {openMenu === "Organization & HR" && (
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      <li className="nav-item">
+                        <button onClick={() => window.location.href = "/admin/users"}><span className="nav-icon"><FiUsers /></span> Team Member Directory</button>
+                      </li>
+                      <li className="nav-item">
+                        <button onClick={() => window.location.href = "/admin/client"}><span className="nav-icon"><FiUsers /></span> Client Directory</button>
+                      </li>
+                      <li className="nav-item">
+                        <button onClick={() => window.location.href = "/admin/departments"}><span className="nav-icon"><FiBriefcase /></span> Departments</button>
+                      </li>
+                      {!isITSupport && (
+                        <li className="nav-item">
+                          <button onClick={() => window.location.href = "/admin/attendance"}><span className="nav-icon"><FiClock /></span> Attendance</button>
+                        </li>
                       )}
+                      {!isITSupport && (
+                        <li className="nav-item">
+                          <button onClick={() => window.location.href = "/admin/leaves"}><span className="nav-icon"><FiCalendar /></span> Leave Requests</button>
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+
+                {/* 3. Operations & Projects */}
+                {!isITSupport && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <button onClick={() => toggleMenu("Operations")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer" }}>
+                      Operations & Projects
+                      {openMenu === "Operations" ? <FiChevronDown /> : <FiChevronRight />}
                     </button>
-                  </li>
+                    {openMenu === "Operations" && (
+                      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                        <li className="nav-item">
+                          <button onClick={() => window.location.href = "/admin/tasks"}><span className="nav-icon"><FiCheckSquare /></span> Task Board</button>
+                        </li>
+                        <li className="nav-item">
+                          <button onClick={() => window.location.href = "/admin/projects"}><span className="nav-icon"><FiFolder /></span> Projects</button>
+                        </li>
+                        <li className="nav-item">
+                          <button onClick={() => window.location.href = "/admin/marketing"}><span className="nav-icon"><FiTrendingUp /></span> Marketing</button>
+                        </li>
+                        <li className="nav-item">
+                          <button onClick={() => window.location.href = "/admin/submissions"}><span className="nav-icon"><FiFileText /></span> Work Submissions</button>
+                        </li>
+                      </ul>
+                    )}
+                  </div>
                 )}
-                <li className={`nav-item ${currentView === "profile" ? "active" : ""}`}>
-                  <button onClick={() => setCurrentView("profile")}><span className="nav-icon"><FiUser /></span> My Profile</button>
-                </li>
+
+                {/* 4. IT & Infrastructure */}
+                <div style={{ marginBottom: "12px" }}>
+                  <button onClick={() => toggleMenu("IT & Infrastructure")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer" }}>
+                    IT & Infrastructure
+                    {openMenu === "IT & Infrastructure" ? <FiChevronDown /> : <FiChevronRight />}
+                  </button>
+                  {openMenu === "IT & Infrastructure" && (
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      <li className="nav-item">
+                        <button onClick={() => window.location.href = "/admin/systems"}><span className="nav-icon"><FiServer /></span> Systems Inventory</button>
+                      </li>
+                      <li className="nav-item">
+                        <button onClick={() => window.location.href = "/admin/tickets"}><span className="nav-icon"><FiTag /></span> Raise Records</button>
+                      </li>
+                      {!isITSupport && (
+                        <li className="nav-item">
+                          <button onClick={() => window.location.href = "/admin/domains"}><span className="nav-icon"><FiGlobe /></span> Domain Portfolio</button>
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+
+                {/* 5. Security & Auditing */}
+                <div style={{ marginBottom: "12px" }}>
+                  <button onClick={() => toggleMenu("Security")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer" }}>
+                    Security & Auditing
+                    {openMenu === "Security" ? <FiChevronDown /> : <FiChevronRight />}
+                  </button>
+                  {openMenu === "Security" && (
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      <li className="nav-item">
+                        <button onClick={() => window.location.href = "/admin/audit-logs"}><span className="nav-icon"><FiActivity /></span> System Logs & Audit</button>
+                      </li>
+                      {!isITSupport && (
+                        <li className={`nav-item ${currentView === "screenshots" ? "active" : ""}`}>
+                          <button onClick={() => setCurrentView("screenshots")}><span className="nav-icon"><FiEye /></span> Activity Screenshots</button>
+                        </li>
+                      )}
+                      {isMounted && user?.dbRole === 'Admin' && (
+                        <li className={`nav-item ${currentView === "danger-zone" ? "active" : ""}`}>
+                          <button onClick={() => setCurrentView("danger-zone")} style={{ color: 'var(--status-critical)' }}><span className="nav-icon"><FiAlertTriangle /></span> Danger Zone</button>
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+
                 {isITSupport && (
-                  <li className="nav-item" style={{ marginTop: '12px', borderTop: '1px solid var(--glass-border)', paddingTop: '8px' }}>
-                    <button
-                      onClick={() => { window.location.href = "/employee-dashboard"; }}
-                      style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}
-                    >
-                      <span className="nav-icon"><FiUser /></span> Employee Portal
-                    </button>
-                  </li>
-                )}
-                {isMounted && user?.dbRole === 'Admin' && (
-                  <li className={`nav-item ${currentView === "danger-zone" ? "active" : ""}`} style={{ marginTop: '8px' }}>
-                    <button onClick={() => setCurrentView("danger-zone")} style={{ color: 'var(--status-critical)' }}><span className="nav-icon"><FiAlertTriangle /></span> Danger Zone</button>
-                  </li>
+                  <div style={{ marginTop: '12px', borderTop: '1px solid var(--glass-border)', paddingTop: '8px' }}>
+                    <li className="nav-item">
+                      <button
+                        onClick={() => { window.location.href = "/employee-dashboard"; }}
+                        style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}
+                      >
+                        <span className="nav-icon"><FiUser /></span> Employee Portal
+                      </button>
+                    </li>
+                  </div>
                 )}
               </>
             )}
@@ -2395,94 +2455,107 @@ export default function Home() {
         <nav className="mobile-drawer-nav">
           {['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin', 'team leader'].includes((userRole || '').toLowerCase()) && (
             <>
-              <button className={`mobile-drawer-item ${currentView === "dashboard" ? "active" : ""}`}
-                onClick={() => { setCurrentView("dashboard"); setMobileMenuOpen(false); }}>
-                <span style={{ display: "inline-flex" }}><FiGrid /></span> Dashboard
-              </button>
-              <button className={`mobile-drawer-item ${currentView === "systems" ? "active" : ""}`}
-                onClick={() => { setCurrentView("systems"); setMobileMenuOpen(false); }}>
-                <span style={{ display: "inline-flex" }}><FiServer /></span> Systems Inventory
-              </button>
-              <button className={`mobile-drawer-item ${currentView === "employees" ? "active" : ""}`}
-                onClick={() => { setCurrentView("employees"); setMobileMenuOpen(false); }}>
-                <span style={{ display: "inline-flex" }}><FiUsers /></span> Team Members
-              </button>
-              <button className={`mobile-drawer-item ${currentView === "tickets" ? "active" : ""}`}
-                onClick={() => { setCurrentView("tickets"); setMobileMenuOpen(false); }}>
-                <span style={{ display: "inline-flex" }}><FiTag /></span> Tickets
-              </button>
-              <button className={`mobile-drawer-item ${currentView === "departments" ? "active" : ""}`}
-                onClick={() => { setCurrentView("departments"); setMobileMenuOpen(false); }}>
-                <span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments
-              </button>
-              {!isITSupport && (
-                <button className={`mobile-drawer-item ${currentView === "tasks" ? "active" : ""}`}
-                  onClick={() => { setCurrentView("tasks"); setMobileMenuOpen(false); }}>
-                  <span style={{ display: "inline-flex" }}><FiCheckSquare /></span> Task Board
+              {/* 1. Core Workspace */}
+              <div style={{ marginBottom: "12px" }}>
+                <button onClick={() => toggleMenu("Core Workspace")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Core Workspace
+                  {openMenu === "Core Workspace" ? <FiChevronDown /> : <FiChevronRight />}
                 </button>
-              )}
-              {!isITSupport && (
-                <button className={`mobile-drawer-item ${currentView === "attendance" ? "active" : ""}`}
-                  onClick={() => { setCurrentView("attendance"); setMobileMenuOpen(false); }}>
-                  <span style={{ display: "inline-flex" }}><FiClock /></span> Attendance
+                {openMenu === "Core Workspace" && (
+                  <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
+                    <button className={`mobile-drawer-item ${currentView === "dashboard" ? "active" : ""}`} onClick={() => { setCurrentView("dashboard"); setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiGrid /></span> Dashboard</button>
+                    {!isITSupport && (
+                      <button className={`mobile-drawer-item ${currentView === "chat" ? "active" : ""}`} onClick={() => { setCurrentView("chat"); setMobileMenuOpen(false); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ display: "inline-flex" }}><FiMessageSquare /></span> Chat Workspace</span>
+                        {unreadChatCount > 0 && (
+                          <span style={{ background: "var(--status-critical)", color: "#fff", borderRadius: "50%", padding: "2px 6px", fontSize: "0.7rem", fontWeight: "700" }}>{unreadChatCount}</span>
+                        )}
+                      </button>
+                    )}
+                    <button className={`mobile-drawer-item ${currentView === "profile" ? "active" : ""}`} onClick={() => { setCurrentView("profile"); setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUser /></span> My Profile</button>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Organization & HR */}
+              <div style={{ marginBottom: "12px" }}>
+                <button onClick={() => toggleMenu("Organization & HR")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Organization & HR
+                  {openMenu === "Organization & HR" ? <FiChevronDown /> : <FiChevronRight />}
                 </button>
-              )}
+                {openMenu === "Organization & HR" && (
+                  <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
+                    <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/users"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUsers /></span> Team Member Directory</button>
+                    <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/client"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUsers /></span> Client Directory</button>
+                    <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/departments"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments</button>
+                    {!isITSupport && (
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/attendance"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiClock /></span> Attendance</button>
+                    )}
+                    {!isITSupport && (
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/leaves"; setMobileMenuOpen(false); }}>
+                        <span style={{ display: "inline-flex" }}><FiCalendar /></span> Leave Requests
+                        {leaveRequests.filter(r => r.status === 'Pending').length > 0 && (
+                          <span style={{ background: "var(--status-critical)", color: "#fff", borderRadius: "50%", padding: "2px 6px", fontSize: "0.7rem", fontWeight: "700", marginLeft: "8px" }}>{leaveRequests.filter(r => r.status === 'Pending').length}</span>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Operations & Projects */}
               {!isITSupport && (
-                <button className={`mobile-drawer-item ${currentView === "screenshots" ? "active" : ""}`}
-                  onClick={() => { setCurrentView("screenshots"); setMobileMenuOpen(false); }}>
-                  <span style={{ display: "inline-flex" }}><FiEye /></span> Activity Screenshots
-                </button>
-              )}
-              {!isITSupport && (
-                <button className={`mobile-drawer-item ${currentView === "chat" ? "active" : ""}`}
-                  onClick={() => { setCurrentView("chat"); setMobileMenuOpen(false); }}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ display: "inline-flex" }}><FiMessageSquare /></span> Chat Workspace
-                  </span>
-                  {unreadChatCount > 0 && (
-                    <span style={{
-                      background: "var(--status-critical)",
-                      color: "#fff",
-                      borderRadius: "50%",
-                      padding: "2px 6px",
-                      fontSize: "0.7rem",
-                      fontWeight: "700"
-                    }}>
-                      {unreadChatCount}
-                    </span>
+                <div style={{ marginBottom: "12px" }}>
+                  <button onClick={() => toggleMenu("Operations")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Operations & Projects
+                    {openMenu === "Operations" ? <FiChevronDown /> : <FiChevronRight />}
+                  </button>
+                  {openMenu === "Operations" && (
+                    <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/tasks"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiCheckSquare /></span> Task Board</button>
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/projects"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiFolder /></span> Projects</button>
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/marketing"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiTrendingUp /></span> Marketing</button>
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/submissions"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiFileText /></span> Work Submissions</button>
+                    </div>
                   )}
-                </button>
+                </div>
               )}
-              {!isITSupport && (
-                <button className={`mobile-drawer-item ${currentView === "leave-requests" ? "active" : ""}`}
-                  onClick={() => { setCurrentView("leave-requests"); setMobileMenuOpen(false); }}>
-                  <span style={{ display: "inline-flex" }}><FiCalendar /></span> Leave Requests
-                  {leaveRequests.filter(r => r.status === 'Pending').length > 0 && (
-                    <span style={{
-                      background: "var(--status-critical)",
-                      color: "#fff",
-                      borderRadius: "50%",
-                      padding: "2px 6px",
-                      fontSize: "0.7rem",
-                      fontWeight: "700",
-                      marginLeft: "8px"
-                    }}>
-                      {leaveRequests.filter(r => r.status === 'Pending').length}
-                    </span>
-                  )}
+
+              {/* 4. IT & Infrastructure */}
+              <div style={{ marginBottom: "12px" }}>
+                <button onClick={() => toggleMenu("IT & Infrastructure")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  IT & Infrastructure
+                  {openMenu === "IT & Infrastructure" ? <FiChevronDown /> : <FiChevronRight />}
                 </button>
-              )}
-              <button className={`mobile-drawer-item ${currentView === "profile" ? "active" : ""}`}
-                onClick={() => { setCurrentView("profile"); setMobileMenuOpen(false); }}>
-                <span style={{ display: "inline-flex" }}><FiUser /></span> My Profile
-              </button>
+                {openMenu === "IT & Infrastructure" && (
+                  <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
+                    <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/systems"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiServer /></span> Systems Inventory</button>
+                    <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/tickets"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiTag /></span> Raise Records</button>
+                    {!isITSupport && (
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/domains"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiGlobe /></span> Domain Portfolio</button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 5. Security & Auditing */}
+              <div style={{ marginBottom: "12px" }}>
+                <button onClick={() => toggleMenu("Security")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Security & Auditing
+                  {openMenu === "Security" ? <FiChevronDown /> : <FiChevronRight />}
+                </button>
+                {openMenu === "Security" && (
+                  <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
+                    <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/audit-logs"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiActivity /></span> System Logs & Audit</button>
+                    {!isITSupport && (
+                      <button className={`mobile-drawer-item ${currentView === "screenshots" ? "active" : ""}`} onClick={() => { setCurrentView("screenshots"); setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiEye /></span> Activity Screenshots</button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {isITSupport && (
-                <button className="mobile-drawer-item"
-                  onClick={() => { window.location.href = "/employee-dashboard"; setMobileMenuOpen(false); }}
-                  style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", color: "var(--accent-cyan)", fontWeight: "600", marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}
-                >
+                <button className="mobile-drawer-item" onClick={() => { window.location.href = "/employee-dashboard"; setMobileMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", color: "var(--accent-cyan)", fontWeight: "600", marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}>
                   <span style={{ display: "inline-flex" }}><FiUser /></span> Employee Portal
                 </button>
               )}

@@ -3,7 +3,7 @@ import { getDbConnection } from '../../../db/db.js';
 
 export async function GET(request, { params }) {
   try {
-    const { id: projectId } = params;
+    const { id: projectId } = await params;
     const { searchParams } = new URL(request.url);
     const departmentId = searchParams.get('department_id');
 
@@ -29,14 +29,14 @@ export async function GET(request, { params }) {
 
 export async function POST(request, { params }) {
   try {
-    const { id: projectId } = params;
+    const { id: projectId } = await params;
     const { department_id, sender_id, sender_name, content, file_url, file_name, file_size } = await request.json();
 
     if (!projectId || !department_id || !sender_id || !content) {
       return NextResponse.json({ error: 'Missing required chat fields.' }, { status: 400 });
     }
 
-    const groupId = `proj_${projectId}_dept_${departmentId}`;
+    const groupId = `proj_${projectId}_dept_${department_id}`;
     const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
     const timestamp = new Date().toISOString();
 
