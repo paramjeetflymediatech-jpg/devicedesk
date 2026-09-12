@@ -1,12 +1,45 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, desktopCapturer, systemPreferences } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, desktopCapturer, systemPreferences, session } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const { execSync } = require('child_process');
 const screenshot = require('screenshot-desktop');
 const axios = require('axios');
 const AutoLaunch = require('auto-launch');
 
-// Logger function to capture everything to a file
+const pkg = require('./package.json');
+const AGENT_VERSION = pkg.version || '1.0.0';
+
+// Handle Command Line Flags (e.g. --version, -v, --status, --help)
+const rawArgs = process.argv.slice(1);
+const isVersionFlag = rawArgs.some(arg => ['-v', '--version', '-V', 'version', '/v', '/version'].includes(arg.toLowerCase()));
+const isStatusFlag = rawArgs.some(arg => ['--status', '-s', 'status', '--info', '-i', 'info', '/status', '/info'].includes(arg.toLowerCase()));
+const isHelpFlag = rawArgs.some(arg => ['--help', '-h', 'help', '/?', '/help'].includes(arg.toLowerCase()));
+
+if (isVersionFlag) {
+  console.log(`DeviceDesk Agent v${AGENT_VERSION}`);
+  process.exit(0);
+}
+
+if (isHelpFlag) {
+  console.log(`
+DeviceDesk Agent - Desktop Screen & Activity Logger
+Version: ${AGENT_VERSION}
+
+Usage:
+  devicedesk-agent [options]
+  electron . [options]
+  npm run version:check
+
+Options:
+  -v, --version, version      Display the current agent version
+  -s, --status, --info        Display current agent status and configuration
+  -h, --help                  Show this help and options reference
+`);
+  process.exit(0);
+}
+
+// Logger function to capture everything to a file safely
 function logToFile(message, type = 'INFO') {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] [${type}] ${message}`;
@@ -20,17 +53,18 @@ function logToFile(message, type = 'INFO') {
   }
   
   try {
-    // Write to standard appData log path
     let logDir;
-    try { logDir = app.getPath('userData'); } catch (e) { logDir = __dirname; }
+    try { logDir = app.getPath('userData'); } catch (e) { logDir = process.cwd(); }
     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
     fs.appendFileSync(path.join(logDir, 'agent-log.txt'), logMessage + '\n', 'utf8');
 
-    // ALSO write to current directory (d:\\devicedesk\\desktop-agent) so it is easily visible to developers
-    const localLogPath = path.join(__dirname, 'agent-activity-log.txt');
-    fs.appendFileSync(localLogPath, logMessage + '\n', 'utf8');
+    // Also write to current working directory if writable
+    const localLogPath = path.join(process.cwd(), 'agent-activity-log.txt');
+    try {
+      fs.appendFileSync(localLogPath, logMessage + '\n', 'utf8');
+    } catch (e) {}
   } catch (err) {
-    console.error(`[${timestamp}] [ERROR] Failed to write to log file:`, err.message);
+    // silently catch filesystem write errors
   }
 }
 
@@ -49,8 +83,9 @@ function formatAxiosError(err) {
   }
 }
 
-// Enable Wayland / PipeWire screen capture for modern Linux/Ubuntu distributions
+// Enable Wayland / PipeWire screen capture and disable SUID sandbox barrier for portable Linux distributions
 if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
   app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
 }
 
@@ -153,7 +188,8 @@ function createWindow() {
     title: 'DeviceDesk Agent Login',
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      backgroundThrottling: false
     }
   });
 
@@ -176,11 +212,15 @@ function createTray() {
   }
 
   tray = new Tray(trayIcon);
-  tray.setToolTip('DeviceDesk Agent - User Connected');
+  tray.setToolTip(`DeviceDesk Agent v${AGENT_VERSION} - User Connected`);
 
   const contextMenu = Menu.buildFromTemplate([
     {
       label: '💻 DeviceDesk Agent (Active)',
+      enabled: false
+    },
+    {
+      label: `ℹ️ Version: v${AGENT_VERSION}`,
       enabled: false
     },
     { type: 'separator' },
@@ -238,6 +278,7 @@ function getActiveConfig() {
   serverUrl = serverUrl.replace(/\/$/, '');
 
   return {
+    agentVersion: AGENT_VERSION,
     employeeId,
     employeeName,
     userEmail,
@@ -247,6 +288,27 @@ function getActiveConfig() {
     isLoggedIn: !!config.isLoggedIn,
     isConfigured: !!config.isConfigured
   };
+}
+
+// Handle --status / --info CLI argument if invoked
+if (isStatusFlag) {
+  const conf = getActiveConfig();
+  console.log(`
+=========================================
+      DeviceDesk Desktop Agent Status    
+=========================================
+  Version:       v${AGENT_VERSION}
+  Platform:      ${process.platform} (${process.arch})
+  Node Version:  ${process.version}
+  Status:        ${conf.isLoggedIn ? 'ONLINE (Logged In)' : 'STANDBY (Not Logged In)'}
+  Employee Name: ${conf.employeeName || 'N/A'}
+  Employee ID:   ${conf.employeeId || 'N/A'}
+  Department:    ${conf.department || 'N/A'}
+  System Host:   ${conf.systemNumber || os.hostname()}
+  Server URL:    ${conf.serverUrl}
+=========================================
+`);
+  process.exit(0);
 }
 
 // Automatically register system on server startup
@@ -262,6 +324,7 @@ async function registerAgentOnline() {
       department: config.department,
       systemNumber: config.systemNumber,
       osPlatform: process.platform || 'windows',
+      agentVersion: AGENT_VERSION,
       serverUrl: config.serverUrl
     }, { timeout: 15000 });
     logToFile(`Agent registered online for ${config.employeeName} (${config.employeeId}) [STATUS: ONLINE]`, 'INFO');
@@ -283,7 +346,7 @@ async function sendPingHeartbeat() {
       department: config.department,
       systemNumber: config.systemNumber,
       osPlatform: process.platform || 'windows',
-      agentVersion: '1.0.0'
+      agentVersion: AGENT_VERSION
     }, { timeout: 10000 });
     logToFile(`Ping Heartbeat sent successfully for ${config.employeeName} [STATUS: ONLINE]`, 'INFO');
   } catch (e) {
@@ -291,14 +354,74 @@ async function sendPingHeartbeat() {
   }
 }
 
-// Dual-Mode Screenshot Engine (Chromium Native desktopCapturer + screenshot-desktop fallback)
-async function captureAndUpload() {
-  const config = getActiveConfig();
-  if (!config.isLoggedIn) return;
+// Multi-tier Native Linux CLI screenshot fallback
+function captureLinuxNativeFallback() {
+  const tmpPath = path.join(os.tmpdir(), `devicedesk_cap_${Date.now()}.png`);
+  const commands = [
+    `gnome-screenshot -f "${tmpPath}"`,
+    `import -window root "${tmpPath}"`,
+    `scrot "${tmpPath}"`,
+    `grim "${tmpPath}"`
+  ];
 
-  let base64Image = '';
+  for (const cmd of commands) {
+    try {
+      execSync(cmd, { timeout: 3500, stdio: 'ignore' });
+      if (fs.existsSync(tmpPath) && fs.statSync(tmpPath).size > 0) {
+        const fileBuf = fs.readFileSync(tmpPath);
+        try { fs.unlinkSync(tmpPath); } catch (e) {}
+        const natImg = nativeImage.createFromBuffer(fileBuf);
+        const size = natImg.getSize();
+        const targetWidth = Math.min(1024, size.width || 1024);
+        const resized = natImg.resize({ width: targetWidth, quality: 'medium' });
+        const jpegBuf = resized.toJPEG(55);
+        if (jpegBuf && jpegBuf.length > 0) {
+          return `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
+        }
+      }
+    } catch (e) {
+      // try next command
+    }
+  }
+  return null;
+}
 
-  // Method 1: Electron Native Chromium desktopCapturer (Bypasses Windows Defender Temp EXE Block)
+// Multi-Mode Screenshot Engine (Persistent WebRTC Stream -> Chromium desktopCapturer -> screenshot-desktop -> Native CLI fallback)
+async function getScreenshotBase64() {
+  // Method 1: Persistent WebRTC Stream from Renderer (Prevents repeated GNOME Wayland ScreenCast prompts)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      const streamFrame = await new Promise((resolve) => {
+        let timer = null;
+
+        const responseHandler = (event, res) => {
+          if (timer) clearTimeout(timer);
+          ipcMain.removeListener('frame-capture-response', responseHandler);
+          if (res && res.success && res.base64Image) {
+            resolve(res.base64Image);
+          } else {
+            resolve(null);
+          }
+        };
+
+        timer = setTimeout(() => {
+          ipcMain.removeListener('frame-capture-response', responseHandler);
+          resolve(null);
+        }, 5000);
+
+        ipcMain.once('frame-capture-response', responseHandler);
+        mainWindow.webContents.send('request-frame-capture');
+      });
+
+      if (streamFrame) {
+        return streamFrame;
+      }
+    } catch (streamErr) {
+      logToFile(`Persistent stream capture notice: ${streamErr.message}`, 'WARN');
+    }
+  }
+
+  // Method 2: Electron Native Chromium desktopCapturer (Works silently on Windows, macOS, and Linux X11)
   try {
     const sources = await desktopCapturer.getSources({
       types: ['screen'],
@@ -310,7 +433,7 @@ async function captureAndUpload() {
       if (validSource && validSource.thumbnail && !validSource.thumbnail.isEmpty()) {
         const jpegBuf = validSource.thumbnail.toJPEG(55);
         if (jpegBuf && jpegBuf.length > 0) {
-          base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
+          return `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
         }
       }
     }
@@ -318,22 +441,35 @@ async function captureAndUpload() {
     logToFile(`Native desktopCapturer notice: ${nativeErr.message}`, 'WARN');
   }
 
-  // Method 2: Fallback to screenshot-desktop
-  if (!base64Image) {
-    try {
-      const rawBuffer = await screenshot({ format: 'png' });
-      if (rawBuffer && rawBuffer.length > 0) {
-        const natImg = nativeImage.createFromBuffer(rawBuffer);
-        const size = natImg.getSize();
-        const targetWidth = Math.min(1024, size.width || 1024);
-        const resized = natImg.resize({ width: targetWidth, quality: 'medium' });
-        const jpegBuf = resized.toJPEG(55);
-        base64Image = `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
-      }
-    } catch (scErr) {
-      logToFile(`screenshot-desktop fallback notice: ${scErr.message}`, 'WARN');
+  // Method 3: Fallback to screenshot-desktop
+  try {
+    const rawBuffer = await screenshot({ format: 'png' });
+    if (rawBuffer && rawBuffer.length > 0) {
+      const natImg = nativeImage.createFromBuffer(rawBuffer);
+      const size = natImg.getSize();
+      const targetWidth = Math.min(1024, size.width || 1024);
+      const resized = natImg.resize({ width: targetWidth, quality: 'medium' });
+      const jpegBuf = resized.toJPEG(55);
+      return `data:image/jpeg;base64,${jpegBuf.toString('base64')}`;
     }
+  } catch (scErr) {
+    logToFile(`screenshot-desktop fallback notice: ${scErr.message}`, 'WARN');
   }
+
+  // Method 4: Linux Native Tools (gnome-screenshot, import, scrot, grim)
+  if (process.platform === 'linux') {
+    const cliCapture = captureLinuxNativeFallback();
+    if (cliCapture) return cliCapture;
+  }
+
+  return null;
+}
+
+async function captureAndUpload() {
+  const config = getActiveConfig();
+  if (!config.isLoggedIn) return;
+
+  const base64Image = await getScreenshotBase64();
 
   if (!base64Image) {
     logToFile('SCREENSHOT FAILED: Desktop capture produced empty image. No screenshot to upload.', 'WARN');
@@ -466,6 +602,34 @@ function startCaptureTimer() {
 
 app.whenReady().then(() => {
   logToFile('DeviceDesk Agent is starting...', 'INFO');
+
+  // Automatically approve display capture streams for renderer
+  if (session && session.defaultSession) {
+    try {
+      if (typeof session.defaultSession.setDisplayMediaRequestHandler === 'function') {
+        session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+          desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+            if (sources && sources.length > 0) {
+              callback({ video: sources[0] });
+            } else {
+              callback({ video: null });
+            }
+          }).catch(() => {
+            callback({ video: null });
+          });
+        });
+      }
+
+      if (typeof session.defaultSession.setPermissionRequestHandler === 'function') {
+        session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+          callback(true);
+        });
+      }
+    } catch (sessErr) {
+      logToFile(`Session handler notice: ${sessErr.message}`, 'WARN');
+    }
+  }
+
   setupAutoLaunch();
   createWindow();
   createTray();

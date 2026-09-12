@@ -6,9 +6,16 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "version": "node -e \"console.log('DeviceDesk Agent v' + require('./package.json').version)\"",
+    "version:check": "node -e \"console.log('DeviceDesk Agent v' + require('./package.json').version)\"",
+    "agent:version": "electron . --version",
+    "agent:status": "electron . --status",
+    "agent:help": "electron . --help",
     "build": "electron-builder -wml",
-    "build:win": "electron-builder --win nsis",
-    "build:linux": "electron-builder --linux deb zip AppImage",
+    "build:win": "electron-builder --win nsis --x64",
+    "build:linux": "electron-builder --linux deb zip AppImage --x64",
+    "build:linux:arm64": "electron-builder --linux deb zip AppImage --arm64",
+    "build:linux:all": "electron-builder --linux deb zip AppImage --x64 --arm64",
     "build:mac": "electron-builder --mac zip --x64 --arm64",
     "build:mac:all": "electron-builder --mac zip dmg"
   },
