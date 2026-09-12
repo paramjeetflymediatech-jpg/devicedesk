@@ -64,7 +64,7 @@ export default function LoginPage() {
         } else if (dbRoleLower === 'dept_team_member') {
           router.push('/portal/member');
         } else if (isRootAdmin) {
-          router.push('/portal/admin');
+          router.push('/');
         } else {
           router.push('/employee-dashboard');
         }
