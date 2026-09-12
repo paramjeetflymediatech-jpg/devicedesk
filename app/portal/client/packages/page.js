@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiCheck } from 'react-icons/fi';
+import { FiCheck , FiUser} from 'react-icons/fi';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3 } from 'react-icons/fi';
 
 export default function PackagesPage() {
@@ -37,13 +37,13 @@ export default function PackagesPage() {
           <p className="text-xs text-gray-500">Demo Client</p>
         </div>
       </div>
-      
+
       <nav className="flex-1 p-4 flex flex-col space-y-2 overflow-y-auto">
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2 px-3">Main</div>
         <button onClick={() => window.location.href = '/portal/client/dashboard'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiGrid size={20} /><span>Dashboard</span>
         </button>
-        <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+<button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/chat'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -71,8 +71,15 @@ export default function PackagesPage() {
         <button onClick={() => window.location.href = '/portal/client/billing'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiCreditCard size={20} /><span>Billing</span>
         </button>
-      </nav>
       
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
+
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
+                <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiUser size={20} /><span>Profile Settings</span>
+        </button>
+            </nav>
+
       <div className="p-4 border-t border-gray-100">
         <button onClick={() => window.location.href = '/login'} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
@@ -86,14 +93,14 @@ export default function PackagesPage() {
       <aside className="hidden md:flex flex-col w-64 fixed inset-y-0 left-0 z-20 shadow-sm bg-white">
         <SidebarContent />
       </aside>
-      
+
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
       )}
-      
+
       <aside className={`fixed inset-y-0 left-0 w-64 bg-white z-50 transform transition-transform duration-300 md:hidden ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
         <div className="absolute top-4 right-4">
-           <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-600"><FiX size={20} /></button>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-600"><FiX size={20} /></button>
         </div>
         <SidebarContent />
       </aside>
@@ -110,8 +117,8 @@ export default function PackagesPage() {
         <header className="hidden md:flex bg-white/80 border-b px-8 py-6 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Subscription Packages</h1>
           <div className="flex items-center space-x-4">
-             <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-sm shadow-indigo-100">DC</div>
+            <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
+            <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-sm shadow-indigo-100">DC</div>
           </div>
         </header>
 
@@ -149,7 +156,7 @@ export default function PackagesPage() {
                         </li>
                       ))}
                     </ul>
-                    <button 
+                    <button
                       onClick={() => window.location.href = '/portal/client/book-service'}
                       className="w-full py-4 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-200"
                     >

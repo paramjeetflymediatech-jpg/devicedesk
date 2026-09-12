@@ -1,10 +1,27 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiLayout, FiUsers, FiMessageSquare, FiMenu, FiX, FiCheckSquare, FiClock, FiActivity, FiArrowRight, FiUser, FiSend } from 'react-icons/fi';
+import ProjectChat from '../../components/ProjectChat';
 
 export default function TeamLeaderDashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [departments, setDepartments] = useState([]);
+  const [selectedDeptId, setSelectedDeptId] = useState(null);
+
+  useEffect(() => {
+    async function fetchDepartments() {
+      try {
+        const res = await fetch('/api/departments');
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          setDepartments(data.data);
+          setSelectedDeptId(data.data[0].id);
+        }
+      } catch (err) {}
+    }
+    fetchDepartments();
+  }, []);
 
   // MOCK DATA
   const [clientRequests] = useState([
@@ -220,27 +237,36 @@ export default function TeamLeaderDashboard() {
 
           {/* CLIENT CHAT TAB */}
           {activeTab === 'client-chat' && (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden h-[600px] flex flex-col">
-              <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <div>
-                  <h3 className="font-bold text-slate-800">Acme Corp (Client)</h3>
-                  <p className="text-xs text-slate-500">You are the only point of contact.</p>
-                </div>
-              </div>
-              <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-slate-50/50">
-                {clientChats.map((chat, idx) => (
-                  <div key={idx} className={`flex flex-col ${chat.sender === 'You' ? 'items-end' : 'items-start'}`}>
-                    <span className="text-xs text-slate-400 mb-1 mx-1">{chat.sender} • {chat.time}</span>
-                    <div className={`px-4 py-3 rounded-2xl max-w-[80%] ${chat.sender === 'You' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none shadow-sm'}`}>
-                      {chat.msg}
-                    </div>
-                  </div>
+            <div className="flex flex-col h-full space-y-4">
+              <div className="flex overflow-x-auto pb-2 gap-2 scrollbar-hide">
+                {departments.map((dept) => (
+                  <button
+                    key={dept.id}
+                    onClick={() => setSelectedDeptId(dept.id)}
+                    className={`whitespace-nowrap px-4 py-2 rounded-full font-semibold transition-all text-sm ${
+                      selectedDeptId === dept.id
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-white text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200'
+                    }`}
+                  >
+                    {dept.name}
+                  </button>
                 ))}
               </div>
-              <form onSubmit={handleSendClientChat} className="p-4 bg-white border-t border-slate-100 flex gap-2">
-                <input type="text" value={newClientMsg} onChange={e=>setNewClientMsg(e.target.value)} placeholder="Type official update to client..." className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
-                <button type="submit" className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700"><FiSend /></button>
-              </form>
+
+              {selectedDeptId ? (
+                <ProjectChat 
+                  key={selectedDeptId} 
+                  projectId="proj_mock_1" 
+                  departmentId={selectedDeptId} 
+                  currentUserId="emp_mock_tl_1" 
+                  currentUserName="Team Leader" 
+                />
+              ) : (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 text-center text-slate-500">
+                  Loading departments...
+                </div>
+              )}
             </div>
           )}
 
