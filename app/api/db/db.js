@@ -205,6 +205,17 @@ export async function getDbConnection() {
   `);
 
   await db.execute(`
+    CREATE TABLE IF NOT EXISTS service_requests (
+      id VARCHAR(100) PRIMARY KEY,
+      clientId VARCHAR(50) NOT NULL,
+      service_type VARCHAR(100) NOT NULL,
+      requirements TEXT,
+      status VARCHAR(50) DEFAULT 'Pending',
+      created_at VARCHAR(50) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS user_devices (
       id VARCHAR(100) PRIMARY KEY,
       userId VARCHAR(50) NOT NULL,
@@ -413,12 +424,17 @@ export async function getDbConnection() {
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS marketing_attendance (
-      id VARCHAR(100) PRIMARY KEY,
+      id VARCHAR(50) PRIMARY KEY,
       employee_id VARCHAR(50) NOT NULL,
-      date VARCHAR(20) NOT NULL,
-      punch_in VARCHAR(50),
-      punch_out VARCHAR(50),
-      status VARCHAR(50) DEFAULT 'Present'
+      check_in_at TIMESTAMP NULL,
+      check_in_latitude DECIMAL(10, 8),
+      check_in_longitude DECIMAL(11, 8),
+      check_out_at TIMESTAMP NULL,
+      check_out_latitude DECIMAL(10, 8),
+      check_out_longitude DECIMAL(11, 8),
+      total_km DECIMAL(10, 2) DEFAULT 0,
+      status VARCHAR(50),
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -449,6 +465,72 @@ export async function getDbConnection() {
       new_status VARCHAR(50),
       comment TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS client_seo_reports (
+      id VARCHAR(100) PRIMARY KEY,
+      client_id VARCHAR(50) NOT NULL,
+      month VARCHAR(20) NOT NULL,
+      year VARCHAR(10) NOT NULL,
+      file_url TEXT NOT NULL,
+      status VARCHAR(50) DEFAULT 'Uploaded',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS client_smo_requests (
+      id VARCHAR(100) PRIMARY KEY,
+      client_id VARCHAR(50) NOT NULL,
+      requirements TEXT NOT NULL,
+      status VARCHAR(50) DEFAULT 'Pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS client_paid_ads (
+      id VARCHAR(100) PRIMARY KEY,
+      client_id VARCHAR(50) NOT NULL,
+      platform VARCHAR(100) NOT NULL,
+      total_budget DECIMAL(12, 2) DEFAULT 0,
+      spent_amount DECIMAL(12, 2) DEFAULT 0,
+      pending_balance DECIMAL(12, 2) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_client_platform (client_id, platform)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS client_details (
+      client_id VARCHAR(50) PRIMARY KEY,
+      company_name VARCHAR(255),
+      phone VARCHAR(50),
+      whatsapp VARCHAR(50),
+      address TEXT,
+      gst_number VARCHAR(100),
+      website_url VARCHAR(255),
+      primary_service VARCHAR(100),
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (client_id) REFERENCES employees(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS packages (
+      id VARCHAR(50) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      price DECIMAL(10, 2) NOT NULL,
+      billing_cycle VARCHAR(50) DEFAULT 'Monthly',
+      features TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 

@@ -11,7 +11,17 @@ export async function GET(request, { params }) {
       return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, data: rows[0] });
+    let employee = rows[0];
+
+    // If client, fetch advanced details
+    if (employee.role && employee.role.toLowerCase() === 'client') {
+      const [details] = await db.query('SELECT * FROM client_details WHERE client_id = ? LIMIT 1', [id]);
+      if (details.length > 0) {
+        employee = { ...employee, ...details[0] };
+      }
+    }
+
+    return NextResponse.json({ success: true, data: employee });
   } catch (err) {
     console.error('Fetch Employee by ID API Error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -22,7 +32,10 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, email, role, department, status, ticketLimit, avatarUrl } = body;
+    const { 
+      name, email, role, department, status, ticketLimit, avatarUrl,
+      company_name, phone, whatsapp, address, gst_number, website_url, primary_service, notes 
+    } = body;
 
     const db = await getDbConnection();
     
@@ -67,6 +80,22 @@ export async function PUT(request, { params }) {
 
     const query = `UPDATE employees SET ${updates.join(', ')} WHERE id = ?`;
     await db.execute(query, values);
+
+    // If updating a client, update client_details as well
+    if (role && role.toLowerCase() === 'client') {
+      const [existing] = await db.query('SELECT client_id FROM client_details WHERE client_id = ?', [id]);
+      if (existing.length > 0) {
+        await db.execute(
+          `UPDATE client_details SET company_name=?, phone=?, whatsapp=?, address=?, gst_number=?, website_url=?, primary_service=?, notes=? WHERE client_id=?`,
+          [company_name || null, phone || null, whatsapp || null, address || null, gst_number || null, website_url || null, primary_service || null, notes || null, id]
+        ).catch(err => console.error('Failed to update client_details:', err));
+      } else {
+        await db.execute(
+          `INSERT INTO client_details (client_id, company_name, phone, whatsapp, address, gst_number, website_url, primary_service, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [id, company_name || null, phone || null, whatsapp || null, address || null, gst_number || null, website_url || null, primary_service || null, notes || null]
+        ).catch(err => console.error('Failed to insert client_details:', err));
+      }
+    }
 
     // Add to assignment_history for audit
     const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);

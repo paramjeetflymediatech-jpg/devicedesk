@@ -27,7 +27,10 @@ import {
   FiTrendingUp,
   FiLayers,
   FiGlobe,
-  FiTrash2
+  FiTrash2,
+  FiMenu,
+  FiActivity,
+  FiBox
 } from "react-icons/fi";
 
 export default function AdminLayout({ children }) {
@@ -40,6 +43,7 @@ export default function AdminLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [leaveCount, setLeaveCount] = useState(0);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -143,33 +147,60 @@ export default function AdminLayout({ children }) {
     );
   };
 
-  const navItems = [
-    { name: "Dashboard", path: "/", icon: <FiGrid />, exact: true },
-    { name: "Systems Inventory", path: "/admin/systems", icon: <FiServer /> },
-    { name: "Team Member Directory", path: "/admin/users", icon: <FiUsers /> },
-    { name: "Raise Records", path: "/admin/tickets", icon: <FiTag /> },
-    { name: "Departments", path: "/admin/departments", icon: <FiBriefcase /> },
-    { name: "System Logs & Audit", path: "/admin/audit-logs", icon: <FiFileText /> },
-    { name: "Task Board", path: "/admin/tasks", icon: <FiCheckSquare /> },
-    { name: "Attendance", path: "/admin/attendance", icon: <FiClock /> },
-    { name: "Activity Screenshots", path: "/?tab=screenshots", icon: <FiEye /> },
+  const navGroups = [
     {
-      name: "Chat Workspace",
-      path: "/?tab=chat",
-      icon: <FiMessageSquare />,
-      badge: unreadChatCount
+      title: "Core Workspace",
+      items: [
+        { name: "Dashboard", path: "/", icon: <FiGrid />, exact: true },
+        { name: "Chat Workspace", path: "/?tab=chat", icon: <FiMessageSquare />, badge: unreadChatCount },
+        { name: "Task Board", path: "/admin/tasks", icon: <FiCheckSquare /> },
+        { name: "Screenshots", path: "/?tab=screenshots", icon: <FiEye /> }
+      ]
     },
     {
-      name: "Leave Requests",
-      path: "/admin/leaves",
-      icon: <FiCalendar />,
-      badge: leaveCount
+      title: "Client Management",
+      items: [
+        { name: "Client Records", path: "/admin/client", icon: <FiUsers /> },
+        { name: "Domain Portfolio", path: "/admin/domains", icon: <FiGlobe /> },
+        { name: "Packages", path: "/admin/packages", icon: <FiBox /> }
+      ]
     },
-    { name: "Projects", path: "/admin/projects", icon: <FiFolder /> },
-    { name: "Domain Portfolio", path: "/admin/domains", icon: <FiGlobe /> },
-    { name: "Marketing", path: "/admin/marketing", icon: <FiTrendingUp /> },
-    { name: "Work Submissions", path: "/admin/submissions", icon: <FiLayers /> },
-    { name: "My Profile", path: "/?tab=profile", icon: <FiUser /> }
+    {
+      title: "Marketing",
+      items: [
+        { name: "Marketing Hub", path: "/admin/marketing", icon: <FiTrendingUp /> }
+      ]
+    },
+    {
+      title: "Operations & Projects",
+      items: [
+        { name: "Projects", path: "/admin/projects", icon: <FiFolder /> },
+        { name: "Work Submissions", path: "/admin/submissions", icon: <FiLayers /> }
+      ]
+    },
+    {
+      title: "Organization & HR",
+      items: [
+        { name: "Team Directory", path: "/admin/users", icon: <FiUser /> },
+        { name: "Departments", path: "/admin/departments", icon: <FiBriefcase /> },
+        { name: "Attendance", path: "/admin/attendance", icon: <FiClock /> },
+        { name: "Leave Requests", path: "/admin/leaves", icon: <FiCalendar />, badge: leaveCount }
+      ]
+    },
+    {
+      title: "IT & Infrastructure",
+      items: [
+        { name: "Systems Inventory", path: "/admin/systems", icon: <FiServer /> },
+        { name: "Raise Records", path: "/admin/tickets", icon: <FiTag /> }
+      ]
+    },
+    {
+      title: "Security & Auditing",
+      items: [
+        { name: "System Logs", path: "/admin/audit-logs", icon: <FiFileText /> },
+        { name: "Activity Log", path: "/admin/activity-log", icon: <FiActivity /> }
+      ]
+    }
   ];
 
   const isNavActive = (item) => {
@@ -180,69 +211,68 @@ export default function AdminLayout({ children }) {
   return (
     <div style={{ display: "contents" }}>
       {/* Sidebar Navigation (Desktop) */}
-      <aside className="sidebar">
-        <div className="logo-container">
-          <Link href="/" style={{ textDecoration: "none" }}>
-            <Logo height="36px" />
-          </Link>
+      <aside className="sidebar desktop-only" style={{ width: isCollapsed ? '80px' : '260px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: 'var(--bg-secondary)', borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', borderBottom: '1px solid var(--glass-border)' }}>
+          {!isCollapsed && (
+            <Link href="/" style={{ textDecoration: "none" }}>
+              <Logo height="28px" />
+            </Link>
+          )}
+          <button onClick={() => setIsCollapsed(!isCollapsed)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '8px' }} className="hover:bg-white/5 transition-colors">
+            <FiMenu size={20} />
+          </button>
         </div>
 
-        <nav style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
-          <ul className="nav-links">
-            {navItems.map((item) => {
-              const active = isNavActive(item);
-              return (
-                <li key={item.name} className={`nav-item ${active ? "active" : ""}`}>
-                  <Link href={item.path} style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
-                    <span className="nav-icon">{item.icon}</span>
-                    {item.name}
-                    {item.badge !== undefined && item.badge > 0 && (
-                      <span
-                        style={{
-                          background: "var(--status-critical)",
-                          color: "#fff",
-                          borderRadius: "50%",
-                          padding: "2px 6px",
-                          fontSize: "0.7rem",
-                          fontWeight: "700",
-                          marginLeft: "auto"
-                        }}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div style={{ marginTop: "auto", paddingTop: "1rem", borderTop: "1px solid var(--glass-border)" }}>
-            <button
-              onClick={() => {
-                logout();
-                router.push("/login");
-              }}
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                padding: "10px 14px",
-                borderRadius: "10px",
-                background: "rgba(239, 68, 68, 0.1)",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                color: "#ef4444",
-                fontWeight: "600",
-                fontSize: "0.9rem",
-                cursor: "pointer",
-                transition: "all 0.2s"
-              }}
-            >
-              <FiLogOut style={{ fontSize: "1.1rem" }} /> Sign Out
-            </button>
-          </div>
+        <nav style={{ flex: 1, overflowY: "auto", padding: '16px 0', overflowX: 'hidden' }}>
+          {navGroups.map((group, idx) => (
+            <div key={idx} style={{ marginBottom: '20px' }}>
+              {!isCollapsed && <div style={{ padding: '0 24px', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px', marginBottom: '8px' }}>{group.title}</div>}
+              {isCollapsed && <div style={{ width: '100%', height: '1px', background: 'var(--glass-border)', margin: '8px 0', opacity: 0.5 }} />}
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {group.items.map((item) => {
+                  const active = isNavActive(item);
+                  return (
+                    <li key={item.name} style={{ padding: '0 12px', marginBottom: '4px' }}>
+                      <Link href={item.path} style={{ display: "flex", alignItems: "center", justifyContent: isCollapsed ? 'center' : 'flex-start', padding: '10px 12px', borderRadius: '10px', textDecoration: "none", color: active ? 'var(--accent-cyan)' : 'var(--text-secondary)', background: active ? 'rgba(6, 182, 212, 0.1)' : 'transparent', transition: 'all 0.2s ease', position: 'relative' }} className="hover:bg-white/5">
+                        <span style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{item.icon}</span>
+                        {!isCollapsed && <span style={{ marginLeft: '14px', fontSize: '0.85rem', fontWeight: active ? 600 : 500, whiteSpace: 'nowrap' }}>{item.name}</span>}
+                        {item.badge !== undefined && item.badge > 0 && (
+                          <span style={{ position: isCollapsed ? 'absolute' : 'static', top: isCollapsed ? '4px' : 'auto', right: isCollapsed ? '4px' : 'auto', marginLeft: isCollapsed ? '0' : 'auto', background: "var(--status-critical)", color: "#fff", borderRadius: "50%", padding: "2px 6px", fontSize: "0.65rem", fontWeight: "700" }}>
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </nav>
+
+        <div style={{ padding: "16px", borderTop: "1px solid var(--glass-border)", background: 'rgba(0,0,0,0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', background: 'rgba(255,255,255,0.03)', padding: isCollapsed ? '10px' : '10px 14px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {renderProfileAvatar(empDetails, "32px")}
+              {!isCollapsed && (
+                <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '110px' }}>{empDetails.name?.split(' ')[0]}</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '110px' }}>{empDetails.role || 'Admin'}</span>
+                </div>
+              )}
+            </div>
+            {!isCollapsed && (
+              <button onClick={() => { logout(); router.push("/login"); }} style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hover:bg-red-500/20 transition-colors" title="Sign Out">
+                <FiLogOut size={16} />
+              </button>
+            )}
+          </div>
+          {isCollapsed && (
+            <button onClick={() => { logout(); router.push("/login"); }} style={{ width: '100%', marginTop: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', padding: '10px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hover:bg-red-500/20 transition-colors" title="Sign Out">
+              <FiLogOut size={18} />
+            </button>
+          )}
+        </div>
       </aside>
 
       {/* Mobile Drawer */}
@@ -263,7 +293,7 @@ export default function AdminLayout({ children }) {
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{empDetails.role || "Administrator"}</p>
         </div>
         <nav className="mobile-drawer-nav">
-          {navItems.map((item) => {
+          {navGroups.flatMap(g => g.items).map((item) => {
             const active = isNavActive(item);
             return (
               <Link
@@ -386,10 +416,15 @@ export default function AdminLayout({ children }) {
                   }}
                 >
                   <div style={{ padding: "4px 8px 8px 8px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "6px" }}>
-                    <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Signed in as</div>
-                    <div style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--accent-cyan)", wordBreak: "break-all" }}>
-                      {empDetails?.name}
-                    </div>
+                    <Link href="/admin/leave" className={`nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-colors ${pathname === '/admin/leave' ? 'bg-[var(--glass-bg)] border-l-4 border-[var(--accent-cyan)] text-[var(--accent-cyan)] shadow-[var(--neon-glow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]'}`}>
+                      <FiCalendar size={20} /><span>Leaves</span>
+                    </Link>
+                    <Link href="/admin/client" className={`nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-colors ${pathname === '/admin/client' ? 'bg-[var(--glass-bg)] border-l-4 border-[var(--accent-cyan)] text-[var(--accent-cyan)] shadow-[var(--neon-glow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]'}`}>
+                      <FiUsers size={20} /><span>Clients</span>
+                    </Link>
+                    <Link href="/admin/activity-log" className={`nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-colors ${pathname === '/admin/activity-log' ? 'bg-[var(--glass-bg)] border-l-4 border-[var(--accent-cyan)] text-[var(--accent-cyan)] shadow-[var(--neon-glow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]'}`}>
+                      <FiActivity size={20} /><span>Activity Log</span>
+                    </Link>
                     <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: "2px" }}>
                       {empDetails?.role || "Administrator"}
                     </div>

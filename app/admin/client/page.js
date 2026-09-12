@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiUsers, FiArrowLeft, FiEdit2, FiTrash2, FiPlus, FiDownload, FiSearch, FiKey, FiCheck, FiX } from 'react-icons/fi';
+import { FiUsers, FiArrowLeft, FiEdit2, FiTrash2, FiPlus, FiDownload, FiSearch, FiKey, FiCheck, FiX, FiLayout } from 'react-icons/fi';
 
 export default function ClientManagementPage() {
   const [clients, setClients] = useState([]);
@@ -15,8 +15,16 @@ export default function ClientManagementPage() {
   const [showResetModal, setShowResetModal] = useState(false);
   
   // Forms
-  const [addForm, setAddForm] = useState({ name: '', email: '', password: '', role: 'client', department: 'N/A' });
-  const [editForm, setEditForm] = useState({ id: '', name: '', email: '', status: '' });
+  const [addForm, setAddForm] = useState({ 
+    name: '', email: '', password: '', role: 'client', department: 'N/A',
+    company_name: '', phone: '', whatsapp: '', address: '', 
+    gst_number: '', website_url: '', primary_service: 'SEO', notes: '' 
+  });
+  const [editForm, setEditForm] = useState({ 
+    id: '', name: '', email: '', status: '',
+    company_name: '', phone: '', whatsapp: '', address: '', 
+    gst_number: '', website_url: '', primary_service: '', notes: ''
+  });
   const [resetForm, setResetForm] = useState({ id: '', name: '', newPassword: '' });
 
   useEffect(() => {
@@ -51,7 +59,11 @@ export default function ClientManagementPage() {
       const data = await res.json();
       if (data.success) {
         setShowAddModal(false);
-        setAddForm({ name: '', email: '', password: '', role: 'client', department: 'N/A' });
+        setAddForm({ 
+          name: '', email: '', password: '', role: 'client', department: 'N/A',
+          company_name: '', phone: '', whatsapp: '', address: '', 
+          gst_number: '', website_url: '', primary_service: 'SEO', notes: '' 
+        });
         fetchClients();
       } else {
         alert(data.error || 'Failed to add client');
@@ -61,13 +73,45 @@ export default function ClientManagementPage() {
     }
   };
 
+  const handleEditClick = async (client) => {
+    try {
+      const res = await fetch(`/api/employees/${client.id}`);
+      const data = await res.json();
+      if (data.success) {
+        const fullClient = data.data;
+        setEditForm({
+          id: fullClient.id,
+          name: fullClient.name || '',
+          email: fullClient.email || '',
+          status: fullClient.status || 'Active',
+          company_name: fullClient.company_name || '',
+          phone: fullClient.phone || '',
+          whatsapp: fullClient.whatsapp || '',
+          address: fullClient.address || '',
+          gst_number: fullClient.gst_number || '',
+          website_url: fullClient.website_url || '',
+          primary_service: fullClient.primary_service || '',
+          notes: fullClient.notes || ''
+        });
+        setShowEditModal(true);
+      }
+    } catch (err) {
+      alert('Failed to load client details');
+    }
+  };
+
   const handleUpdateClient = async (e) => {
     e.preventDefault();
     try {
       const res = await fetch(`/api/employees/${editForm.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editForm.name, email: editForm.email, status: editForm.status })
+        body: JSON.stringify({ 
+          name: editForm.name, email: editForm.email, status: editForm.status,
+          company_name: editForm.company_name, phone: editForm.phone, whatsapp: editForm.whatsapp,
+          address: editForm.address, gst_number: editForm.gst_number, website_url: editForm.website_url,
+          primary_service: editForm.primary_service, notes: editForm.notes
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -250,10 +294,17 @@ export default function ClientManagementPage() {
                         >
                           <FiKey />
                         </button>
+                        <Link 
+                          href={`/admin/client/${client.id}`}
+                          style={{ padding: '6px', background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Manage Services"
+                        >
+                          <FiLayout />
+                        </Link>
                         <button 
-                          onClick={() => { setEditForm({ id: client.id, name: client.name, email: client.email, status: client.status || 'Active' }); setShowEditModal(true); }}
+                          onClick={() => handleEditClick(client)}
                           style={{ padding: '6px', background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '6px', cursor: 'pointer' }}
-                          title="Edit"
+                          title="Edit Client"
                         >
                           <FiEdit2 />
                         </button>
@@ -276,16 +327,39 @@ export default function ClientManagementPage() {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: 'var(--bg-secondary)', padding: '2rem', borderRadius: '16px', width: '100%', maxWidth: '400px', border: '1px solid var(--glass-border)' }}>
-            <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem', color: 'var(--text-primary)' }}>Add New Client</h3>
-            <form onSubmit={handleAddClient} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input type="text" placeholder="Full Name" required value={addForm.name} onChange={e => setAddForm({...addForm, name: e.target.value})} className="form-control" />
-              <input type="email" placeholder="Email Address" required value={addForm.email} onChange={e => setAddForm({...addForm, email: e.target.value})} className="form-control" />
-              <input type="password" placeholder="Temporary Password" required value={addForm.password} onChange={e => setAddForm({...addForm, password: e.target.value})} className="form-control" />
-              <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                <button type="submit" className="btn-primary" style={{ flex: 1, padding: '10px', borderRadius: '8px' }}>Create Client</button>
-                <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary" style={{ flex: 1, padding: '10px', borderRadius: '8px' }}>Cancel</button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, overflowY: 'auto' }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: '2rem', borderRadius: '16px', width: '100%', maxWidth: '700px', border: '1px solid var(--glass-border)', margin: '2rem' }}>
+            <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem', color: 'var(--text-primary)' }}>Advanced Setup: Add New Client</h3>
+            <form onSubmit={handleAddClient} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              {/* Account Details */}
+              <div style={{ gridColumn: '1 / -1' }}><h4 style={{ margin: 0, color: 'var(--accent-cyan)' }}>Account Details</h4></div>
+              <input type="text" placeholder="Full Name *" required value={addForm.name} onChange={e => setAddForm({...addForm, name: e.target.value})} className="form-control" />
+              <input type="email" placeholder="Email Address *" required value={addForm.email} onChange={e => setAddForm({...addForm, email: e.target.value})} className="form-control" />
+              <input type="password" placeholder="Temporary Password *" required value={addForm.password} onChange={e => setAddForm({...addForm, password: e.target.value})} className="form-control" />
+              <input type="text" placeholder="Phone Number" value={addForm.phone} onChange={e => setAddForm({...addForm, phone: e.target.value})} className="form-control" />
+              <input type="text" placeholder="WhatsApp Number" value={addForm.whatsapp} onChange={e => setAddForm({...addForm, whatsapp: e.target.value})} className="form-control" />
+              
+              {/* Business Details */}
+              <div style={{ gridColumn: '1 / -1', marginTop: '1rem' }}><h4 style={{ margin: 0, color: 'var(--accent-cyan)' }}>Business Details</h4></div>
+              <input type="text" placeholder="Company Name" value={addForm.company_name} onChange={e => setAddForm({...addForm, company_name: e.target.value})} className="form-control" />
+              <input type="text" placeholder="GST Number" value={addForm.gst_number} onChange={e => setAddForm({...addForm, gst_number: e.target.value})} className="form-control" />
+              <input type="text" placeholder="Website URL" value={addForm.website_url} onChange={e => setAddForm({...addForm, website_url: e.target.value})} className="form-control" />
+              <input type="text" placeholder="Full Address" value={addForm.address} onChange={e => setAddForm({...addForm, address: e.target.value})} className="form-control" />
+              
+              {/* Project Info */}
+              <div style={{ gridColumn: '1 / -1', marginTop: '1rem' }}><h4 style={{ margin: 0, color: 'var(--accent-cyan)' }}>Project Info</h4></div>
+              <select value={addForm.primary_service} onChange={e => setAddForm({...addForm, primary_service: e.target.value})} className="form-control">
+                <option value="SEO">SEO</option>
+                <option value="SMO">SMO</option>
+                <option value="Paid Ads">Paid Ads</option>
+                <option value="Website Development">Website Development</option>
+                <option value="Other">Other</option>
+              </select>
+              <textarea placeholder="Internal Notes" value={addForm.notes} onChange={e => setAddForm({...addForm, notes: e.target.value})} className="form-control" style={{ resize: 'none', height: '42px' }} />
+
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', marginTop: '1.5rem' }}>
+                <button type="submit" className="btn-primary" style={{ flex: 1, padding: '12px', borderRadius: '8px' }}>Create Client & Send Welcome Email</button>
+                <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary" style={{ flex: 1, padding: '12px', borderRadius: '8px' }}>Cancel</button>
               </div>
             </form>
           </div>
@@ -294,19 +368,42 @@ export default function ClientManagementPage() {
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: 'var(--bg-secondary)', padding: '2rem', borderRadius: '16px', width: '100%', maxWidth: '400px', border: '1px solid var(--glass-border)' }}>
-            <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem', color: 'var(--text-primary)' }}>Edit Client</h3>
-            <form onSubmit={handleUpdateClient} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input type="text" placeholder="Full Name" required value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="form-control" />
-              <input type="email" placeholder="Email Address" required value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="form-control" />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, overflowY: 'auto' }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: '2rem', borderRadius: '16px', width: '100%', maxWidth: '700px', border: '1px solid var(--glass-border)', margin: '2rem' }}>
+            <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem', color: 'var(--text-primary)' }}>Edit Client Details</h3>
+            <form onSubmit={handleUpdateClient} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              {/* Account Details */}
+              <div style={{ gridColumn: '1 / -1' }}><h4 style={{ margin: 0, color: 'var(--accent-cyan)' }}>Account Details</h4></div>
+              <input type="text" placeholder="Full Name *" required value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="form-control" />
+              <input type="email" placeholder="Email Address *" required value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="form-control" />
               <select value={editForm.status} onChange={e => setEditForm({...editForm, status: e.target.value})} className="form-control">
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
               </select>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                <button type="submit" className="btn-primary" style={{ flex: 1, padding: '10px', borderRadius: '8px' }}>Save Changes</button>
-                <button type="button" onClick={() => setShowEditModal(false)} className="btn-secondary" style={{ flex: 1, padding: '10px', borderRadius: '8px' }}>Cancel</button>
+              <input type="text" placeholder="Phone Number" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} className="form-control" />
+              <input type="text" placeholder="WhatsApp Number" value={editForm.whatsapp} onChange={e => setEditForm({...editForm, whatsapp: e.target.value})} className="form-control" />
+              
+              {/* Business Details */}
+              <div style={{ gridColumn: '1 / -1', marginTop: '1rem' }}><h4 style={{ margin: 0, color: 'var(--accent-cyan)' }}>Business Details</h4></div>
+              <input type="text" placeholder="Company Name" value={editForm.company_name} onChange={e => setEditForm({...editForm, company_name: e.target.value})} className="form-control" />
+              <input type="text" placeholder="GST Number" value={editForm.gst_number} onChange={e => setEditForm({...editForm, gst_number: e.target.value})} className="form-control" />
+              <input type="text" placeholder="Website URL" value={editForm.website_url} onChange={e => setEditForm({...editForm, website_url: e.target.value})} className="form-control" />
+              <input type="text" placeholder="Full Address" value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})} className="form-control" />
+              
+              {/* Project Info */}
+              <div style={{ gridColumn: '1 / -1', marginTop: '1rem' }}><h4 style={{ margin: 0, color: 'var(--accent-cyan)' }}>Project Info</h4></div>
+              <select value={editForm.primary_service} onChange={e => setEditForm({...editForm, primary_service: e.target.value})} className="form-control">
+                <option value="SEO">SEO</option>
+                <option value="SMO">SMO</option>
+                <option value="Paid Ads">Paid Ads</option>
+                <option value="Website Development">Website Development</option>
+                <option value="Other">Other</option>
+              </select>
+              <textarea placeholder="Internal Notes" value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} className="form-control" style={{ resize: 'none', height: '42px' }} />
+
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', marginTop: '1.5rem' }}>
+                <button type="submit" className="btn-primary" style={{ flex: 1, padding: '12px', borderRadius: '8px' }}>Save Changes</button>
+                <button type="button" onClick={() => setShowEditModal(false)} className="btn-secondary" style={{ flex: 1, padding: '12px', borderRadius: '8px' }}>Cancel</button>
               </div>
             </form>
           </div>

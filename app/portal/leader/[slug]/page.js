@@ -63,7 +63,7 @@ export default function TeamLeaderSlugPortal() {
 
     setActionLoading(true);
     try {
-      const res = await fetch(, {
+      const res = await fetch(`/api/work-submissions/${selectedSub.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -182,7 +182,7 @@ export default function TeamLeaderSlugPortal() {
                   <div>
                     <div style={{ fontWeight: 600 }}>{member.name}</div>
                     <Link
-                      href={}
+                      href={`/portal/member/${memSlug}`}
                       style={{
                         fontSize: "0.72rem",
                         color: "var(--accent-purple, #a855f7)",
@@ -192,15 +192,12 @@ export default function TeamLeaderSlugPortal() {
                         gap: "3px",
                         marginTop: "2px"
                       }}
-                      title={[m[m[0m[H[2J[24;1H"member" [New][2;1H[1m[34m~                                                                               [3;1H~                                                                               [4;1H~                                                                               [5;1H~                                                                               [6;1H~                                                                               [7;1H~                                                                               [8;1H~                                                                               [9;1H~                                                                               [10;1H~                                                                               [11;1H~                                                                               [12;1H~                                                                               [13;1H~                                                                               [14;1H~                                                                               [15;1H~                                                                               [16;1H~                                                                               [17;1H~                                                                               [18;1H~                                                                               [19;1H~                                                                               [20;1H~                                                                               [21;1H~                                                                               [22;1H~                                                                               [23;1H~                                                                               [1;1H[24;1H[0mVim: Error reading input, exiting...
-Vim: Finished.
-[24;1H
-3 files to edit}
+                      title={`View ${member.name}'s Portal`}
                     >
                       <FiLink style={{ fontSize: "0.65rem" }} /> @{memSlug}
                     </Link>
                   </div>
-                  <span className={} style={{ fontSize: "0.7rem" }}>
+                  <span className="status-tag inprogress" style={{ fontSize: "0.7rem" }}>
                     {member.role || "Member"}
                   </span>
                 </div>
@@ -244,7 +241,7 @@ Vim: Finished.
                         <td>
                           <div>{submitter.name}</div>
                           {submitter.id && (
-                            <Link href={} style={{ fontSize: "0.72rem", color: "var(--accent-purple, #a855f7)", textDecoration: "none" }}>
+                            <Link href={`/portal/member/${subSlug}`} style={{ fontSize: "0.72rem", color: "var(--accent-purple, #a855f7)", textDecoration: "none" }}>
                               @{subSlug}
                             </Link>
                           )}
@@ -253,7 +250,7 @@ Vim: Finished.
                           {new Date(sub.created_at || Date.now()).toLocaleDateString()}
                         </td>
                         <td>
-                          <span className={}>
+                          <span className={`status-tag ${sub.status === 'Approved' ? 'completed' : sub.status === 'Rejected' ? 'cancelled' : 'pending'}`}>
                             {sub.status || "Pending Approval"}
                           </span>
                         </td>

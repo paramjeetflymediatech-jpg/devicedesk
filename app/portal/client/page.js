@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiLayout, FiMessageSquare, FiFileText, FiClock, FiMenu, FiX } from 'react-icons/fi';
+import { FiLayout, FiMessageSquare, FiFileText, FiClock, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3 } from 'react-icons/fi';
 import ProjectChat from '../../components/ProjectChat';
 
 export default function ClientDashboard() {
@@ -31,21 +31,38 @@ export default function ClientDashboard() {
         </div>
       </div>
       
-      <nav className="flex-1 p-4 flex flex-col space-y-2">
-        <button 
-          onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }}
-          className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'overview' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-        >
-          <FiLayout size={20} />
-          <span>Project Overview</span>
+      <nav className="flex-1 p-4 flex flex-col space-y-2 overflow-y-auto">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2 px-3">Main</div>
+        <button onClick={() => window.location.href = '/portal/client/dashboard'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiGrid size={20} /><span>Dashboard</span>
         </button>
-        
-        <button 
-          onClick={() => { setActiveTab('chat'); setIsMobileMenuOpen(false); }}
-          className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'chat' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-        >
-          <FiMessageSquare size={20} />
-          <span>Project Chat</span>
+        <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-indigo-50 text-indigo-700">
+          <FiLayout size={20} /><span>Project Overview</span>
+        </button>
+        <button onClick={() => window.location.href = '/portal/client/chat'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiMessageSquare size={20} /><span>Project Chat</span>
+        </button>
+        <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiEdit3 size={20} /><span>Book Service</span>
+        </button>
+
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Projects</div>
+        <button onClick={() => window.location.href = '/portal/client/seo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiFileText size={20} /><span>SEO Reports</span>
+        </button>
+        <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiImage size={20} /><span>SMO Graphics</span>
+        </button>
+        <button onClick={() => window.location.href = '/portal/client/ads'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiDollarSign size={20} /><span>PAID Ads</span>
+        </button>
+
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Billing & Packages</div>
+        <button onClick={() => window.location.href = '/portal/client/packages'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiBox size={20} /><span>Packages</span>
+        </button>
+        <button onClick={() => window.location.href = '/portal/client/billing'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiCreditCard size={20} /><span>Billing</span>
         </button>
       </nav>
       
@@ -99,7 +116,10 @@ export default function ClientDashboard() {
               <FiMenu size={24} />
             </button>
             <h1 className="text-xl font-bold text-gray-800">
-              {activeTab === 'overview' ? 'Overview' : 'Communication'}
+              {activeTab === 'overview' && 'Overview'}
+              {activeTab === 'chat' && 'Communication'}
+              {activeTab === 'packages' && 'Subscription Packages'}
+              {activeTab === 'billing' && 'Billing & Invoices'}
             </h1>
           </div>
           <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">DC</div>
@@ -108,7 +128,10 @@ export default function ClientDashboard() {
         {/* Desktop Header (Sticky) */}
         <header className="hidden md:flex bg-white/80 border-b px-8 py-6 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
-            {activeTab === 'overview' ? 'Project Overview' : 'Project Communication'}
+            {activeTab === 'overview' && 'Project Overview'}
+            {activeTab === 'chat' && 'Project Communication'}
+            {activeTab === 'packages' && 'Subscription Packages'}
+            {activeTab === 'billing' && 'Billing & Invoices'}
           </h1>
           <div className="flex items-center space-x-4">
              <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
@@ -181,16 +204,6 @@ export default function ClientDashboard() {
             </div>
           )}
 
-          {activeTab === 'chat' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-0 md:p-2 min-h-[500px] h-[calc(100vh-200px)] animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden flex flex-col w-full">
-              <ProjectChat 
-                projectId="proj_mock_1" 
-                departmentId="dept_mock_1" 
-                currentUserId={myClientId} 
-                currentUserName="Demo Client" 
-              />
-            </div>
-          )}
         </main>
       </div>
     </div>
