@@ -6,9 +6,10 @@ import {
   FiGlobe, FiPlus, FiSearch, FiLink, FiEdit2, 
   FiTrash2, FiClock, FiAlertTriangle, FiCheckCircle, FiDollarSign, 
   FiMail, FiRefreshCw, FiExternalLink, FiCalendar, FiShield,
-  FiCreditCard
+  FiCreditCard, FiDownload, FiUpload
 } from "react-icons/fi";
 import { getDomainSlug } from "../../utils/slugUtils.js";
+import DomainImportModal from "../../components/modals/DomainImportModal.js";
 
 export default function AdminDomainsPage() {
   const [domains, setDomains] = useState([]);
@@ -24,6 +25,13 @@ export default function AdminDomainsPage() {
   const [checkingExpiry, setCheckingExpiry] = useState(false);
   const [alertSuccessMessage, setAlertSuccessMessage] = useState("");
 
+  // Bulk Import state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importStatus, setImportStatus] = useState(null);
+  const [importFile, setImportFile] = useState(null);
+  const [importParsed, setImportParsed] = useState([]);
+  const [importResult, setImportResult] = useState(null);
+
   // Form State
   const initialForm = {
     domain_name: "",
@@ -38,10 +46,6 @@ export default function AdminDomainsPage() {
     notes: ""
   };
   const [formData, setFormData] = useState(initialForm);
-
-  useEffect(() => {
-    fetchDomains();
-  }, [statusFilter]);
 
   const fetchDomains = async () => {
     try {
@@ -62,6 +66,38 @@ export default function AdminDomainsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDomains() {
+      try {
+        setLoading(true);
+        const query = new URLSearchParams();
+        if (search) query.set("search", search);
+        if (statusFilter !== "ALL") query.set("status", statusFilter);
+
+        const res = await fetch(`/api/domains?${query.toString()}`);
+        const data = await res.json();
+        if (isMounted && data.success) {
+          setDomains(data.data || []);
+          if (data.summary) setSummary(data.summary);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadDomains();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [statusFilter]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -171,6 +207,151 @@ export default function AdminDomainsPage() {
     setShowAddModal(true);
   };
 
+  /* ======================================================== */
+  /* BULK EXPORT TO EXCEL & CSV                              */
+  /* ======================================================== */
+  const handleExportDomainsToExcel = async () => {
+    try {
+      const XLSX = await import("xlsx");
+      const exportData = domains.map((d, index) => ({
+        "No.": index + 1,
+        "Domain Name": d.domain_name || "",
+        "Domain Slug": getDomainSlug(d),
+        "Client / Owner": d.client_name || "Unassigned",
+        "Client Email": d.client_email || "",
+        "Registrar": d.registrar || "GoDaddy",
+        "Payment Card": d.card_details || "",
+        "Registration Date": d.registration_date ? new Date(d.registration_date).toISOString().split('T')[0] : "",
+        "Expiry Date": d.expiry_date ? new Date(d.expiry_date).toISOString().split('T')[0] : "",
+        "Days Remaining": d.days_left !== null ? d.days_left : "",
+        "Auto-Renewal": d.auto_renew ? "Enabled" : "Disabled",
+        "Renewal Cost ($)": d.renewal_cost || "15.99",
+        "Status": d.status || "Active",
+        "Technical Notes": d.notes || ""
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Domains");
+      XLSX.writeFile(wb, `domains_portfolio_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch (e) {
+      console.error("Export Excel error, falling back to CSV:", e);
+      handleExportDomainsToCSV();
+    }
+  };
+
+  const handleExportDomainsToCSV = () => {
+    const headers = [
+      "ID",
+      "Domain Name",
+      "Domain Slug",
+      "Client Name",
+      "Client Email",
+      "Registrar",
+      "Payment Card",
+      "Registration Date",
+      "Expiry Date",
+      "Days Remaining",
+      "Auto-Renewal",
+      "Renewal Cost",
+      "Status",
+      "Notes"
+    ];
+
+    const rows = domains.map(d => [
+      `"${d.id || ""}"`,
+      `"${d.domain_name || ""}"`,
+      `"${getDomainSlug(d)}"`,
+      `"${d.client_name || ""}"`,
+      `"${d.client_email || ""}"`,
+      `"${d.registrar || ""}"`,
+      `"${d.card_details || ""}"`,
+      `"${d.registration_date ? new Date(d.registration_date).toISOString().split('T')[0] : ""}"`,
+      `"${d.expiry_date ? new Date(d.expiry_date).toISOString().split('T')[0] : ""}"`,
+      `"${d.days_left !== null ? d.days_left : ""}"`,
+      `"${d.auto_renew ? "Enabled" : "Disabled"}"`,
+      `"${d.renewal_cost || ""}"`,
+      `"${d.status || ""}"`,
+      `"${(d.notes || "").replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `domains_portfolio_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  /* ======================================================== */
+  /* BULK IMPORT FROM EXCEL & CSV                            */
+  /* ======================================================== */
+  const handleDownloadTemplate = () => {
+    const headers = "Domain Name,Client Name,Client Email,Registrar,Registration Date,Expiry Date,Auto Renew,Renewal Cost,Card Details,Notes";
+    const sample1 = "mycoolstartup.com,Alex Morgan,alex@startup.com,GoDaddy,2025-01-15,2027-01-15,Yes,18.99,Visa ending 4242,Primary production domain";
+    const sample2 = "clientportal.net,Sarah Connor,sarah@client.org,Namecheap,2024-06-10,2026-06-10,No,14.50,Mastercard 8899,Client subdomain staging";
+    const csvContent = "\uFEFF" + [headers, sample1, sample2].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "devicedesk_domains_import_template.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImportFile(file);
+    setImportStatus(null);
+    setImportParsed([]);
+    setImportResult(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      import("xlsx").then((XLSX) => {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+        setImportParsed(jsonRows);
+        setImportStatus("preview");
+      }).catch(err => {
+        alert("Failed to parse file: " + err.message);
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importParsed.length) return;
+    setImportStatus("loading");
+
+    try {
+      const res = await fetch("/api/import-domains", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domains: importParsed })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Import failed");
+
+      setImportResult(data);
+      setImportStatus("done");
+      fetchDomains();
+    } catch (err) {
+      alert("Import failed: " + err.message);
+      setImportStatus("preview");
+    }
+  };
+
   return (
     <div>
       {/* Page Header */}
@@ -184,7 +365,35 @@ export default function AdminDomainsPage() {
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            onClick={handleExportDomainsToExcel}
+            className="btn-secondary"
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+            title="Export all domains to Excel (.xlsx)"
+          >
+            <FiDownload /> Export Domains
+          </button>
+          <button
+            onClick={() => {
+              setShowImportModal(true);
+              setImportStatus(null);
+              setImportFile(null);
+              setImportParsed([]);
+              setImportResult(null);
+            }}
+            className="btn-secondary"
+            style={{
+              background: "linear-gradient(135deg, #1a3a6b, #2260d4)",
+              color: "#fff",
+              border: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px"
+            }}
+          >
+            <FiUpload /> 📤 Import Excel/CSV
+          </button>
           <button
             onClick={handleTriggerExpiryCheck}
             disabled={checkingExpiry}
@@ -409,6 +618,25 @@ export default function AdminDomainsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* ======================================================== */}
+      {/* DOMAIN BULK IMPORT MODAL                                 */}
+      {/* ======================================================== */}
+      <DomainImportModal
+        showImportModal={showImportModal}
+        setShowImportModal={setShowImportModal}
+        importStatus={importStatus}
+        setImportStatus={setImportStatus}
+        importFile={importFile}
+        setImportFile={setImportFile}
+        importParsed={importParsed}
+        setImportParsed={setImportParsed}
+        importResult={importResult}
+        setImportResult={setImportResult}
+        handleDownloadTemplate={handleDownloadTemplate}
+        handleImportFileChange={handleImportFileChange}
+        handleConfirmImport={handleConfirmImport}
+      />
 
       {/* ======================================================== */}
       {/* NATIVE DEVICEDESK MODAL FOR ADD / EDIT DOMAIN           */}

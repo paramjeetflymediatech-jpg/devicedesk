@@ -59,40 +59,69 @@ export async function PUT(request, { params }) {
 
     const db = await getDbConnection();
 
-    const [existing] = await db.query('SELECT id FROM domains WHERE id = ?', [id]);
+    const [existing] = await db.query('SELECT * FROM domains WHERE id = ?', [id]);
     if (existing.length === 0) {
       return NextResponse.json({ error: 'Domain not found' }, { status: 404 });
     }
 
+    let updates = [];
+    let values = [];
+
+    if (domain_name !== undefined) {
+      updates.push('domain_name = ?');
+      values.push(domain_name ? domain_name.toLowerCase().trim() : null);
+    }
+    if (client_name !== undefined) {
+      updates.push('client_name = ?');
+      values.push(client_name ?? null);
+    }
+    if (client_email !== undefined) {
+      updates.push('client_email = ?');
+      values.push(client_email ?? null);
+    }
+    if (registrar !== undefined) {
+      updates.push('registrar = ?');
+      values.push(registrar ?? null);
+    }
+    if (registration_date !== undefined) {
+      updates.push('registration_date = ?');
+      values.push(registration_date ? new Date(registration_date).toISOString().split('T')[0] : null);
+    }
+    if (expiry_date !== undefined) {
+      updates.push('expiry_date = ?');
+      values.push(expiry_date ? new Date(expiry_date).toISOString().split('T')[0] : null);
+    }
+    if (auto_renew !== undefined) {
+      updates.push('auto_renew = ?');
+      values.push(auto_renew ? 1 : 0);
+    }
+    if (renewal_cost !== undefined) {
+      updates.push('renewal_cost = ?');
+      values.push(renewal_cost ?? null);
+    }
+    if (card_details !== undefined) {
+      updates.push('card_details = ?');
+      values.push(card_details ?? null);
+    }
+    if (status !== undefined) {
+      updates.push('status = ?');
+      values.push(status ?? 'Active');
+    }
+    if (notes !== undefined) {
+      updates.push('notes = ?');
+      values.push(notes ?? null);
+    }
+
+    if (updates.length === 0) {
+      return NextResponse.json({ error: 'No fields provided for update.' }, { status: 400 });
+    }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
     await db.execute(
-      `UPDATE domains SET 
-        domain_name = COALESCE(?, domain_name),
-        client_name = COALESCE(?, client_name),
-        client_email = COALESCE(?, client_email),
-        registrar = COALESCE(?, registrar),
-        registration_date = COALESCE(?, registration_date),
-        expiry_date = COALESCE(?, expiry_date),
-        auto_renew = COALESCE(?, auto_renew),
-        renewal_cost = COALESCE(?, renewal_cost),
-        card_details = COALESCE(?, card_details),
-        status = COALESCE(?, status),
-        notes = COALESCE(?, notes),
-        updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [
-        domain_name ? domain_name.toLowerCase().trim() : null,
-        client_name,
-        client_email,
-        registrar,
-        registration_date,
-        expiry_date,
-        auto_renew !== undefined ? (auto_renew ? 1 : 0) : null,
-        renewal_cost,
-        card_details,
-        status,
-        notes,
-        id
-      ]
+      `UPDATE domains SET ${updates.join(', ')} WHERE id = ?`,
+      values
     );
 
     return NextResponse.json({

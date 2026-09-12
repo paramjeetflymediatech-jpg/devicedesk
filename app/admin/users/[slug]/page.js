@@ -55,8 +55,8 @@ export default function UserSlugDetailPage() {
   if (!employee) {
     return (
       <div className="page-container" style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
-        <button onClick={() => router.push("/")} className="btn-secondary" style={{ marginBottom: "1.5rem", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-          <FiArrowLeft /> Back to Dashboard
+        <button onClick={() => router.push("/admin/users")} className="btn-secondary" style={{ marginBottom: "1.5rem", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <FiArrowLeft /> Back to Team Directory
         </button>
         <div style={{ background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "12px", padding: "2rem", textAlign: "center" }}>
           <h2 style={{ color: "var(--status-critical)", marginBottom: "0.5rem" }}>Team Member Not Found</h2>
@@ -76,11 +76,11 @@ export default function UserSlugDetailPage() {
       {/* Header & Back Button */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/admin/users")}
           className="btn-secondary"
           style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 16px" }}
         >
-          <FiArrowLeft /> Back to Dashboard
+          <FiArrowLeft /> Back to Team Directory
         </button>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <span className="timer-badge" style={{ color: "var(--accent-purple)", borderColor: "rgba(139, 92, 246, 0.4)" }}>
