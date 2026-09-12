@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getEmployees, getTasks } from "../../../store.js";
+import { getEmployees, getTasks, getDepartments } from "../../../store.js";
 import { findEmployeeBySlug, getEmployeeSlug } from "../../../utils/slugUtils.js";
 import { FiUser, FiArrowLeft, FiCheckCircle, FiClock, FiFileText, FiUsers, FiLink, FiCheck, FiX, FiLayers } from "react-icons/fi";
 
@@ -63,7 +63,7 @@ export default function TeamLeaderSlugPortal() {
 
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/work-submissions/${selectedSub.id}`, {
+      const res = await fetch(, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -116,6 +116,7 @@ export default function TeamLeaderSlugPortal() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-primary, #0f172a)", color: "var(--text-primary, #f8fafc)", padding: "2rem" }}>
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+        {/* Navigation / Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
           <div>
             <Link
@@ -146,6 +147,7 @@ export default function TeamLeaderSlugPortal() {
           </div>
         </div>
 
+        {/* Stats Grid */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1.25rem", marginBottom: "2rem" }}>
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--glass-border, rgba(255,255,255,0.1))", borderRadius: "14px", padding: "1.25rem" }}>
             <span style={{ fontSize: "0.8rem", color: "var(--text-secondary, #94a3b8)" }}>Department Members</span>
@@ -167,6 +169,7 @@ export default function TeamLeaderSlugPortal() {
           </div>
         </div>
 
+        {/* Team Members List */}
         <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border, rgba(255,255,255,0.1))", borderRadius: "16px", padding: "1.5rem", marginBottom: "2rem" }}>
           <h2 style={{ fontSize: "1.2rem", fontWeight: 700, marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
             <FiUsers /> Team Members in {leader.department || "Department"}
@@ -179,7 +182,7 @@ export default function TeamLeaderSlugPortal() {
                   <div>
                     <div style={{ fontWeight: 600 }}>{member.name}</div>
                     <Link
-                      href={`/portal/member/${memSlug}`}
+                      href={}
                       style={{
                         fontSize: "0.72rem",
                         color: "var(--accent-purple, #a855f7)",
@@ -189,12 +192,15 @@ export default function TeamLeaderSlugPortal() {
                         gap: "3px",
                         marginTop: "2px"
                       }}
-                      title={`View member portal for ${memSlug}`}
+                      title={[m[m[0m[H[2J[24;1H"member" [New][2;1H[1m[34m~                                                                               [3;1H~                                                                               [4;1H~                                                                               [5;1H~                                                                               [6;1H~                                                                               [7;1H~                                                                               [8;1H~                                                                               [9;1H~                                                                               [10;1H~                                                                               [11;1H~                                                                               [12;1H~                                                                               [13;1H~                                                                               [14;1H~                                                                               [15;1H~                                                                               [16;1H~                                                                               [17;1H~                                                                               [18;1H~                                                                               [19;1H~                                                                               [20;1H~                                                                               [21;1H~                                                                               [22;1H~                                                                               [23;1H~                                                                               [1;1H[24;1H[0mVim: Error reading input, exiting...
+Vim: Finished.
+[24;1H
+3 files to edit}
                     >
                       <FiLink style={{ fontSize: "0.65rem" }} /> @{memSlug}
                     </Link>
                   </div>
-                  <span className={`status-tag ${member.status === "Paused" ? "open" : "resolved"}`} style={{ fontSize: "0.7rem" }}>
+                  <span className={} style={{ fontSize: "0.7rem" }}>
                     {member.role || "Member"}
                   </span>
                 </div>
@@ -203,6 +209,7 @@ export default function TeamLeaderSlugPortal() {
           </div>
         </div>
 
+        {/* Submissions Queue */}
         <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border, rgba(255,255,255,0.1))", borderRadius: "16px", padding: "1.5rem" }}>
           <h2 style={{ fontSize: "1.2rem", fontWeight: 700, marginBottom: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
             <FiCheckCircle /> Work Submissions for Review
@@ -237,7 +244,7 @@ export default function TeamLeaderSlugPortal() {
                         <td>
                           <div>{submitter.name}</div>
                           {submitter.id && (
-                            <Link href={`/portal/member/${subSlug}`} style={{ fontSize: "0.72rem", color: "var(--accent-purple, #a855f7)", textDecoration: "none" }}>
+                            <Link href={} style={{ fontSize: "0.72rem", color: "var(--accent-purple, #a855f7)", textDecoration: "none" }}>
                               @{subSlug}
                             </Link>
                           )}
@@ -246,7 +253,7 @@ export default function TeamLeaderSlugPortal() {
                           {new Date(sub.created_at || Date.now()).toLocaleDateString()}
                         </td>
                         <td>
-                          <span className={`status-tag ${sub.status === "Approved" ? "resolved" : sub.status === "Rejected" ? "open" : "inprogress"}`}>
+                          <span className={}>
                             {sub.status || "Pending Approval"}
                           </span>
                         </td>
