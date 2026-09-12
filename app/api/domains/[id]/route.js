@@ -3,7 +3,7 @@ import { getDbConnection } from '../../db/db.js';
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const db = await getDbConnection();
 
     const [rows] = await db.query(
@@ -41,7 +41,7 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const {
       domain_name,
@@ -52,6 +52,7 @@ export async function PUT(request, { params }) {
       expiry_date,
       auto_renew,
       renewal_cost,
+      card_details,
       status,
       notes
     } = body;
@@ -73,6 +74,7 @@ export async function PUT(request, { params }) {
         expiry_date = COALESCE(?, expiry_date),
         auto_renew = COALESCE(?, auto_renew),
         renewal_cost = COALESCE(?, renewal_cost),
+        card_details = COALESCE(?, card_details),
         status = COALESCE(?, status),
         notes = COALESCE(?, notes),
         updated_at = CURRENT_TIMESTAMP
@@ -86,6 +88,7 @@ export async function PUT(request, { params }) {
         expiry_date,
         auto_renew !== undefined ? (auto_renew ? 1 : 0) : null,
         renewal_cost,
+        card_details,
         status,
         notes,
         id
@@ -104,7 +107,7 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const db = await getDbConnection();
 
     await db.execute('DELETE FROM domains WHERE id = ?', [id]);

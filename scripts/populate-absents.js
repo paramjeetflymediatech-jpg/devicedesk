@@ -60,8 +60,8 @@ async function populateAbsents() {
               emp.id,
               emp.name,
               dateStr,
-              '', // Empty string to match existing schema type for punchInTime if it's VARCHAR NOT NULL, wait, schema says 'VARCHAR(50) NOT NULL'
-              null,
+              '',
+              `${dateStr}T23:59:59.000Z`,
               'Absent',
               0,
               0,

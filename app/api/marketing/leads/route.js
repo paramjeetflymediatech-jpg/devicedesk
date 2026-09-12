@@ -9,7 +9,7 @@ export async function GET(request) {
 
     let query = `SELECT l.*, c.name as campaign_name 
                  FROM leads l 
-                 LEFT JOIN campaigns c ON l.campaign_id = c.id 
+                 LEFT JOIN campaigns c ON (l.campaign_id COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci) 
                  WHERE 1=1`;
     let params = [];
 

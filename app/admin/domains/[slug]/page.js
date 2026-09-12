@@ -6,7 +6,7 @@ import Link from "next/link";
 import { 
   FiGlobe, FiArrowLeft, FiClock, FiCalendar, FiDollarSign, 
   FiUser, FiMail, FiCheckCircle, FiAlertTriangle, FiLink, 
-  FiRefreshCw, FiEdit2, FiShield 
+  FiRefreshCw, FiEdit2, FiShield, FiCreditCard 
 } from "react-icons/fi";
 import { getDomainSlug } from "../../../utils/slugUtils.js";
 
@@ -205,6 +205,16 @@ export default function SingleDomainSlugPage() {
             <div style={{ background: "rgba(255,255,255,0.03)", padding: "1rem", borderRadius: "10px" }}>
               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary, #94a3b8)" }}>Registrar</span>
               <div style={{ fontWeight: 700, marginTop: "4px" }}>{domain.registrar || "GoDaddy"}</div>
+            </div>
+            <div style={{ background: "rgba(255,255,255,0.03)", padding: "1rem", borderRadius: "10px" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-secondary, #94a3b8)" }}>Payment Card Used</span>
+              <div style={{ fontWeight: 700, marginTop: "4px", color: domain.card_details ? "var(--accent-cyan, #06b6d4)" : "inherit" }}>
+                {domain.card_details ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    <FiCreditCard /> {domain.card_details}
+                  </span>
+                ) : "—"}
+              </div>
             </div>
             <div style={{ background: "rgba(255,255,255,0.03)", padding: "1rem", borderRadius: "10px" }}>
               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary, #94a3b8)" }}>Registration Date</span>

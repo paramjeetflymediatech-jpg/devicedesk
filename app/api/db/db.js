@@ -158,10 +158,8 @@ export async function getDbConnection() {
   }
 
   try {
-    await db.execute(`ALTER TABLE tasks MODIFY COLUMN fileUrl TEXT DEFAULT NULL`);
-  } catch (err) {
-    // Ignore
-  }
+    await db.execute(`ALTER TABLE tasks ADD COLUMN project_id VARCHAR(50) DEFAULT NULL`);
+  } catch (err) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS departments (
@@ -194,7 +192,8 @@ export async function getDbConnection() {
       startedAt VARCHAR(50),
       completedAt VARCHAR(50),
       totalDuration INT DEFAULT 0,
-      fileUrl VARCHAR(512) DEFAULT NULL
+      fileUrl VARCHAR(512) DEFAULT NULL,
+      project_id VARCHAR(50) DEFAULT NULL
     )
   `);
 
@@ -203,6 +202,17 @@ export async function getDbConnection() {
       meta_key VARCHAR(50) PRIMARY KEY,
       meta_value VARCHAR(100)
     )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS service_requests (
+      id VARCHAR(100) PRIMARY KEY,
+      clientId VARCHAR(50) NOT NULL,
+      service_type VARCHAR(100) NOT NULL,
+      requirements TEXT,
+      status VARCHAR(50) DEFAULT 'Pending',
+      created_at VARCHAR(50) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
   await db.execute(`
@@ -414,12 +424,17 @@ export async function getDbConnection() {
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS marketing_attendance (
-      id VARCHAR(100) PRIMARY KEY,
+      id VARCHAR(50) PRIMARY KEY,
       employee_id VARCHAR(50) NOT NULL,
-      date VARCHAR(20) NOT NULL,
-      punch_in VARCHAR(50),
-      punch_out VARCHAR(50),
-      status VARCHAR(50) DEFAULT 'Present'
+      check_in_at TIMESTAMP NULL,
+      check_in_latitude DECIMAL(10, 8),
+      check_in_longitude DECIMAL(11, 8),
+      check_out_at TIMESTAMP NULL,
+      check_out_latitude DECIMAL(10, 8),
+      check_out_longitude DECIMAL(11, 8),
+      total_km DECIMAL(10, 2) DEFAULT 0,
+      status VARCHAR(50),
+      FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -454,6 +469,76 @@ export async function getDbConnection() {
   `);
 
   await db.execute(`
+    CREATE TABLE IF NOT EXISTS client_seo_reports (
+      id VARCHAR(100) PRIMARY KEY,
+      client_id VARCHAR(50) NOT NULL,
+      month VARCHAR(20) NOT NULL,
+      year VARCHAR(10) NOT NULL,
+      file_url TEXT NOT NULL,
+      status VARCHAR(50) DEFAULT 'Uploaded',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS client_smo_requests (
+      id VARCHAR(100) PRIMARY KEY,
+      client_id VARCHAR(50) NOT NULL,
+      requirements TEXT NOT NULL,
+      status VARCHAR(50) DEFAULT 'Pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS client_paid_ads (
+      id VARCHAR(100) PRIMARY KEY,
+      client_id VARCHAR(50) NOT NULL,
+      platform VARCHAR(100) NOT NULL,
+      total_budget DECIMAL(12, 2) DEFAULT 0,
+      spent_amount DECIMAL(12, 2) DEFAULT 0,
+      pending_balance DECIMAL(12, 2) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_client_platform (client_id, platform)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS client_details (
+      client_id VARCHAR(50) PRIMARY KEY,
+      company_name VARCHAR(255),
+      phone VARCHAR(50),
+      whatsapp VARCHAR(50),
+      address TEXT,
+      gst_number VARCHAR(100),
+      website_url VARCHAR(255),
+      primary_service VARCHAR(100),
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (client_id) REFERENCES employees(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS packages (
+      id VARCHAR(50) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      price DECIMAL(10, 2) NOT NULL,
+      billing_cycle VARCHAR(50) DEFAULT 'Monthly',
+      features TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  try {
+    await db.execute(`ALTER TABLE domains ADD COLUMN card_details VARCHAR(255) DEFAULT NULL`);
+  } catch (err) {}
+
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS domains (
       id VARCHAR(100) PRIMARY KEY,
       domain_name VARCHAR(255) NOT NULL UNIQUE,
@@ -465,6 +550,7 @@ export async function getDbConnection() {
       expiry_date VARCHAR(50) NOT NULL,
       auto_renew INT DEFAULT 0,
       renewal_cost DECIMAL(10, 2) DEFAULT 0,
+      card_details VARCHAR(255) DEFAULT NULL,
       status VARCHAR(50) DEFAULT 'Active',
       last_notified_at VARCHAR(50) DEFAULT NULL,
       notes TEXT DEFAULT NULL,

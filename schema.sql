@@ -435,3 +435,64 @@ CREATE TABLE IF NOT EXISTS work_submission_history (
   FOREIGN KEY (submission_id) REFERENCES work_submissions(id) ON DELETE CASCADE,
   FOREIGN KEY (changed_by) REFERENCES employees(id) ON DELETE CASCADE
 );
+
+-- Table: client_seo_reports
+CREATE TABLE IF NOT EXISTS client_seo_reports (
+  id VARCHAR(100) PRIMARY KEY,
+  client_id VARCHAR(50) NOT NULL,
+  month VARCHAR(20) NOT NULL,
+  year VARCHAR(10) NOT NULL,
+  file_url TEXT NOT NULL,
+  status VARCHAR(50) DEFAULT 'Uploaded',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table: client_smo_requests
+CREATE TABLE IF NOT EXISTS client_smo_requests (
+  id VARCHAR(100) PRIMARY KEY,
+  client_id VARCHAR(50) NOT NULL,
+  requirements TEXT NOT NULL,
+  status VARCHAR(50) DEFAULT 'Pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table: client_paid_ads
+CREATE TABLE IF NOT EXISTS client_paid_ads (
+  id VARCHAR(100) PRIMARY KEY,
+  client_id VARCHAR(50) NOT NULL,
+  platform VARCHAR(100) NOT NULL,
+  total_budget DECIMAL(12, 2) DEFAULT 0,
+  spent_amount DECIMAL(12, 2) DEFAULT 0,
+  pending_balance DECIMAL(12, 2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_client_platform (client_id, platform)
+);
+
+-- Table: client_details
+CREATE TABLE IF NOT EXISTS client_details (
+  client_id VARCHAR(50) PRIMARY KEY,
+  company_name VARCHAR(255),
+  phone VARCHAR(50),
+  whatsapp VARCHAR(50),
+  address TEXT,
+  gst_number VARCHAR(100),
+  website_url VARCHAR(255),
+  primary_service VARCHAR(100),
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (client_id) REFERENCES employees(id) ON DELETE CASCADE
+);
+
+-- Table: packages
+CREATE TABLE IF NOT EXISTS packages (
+  id VARCHAR(50) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  price DECIMAL(10, 2) NOT NULL,
+  billing_cycle VARCHAR(50) DEFAULT 'Monthly',
+  features TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

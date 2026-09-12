@@ -3,7 +3,7 @@ import { getDbConnection } from '../../db/db.js';
 
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { new_status, comment, changed_by } = await request.json();
 
     if (!new_status || !changed_by) {

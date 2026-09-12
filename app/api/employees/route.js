@@ -25,7 +25,10 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { name, email, password, role, department, ticketLimit } = await request.json();
+    const { 
+      name, email, password, role, department, ticketLimit,
+      company_name, phone, whatsapp, address, gst_number, website_url, primary_service, notes 
+    } = await request.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Name is required.' }, { status: 400 });
@@ -67,6 +70,23 @@ export async function POST(request) {
       `INSERT INTO assignment_history (id, employeeId, systemId, systemNumber, action, timestamp, assignedBy) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [logId, empId, null, null, 'Employee Added', new Date().toISOString(), 'Admin']
     ).catch(err => console.error('Failed to log employee creation:', err));
+
+    // If it's a client, insert into client_details
+    if (empRole.toLowerCase() === 'client') {
+      await db.execute(
+        `INSERT INTO client_details (client_id, company_name, phone, whatsapp, address, gst_number, website_url, primary_service, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [empId, company_name || null, phone || null, whatsapp || null, address || null, gst_number || null, website_url || null, primary_service || null, notes || null]
+      ).catch(err => console.error('Failed to insert client_details:', err));
+
+      // Simulate sending Welcome Email
+      const emailId = 'email_' + Date.now();
+      const subject = 'Welcome to Your Client Portal';
+      const body = `Hi ${name.trim()},\n\nYour client portal account has been created.\n\nLogin URL: /login\nEmail: ${empEmail}\nPassword: ${empPass}\n\nPlease change your password after logging in.\n\nThanks,\nTeam`;
+      await db.execute(
+        `INSERT INTO sent_emails (id, to_address, subject, body, timestamp) VALUES (?, ?, ?, ?, ?)`,
+        [emailId, empEmail, subject, body, new Date().toISOString()]
+      ).catch(err => console.error('Failed to log welcome email:', err));
+    }
 
     return NextResponse.json({
       success: true,

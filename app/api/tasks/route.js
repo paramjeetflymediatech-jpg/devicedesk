@@ -4,22 +4,23 @@ import { getDbConnection } from '../db/db.js';
 export async function GET() {
   try {
     const db = await getDbConnection();
+
+    // Ensure project_id column exists in tasks table dynamically
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN project_id VARCHAR(50)`);
+    } catch (e) {}
+
     const [rows] = await db.query(
       `SELECT t.*, 
        p.name as project_name, 
        c.name as client_name,
        a.name as assigned_to_name
        FROM tasks t
-       LEFT JOIN projects p ON t.project_id = p.id
-       LEFT JOIN clients c ON p.client_id = c.id
-       LEFT JOIN employees a ON t.assignedTo = a.id
+       LEFT JOIN projects p ON (t.project_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci)
+       LEFT JOIN employees c ON (p.client_id COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci)
+       LEFT JOIN employees a ON (t.assignedTo COLLATE utf8mb4_unicode_ci = a.id COLLATE utf8mb4_unicode_ci)
        ORDER BY t.createdAt DESC`
     );
-    // Note: The devicedesk schema uses assignedTo, assignedToName, assignedBy, etc.
-    // However, the original devicedesk tasks table didn't have project_id.
-    // Wait, the devicedesk tasks table is: id, title, description, assignedTo, assignedToName, assignedBy, assignedByName, status, createdAt, startedAt, completedAt, totalDuration, fileUrl
-    // For our new portal, we might need to add project_id to tasks if it doesn't exist.
-    // Let's ensure project_id exists in tasks table dynamically or just select what exists.
 
     return NextResponse.json({
       success: true,
@@ -28,13 +29,13 @@ export async function GET() {
     });
   } catch (err) {
     console.error('Fetch Tasks API Error:', err);
-    // Fallback if JOIN fails due to missing columns
+    // Fallback if JOIN fails due to missing columns or tables
     try {
-        const db = await getDbConnection();
-        const [rows] = await db.query(`SELECT * FROM tasks ORDER BY createdAt DESC`);
-        return NextResponse.json({ success: true, count: rows.length, data: rows });
+      const db = await getDbConnection();
+      const [rows] = await db.query(`SELECT * FROM tasks ORDER BY createdAt DESC`);
+      return NextResponse.json({ success: true, count: rows.length, data: rows });
     } catch(e) {
-        return NextResponse.json({ success: false, error: err.message, data: [] }, { status: 500 });
+      return NextResponse.json({ success: false, error: err.message, data: [] }, { status: 500 });
     }
   }
 }

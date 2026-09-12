@@ -94,6 +94,7 @@ export async function POST(request) {
       expiry_date,
       auto_renew,
       renewal_cost,
+      card_details,
       notes
     } = body;
 
@@ -113,8 +114,8 @@ export async function POST(request) {
     const id = 'dom_' + Date.now();
 
     await db.execute(
-      `INSERT INTO domains (id, domain_name, client_id, client_name, client_email, registrar, registration_date, expiry_date, auto_renew, renewal_cost, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO domains (id, domain_name, client_id, client_name, client_email, registrar, registration_date, expiry_date, auto_renew, renewal_cost, card_details, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         cleanDomain,
@@ -126,6 +127,7 @@ export async function POST(request) {
         expiry_date,
         auto_renew ? 1 : 0,
         renewal_cost || 0,
+        card_details || null,
         notes || null
       ]
     );
