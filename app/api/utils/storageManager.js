@@ -85,48 +85,15 @@ export async function checkAuth(req) {
  */
 async function getSftpConfig() {
   const config = {
-    host: process.env.WHM_SFTP_HOST,
+    host: process.env.WHM_SFTP_HOST || '2a00:1169:115:1590::',
     port: parseInt(process.env.WHM_SFTP_PORT || '22'),
-    username: process.env.WHM_SFTP_USER,
-    password: process.env.WHM_SFTP_PASS,
+    username: process.env.WHM_SFTP_USER || 'storage',
+    password: process.env.WHM_SFTP_PASS || '1Sparsh@2@2@',
     tryKeyboard: true,
     readyTimeout: 15000,
     retries: 1,
     retry_factor: 1,
-    retry_min_delay: 1000,
-    algorithms: {
-      kex: [
-        'curve25519-sha256',
-        'curve25519-sha256@libssh.org',
-        'ecdh-sha2-nistp256',
-        'ecdh-sha2-nistp384',
-        'ecdh-sha2-nistp521',
-        'diffie-hellman-group-exchange-sha256',
-        'diffie-hellman-group14-sha256',
-        'diffie-hellman-group14-sha1',
-        'diffie-hellman-group-exchange-sha1'
-      ],
-      cipher: [
-        'aes128-ctr',
-        'aes192-ctr',
-        'aes256-ctr',
-        'aes128-gcm',
-        'aes128-gcm@openssh.com',
-        'aes256-gcm',
-        'aes256-gcm@openssh.com',
-        'aes256-cbc',
-        'aes128-cbc'
-      ],
-      serverHostKey: [
-        'ssh-ed25519',
-        'ecdsa-sha2-nistp256',
-        'ecdsa-sha2-nistp384',
-        'ecdsa-sha2-nistp521',
-        'rsa-sha2-512',
-        'rsa-sha2-256',
-        'ssh-rsa'
-      ]
-    }
+    retry_min_delay: 1000
   };
 
   const keyPath = process.env.WHM_SFTP_KEY_PATH;
@@ -135,14 +102,12 @@ async function getSftpConfig() {
       const stats = await fs.stat(keyPath);
       if (stats.isFile()) {
         config.privateKey = await fs.readFile(keyPath, 'utf8');
-        return config;
       }
     } catch (err) {
       // Fall back to password auth
     }
   }
 
-  config.password = process.env.WHM_SFTP_PASS;
   return config;
 }
 
