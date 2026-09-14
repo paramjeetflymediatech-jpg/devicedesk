@@ -84,11 +84,16 @@ export async function checkAuth(req) {
  * or falling back to password auth.
  */
 async function getSftpConfig() {
+  const host = (process.env.WHM_SFTP_HOST || '2a00:1169:115:1590::').trim();
+  const port = parseInt(process.env.WHM_SFTP_PORT || '22');
+  const username = (process.env.WHM_SFTP_USER || 'storage').trim();
+  const password = (process.env.WHM_SFTP_PASS || '1Sparsh@2@2@').trim();
+
   const config = {
-    host: process.env.WHM_SFTP_HOST || '2a00:1169:115:1590::',
-    port: parseInt(process.env.WHM_SFTP_PORT || '22'),
-    username: process.env.WHM_SFTP_USER || 'storage',
-    password: process.env.WHM_SFTP_PASS || '1Sparsh@2@2@',
+    host,
+    port,
+    username,
+    password,
     tryKeyboard: true,
     readyTimeout: 15000,
     retries: 1,
