@@ -103,7 +103,8 @@ export default function EmployeeLayout({ children }) {
     user?.email === 'admin@yopmail.com' || 
     user?.email === 'pravi@yopmail.com';
 
-  const showITSupportDesk = isAdminUser || isITDepartment;
+  const showITSupportDesk = isITDepartment;
+  const isTeamLeader = dbRoleStr === 'dept team leader';
 
   // Auth check
   useEffect(() => {
@@ -234,6 +235,16 @@ export default function EmployeeLayout({ children }) {
                   style={{ color: "var(--accent-cyan)", fontWeight: "600" }}
                 >
                   <span className="nav-icon"><FiShield /></span> IT Support Desk
+                </button>
+              </li>
+            )}
+            {isTeamLeader && (
+              <li className="nav-item" style={{ marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}>
+                <button
+                  onClick={() => { window.location.href = "/portal/leader"; }}
+                  style={{ color: "var(--accent-cyan)", fontWeight: "600" }}
+                >
+                  <span className="nav-icon"><FiGrid /></span> Management
                 </button>
               </li>
             )}
