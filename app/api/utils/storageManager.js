@@ -88,10 +88,10 @@ async function getSftpConfig() {
     host: process.env.WHM_SFTP_HOST,
     port: parseInt(process.env.WHM_SFTP_PORT || '22'),
     username: process.env.WHM_SFTP_USER,
-    readyTimeout: 30000,
-    retries: 3,
-    retry_factor: 2,
-    retry_min_delay: 2000,
+    readyTimeout: 10000,
+    retries: 1,
+    retry_factor: 1,
+    retry_min_delay: 1000,
     algorithms: {
       kex: [
         'curve25519-sha256',
@@ -215,6 +215,25 @@ export async function downloadFile(filename, subfolder = '') {
     subfolder = 'devicedesk/screenshots';
   }
 
+  // 1. FAST LOCAL CHECK FIRST: If file exists locally on disk, return it immediately without network delay
+  const targetDir = subfolder 
+    ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''))
+    : join(process.cwd(), 'uploads');
+  const localFilePath = join(targetDir, safeFilename);
+
+  try {
+    return await fs.readFile(localFilePath);
+  } catch (e) {
+    // Try root public/uploads/ or uploads/
+    try {
+      const rootPath = join(process.cwd(), 'public', 'uploads', safeFilename);
+      return await fs.readFile(rootPath);
+    } catch (errRoot) {
+      // Not found locally, proceed to remote SFTP if configured
+    }
+  }
+
+  // 2. REMOTE SFTP CHECK (only if configured and file is not found locally)
   if (provider === 'sftp') {
     const sftp = new Client();
     try {
@@ -256,33 +275,18 @@ export async function downloadFile(filename, subfolder = '') {
         }
       }
 
-      if (!fileExists) {
-        throw new Error(`File '${safeFilename}' not found on remote SFTP storage.`);
+      if (fileExists) {
+        const fileBuffer = await sftp.get(remoteFilePath);
+        return fileBuffer;
       }
-
-      const fileBuffer = await sftp.get(remoteFilePath);
-      return fileBuffer;
     } catch (sftpErr) {
       console.warn(`SFTP download notice for "${safeFilename}":`, sftpErr.message);
-      // Fall through to local storage fallback
     } finally {
       try { await sftp.end(); } catch (e) {}
     }
   }
 
-  // Local storage fallback (applies if provider !== 'sftp' or if SFTP failed)
-  const targetDir = subfolder 
-    ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''))
-    : join(process.cwd(), 'uploads');
-    
-  const localFilePath = join(targetDir, safeFilename);
-  try {
-    return await fs.readFile(localFilePath);
-  } catch (err) {
-    // Fallback to public/uploads/ or uploads/ root
-    const rootPath = join(process.cwd(), 'public', 'uploads', safeFilename);
-    return await fs.readFile(rootPath);
-  }
+  throw new Error(`File '${safeFilename}' could not be found locally or on remote storage.`);
 }
 
 /**
