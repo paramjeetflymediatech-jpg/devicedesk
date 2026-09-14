@@ -88,14 +88,47 @@ async function getSftpConfig() {
     host: process.env.WHM_SFTP_HOST,
     port: parseInt(process.env.WHM_SFTP_PORT || '22'),
     username: process.env.WHM_SFTP_USER,
-    readyTimeout: 15000,
-    retries: 2,
+    readyTimeout: 30000,
+    retries: 3,
     retry_factor: 2,
     retry_min_delay: 2000,
+    algorithms: {
+      kex: [
+        'curve25519-sha256',
+        'curve25519-sha256@libssh.org',
+        'ecdh-sha2-nistp256',
+        'ecdh-sha2-nistp384',
+        'ecdh-sha2-nistp521',
+        'diffie-hellman-group-exchange-sha256',
+        'diffie-hellman-group14-sha256',
+        'diffie-hellman-group14-sha1',
+        'diffie-hellman-group-exchange-sha1'
+      ],
+      cipher: [
+        'aes128-ctr',
+        'aes192-ctr',
+        'aes256-ctr',
+        'aes128-gcm',
+        'aes128-gcm@openssh.com',
+        'aes256-gcm',
+        'aes256-gcm@openssh.com',
+        'aes256-cbc',
+        'aes128-cbc'
+      ],
+      serverHostKey: [
+        'ssh-ed25519',
+        'ecdsa-sha2-nistp256',
+        'ecdsa-sha2-nistp384',
+        'ecdsa-sha2-nistp521',
+        'rsa-sha2-512',
+        'rsa-sha2-256',
+        'ssh-rsa'
+      ]
+    }
   };
 
   const keyPath = process.env.WHM_SFTP_KEY_PATH;
-  if (keyPath) {
+  if (keyPath && keyPath !== 'uploads' && keyPath.trim() !== '') {
     try {
       const stats = await fs.stat(keyPath);
       if (stats.isFile()) {
@@ -103,7 +136,7 @@ async function getSftpConfig() {
         return config;
       }
     } catch (err) {
-      console.warn(`WHM_SFTP_KEY_PATH file not found or unreadable ("${keyPath}"). Falling back to password auth.`);
+      // Fall back to password auth
     }
   }
 
