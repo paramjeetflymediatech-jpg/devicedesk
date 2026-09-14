@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 export async function POST(request) {
   try {
     const { identifier, password } = await request.json();
+    console.log(`[API /login] Login attempt for identifier: "${identifier}" at ${new Date().toISOString()}`);
 
     if (!identifier || !password) {
       return NextResponse.json({ success: false, message: 'Email/name and password are required.' }, { status: 400 });
@@ -20,13 +21,13 @@ export async function POST(request) {
 
     const db = await getDbConnection();
 
-    // Fetch by email OR name — do NOT compare password in SQL; use bcrypt below
+    // Fetch by email OR name OR id — do NOT compare password in SQL; use bcrypt below
     const [rows] = await db.execute(
       `SELECT id, name, email, password, role, department, ticketLimit, status
        FROM employees
-       WHERE LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?)
+       WHERE LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)
        LIMIT 1`,
-      [identifier.toLowerCase().trim(), identifier.toLowerCase().trim()]
+      [identifier.toLowerCase().trim(), identifier.toLowerCase().trim(), identifier.toLowerCase().trim()]
     );
 
     if (rows.length === 0) {
@@ -43,8 +44,16 @@ export async function POST(request) {
     let passwordMatch = false;
     const pepper = process.env.PASSWORD_PEPPER || 'devicedesk_secure_pepper_key_2026';
     if (storedPassword.startsWith('$2')) {
-      // Hashed — use bcrypt.compare with secret key
+      // 1. Try with configured pepper
       passwordMatch = await bcrypt.compare(password + pepper, storedPassword);
+      // 2. Try without pepper (in case hashed directly)
+      if (!passwordMatch) {
+        passwordMatch = await bcrypt.compare(password, storedPassword);
+      }
+      // 3. Try with default fallback pepper
+      if (!passwordMatch && pepper !== 'devicedesk_secure_pepper_key_2026') {
+        passwordMatch = await bcrypt.compare(password + 'devicedesk_secure_pepper_key_2026', storedPassword);
+      }
     } else {
       // Legacy plain-text fallback
       passwordMatch = storedPassword === password;
