@@ -14,9 +14,16 @@ export class Employee {
     await conn.beginTransaction();
     const pepper = process.env.PASSWORD_PEPPER || 'devicedesk_secure_pepper_key_2026';
     try {
+      // Preserve existing passwords since the client API now strips them
+      const [existingRows] = await conn.execute('SELECT id, password FROM employees');
+      const passMap = {};
+      for (const row of existingRows) {
+        passMap[row.id] = row.password;
+      }
+
       await conn.execute('DELETE FROM employees');
       for (const e of employees) {
-        let passwordToSave = e.password || null;
+        let passwordToSave = e.password || passMap[e.id] || null;
 
         // If password is plain text (not starting with $2a$ or $2b$), hash it with bcrypt!
         if (passwordToSave && !passwordToSave.startsWith('$2a$') && !passwordToSave.startsWith('$2b$')) {

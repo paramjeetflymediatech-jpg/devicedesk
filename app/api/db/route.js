@@ -15,13 +15,18 @@ export async function GET() {
     // Ensure DB connection is active and tables are initialized
     await getDbConnection();
 
-    const employees          = await Employee.getAll();
+    const employeesRaw       = await Employee.getAll();
     const systems            = await System.getAll();
     const tickets            = await Ticket.getAll();
     const assignment_history = await AssignmentHistory.getAll();
     const departments        = await Department.getAll();
     const sent_emails_raw    = await Email.getAll();
     const tasks              = await Task.getAll();
+
+    const employees = employeesRaw.map(e => {
+      const { password, ...safeEmp } = e;
+      return safeEmp;
+    });
 
     const sent_emails = sent_emails_raw.map(e => ({
       id:        e.id,
