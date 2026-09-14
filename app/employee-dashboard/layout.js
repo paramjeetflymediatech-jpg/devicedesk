@@ -17,10 +17,12 @@ import {
   FiMessageSquare,
   FiCheckSquare,
   FiUser,
+  FiUsers,
   FiLogOut,
   FiShield,
   FiCalendar,
-  FiTrash2
+  FiTrash2,
+  FiActivity
 } from "react-icons/fi";
 
 export default function EmployeeLayout({ children }) {
@@ -105,6 +107,7 @@ export default function EmployeeLayout({ children }) {
 
   const showITSupportDesk = isITDepartment;
   const isTeamLeader = dbRoleStr === 'dept team leader';
+  const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 
   // Auth check
   useEffect(() => {
@@ -242,11 +245,56 @@ export default function EmployeeLayout({ children }) {
               <li className="nav-item" style={{ marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}>
                 <button
                   onClick={() => { window.location.href = "/portal/leader"; }}
-                  style={{ color: "var(--accent-cyan)", fontWeight: "600" }}
+                  style={{ color: "var(--accent-cyan)", fontWeight: "600", background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', padding: '10px 14px' }}
                 >
                   <span className="nav-icon"><FiGrid /></span> Management
                 </button>
               </li>
+            )}
+            {isHRUser && (
+              <li className="nav-item" style={{ marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "12px", paddingBottom: "12px" }}>
+                <div style={{ padding: '0 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>HR Mode</span>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={pathname.includes('/hr-')} onChange={(e) => { window.location.href = e.target.checked ? "/employee-dashboard/hr-attendance" : "/employee-dashboard"; }} />
+                      <div style={{ width: '36px', height: '20px', background: pathname.includes('/hr-') ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255,255,255,0.1)', borderRadius: '20px', border: pathname.includes('/hr-') ? '1px solid var(--accent-cyan)' : '1px solid var(--glass-border)', position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: '2px', left: pathname.includes('/hr-') ? '18px' : '3px', width: '14px', height: '14px', borderRadius: '50%', background: pathname.includes('/hr-') ? 'var(--accent-cyan)' : 'var(--text-secondary)', transition: 'all 0.3s' }}></div>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </li>
+            )}
+            {isHRUser && pathname.includes('/hr-') && (
+              <>
+                <li style={{ padding: '4px 14px 8px', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px' }}>HR Features</li>
+                <li className={`nav-item ${pathname === "/employee-dashboard/hr-recruitment" ? "active" : ""}`}>
+                  <Link href="/employee-dashboard/hr-recruitment" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                    <span className="nav-icon"><FiUsers /></span> Recruitment & Selection
+                  </Link>
+                </li>
+                <li className={`nav-item ${pathname === "/employee-dashboard/hr-tests" ? "active" : ""}`}>
+                  <Link href="/employee-dashboard/hr-tests" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                    <span className="nav-icon"><FiClipboard /></span> Test & Assign
+                  </Link>
+                </li>
+                <li className={`nav-item ${pathname === "/employee-dashboard/hr-attendance" ? "active" : ""}`}>
+                  <Link href="/employee-dashboard/hr-attendance" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                    <span className="nav-icon"><FiClock /></span> All Attendance
+                  </Link>
+                </li>
+                <li className={`nav-item ${pathname.includes("/hr-leaves") ? "active" : ""}`}>
+                  <Link href="/employee-dashboard/hr-leaves" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                    <span className="nav-icon"><FiCalendar /></span> All Leaves
+                  </Link>
+                </li>
+                <li className={`nav-item ${pathname === "/employee-dashboard/hr-activity-log" ? "active" : ""}`}>
+                  <Link href="/employee-dashboard/hr-activity-log" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                    <span className="nav-icon"><FiActivity /></span> Activity Logs
+                  </Link>
+                </li>
+              </>
             )}
           </ul>
 
@@ -335,6 +383,75 @@ export default function EmployeeLayout({ children }) {
             >
               <span style={{ display: "inline-flex" }}><FiShield /></span> IT Support Desk
             </button>
+          )}
+          {isTeamLeader && (
+            <button
+              className="mobile-drawer-item"
+              onClick={() => { window.location.href = "/portal/leader"; setMobileMenuOpen(false); }}
+              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", color: "var(--accent-cyan)", fontWeight: "600", marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px", background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              <span style={{ display: "inline-flex" }}><FiGrid /></span> Management
+            </button>
+          )}
+          {isHRUser && (
+            <div style={{ marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "12px" }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 12px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>HR Mode</span>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={pathname.includes('/hr-')} onChange={(e) => { window.location.href = e.target.checked ? "/employee-dashboard/hr-attendance" : "/employee-dashboard"; }} />
+                    <div style={{ width: '36px', height: '20px', background: pathname.includes('/hr-') ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255,255,255,0.1)', borderRadius: '20px', border: pathname.includes('/hr-') ? '1px solid var(--accent-cyan)' : '1px solid var(--glass-border)', position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: '2px', left: pathname.includes('/hr-') ? '18px' : '3px', width: '14px', height: '14px', borderRadius: '50%', background: pathname.includes('/hr-') ? 'var(--accent-cyan)' : 'var(--text-secondary)', transition: 'all 0.3s' }}></div>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+          {isHRUser && pathname.includes('/hr-') && (
+            <>
+              <div style={{ padding: '16px 14px 8px', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px' }}>HR Features</div>
+              <Link
+                href="/employee-dashboard/hr-recruitment"
+                className={`mobile-drawer-item ${pathname === "/employee-dashboard/hr-recruitment" ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiUsers /> Recruitment & Selection</span>
+              </Link>
+              <Link
+                href="/employee-dashboard/hr-tests"
+                className={`mobile-drawer-item ${pathname === "/employee-dashboard/hr-tests" ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiClipboard /> Test & Assign</span>
+              </Link>
+              <Link
+                href="/employee-dashboard/hr-attendance"
+                className={`mobile-drawer-item ${pathname === "/employee-dashboard/hr-attendance" ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiClock /> All Attendance</span>
+              </Link>
+              <Link
+                href="/employee-dashboard/hr-leaves"
+                className={`mobile-drawer-item ${pathname.includes("/hr-leaves") ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiCalendar /> All Leaves</span>
+              </Link>
+              <Link
+                href="/employee-dashboard/hr-activity-log"
+                className={`mobile-drawer-item ${pathname === "/employee-dashboard/hr-activity-log" ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiActivity /> Activity Logs</span>
+              </Link>
+            </>
           )}
         </nav>
         <div className="mobile-drawer-footer" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
