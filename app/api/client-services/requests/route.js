@@ -5,13 +5,20 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get('clientId');
-    if (!clientId) return NextResponse.json({ success: false, error: 'clientId required' }, { status: 400 });
 
     const db = await getDbConnection();
-    const [rows] = await db.query(
-      `SELECT * FROM service_requests WHERE clientId = ? ORDER BY created_at DESC`,
-      [clientId]
-    );
+    let rows;
+
+    if (clientId) {
+      [rows] = await db.query(
+        `SELECT * FROM service_requests WHERE clientId = ? ORDER BY created_at DESC`,
+        [clientId]
+      );
+    } else {
+      [rows] = await db.query(
+        `SELECT * FROM service_requests ORDER BY created_at DESC`
+      );
+    }
 
     return NextResponse.json({ success: true, data: rows });
   } catch (err) {

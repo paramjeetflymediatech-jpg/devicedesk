@@ -1,41 +1,51 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiArrowRight, FiActivity, FiClock, FiTrendingUp } from 'react-icons/fi';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiArrowRight, FiActivity, FiClock, FiTrendingUp, FiUser, FiMapPin, FiPhone, FiLink, FiSave } from 'react-icons/fi';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const myClientId = 'emp_demo_client_1789113315702'; // Mock ID
+  const myClientId = 'emp_1789113315702'; // Mock ID
   
   // Data States
   const [projects, setProjects] = useState([]);
   const [seoReports, setSeoReports] = useState([]);
   const [adsData, setAdsData] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [clientDetails, setClientDetails] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAllData = async () => {
-      try {
-        const [projRes, seoRes, adsRes, reqRes] = await Promise.all([
-          fetch("/api/projects").catch(() => null),
-          fetch(`/api/client-services/seo?clientId=${myClientId}`).catch(() => null),
-          fetch(`/api/client-services/ads?clientId=${myClientId}`).catch(() => null),
-          fetch(`/api/client-services/requests?clientId=${myClientId}`).catch(() => null)
-        ]);
-
-        if (projRes) { const d = await projRes.json(); if(d.success) setProjects(d.data || []); }
-        if (seoRes) { const d = await seoRes.json(); if(d.success) setSeoReports(d.data || []); }
-        if (adsRes) { const d = await adsRes.json(); if(d.success) setAdsData(d.data || []); }
-        if (reqRes) { const d = await reqRes.json(); if(d.success) setRequests(d.data || []); }
-      } catch (err) {
-        console.error("Dashboard fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchAllData();
   }, []);
+
+  const fetchAllData = async () => {
+    setLoading(true);
+    try {
+      const [projRes, seoRes, adsRes, reqRes, clientRes] = await Promise.all([
+        fetch("/api/projects").catch(() => null),
+        fetch(`/api/client-services/seo?clientId=${myClientId}`).catch(() => null),
+        fetch(`/api/client-services/ads?clientId=${myClientId}`).catch(() => null),
+        fetch(`/api/client-services/requests?clientId=${myClientId}`).catch(() => null),
+        fetch(`/api/client-details?clientId=${myClientId}`).catch(() => null)
+      ]);
+
+      if (projRes) { const d = await projRes.json(); if(d.success) setProjects(d.data || []); }
+      if (seoRes) { const d = await seoRes.json(); if(d.success) setSeoReports(d.data || []); }
+      if (adsRes) { const d = await adsRes.json(); if(d.success) setAdsData(d.data || []); }
+      if (reqRes) { const d = await reqRes.json(); if(d.success) setRequests(d.data || []); }
+      if (clientRes) { 
+        const d = await clientRes.json(); 
+        if(d.success && d.data) {
+          setClientDetails(d.data);
+        }
+      }
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const totalAdBudget = adsData.reduce((acc, ad) => acc + parseFloat(ad.total_budget || 0), 0);
   const totalAdSpent = adsData.reduce((acc, ad) => acc + parseFloat(ad.spent_amount || 0), 0);
@@ -56,7 +66,7 @@ export default function DashboardPage() {
       
       <nav className="flex-1 p-4 flex flex-col space-y-2 overflow-y-auto">
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2 px-3">Main</div>
-        <button onClick={() => window.location.href = '/portal/client/dashboard'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-indigo-50 text-indigo-700">
+<button onClick={() => window.location.href = '/portal/client/dashboard'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-indigo-50 text-indigo-700">
           <FiGrid size={20} /><span>Dashboard</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -87,7 +97,14 @@ export default function DashboardPage() {
         <button onClick={() => window.location.href = '/portal/client/billing'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiCreditCard size={20} /><span>Billing</span>
         </button>
-      </nav>
+      
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
+
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
+        <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiUser size={20} /><span>Profile Settings</span>
+        </button>
+                    </nav>
       
       <div className="p-4 border-t border-gray-100">
         <button onClick={() => window.location.href = '/login'} className="w-full text-center p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors">
@@ -197,7 +214,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Two Column Layout for Details */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
                 
                 {/* Recent Service Requests */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">

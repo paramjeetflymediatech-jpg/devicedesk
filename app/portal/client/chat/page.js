@@ -1,11 +1,34 @@
 'use client';
-import { useState } from 'react';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3 } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3, FiUser } from 'react-icons/fi';
 import ProjectChat from '../../../components/ProjectChat';
 
 export default function ProjectChatPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const myClientId = 'emp_demo_client_1789113315702'; // Mock ID
+  const myClientId = 'emp_1789113315702'; // Mock ID
+
+  // Department State
+  const [departments, setDepartments] = useState([]);
+  const [selectedDeptId, setSelectedDeptId] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchDepartments() {
+      try {
+        const res = await fetch('/api/departments');
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          setDepartments(data.data);
+          setSelectedDeptId(data.data[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to fetch departments", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDepartments();
+  }, []);
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
@@ -52,6 +75,11 @@ export default function ProjectChatPage() {
         <button onClick={() => window.location.href = '/portal/client/billing'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiCreditCard size={20} /><span>Billing</span>
         </button>
+
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
+        <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiUser size={20} /><span>Profile Settings</span>
+        </button>
       </nav>
       
       <div className="p-4 border-t border-gray-100">
@@ -96,15 +124,48 @@ export default function ProjectChatPage() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 w-full max-w-7xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-0 md:p-2 min-h-[500px] h-[calc(100vh-200px)] animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden flex flex-col w-full">
-            <ProjectChat 
-              projectId="proj_mock_1" 
-              departmentId="dept_mock_1" 
-              currentUserId={myClientId} 
-              currentUserName="Demo Client" 
-            />
-          </div>
+        <main className="flex-1 p-4 md:p-8 w-full max-w-7xl mx-auto flex flex-col">
+          {loading ? (
+             <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+             </div>
+          ) : (
+            <>
+              {/* Department Tabs */}
+              <div className="flex overflow-x-auto pb-4 mb-4 gap-2 scrollbar-hide">
+                {departments.map((dept) => (
+                  <button
+                    key={dept.id}
+                    onClick={() => setSelectedDeptId(dept.id)}
+                    className={`whitespace-nowrap px-6 py-3 rounded-full font-semibold transition-all shadow-sm ${
+                      selectedDeptId === dept.id
+                        ? 'bg-indigo-600 text-white shadow-indigo-200'
+                        : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 border border-gray-200'
+                    }`}
+                  >
+                    {dept.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Chat Container */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-0 md:p-2 flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden flex flex-col w-full">
+                {selectedDeptId ? (
+                  <ProjectChat 
+                    key={selectedDeptId} // Force remount on department change
+                    projectId="proj_mock_1" 
+                    departmentId={selectedDeptId} 
+                    currentUserId={myClientId} 
+                    currentUserName="Demo Client" 
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    No departments found to chat with.
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </main>
       </div>
     </div>

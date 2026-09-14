@@ -88,6 +88,7 @@ async function getSftpConfig() {
     host: process.env.WHM_SFTP_HOST,
     port: parseInt(process.env.WHM_SFTP_PORT || '22'),
     username: process.env.WHM_SFTP_USER,
+    readyTimeout: 5000,
   };
 
   const keyPath = process.env.WHM_SFTP_KEY_PATH;
@@ -225,23 +226,26 @@ export async function downloadFile(filename, subfolder = '') {
 
       const fileBuffer = await sftp.get(remoteFilePath);
       return fileBuffer;
+    } catch (sftpErr) {
+      console.warn(`SFTP download notice for "${safeFilename}":`, sftpErr.message);
+      // Fall through to local storage fallback
     } finally {
-      await sftp.end();
+      try { await sftp.end(); } catch (e) {}
     }
-  } else {
-    // Local storage fallback
-    const targetDir = subfolder 
-      ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''))
-      : join(process.cwd(), 'uploads');
-      
-    const localFilePath = join(targetDir, safeFilename);
-    try {
-      return await fs.readFile(localFilePath);
-    } catch (err) {
-      // Fallback to public/uploads/ or uploads/ root
-      const rootPath = join(process.cwd(), 'public', 'uploads', safeFilename);
-      return await fs.readFile(rootPath);
-    }
+  }
+
+  // Local storage fallback (applies if provider !== 'sftp' or if SFTP failed)
+  const targetDir = subfolder 
+    ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''))
+    : join(process.cwd(), 'uploads');
+    
+  const localFilePath = join(targetDir, safeFilename);
+  try {
+    return await fs.readFile(localFilePath);
+  } catch (err) {
+    // Fallback to public/uploads/ or uploads/ root
+    const rootPath = join(process.cwd(), 'public', 'uploads', safeFilename);
+    return await fs.readFile(rootPath);
   }
 }
 

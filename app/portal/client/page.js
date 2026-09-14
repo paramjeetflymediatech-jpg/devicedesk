@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiLayout, FiMessageSquare, FiFileText, FiClock, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3 } from 'react-icons/fi';
+import { FiLayout, FiMessageSquare, FiFileText, FiClock, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3 , FiUser} from 'react-icons/fi';
 import ProjectChat from '../../components/ProjectChat';
 
 export default function ClientDashboard() {
@@ -8,7 +8,7 @@ export default function ClientDashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Assuming client context
-  const myClientId = 'emp_demo_client_1789113315702'; // Mock ID
+  const myClientId = 'emp_1789113315702'; // Mock ID
 
   // Prevent scrolling when mobile menu is open
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function ClientDashboard() {
         <button onClick={() => window.location.href = '/portal/client/dashboard'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiGrid size={20} /><span>Dashboard</span>
         </button>
-        <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-indigo-50 text-indigo-700">
+<button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-indigo-50 text-indigo-700">
           <FiLayout size={20} /><span>Project Overview</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/chat'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -64,7 +64,14 @@ export default function ClientDashboard() {
         <button onClick={() => window.location.href = '/portal/client/billing'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiCreditCard size={20} /><span>Billing</span>
         </button>
-      </nav>
+      
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
+
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
+                <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiUser size={20} /><span>Profile Settings</span>
+        </button>
+            </nav>
       
       <div className="p-4 border-t border-gray-100">
         <button 

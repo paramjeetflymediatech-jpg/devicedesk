@@ -59,9 +59,9 @@ export default function LoginPage() {
           router.push('/portal/client');
         } else if (dbRoleLower === 'marketing') {
           router.push('/portal/marketing');
-        } else if (dbRoleLower === 'dept_team_leader') {
-          router.push('/portal/leader');
-        } else if (dbRoleLower === 'dept_team_member') {
+        } else if (dbRoleLower === 'dept team leader') {
+          router.push('/employee-dashboard');
+        } else if (dbRoleLower === 'team member') {
           router.push('/portal/member');
         } else if (isRootAdmin) {
           router.push('/');
