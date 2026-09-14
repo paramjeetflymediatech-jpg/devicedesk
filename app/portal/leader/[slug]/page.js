@@ -182,11 +182,7 @@ export default function TeamLeaderSlugPortal() {
                   <div>
                     <div style={{ fontWeight: 600 }}>{member.name}</div>
                     <Link
-<<<<<<< HEAD
-                      href={`/portal/employee/${memSlug}`}
-=======
                       href={`/portal/member/${memSlug}`}
->>>>>>> aman
                       style={{
                         fontSize: "0.72rem",
                         color: "var(--accent-purple, #a855f7)",
@@ -196,20 +192,12 @@ export default function TeamLeaderSlugPortal() {
                         gap: "3px",
                         marginTop: "2px"
                       }}
-<<<<<<< HEAD
-                      title="View Member"
-=======
                       title={`View ${member.name}'s Portal`}
->>>>>>> aman
                     >
                       <FiLink style={{ fontSize: "0.65rem" }} /> @{memSlug}
                     </Link>
                   </div>
-<<<<<<< HEAD
                   <span className="role-badge" style={{ fontSize: "0.7rem" }}>
-=======
-                  <span className="status-tag inprogress" style={{ fontSize: "0.7rem" }}>
->>>>>>> aman
                     {member.role || "Member"}
                   </span>
                 </div>
@@ -262,11 +250,7 @@ export default function TeamLeaderSlugPortal() {
                           {new Date(sub.created_at || Date.now()).toLocaleDateString()}
                         </td>
                         <td>
-<<<<<<< HEAD
-                          <span className="status-badge">
-=======
                           <span className={`status-tag ${sub.status === 'Approved' ? 'completed' : sub.status === 'Rejected' ? 'cancelled' : 'pending'}`}>
->>>>>>> aman
                             {sub.status || "Pending Approval"}
                           </span>
                         </td>
