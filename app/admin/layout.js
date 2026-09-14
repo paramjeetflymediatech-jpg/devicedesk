@@ -101,6 +101,17 @@ export default function AdminLayout({ children }) {
   }
 
   const empDetails = employees.find((e) => e.id === user?.id) || user || {};
+  const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
+  const deptStr = `${user?.department || empDetails?.department || ''}`.toLowerCase().trim();
+  
+  const isAdminUser = 
+    dbRoleStr === 'admin' || 
+    dbRoleStr === 'superadmin' || 
+    dbRoleStr === 'management' ||
+    user?.email === 'admin@yopmail.com' || 
+    user?.email === 'pravi@yopmail.com';
+
+  const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 
   const renderProfileAvatar = (emp, size = "24px") => {
     const getInitials = (name) => {
@@ -147,18 +158,19 @@ export default function AdminLayout({ children }) {
     );
   };
 
-  const navGroups = [
+  const allNavGroups = [
     {
       title: "Core Workspace",
       items: [
-        { name: "Dashboard", path: "/", icon: <FiGrid />, exact: true },
-        { name: "Chat Workspace", path: "/?tab=chat", icon: <FiMessageSquare />, badge: unreadChatCount },
-        { name: "Task Board", path: "/admin/tasks", icon: <FiCheckSquare /> },
-        { name: "Screenshots", path: "/?tab=screenshots", icon: <FiEye /> }
+        { name: "Dashboard", path: "/", icon: <FiGrid />, exact: true, adminOnly: true },
+        { name: "Chat Workspace", path: "/?tab=chat", icon: <FiMessageSquare />, badge: unreadChatCount, adminOnly: true },
+        { name: "Task Board", path: "/admin/tasks", icon: <FiCheckSquare />, adminOnly: true },
+        { name: "Screenshots", path: "/?tab=screenshots", icon: <FiEye />, adminOnly: true }
       ]
     },
     {
       title: "Client Management",
+      adminOnly: true,
       items: [
         { name: "Client Records", path: "/admin/client", icon: <FiUsers /> },
         { name: "Domain Portfolio", path: "/admin/domains", icon: <FiGlobe /> },
@@ -167,12 +179,14 @@ export default function AdminLayout({ children }) {
     },
     {
       title: "Marketing",
+      adminOnly: true,
       items: [
         { name: "Marketing Hub", path: "/admin/marketing", icon: <FiTrendingUp /> }
       ]
     },
     {
       title: "Operations & Projects",
+      adminOnly: true,
       items: [
         { name: "Projects", path: "/admin/projects", icon: <FiFolder /> },
         { name: "Work Submissions", path: "/admin/submissions", icon: <FiLayers /> }
@@ -181,14 +195,15 @@ export default function AdminLayout({ children }) {
     {
       title: "Organization & HR",
       items: [
-        { name: "Team Directory", path: "/admin/users", icon: <FiUser /> },
-        { name: "Departments", path: "/admin/departments", icon: <FiBriefcase /> },
+        { name: "Team Directory", path: "/admin/users", icon: <FiUser />, adminOnly: true },
+        { name: "Departments", path: "/admin/departments", icon: <FiBriefcase />, adminOnly: true },
         { name: "Attendance", path: "/admin/attendance", icon: <FiClock /> },
         { name: "Leave Requests", path: "/admin/leaves", icon: <FiCalendar />, badge: leaveCount }
       ]
     },
     {
       title: "IT & Infrastructure",
+      adminOnly: true,
       items: [
         { name: "Systems Inventory", path: "/admin/systems", icon: <FiServer /> },
         { name: "Raise Records", path: "/admin/tickets", icon: <FiTag /> }
@@ -197,11 +212,19 @@ export default function AdminLayout({ children }) {
     {
       title: "Security & Auditing",
       items: [
-        { name: "System Logs", path: "/admin/audit-logs", icon: <FiFileText /> },
+        { name: "System Logs", path: "/admin/audit-logs", icon: <FiFileText />, adminOnly: true },
         { name: "Activity Log", path: "/admin/activity-log", icon: <FiActivity /> }
       ]
     }
   ];
+
+  const navGroups = allNavGroups
+    .filter(group => !isHRUser || !group.adminOnly)
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => !isHRUser || !item.adminOnly)
+    }))
+    .filter(group => group.items.length > 0);
 
   const isNavActive = (item) => {
     if (item.exact) return pathname === "/admin" || pathname === "/";
@@ -419,9 +442,11 @@ export default function AdminLayout({ children }) {
                     <Link href="/admin/leave" className={`nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-colors ${pathname === '/admin/leave' ? 'bg-[var(--glass-bg)] border-l-4 border-[var(--accent-cyan)] text-[var(--accent-cyan)] shadow-[var(--neon-glow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]'}`}>
                       <FiCalendar size={20} /><span>Leaves</span>
                     </Link>
-                    <Link href="/admin/client" className={`nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-colors ${pathname === '/admin/client' ? 'bg-[var(--glass-bg)] border-l-4 border-[var(--accent-cyan)] text-[var(--accent-cyan)] shadow-[var(--neon-glow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]'}`}>
-                      <FiUsers size={20} /><span>Clients</span>
-                    </Link>
+                    {!isHRUser && (
+                      <Link href="/admin/client" className={`nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-colors ${pathname === '/admin/client' ? 'bg-[var(--glass-bg)] border-l-4 border-[var(--accent-cyan)] text-[var(--accent-cyan)] shadow-[var(--neon-glow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]'}`}>
+                        <FiUsers size={20} /><span>Clients</span>
+                      </Link>
+                    )}
                     <Link href="/admin/activity-log" className={`nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-colors ${pathname === '/admin/activity-log' ? 'bg-[var(--glass-bg)] border-l-4 border-[var(--accent-cyan)] text-[var(--accent-cyan)] shadow-[var(--neon-glow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]'}`}>
                       <FiActivity size={20} /><span>Activity Log</span>
                     </Link>

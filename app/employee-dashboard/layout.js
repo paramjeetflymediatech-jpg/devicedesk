@@ -20,7 +20,8 @@ import {
   FiLogOut,
   FiShield,
   FiCalendar,
-  FiTrash2
+  FiTrash2,
+  FiActivity
 } from "react-icons/fi";
 
 export default function EmployeeLayout({ children }) {
@@ -105,6 +106,7 @@ export default function EmployeeLayout({ children }) {
 
   const showITSupportDesk = isITDepartment;
   const isTeamLeader = dbRoleStr === 'dept team leader';
+  const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
 
   // Auth check
   useEffect(() => {
@@ -232,7 +234,7 @@ export default function EmployeeLayout({ children }) {
               <li className="nav-item" style={{ marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}>
                 <button
                   onClick={() => { window.location.href = "/"; }}
-                  style={{ color: "var(--accent-cyan)", fontWeight: "600" }}
+                  style={{ color: "var(--accent-cyan)", fontWeight: "600", background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', padding: '10px 14px' }}
                 >
                   <span className="nav-icon"><FiShield /></span> IT Support Desk
                 </button>
@@ -242,11 +244,31 @@ export default function EmployeeLayout({ children }) {
               <li className="nav-item" style={{ marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}>
                 <button
                   onClick={() => { window.location.href = "/portal/leader"; }}
-                  style={{ color: "var(--accent-cyan)", fontWeight: "600" }}
+                  style={{ color: "var(--accent-cyan)", fontWeight: "600", background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', padding: '10px 14px' }}
                 >
                   <span className="nav-icon"><FiGrid /></span> Management
                 </button>
               </li>
+            )}
+            {isHRUser && (
+              <>
+                <li style={{ padding: '16px 14px 8px', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px' }}>HR Portal</li>
+                <li className={`nav-item ${pathname === "/admin/attendance" ? "active" : ""}`}>
+                  <Link href="/admin/attendance" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                    <span className="nav-icon"><FiClock /></span> All Attendance
+                  </Link>
+                </li>
+                <li className={`nav-item ${pathname === "/admin/leaves" ? "active" : ""}`}>
+                  <Link href="/admin/leaves" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                    <span className="nav-icon"><FiCalendar /></span> All Leaves
+                  </Link>
+                </li>
+                <li className={`nav-item ${pathname === "/admin/activity-log" ? "active" : ""}`}>
+                  <Link href="/admin/activity-log" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                    <span className="nav-icon"><FiActivity /></span> Activity & Screenshots
+                  </Link>
+                </li>
+              </>
             )}
           </ul>
 
@@ -331,10 +353,48 @@ export default function EmployeeLayout({ children }) {
             <button
               className="mobile-drawer-item"
               onClick={() => { window.location.href = "/"; setMobileMenuOpen(false); }}
-              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", color: "var(--accent-cyan)", fontWeight: "600", marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}
+              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", color: "var(--accent-cyan)", fontWeight: "600", marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px", background: 'none', border: 'none', cursor: 'pointer' }}
             >
               <span style={{ display: "inline-flex" }}><FiShield /></span> IT Support Desk
             </button>
+          )}
+          {isTeamLeader && (
+            <button
+              className="mobile-drawer-item"
+              onClick={() => { window.location.href = "/portal/leader"; setMobileMenuOpen(false); }}
+              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", color: "var(--accent-cyan)", fontWeight: "600", marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px", background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              <span style={{ display: "inline-flex" }}><FiGrid /></span> Management
+            </button>
+          )}
+          {isHRUser && (
+            <>
+              <div style={{ padding: '16px 14px 8px', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px' }}>HR Portal</div>
+              <Link
+                href="/admin/attendance"
+                className={`mobile-drawer-item ${pathname === "/admin/attendance" ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiClock /> All Attendance</span>
+              </Link>
+              <Link
+                href="/admin/leaves"
+                className={`mobile-drawer-item ${pathname === "/admin/leaves" ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiCalendar /> All Leaves</span>
+              </Link>
+              <Link
+                href="/admin/activity-log"
+                className={`mobile-drawer-item ${pathname === "/admin/activity-log" ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiActivity /> Activity & Screenshots</span>
+              </Link>
+            </>
           )}
         </nav>
         <div className="mobile-drawer-footer" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
