@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NEXT_DISABLE_NATIVE_SWC=1 next dev --webpack",
-    "migrate": "node scripts/migrate.js",
     "update-passwords": "node scripts/update_employee_passwords.js",
+    "verify-passwords": "node scripts/verify_employee_passwords.js",
+    "test-sftp": "node scripts/test_sftp_connection.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

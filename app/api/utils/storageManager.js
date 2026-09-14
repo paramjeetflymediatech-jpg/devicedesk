@@ -79,70 +79,66 @@ export async function checkAuth(req) {
   }
 }
 
+function getEnvVariable(key, fallback = '') {
+  if (process.env[key] && process.env[key].trim() !== '') {
+    return process.env[key].trim();
+  }
+  try {
+    const fsSync = require('fs');
+    const pathSync = require('path');
+    const envPath = pathSync.resolve(process.cwd(), '.env.local');
+    if (fsSync.existsSync(envPath)) {
+      const content = fsSync.readFileSync(envPath, 'utf8');
+      const lines = content.split('\n');
+      for (const line of lines) {
+        const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+        if (match && match[1] === key) {
+          let val = match[2] || '';
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          return val.trim();
+        }
+      }
+    }
+  } catch (e) {}
+  return fallback;
+}
+
 /**
  * Safely resolves the SFTP configuration, using a private key file if it exists,
  * or falling back to password auth.
  */
 async function getSftpConfig() {
+  const host = getEnvVariable('WHM_SFTP_HOST', '2a00:1169:115:1590::');
+  const port = parseInt(getEnvVariable('WHM_SFTP_PORT', '22'));
+  const username = getEnvVariable('WHM_SFTP_USER', 'storage');
+  const password = getEnvVariable('WHM_SFTP_PASS', '1Sparsh@2@2@');
+
   const config = {
-    host: process.env.WHM_SFTP_HOST,
-    port: parseInt(process.env.WHM_SFTP_PORT || '22'),
-    username: process.env.WHM_SFTP_USER,
-    password: process.env.WHM_SFTP_PASS,
+    host,
+    port,
+    username,
+    password,
     tryKeyboard: true,
     readyTimeout: 15000,
     retries: 1,
     retry_factor: 1,
-    retry_min_delay: 1000,
-    algorithms: {
-      kex: [
-        'curve25519-sha256',
-        'curve25519-sha256@libssh.org',
-        'ecdh-sha2-nistp256',
-        'ecdh-sha2-nistp384',
-        'ecdh-sha2-nistp521',
-        'diffie-hellman-group-exchange-sha256',
-        'diffie-hellman-group14-sha256',
-        'diffie-hellman-group14-sha1',
-        'diffie-hellman-group-exchange-sha1'
-      ],
-      cipher: [
-        'aes128-ctr',
-        'aes192-ctr',
-        'aes256-ctr',
-        'aes128-gcm',
-        'aes128-gcm@openssh.com',
-        'aes256-gcm',
-        'aes256-gcm@openssh.com',
-        'aes256-cbc',
-        'aes128-cbc'
-      ],
-      serverHostKey: [
-        'ssh-ed25519',
-        'ecdsa-sha2-nistp256',
-        'ecdsa-sha2-nistp384',
-        'ecdsa-sha2-nistp521',
-        'rsa-sha2-512',
-        'rsa-sha2-256',
-        'ssh-rsa'
-      ]
-    }
+    retry_min_delay: 1000
   };
 
-  const keyPath = process.env.WHM_SFTP_KEY_PATH;
+  const keyPath = getEnvVariable('WHM_SFTP_KEY_PATH');
   if (keyPath && keyPath !== 'uploads' && keyPath.trim() !== '') {
     try {
       const stats = await fs.stat(keyPath);
       if (stats.isFile()) {
         config.privateKey = await fs.readFile(keyPath, 'utf8');
-        return config;
       }
     } catch (err) {
       // Fall back to password auth
     }
   }
 
-  config.password = process.env.WHM_SFTP_PASS;
   return config;
 }
 
@@ -155,7 +151,7 @@ export async function uploadFile(buffer, filename, subfolder = '') {
   }
 
   const uniqueFilename = sanitizeFilename(filename);
-  const provider = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim();
+  const provider = String(getEnvVariable('STORAGE_PROVIDER', 'local')).toLowerCase().trim();
 
   if (provider === 'sftp') {
     const sftp = new Client();
