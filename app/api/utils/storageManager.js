@@ -88,7 +88,10 @@ async function getSftpConfig() {
     host: process.env.WHM_SFTP_HOST,
     port: parseInt(process.env.WHM_SFTP_PORT || '22'),
     username: process.env.WHM_SFTP_USER,
-    readyTimeout: 5000,
+    readyTimeout: 15000,
+    retries: 2,
+    retry_factor: 2,
+    retry_min_delay: 2000,
   };
 
   const keyPath = process.env.WHM_SFTP_KEY_PATH;
