@@ -1,14 +1,17 @@
 import mysql from 'mysql2/promise';
 import bcrypt from 'bcryptjs';
 import { initialEmployees } from './app/data.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 async function run() {
   console.log("Restoring passwords...");
   const db = await mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'root',
-    database: 'system_tracking'
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '3306'),
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASS || 'root',
+    database: process.env.DB_NAME || 'system_tracking'
   });
 
   const pepper = process.env.PASSWORD_PEPPER || 'devicedesk_secure_pepper_key_2026';
