@@ -79,15 +79,41 @@ export async function checkAuth(req) {
   }
 }
 
+function getEnvVariable(key, fallback = '') {
+  if (process.env[key] && process.env[key].trim() !== '') {
+    return process.env[key].trim();
+  }
+  try {
+    const fsSync = require('fs');
+    const pathSync = require('path');
+    const envPath = pathSync.resolve(process.cwd(), '.env.local');
+    if (fsSync.existsSync(envPath)) {
+      const content = fsSync.readFileSync(envPath, 'utf8');
+      const lines = content.split('\n');
+      for (const line of lines) {
+        const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+        if (match && match[1] === key) {
+          let val = match[2] || '';
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          return val.trim();
+        }
+      }
+    }
+  } catch (e) {}
+  return fallback;
+}
+
 /**
  * Safely resolves the SFTP configuration, using a private key file if it exists,
  * or falling back to password auth.
  */
 async function getSftpConfig() {
-  const host = (process.env.WHM_SFTP_HOST || '2a00:1169:115:1590::').trim();
-  const port = parseInt(process.env.WHM_SFTP_PORT || '22');
-  const username = (process.env.WHM_SFTP_USER || 'storage').trim();
-  const password = (process.env.WHM_SFTP_PASS || '1Sparsh@2@2@').trim();
+  const host = getEnvVariable('WHM_SFTP_HOST', '2a00:1169:115:1590::');
+  const port = parseInt(getEnvVariable('WHM_SFTP_PORT', '22'));
+  const username = getEnvVariable('WHM_SFTP_USER', 'storage');
+  const password = getEnvVariable('WHM_SFTP_PASS', '1Sparsh@2@2@');
 
   const config = {
     host,
@@ -101,7 +127,7 @@ async function getSftpConfig() {
     retry_min_delay: 1000
   };
 
-  const keyPath = process.env.WHM_SFTP_KEY_PATH;
+  const keyPath = getEnvVariable('WHM_SFTP_KEY_PATH');
   if (keyPath && keyPath !== 'uploads' && keyPath.trim() !== '') {
     try {
       const stats = await fs.stat(keyPath);
@@ -125,7 +151,7 @@ export async function uploadFile(buffer, filename, subfolder = '') {
   }
 
   const uniqueFilename = sanitizeFilename(filename);
-  const provider = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim();
+  const provider = String(getEnvVariable('STORAGE_PROVIDER', 'local')).toLowerCase().trim();
 
   if (provider === 'sftp') {
     const sftp = new Client();
