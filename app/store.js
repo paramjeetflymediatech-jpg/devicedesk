@@ -167,11 +167,6 @@ export function getEmployees() {
       e.email = firstName + '@devicedesk.com';
       modified = true;
     }
-    if (!e.password) {
-      const firstName = e.name ? e.name.split(' ')[0].toLowerCase() : 'employee';
-      e.password = firstName + '123';
-      modified = true;
-    }
     if (e.ticketLimit === undefined) {
       e.ticketLimit = 5;
       modified = true;
