@@ -45,7 +45,8 @@ export default function LoginPage() {
           dbRoleLower === 'executive' ||
           dbRoleLower === 'superadmin' ||
           emailLower === 'admin@yopmail.com' ||
-          emailLower === 'pravi@yopmail.com';
+          emailLower === 'pravi@yopmail.com' ||
+          emailLower === 'admin@devicedesk.com';
 
         // IT Support staff (only non-Admin IT personnel)
         const isITSupport = !isRootAdmin && (
@@ -59,10 +60,6 @@ export default function LoginPage() {
           router.push('/portal/client');
         } else if (dbRoleLower === 'marketing') {
           router.push('/portal/marketing');
-        } else if (dbRoleLower === 'dept team leader') {
-          router.push('/employee-dashboard');
-        } else if (dbRoleLower === 'team member') {
-          router.push('/portal/member');
         } else if (isRootAdmin) {
           router.push('/');
         } else {

@@ -20,7 +20,7 @@ export default function AdminAttendancePage() {
       const res = await fetch("/api/attendance/list?status=ALL&month=2026-09");
       const data = await res.json();
       if (data.success) {
-        setAttendance(data.data || []);
+        setAttendance(data.records || []);
       }
     } catch (e) {
       console.error(e);

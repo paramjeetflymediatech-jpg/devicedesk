@@ -20,7 +20,7 @@ export default function AdminLeavesPage() {
       const res = await fetch("/api/leave/list?status=ALL");
       const data = await res.json();
       if (data.success) {
-        setLeaves(data.data || []);
+        setLeaves(data.requests || []);
       }
     } catch (e) {
       console.error(e);
