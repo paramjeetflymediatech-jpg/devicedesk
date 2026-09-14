@@ -3,12 +3,15 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FiBriefcase, FiLink, FiArrowLeft, FiPlus } from 'react-icons/fi';
 import { getDepartmentSlug } from '../../utils/slugUtils.js';
+import Pagination from '../../components/Pagination.js';
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     fetchDepartments();
@@ -48,6 +51,10 @@ export default function DepartmentsPage() {
     }
     setLoading(false);
   };
+
+  const totalPages = Math.ceil(departments.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedDepartments = departments.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)', padding: '2rem' }}>
@@ -128,7 +135,7 @@ export default function DepartmentsPage() {
               </tr>
             </thead>
             <tbody>
-              {departments.map((dept) => {
+              {paginatedDepartments.map((dept) => {
                 const deptSlug = getDepartmentSlug(dept.name);
 
                 return (
@@ -178,6 +185,17 @@ export default function DepartmentsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={safeCurrentPage}
+          totalPages={totalPages}
+          totalItems={departments.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => { setPageSize(newSize); setCurrentPage(1); }}
+          itemName="departments"
+        />
       </div>
     </div>
   );

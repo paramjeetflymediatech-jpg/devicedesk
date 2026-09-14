@@ -7,6 +7,8 @@ import { getEmployees, getTasks, getDepartments } from "../../../store.js";
 import { findEmployeeBySlug, getEmployeeSlug } from "../../../utils/slugUtils.js";
 import { FiUser, FiArrowLeft, FiCheckCircle, FiClock, FiFileText, FiUsers, FiLink, FiCheck, FiX, FiLayers } from "react-icons/fi";
 
+import Pagination from "../../../components/Pagination";
+
 export default function TeamLeaderSlugPortal() {
   const params = useParams();
   const router = useRouter();
@@ -20,6 +22,8 @@ export default function TeamLeaderSlugPortal() {
   const [selectedSub, setSelectedSub] = useState(null);
   const [comment, setComment] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [subPage, setSubPage] = useState(1);
+  const [subPageSize, setSubPageSize] = useState(10);
 
   useEffect(() => {
     const allEmployees = getEmployees();
@@ -112,6 +116,9 @@ export default function TeamLeaderSlugPortal() {
   }
 
   const leaderSlug = getEmployeeSlug(leader);
+  const subTotalPages = Math.ceil(submissions.length / subPageSize) || 1;
+  const safeSubPage = Math.min(Math.max(1, subPage), subTotalPages);
+  const paginatedSubmissions = submissions.slice((safeSubPage - 1) * subPageSize, safeSubPage * subPageSize);
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-primary, #0f172a)", color: "var(--text-primary, #f8fafc)", padding: "2rem" }}>
@@ -211,70 +218,85 @@ export default function TeamLeaderSlugPortal() {
           {submissions.length === 0 ? (
             <p style={{ color: "var(--text-muted, #64748b)" }}>No work submissions logged yet.</p>
           ) : (
-            <div className="table-wrapper">
-              <table className="custom-table" style={{ width: "100%" }}>
-                <thead>
-                  <tr>
-                    <th>Task / Project</th>
-                    <th>Submitted By</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {submissions.map((sub) => {
-                    const submitter = departmentMembers.find((m) => m.id === sub.submitted_by) || { name: sub.submitted_by || "Member" };
-                    const subSlug = getEmployeeSlug(submitter);
+            <>
+              <div className="table-wrapper">
+                <table className="custom-table" style={{ width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th>Task / Project</th>
+                      <th>Submitted By</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedSubmissions.map((sub) => {
+                      const submitter = departmentMembers.find((m) => m.id === sub.submitted_by) || { name: sub.submitted_by || "Member" };
+                      const subSlug = getEmployeeSlug(submitter);
 
-                    return (
-                      <tr key={sub.id}>
-                        <td style={{ fontWeight: 600 }}>
-                          <div>{sub.task_id || "General Task"}</div>
-                          <span style={{ fontSize: "0.75rem", color: "var(--text-secondary, #94a3b8)" }}>
-                            {sub.description || "No description"}
-                          </span>
-                        </td>
-                        <td>
-                          <div>{submitter.name}</div>
-                          {submitter.id && (
-                            <span style={{ fontSize: "0.72rem", color: "var(--accent-purple, #a855f7)" }}>
-                              @{subSlug}
+                      return (
+                        <tr key={sub.id}>
+                          <td style={{ fontWeight: 600 }}>
+                            <div>{sub.task_id || "General Task"}</div>
+                            <span style={{ fontSize: "0.75rem", color: "var(--text-secondary, #94a3b8)" }}>
+                              {sub.description || "No description"}
                             </span>
-                          )}
-                        </td>
-                        <td style={{ fontSize: "0.85rem", color: "var(--text-secondary, #94a3b8)" }}>
-                          {new Date(sub.created_at || Date.now()).toLocaleDateString()}
-                        </td>
-                        <td>
-                          <span className={`status-tag ${sub.status === 'Approved' ? 'completed' : sub.status === 'Rejected' ? 'cancelled' : 'pending'}`}>
-                            {sub.status || "Pending Approval"}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: "6px" }}>
-                            <button
-                              onClick={() => { setSelectedSub(sub); handleUpdateStatus("Approved"); }}
-                              className="btn-action start"
-                              style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                            >
-                              <FiCheck /> Approve
-                            </button>
-                            <button
-                              onClick={() => { setSelectedSub(sub); handleUpdateStatus("Rejected"); }}
-                              className="btn-action resolve"
-                              style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                            >
-                              <FiX /> Reject
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                          <td>
+                            <div>{submitter.name}</div>
+                            {submitter.id && (
+                              <span style={{ fontSize: "0.72rem", color: "var(--accent-purple, #a855f7)" }}>
+                                @{subSlug}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ fontSize: "0.85rem", color: "var(--text-secondary, #94a3b8)" }}>
+                            {new Date(sub.created_at || Date.now()).toLocaleDateString()}
+                          </td>
+                          <td>
+                            <span className={`status-tag ${sub.status === 'Approved' ? 'completed' : sub.status === 'Rejected' ? 'cancelled' : 'pending'}`}>
+                              {sub.status || "Pending Approval"}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: "flex", gap: "6px" }}>
+                              <button
+                                onClick={() => { setSelectedSub(sub); handleUpdateStatus("Approved"); }}
+                                className="btn-action start"
+                                style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                              >
+                                <FiCheck /> Approve
+                              </button>
+                              <button
+                                onClick={() => { setSelectedSub(sub); handleUpdateStatus("Rejected"); }}
+                                className="btn-action resolve"
+                                style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                              >
+                                <FiX /> Reject
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <Pagination
+                currentPage={safeSubPage}
+                totalPages={subTotalPages}
+                totalItems={submissions.length}
+                pageSize={subPageSize}
+                onPageChange={setSubPage}
+                onPageSizeChange={(newSize) => {
+                  setSubPageSize(newSize);
+                  setSubPage(1);
+                }}
+                itemName="submissions"
+              />
+            </>
           )}
         </div>
       </div>

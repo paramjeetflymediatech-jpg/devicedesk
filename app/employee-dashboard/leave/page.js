@@ -36,6 +36,7 @@ import {
   FiArrowRight,
   FiRotateCcw
 } from "react-icons/fi";
+import Pagination from "../../components/Pagination";
 
 function CustomRangeCalendar({ leaveFrom, leaveTo, onChange }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -404,6 +405,8 @@ export default function ApplyLeavePage() {
   const [leaveFilterStatus, setLeaveFilterStatus] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [leaveLoading, setLeaveLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(5);
 
   const fetchLeaveRequests = async () => {
     if (!user?.id) return;
@@ -557,6 +560,10 @@ export default function ApplyLeavePage() {
       req.toDate.includes(q)
     );
   });
+
+  const totalHistoryPages = Math.ceil(filteredHistory.length / historyPageSize) || 1;
+  const safeHistoryPage = Math.min(Math.max(1, historyPage), totalHistoryPages);
+  const paginatedHistory = filteredHistory.slice((safeHistoryPage - 1) * historyPageSize, safeHistoryPage * historyPageSize);
 
   return (
     <div className="page-container emp-container" style={{ overflowY: "auto", padding: "1rem" }}>
@@ -925,7 +932,7 @@ export default function ApplyLeavePage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-              {filteredHistory.map((req) => {
+              {paginatedHistory.map((req) => {
                 const isLongReason = req.reason && (req.reason.length > 90 || req.reason.includes("\n"));
                 const snippet = req.reason
                   ? req.reason.split("\n")[0].slice(0, 90) + (req.reason.length > 90 || req.reason.includes("\n") ? "..." : "")
@@ -1025,6 +1032,22 @@ export default function ApplyLeavePage() {
                   </div>
                 );
               })}
+
+              <div style={{ marginTop: "1rem" }}>
+                <Pagination
+                  currentPage={safeHistoryPage}
+                  totalPages={totalHistoryPages}
+                  totalItems={filteredHistory.length}
+                  pageSize={historyPageSize}
+                  pageSizeOptions={[5, 10, 20]}
+                  onPageChange={setHistoryPage}
+                  onPageSizeChange={(newSize) => {
+                    setHistoryPageSize(newSize);
+                    setHistoryPage(1);
+                  }}
+                  itemName="applications"
+                />
+              </div>
             </div>
           )}
         </div>

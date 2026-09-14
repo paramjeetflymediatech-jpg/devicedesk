@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FiBox, FiArrowLeft, FiPlus, FiTrash2, FiEdit2 } from 'react-icons/fi';
+import Pagination from '../../components/Pagination.js';
 
 export default function PackagesPage() {
   const [packages, setPackages] = useState([]);
@@ -12,6 +13,8 @@ export default function PackagesPage() {
   const [featuresText, setFeaturesText] = useState('');
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     fetchPackages();
@@ -99,6 +102,10 @@ export default function PackagesPage() {
     setBillingCycle('Monthly');
     setFeaturesText('');
   };
+
+  const totalPages = Math.ceil(packages.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedPackages = packages.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)', padding: '2rem' }}>
@@ -227,7 +234,7 @@ export default function PackagesPage() {
               </tr>
             </thead>
             <tbody>
-              {packages.map((pkg) => (
+              {paginatedPackages.map((pkg) => (
                 <tr key={pkg.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <td style={{ padding: '14px 16px' }}>
                     <div style={{ fontWeight: 600, color: 'var(--text-primary, #f8fafc)' }}>{pkg.name}</div>
@@ -267,6 +274,17 @@ export default function PackagesPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={safeCurrentPage}
+          totalPages={totalPages}
+          totalItems={packages.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => { setPageSize(newSize); setCurrentPage(1); }}
+          itemName="packages"
+        />
       </div>
     </div>
   );

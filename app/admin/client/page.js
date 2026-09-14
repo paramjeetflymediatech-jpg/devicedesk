@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FiUsers, FiArrowLeft, FiEdit2, FiTrash2, FiPlus, FiDownload, FiSearch, FiKey, FiCheck, FiX, FiLayout } from 'react-icons/fi';
+import Pagination from '../../components/Pagination.js';
 
 export default function ClientManagementPage() {
   const [clients, setClients] = useState([]);
@@ -184,6 +185,13 @@ export default function ClientManagementPage() {
     return matchesSearch && matchesStatus;
   }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const totalPages = Math.ceil(filteredClients.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedClients = filteredClients.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+
   return (
     <div style={{ minHeight: '100vh', padding: '2rem' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -231,14 +239,14 @@ export default function ClientManagementPage() {
               className="form-control"
               placeholder="Search clients by name or email..." 
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               style={{ paddingLeft: '36px' }}
             />
           </div>
           <select 
             className="form-control"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
             style={{ width: 'auto' }}
           >
             <option value="All">All Status</option>
@@ -269,7 +277,7 @@ export default function ClientManagementPage() {
                   <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No clients found.</td>
                 </tr>
               ) : (
-                filteredClients.map((client) => (
+                paginatedClients.map((client) => (
                   <tr key={client.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                     <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                       {new Date(client.created_at).toLocaleDateString()}
@@ -323,6 +331,17 @@ export default function ClientManagementPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={safeCurrentPage}
+          totalPages={totalPages}
+          totalItems={filteredClients.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => { setPageSize(newSize); setCurrentPage(1); }}
+          itemName="clients"
+        />
       </div>
 
       {/* Add Modal */}

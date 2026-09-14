@@ -1,14 +1,19 @@
 'use client';
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { FiCalendar, FiLink, FiArrowLeft, FiCheck, FiX } from "react-icons/fi";
+import { FiCalendar, FiLink, FiArrowLeft, FiCheck, FiX, FiSearch } from "react-icons/fi";
 import { getEmployees } from "../../store.js";
 import { getEmployeeSlug } from "../../utils/slugUtils.js";
+import Pagination from "../../components/Pagination.js";
 
 export default function AdminLeavesPage() {
   const [leaves, setLeaves] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     setEmployees(getEmployees());
@@ -29,10 +34,26 @@ export default function AdminLeavesPage() {
     }
   };
 
+  const filteredLeaves = leaves.filter((l) => {
+    const emp = employees.find((e) => e.id === l.employeeId || e.name === l.employeeName);
+    const empName = (l.employeeName || (emp ? emp.name : "")).toLowerCase();
+    const leaveType = (l.leaveType || "").toLowerCase();
+    const q = search.toLowerCase();
+
+    const matchesSearch = empName.includes(q) || leaveType.includes(q);
+    const matchesStatus = statusFilter === "ALL" || (l.status || "Pending").toUpperCase() === statusFilter.toUpperCase();
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const totalPages = Math.ceil(filteredLeaves.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedLeaves = filteredLeaves.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-primary, #0f172a)", color: "var(--text-primary, #f8fafc)", padding: "2rem" }}>
       <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <Link href="/admin" style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--accent-cyan, #06b6d4)", textDecoration: "none", fontSize: "0.85rem", marginBottom: "8px" }}>
               <FiArrowLeft /> Back to Admin Panel
@@ -44,6 +65,42 @@ export default function AdminLeavesPage() {
               Review staff leave requests and view leave history by user slug.
             </p>
           </div>
+        </div>
+
+        {/* Search & Filter */}
+        <div style={{ 
+          display: "flex", 
+          gap: "12px", 
+          marginBottom: "1.5rem", 
+          background: "rgba(255, 255, 255, 0.02)", 
+          padding: "1rem", 
+          borderRadius: "12px", 
+          border: "1px solid var(--glass-border, rgba(255, 255, 255, 0.08))",
+          flexWrap: "wrap",
+          alignItems: "center"
+        }}>
+          <div style={{ position: "relative", flex: "1", minWidth: "260px" }}>
+            <FiSearch style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted, #64748b)" }} />
+            <input 
+              type="text" 
+              className="form-control"
+              placeholder="Search by employee name or leave type..." 
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+              style={{ paddingLeft: "36px", width: "100%", height: "40px" }}
+            />
+          </div>
+          <select 
+            className="form-control"
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            style={{ minWidth: "140px", height: "40px" }}
+          >
+            <option value="ALL">All Status</option>
+            <option value="PENDING">Pending</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
         </div>
 
         <div className="table-wrapper" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border, rgba(255,255,255,0.1))", borderRadius: "16px", overflow: "hidden" }}>
@@ -60,7 +117,7 @@ export default function AdminLeavesPage() {
               </tr>
             </thead>
             <tbody>
-              {leaves.map((l) => {
+              {paginatedLeaves.map((l) => {
                 const emp = employees.find((e) => e.id === l.employeeId || e.name === l.employeeName);
                 const empSlug = emp ? getEmployeeSlug(emp) : l.employeeId;
 
@@ -105,16 +162,27 @@ export default function AdminLeavesPage() {
                   </tr>
                 );
               })}
-              {leaves.length === 0 && (
+              {filteredLeaves.length === 0 && (
                 <tr>
                   <td colSpan="7" style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted, #64748b)" }}>
-                    No leave requests found.
+                    {loading ? "Loading leave requests..." : "No leave requests found."}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={safeCurrentPage}
+          totalPages={totalPages}
+          totalItems={filteredLeaves.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => { setPageSize(newSize); setCurrentPage(1); }}
+          itemName="leave requests"
+        />
       </div>
     </div>
   );

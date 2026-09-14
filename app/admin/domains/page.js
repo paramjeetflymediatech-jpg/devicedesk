@@ -10,6 +10,7 @@ import {
 } from "react-icons/fi";
 import { getDomainSlug } from "../../utils/slugUtils.js";
 import DomainImportModal from "../../components/modals/DomainImportModal.js";
+import Pagination from "../../components/Pagination.js";
 
 export default function AdminDomainsPage() {
   const [domains, setDomains] = useState([]);
@@ -18,6 +19,8 @@ export default function AdminDomainsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -487,137 +490,159 @@ export default function AdminDomainsPage() {
       </div>
 
       {/* Domains Table */}
-      <div className="table-wrapper" style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: "16px", overflow: "hidden" }}>
-        <table className="custom-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "var(--bg-tertiary)", textAlign: "left" }}>
-              <th style={{ padding: "14px 16px" }}>Domain Name</th>
-              <th style={{ padding: "14px 16px" }}>Domain Slug</th>
-              <th style={{ padding: "14px 16px" }}>Client / Owner</th>
-              <th style={{ padding: "14px 16px" }}>Registrar</th>
-              <th style={{ padding: "14px 16px" }}>Payment Card</th>
-              <th style={{ padding: "14px 16px" }}>Expiry Date</th>
-              <th style={{ padding: "14px 16px" }}>Days Remaining</th>
-              <th style={{ padding: "14px 16px" }}>Status</th>
-              <th style={{ padding: "14px 16px", textAlign: "right" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {domains.map((dom) => {
-              const domSlug = getDomainSlug(dom);
-              const daysLeft = dom.days_left;
+        {/* Table Container */}
+        <div className="table-wrapper" style={{ background: "var(--bg-card)", border: "1px solid var(--glass-border)", borderRadius: "16px", overflow: "hidden" }}>
+          <table className="custom-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "var(--bg-tertiary)", textAlign: "left" }}>
+                <th style={{ padding: "14px 16px" }}>Domain Name</th>
+                <th style={{ padding: "14px 16px" }}>Domain Slug</th>
+                <th style={{ padding: "14px 16px" }}>Client / Owner</th>
+                <th style={{ padding: "14px 16px" }}>Registrar</th>
+                <th style={{ padding: "14px 16px" }}>Payment Card</th>
+                <th style={{ padding: "14px 16px" }}>Expiry Date</th>
+                <th style={{ padding: "14px 16px" }}>Days Remaining</th>
+                <th style={{ padding: "14px 16px" }}>Status</th>
+                <th style={{ padding: "14px 16px", textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const totalPages = Math.ceil(domains.length / pageSize) || 1;
+                const safeCurrentPage = Math.min(currentPage, totalPages);
+                const paginatedDomains = domains.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
-              return (
-                <tr key={dom.id} style={{ borderBottom: "1px solid var(--glass-border)" }}>
-                  <td style={{ padding: "14px 16px", fontWeight: 700 }}>
-                    <Link href={`/admin/domains/${domSlug}`} style={{ color: "var(--text-primary)", textDecoration: "none" }}>
-                      {dom.domain_name}
-                    </Link>
-                  </td>
-                  <td style={{ padding: "14px 16px" }}>
-                    <Link
-                      href={`/admin/domains/${domSlug}`}
-                      className="timer-badge"
-                      style={{
-                        fontSize: "0.72rem",
-                        color: "var(--accent-purple)",
-                        textDecoration: "none",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px"
-                      }}
-                    >
-                      <FiLink style={{ fontSize: "0.65rem" }} /> @{domSlug}
-                    </Link>
-                  </td>
-                  <td style={{ padding: "14px 16px" }}>
-                    <div>{dom.client_name || "Unassigned"}</div>
-                    {dom.client_email && (
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                        {dom.client_email}
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ padding: "14px 16px", fontSize: "0.85rem" }}>
-                    {dom.registrar || "GoDaddy"}
-                  </td>
-                  <td style={{ padding: "14px 16px", fontSize: "0.82rem" }}>
-                    {dom.card_details ? (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--accent-cyan)", fontWeight: 500 }}>
-                        <FiCreditCard /> {dom.card_details}
-                      </span>
-                    ) : (
-                      <span style={{ color: "var(--text-muted)" }}>—</span>
-                    )}
-                  </td>
-                  <td style={{ padding: "14px 16px", fontSize: "0.85rem", fontWeight: 600 }}>
-                    {dom.expiry_date}
-                  </td>
-                  <td style={{ padding: "14px 16px" }}>
-                    {daysLeft !== null ? (
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: "0.85rem",
-                          color: daysLeft < 0 ? "#ef4444" : daysLeft <= 30 ? "#f59e0b" : "#10b981"
-                        }}
-                      >
-                        {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft} days`}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td style={{ padding: "14px 16px" }}>
-                    <span
-                      className={`status-tag ${
-                        dom.status === "Active" ? "resolved" : dom.status === "Expiring Soon" ? "inprogress" : "open"
-                      }`}
-                      style={{ fontSize: "0.75rem" }}
-                    >
-                      {dom.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: "14px 16px", textAlign: "right" }}>
-                    <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
-                      <Link
-                        href={`/admin/domains/${domSlug}`}
-                        className="btn-action start"
-                        style={{ padding: "4px 8px", fontSize: "0.75rem", textDecoration: "none" }}
-                      >
-                        View &rarr;
-                      </Link>
-                      <button
-                        onClick={() => openEditModal(dom)}
-                        className="btn-action start"
-                        style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                        title="Edit Domain"
-                      >
-                        <FiEdit2 />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(dom.id, dom.domain_name)}
-                        className="btn-action resolve"
-                        style={{ padding: "4px 8px", fontSize: "0.75rem", color: "#ef4444" }}
-                        title="Delete Domain"
-                      >
-                        <FiTrash2 />
-                      </button>
-                    </div>
+                return (
+                  <>
+                    {paginatedDomains.map((dom) => {
+                      const domSlug = getDomainSlug(dom);
+                      const daysLeft = dom.days_left;
+
+                      return (
+                        <tr key={dom.id} style={{ borderBottom: "1px solid var(--glass-border)" }}>
+                          <td style={{ padding: "14px 16px", fontWeight: 700 }}>
+                            <Link href={`/admin/domains/${domSlug}`} style={{ color: "var(--text-primary)", textDecoration: "none" }}>
+                              {dom.domain_name}
+                            </Link>
+                          </td>
+                          <td style={{ padding: "14px 16px" }}>
+                            <Link
+                              href={`/admin/domains/${domSlug}`}
+                              className="timer-badge"
+                              style={{
+                                fontSize: "0.72rem",
+                                color: "var(--accent-purple)",
+                                textDecoration: "none",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px"
+                              }}
+                            >
+                              <FiLink style={{ fontSize: "0.65rem" }} /> @{domSlug}
+                            </Link>
+                          </td>
+                          <td style={{ padding: "14px 16px" }}>
+                            <div>{dom.client_name || "Unassigned"}</div>
+                            {dom.client_email && (
+                              <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                                {dom.client_email}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "14px 16px", fontSize: "0.85rem" }}>
+                            {dom.registrar || "GoDaddy"}
+                          </td>
+                          <td style={{ padding: "14px 16px", fontSize: "0.82rem" }}>
+                            {dom.card_details ? (
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--accent-cyan)", fontWeight: 500 }}>
+                                <FiCreditCard /> {dom.card_details}
+                              </span>
+                            ) : (
+                              <span style={{ color: "var(--text-muted)" }}>—</span>
+                            )}
+                          </td>
+                          <td style={{ padding: "14px 16px", fontSize: "0.85rem", fontWeight: 600 }}>
+                            {dom.expiry_date}
+                          </td>
+                          <td style={{ padding: "14px 16px" }}>
+                            {daysLeft !== null ? (
+                              <span
+                                style={{
+                                  fontWeight: 700,
+                                  fontSize: "0.85rem",
+                                  color: daysLeft < 0 ? "#ef4444" : daysLeft <= 30 ? "#f59e0b" : "#10b981"
+                                }}
+                              >
+                                {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft} days`}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td style={{ padding: "14px 16px" }}>
+                            <span
+                              className={`status-tag ${
+                                dom.status === "Active" ? "resolved" : dom.status === "Expiring Soon" ? "inprogress" : "open"
+                              }`}
+                              style={{ fontSize: "0.75rem" }}
+                            >
+                              {dom.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: "14px 16px", textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
+                              <Link
+                                href={`/admin/domains/${domSlug}`}
+                                className="btn-action start"
+                                style={{ padding: "4px 8px", fontSize: "0.75rem", textDecoration: "none" }}
+                              >
+                                View &rarr;
+                              </Link>
+                              <button
+                                onClick={() => openEditModal(dom)}
+                                className="btn-action start"
+                                style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                                title="Edit Domain"
+                              >
+                                <FiEdit2 />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(dom.id, dom.domain_name)}
+                                className="btn-action resolve"
+                                style={{ padding: "4px 8px", fontSize: "0.75rem", color: "#ef4444" }}
+                                title="Delete Domain"
+                              >
+                                <FiTrash2 />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </>
+                );
+              })()}
+              {domains.length === 0 && (
+                <tr>
+                  <td colSpan="9" style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
+                    {loading ? "Loading domain portfolio..." : "No domains found in the registry."}
                   </td>
                 </tr>
-              );
-            })}
-            {domains.length === 0 && (
-              <tr>
-                <td colSpan="9" style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
-                  {loading ? "Loading domain portfolio..." : "No domains found in the registry."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={Math.min(currentPage, Math.ceil(domains.length / pageSize) || 1)}
+          totalPages={Math.ceil(domains.length / pageSize) || 1}
+          totalItems={domains.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => { setPageSize(newSize); setCurrentPage(1); }}
+          itemName="domains"
+        />
 
       {/* ======================================================== */}
       {/* DOMAIN BULK IMPORT MODAL                                 */}

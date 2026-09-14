@@ -16,7 +16,8 @@ import {
   getAssignmentHistory,
   isSoundEnabled
 } from "../../store";
-import { FiCalendar, FiBarChart2, FiPlus, FiPlay, FiPause, FiCheckCircle, FiEye, FiEdit2, FiTrash2, FiPaperclip } from "react-icons/fi";
+import { FiCalendar, FiBarChart2, FiPlus, FiPlay, FiPause, FiCheckCircle, FiEye, FiEdit2, FiTrash2, FiPaperclip, FiSearch, FiFilter } from "react-icons/fi";
+import Pagination from "../../components/Pagination";
 
 export default function TaskBoardPage() {
   const { user } = useAuth();
@@ -26,6 +27,10 @@ export default function TaskBoardPage() {
   const [tickets, setTickets] = useState([]);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [now, setNow] = useState(Date.now());
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Performance report states
   const [showReportModal, setShowReportModal] = useState(false);
@@ -356,10 +361,26 @@ export default function TaskBoardPage() {
 
   const userTasks = tasks.filter((t) => t.assignedTo === user.id);
 
+  const filteredUserTasks = userTasks.filter((t) => {
+    const q = search.toLowerCase();
+    const title = String(t.title || "").toLowerCase();
+    const desc = String(t.description || "").toLowerCase();
+    const assignedBy = String(t.assignedByName || "").toLowerCase();
+    const matchSearch = title.includes(q) || desc.includes(q) || assignedBy.includes(q);
+    const matchStatus = statusFilter === "ALL" || t.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const totalPages = Math.ceil(filteredUserTasks.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedTasks = filteredUserTasks
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+
   return (
     <div className="page-container emp-container" style={{ overflowY: "auto" }}>
       <div className="container-card fade-in">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "var(--accent-cyan)", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
               <FiCalendar style={{ color: "var(--accent-cyan)" }} /> My Task Board
@@ -368,7 +389,7 @@ export default function TaskBoardPage() {
               Manage and track your assigned work in real-time
             </p>
           </div>
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <button
               className="btn-secondary"
               onClick={handleOpenReportModal}
@@ -399,8 +420,58 @@ export default function TaskBoardPage() {
           </div>
         </div>
 
+        {/* Search & Filter Bar */}
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", marginBottom: "1.25rem" }}>
+          <div style={{ position: "relative", flex: "1 1 200px" }}>
+            <FiSearch style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                width: "100%",
+                padding: "8px 10px 8px 32px",
+                borderRadius: "8px",
+                background: "var(--bg-card)",
+                border: "1px solid var(--glass-border)",
+                color: "var(--text-primary)",
+                fontSize: "0.85rem",
+                outline: "none"
+              }}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <FiFilter style={{ color: "var(--text-muted)" }} />
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "8px",
+                background: "var(--bg-card)",
+                border: "1px solid var(--glass-border)",
+                color: "var(--text-primary)",
+                outline: "none",
+                fontSize: "0.85rem"
+              }}
+            >
+              <option value="ALL">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+        </div>
+
         <div>
-          {userTasks.length === 0 ? (
+          {filteredUserTasks.length === 0 ? (
             <div
               style={{
                 textAlign: "center",
@@ -410,25 +481,26 @@ export default function TaskBoardPage() {
                 border: "1px dashed var(--glass-border)"
               }}
             >
-              <p style={{ color: "var(--text-muted)", margin: 0 }}>No tasks currently assigned to you.</p>
+              <p style={{ color: "var(--text-muted)", margin: 0 }}>
+                {search || statusFilter !== "ALL" ? "No tasks matching filter criteria." : "No tasks currently assigned to you."}
+              </p>
             </div>
           ) : (
-            <div className="table-wrapper">
-              <table className="custom-table">
-                <thead>
-                  <tr>
-                    <th>Task Title</th>
-                    <th>Description</th>
-                    <th>Assigned By</th>
-                    <th>Status</th>
-                    <th>Time Spent</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {userTasks
-                    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-                    .map((t) => {
+            <>
+              <div className="table-wrapper">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Task Title</th>
+                      <th>Description</th>
+                      <th>Assigned By</th>
+                      <th>Status</th>
+                      <th>Time Spent</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedTasks.map((t) => {
                       let displayDuration = t.totalDuration || 0;
                       if (t.status === "In Progress" && t.startedAt) {
                         const elapsed = Math.floor((now - new Date(t.startedAt).getTime()) / 1000);
@@ -584,9 +656,26 @@ export default function TaskBoardPage() {
                         </tr>
                       );
                     })}
-                </tbody>
-              </table>
-            </div>
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{ marginTop: "1rem" }}>
+                <Pagination
+                  currentPage={safeCurrentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredUserTasks.length}
+                  pageSize={pageSize}
+                  pageSizeOptions={[5, 10, 20, 50]}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                  }}
+                  itemName="tasks"
+                />
+              </div>
+            </>
           )}
         </div>
       </div>

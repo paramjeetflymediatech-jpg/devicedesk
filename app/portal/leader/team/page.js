@@ -1,10 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiUsers, FiClock, FiCheck, FiSend } from 'react-icons/fi';
+import { FiUsers, FiClock, FiCheck, FiSend, FiSearch } from 'react-icons/fi';
+import Pagination from '../../../components/Pagination';
 
 export default function TeamAndEODsPage() {
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
 
   useEffect(() => {
     async function fetchData() {
@@ -13,7 +17,7 @@ export default function TeamAndEODsPage() {
         const resEmp = await fetch('/api/employees');
         const dataEmp = await resEmp.json();
         if (dataEmp.success) {
-          const members = dataEmp.data.filter(emp => emp.role === 'Team Member');
+          const members = (dataEmp.data || []).filter(emp => emp.role === 'Team Member');
           const mappedMembers = members.map(m => ({
             id: m.id,
             name: m.name,
@@ -33,6 +37,18 @@ export default function TeamAndEODsPage() {
     fetchData();
   }, []);
 
+  const filteredMembers = teamMembers.filter(m => {
+    const q = search.toLowerCase();
+    const n = String(m.name || "").toLowerCase();
+    const r = String(m.role || "").toLowerCase();
+    const s = String(m.eodStatus || "").toLowerCase();
+    return n.includes(q) || r.includes(q) || s.includes(q);
+  });
+
+  const totalPages = Math.ceil(filteredMembers.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedMembers = filteredMembers.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -43,14 +59,29 @@ export default function TeamAndEODsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
-        <h3 className="text-lg font-semibold text-slate-900 mb-1">End of Day (EOD) Review</h3>
-        <p className="text-sm text-slate-500">Review member accomplishments and forward the final summary to your clients. Members cannot message clients directly.</p>
+      <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm flex justify-between items-center flex-wrap gap-4">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-1">End of Day (EOD) Review</h3>
+          <p className="text-sm text-slate-500">Review member accomplishments and forward the final summary to your clients. Members cannot message clients directly.</p>
+        </div>
+        <div className="relative">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+          <input
+            type="text"
+            placeholder="Search members..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="pl-8 pr-3 py-1.5 text-xs rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 w-48 text-slate-800"
+          />
+        </div>
       </div>
 
-      {teamMembers.length > 0 ? (
+      {paginatedMembers.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
-          {teamMembers.map(member => (
+          {paginatedMembers.map(member => (
             <div key={member.id} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col md:flex-row hover:border-slate-300 transition-colors">
               <div className="p-6 md:w-1/3 border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/50 flex flex-col justify-center">
                 <div className="flex items-center gap-4 mb-4">
@@ -102,12 +133,28 @@ export default function TeamAndEODsPage() {
               </div>
             </div>
           ))}
+
+          <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+            <Pagination
+              currentPage={safeCurrentPage}
+              totalPages={totalPages}
+              totalItems={filteredMembers.length}
+              pageSize={pageSize}
+              pageSizeOptions={[5, 10, 20]}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              itemName="members"
+            />
+          </div>
         </div>
       ) : (
         <div className="bg-white rounded-lg border border-slate-200 p-16 text-center flex flex-col items-center shadow-sm">
           <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-lg flex items-center justify-center mb-4 border border-slate-100"><FiUsers size={20} /></div>
-          <p className="font-medium text-slate-900">No team members</p>
-          <p className="text-sm text-slate-500 mt-1">There are no Team Members assigned to your department yet.</p>
+          <p className="font-medium text-slate-900">{search ? "No matching team members" : "No team members"}</p>
+          <p className="text-sm text-slate-500 mt-1">{search ? "Try adjusting your search terms." : "There are no Team Members assigned to your department yet."}</p>
         </div>
       )}
     </div>

@@ -4,14 +4,15 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { getTickets } from "../../store";
 import { FiClipboard } from "react-icons/fi";
+import Pagination from "../../components/Pagination";
 
 export default function MyRecordsPage() {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   const [searchQuery, setSearchQuery] = useState("");
-  const ticketsPerPage = 5; // raised to 5 for better layout since it's a dedicated page
 
   const refreshData = () => {
     setTickets(getTickets());
@@ -49,10 +50,9 @@ export default function MyRecordsPage() {
   });
 
   // Pagination
-  const totalPages = Math.ceil(filteredTickets.length / ticketsPerPage);
-  const indexOfLastTicket = currentPage * ticketsPerPage;
-  const indexOfFirstTicket = indexOfLastTicket - ticketsPerPage;
-  const currentTickets = filteredTickets.slice(indexOfFirstTicket, indexOfLastTicket);
+  const totalPages = Math.ceil(filteredTickets.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const currentTickets = filteredTickets.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
   const formatDate = (isoString) => {
     if (!isoString) return null;
@@ -210,45 +210,21 @@ export default function MyRecordsPage() {
               })}
               </div>
 
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div
-                  className="pagination-controls"
-                  style={{ paddingTop: "1rem", borderTop: "1px solid var(--glass-border)", marginTop: "1rem" }}
-                >
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    style={{
-                      padding: "6px 12px",
-                      fontSize: "0.85rem",
-                      opacity: currentPage === 1 ? 0.5 : 1,
-                      cursor: currentPage === 1 ? "not-allowed" : "pointer"
-                    }}
-                  >
-                    ← Previous
-                  </button>
-                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    style={{
-                      padding: "6px 12px",
-                      fontSize: "0.85rem",
-                      opacity: currentPage === totalPages ? 0.5 : 1,
-                      cursor: currentPage === totalPages ? "not-allowed" : "pointer"
-                    }}
-                  >
-                    Next →
-                  </button>
-                </div>
-              )}
+              <div style={{ marginTop: "1rem" }}>
+                <Pagination
+                  currentPage={safeCurrentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredTickets.length}
+                  pageSize={pageSize}
+                  pageSizeOptions={[5, 10, 20]}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setCurrentPage(1);
+                  }}
+                  itemName="records"
+                />
+              </div>
             </>
           )}
         </div>

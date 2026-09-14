@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "cross-env NEXT_DISABLE_NATIVE_SWC=1 next dev --webpack",
     "migrate": "node scripts/migrate.js",
+    "update-passwords": "node scripts/update_employee_passwords.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

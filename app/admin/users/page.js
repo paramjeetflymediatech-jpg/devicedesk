@@ -21,6 +21,7 @@ import {
   FiDownload 
 } from 'react-icons/fi';
 import { getEmployeeSlug } from '../../utils/slugUtils.js';
+import Pagination from '../../components/Pagination.js';
 
 const ROLES = [
   'Team Member',
@@ -53,6 +54,8 @@ export default function UsersManagementPage() {
   const [roleFilter, setRoleFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -370,6 +373,10 @@ export default function UsersManagementPage() {
     return matchesSearch && matchesRole && matchesDept && matchesStatus;
   });
 
+  const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedUsers = filteredUsers.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)', padding: '2rem' }}>
       <div style={{ maxWidth: '1250px', margin: '0 auto' }}>
@@ -452,7 +459,7 @@ export default function UsersManagementPage() {
               className="form-control"
               placeholder="Search by name, email, @slug, department, or role..." 
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               style={{ paddingLeft: '36px', width: '100%', height: '40px' }}
             />
           </div>
@@ -460,7 +467,7 @@ export default function UsersManagementPage() {
             <select 
               className="form-control"
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
               style={{ minWidth: '130px', height: '40px' }}
             >
               <option value="All">All Roles</option>
@@ -471,7 +478,7 @@ export default function UsersManagementPage() {
             <select 
               className="form-control"
               value={deptFilter}
-              onChange={(e) => setDeptFilter(e.target.value)}
+              onChange={(e) => { setDeptFilter(e.target.value); setCurrentPage(1); }}
               style={{ minWidth: '140px', height: '40px' }}
             >
               <option value="All">All Departments</option>
@@ -482,8 +489,8 @@ export default function UsersManagementPage() {
             <select 
               className="form-control"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ minWidth: '120px', height: '40px' }}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              style={{ minWidth: '130px', height: '40px' }}
             >
               <option value="All">All Status</option>
               <option value="Active">Active</option>
@@ -492,11 +499,16 @@ export default function UsersManagementPage() {
           </div>
         </div>
         
-        {/* Table Container */}
-        <div className="table-wrapper" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border, rgba(255,255,255,0.1))', borderRadius: '16px', overflow: 'hidden' }}>
+        {/* Users Table */}
+        <div className="table-wrapper" style={{ 
+          background: 'rgba(255, 255, 255, 0.02)', 
+          border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))', 
+          borderRadius: '16px', 
+          overflow: 'hidden' 
+        }}>
           <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: 'rgba(255,255,255,0.04)', textAlign: 'left' }}>
+              <tr style={{ background: 'rgba(255, 255, 255, 0.04)', textAlign: 'left' }}>
                 <th style={{ padding: '14px 16px' }}>Name</th>
                 <th style={{ padding: '14px 16px' }}>User Slug</th>
                 <th style={{ padding: '14px 16px' }}>Email</th>
@@ -507,7 +519,7 @@ export default function UsersManagementPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((user) => {
+              {paginatedUsers.map((user) => {
                 const userSlug = getEmployeeSlug(user);
 
                 return (
@@ -614,6 +626,17 @@ export default function UsersManagementPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={safeCurrentPage}
+          totalPages={totalPages}
+          totalItems={filteredUsers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => { setPageSize(newSize); setCurrentPage(1); }}
+          itemName="team members"
+        />
       </div>
 
       {/* ================= MODAL: ADD TEAM MEMBER ================= */}
