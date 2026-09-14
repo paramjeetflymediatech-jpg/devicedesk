@@ -20,7 +20,6 @@ export async function POST(req) {
   try {
     console.log(`[API /screenshots/upload] Incoming screenshot upload request at ${new Date().toISOString()}`);
     const pool = await getDbConnection();
-    console.log("pool is success",process.env)
     const contentType = req.headers.get('content-type') || '';
     let employeeId = '';
     let employeeName = '';
