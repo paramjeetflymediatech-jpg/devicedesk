@@ -181,21 +181,18 @@ export default function TeamLeaderSlugPortal() {
                 <div key={member.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: 600 }}>{member.name}</div>
-                    <Link
-                      href={`/portal/member/${memSlug}`}
+                    <span
                       style={{
                         fontSize: "0.72rem",
                         color: "var(--accent-purple, #a855f7)",
-                        textDecoration: "none",
                         display: "inline-flex",
                         alignItems: "center",
                         gap: "3px",
                         marginTop: "2px"
                       }}
-                      title={`View ${member.name}'s Portal`}
                     >
-                      <FiLink style={{ fontSize: "0.65rem" }} /> @{memSlug}
-                    </Link>
+                      @{memSlug}
+                    </span>
                   </div>
                   <span className="role-badge" style={{ fontSize: "0.7rem" }}>
                     {member.role || "Member"}
@@ -241,9 +238,9 @@ export default function TeamLeaderSlugPortal() {
                         <td>
                           <div>{submitter.name}</div>
                           {submitter.id && (
-                            <Link href={`/portal/member/${subSlug}`} style={{ fontSize: "0.72rem", color: "var(--accent-purple, #a855f7)", textDecoration: "none" }}>
+                            <span style={{ fontSize: "0.72rem", color: "var(--accent-purple, #a855f7)" }}>
                               @{subSlug}
-                            </Link>
+                            </span>
                           )}
                         </td>
                         <td style={{ fontSize: "0.85rem", color: "var(--text-secondary, #94a3b8)" }}>
