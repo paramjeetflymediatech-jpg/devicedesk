@@ -247,6 +247,21 @@ export default function AdminLayout({ children }) {
         </div>
 
         <nav style={{ flex: 1, overflowY: "auto", padding: '16px 0', overflowX: 'hidden' }}>
+          {isHRUser && (
+            <div style={{ padding: '0 16px', marginBottom: '16px', marginTop: '4px' }}>
+              <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', width: '100%', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                {!isCollapsed && <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>HR Mode</span>}
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={true} onChange={() => window.location.href = "/employee-dashboard"} />
+                    <div style={{ width: '36px', height: '20px', background: 'rgba(6, 182, 212, 0.2)', borderRadius: '20px', border: '1px solid var(--accent-cyan)', position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: '2px', right: '3px', width: '14px', height: '14px', borderRadius: '50%', background: 'var(--accent-cyan)', transition: 'all 0.3s' }}></div>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
           {navGroups.map((group, idx) => (
             <div key={idx} style={{ marginBottom: '20px' }}>
               {!isCollapsed && <div style={{ padding: '0 24px', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px', marginBottom: '8px' }}>{group.title}</div>}
@@ -316,6 +331,21 @@ export default function AdminLayout({ children }) {
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{empDetails.role || "Administrator"}</p>
         </div>
         <nav className="mobile-drawer-nav">
+          {isHRUser && (
+            <div style={{ marginTop: "12px", borderBottom: "1px solid var(--glass-border)", paddingBottom: "12px", marginBottom: "12px" }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 12px' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>HR Mode</span>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={true} onChange={() => window.location.href = "/employee-dashboard"} />
+                    <div style={{ width: '36px', height: '20px', background: 'rgba(6, 182, 212, 0.2)', borderRadius: '20px', border: '1px solid var(--accent-cyan)', position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: '2px', right: '3px', width: '14px', height: '14px', borderRadius: '50%', background: 'var(--accent-cyan)', transition: 'all 0.3s' }}></div>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
           {navGroups.flatMap(g => g.items).map((item) => {
             const active = isNavActive(item);
             return (
