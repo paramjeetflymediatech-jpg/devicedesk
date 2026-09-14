@@ -3,31 +3,41 @@ const path = require('path');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 
-// 1. Manually parse env file if present (.env.local, .env, or .env.production)
-const envNames = ['.env.local', '.env', '.env.production'];
-for (const name of envNames) {
-  const envPath = path.join(__dirname, '..', name);
+// 1. Manually parse env file if present
+const possibleEnvPaths = [
+  path.join(__dirname, '..', '.env.local'),
+  path.join(__dirname, '..', '.env'),
+  path.join(__dirname, '..', '.env.production'),
+  path.join(process.cwd(), '.env.local'),
+  path.join(process.cwd(), '.env'),
+  path.join(process.cwd(), '.env.production')
+];
+
+for (const envPath of possibleEnvPaths) {
   if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    envContent.split('\n').forEach(line => {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) return;
-      const parts = trimmed.split('=');
-      if (parts.length >= 2) {
-        const key = parts[0].trim();
-        const val = parts.slice(1).join('=').trim().replace(/(^['"]|['"]$)/g, '');
-        if (!process.env[key]) {
-          process.env[key] = val;
+    try {
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      envContent.split('\n').forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return;
+        const parts = trimmed.split('=');
+        if (parts.length >= 2) {
+          const key = parts[0].trim();
+          const val = parts.slice(1).join('=').trim().replace(/(^['"]|['"]$)/g, '');
+          if (!process.env[key]) {
+            process.env[key] = val;
+          }
         }
-      }
-    });
-    break;
+      });
+    } catch (e) {
+      // ignore
+    }
   }
 }
 
 // 2. Setup DB Credentials
 const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST || '127.0.0.1',
   port: parseInt(process.env.DB_PORT || '3306', 10),
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASS || process.env.DB_PASSWORD || 'root',
@@ -102,9 +112,7 @@ async function updatePasswords() {
   let connection;
   try {
     console.log(`⏳ Connecting to MySQL database [${dbConfig.database}] at ${dbConfig.host}:${dbConfig.port}...`);
-    connection = await mysql.createConnection(
-      
-    );
+    connection = await mysql.createConnection(dbConfig);
     console.log('✅ Connected successfully!\n');
 
     // Fetch all employees
