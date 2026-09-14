@@ -110,18 +110,19 @@ export async function POST(req) {
     const filePath = path.join(uploadDir, fileName);
     await fs.promises.writeFile(filePath, fileBuffer);
 
-    // 3. Sync to remote SFTP if configured
+    // 3. Sync to remote SFTP only if explicitly configured as 'sftp'
     let imageUrl = `/uploads/devicedesk/screenshots/${fileName}`;
-    try {
-      if (process.env.STORAGE_PROVIDER === 'sftp') {
+    const storageProvider = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim();
+    if (storageProvider === 'sftp') {
+      try {
         const sftpUrl = await uploadFile(fileBuffer, fileName, 'devicedesk/screenshots');
         if (sftpUrl) imageUrl = sftpUrl;
-      } else if (process.env.WHM_SFTP_BASE_URL) {
-        const cleanBase = process.env.WHM_SFTP_BASE_URL.replace(/\/$/, '');
-        imageUrl = `${cleanBase}/devicedesk/screenshots/${fileName}`;
+      } catch (sftpErr) {
+        console.warn('SFTP sync notice:', sftpErr.message);
       }
-    } catch (sftpErr) {
-      console.warn('SFTP sync notice:', sftpErr.message);
+    } else if (process.env.WHM_SFTP_BASE_URL) {
+      const cleanBase = process.env.WHM_SFTP_BASE_URL.replace(/\/$/, '');
+      imageUrl = `${cleanBase}/devicedesk/screenshots/${fileName}`;
     }
 
     // 4. Ensure screenshots table exists dynamically

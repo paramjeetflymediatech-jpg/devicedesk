@@ -153,7 +153,7 @@ export async function uploadFile(buffer, filename, subfolder = '') {
   }
 
   const uniqueFilename = sanitizeFilename(filename);
-  const provider = process.env.STORAGE_PROVIDER || 'local';
+  const provider = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim();
 
   if (provider === 'sftp') {
     const sftp = new Client();
@@ -208,7 +208,7 @@ export async function uploadFile(buffer, filename, subfolder = '') {
  */
 export async function downloadFile(filename, subfolder = '') {
   const safeFilename = basename(filename);
-  const provider = process.env.STORAGE_PROVIDER || 'local';
+  const provider = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim();
 
   // Auto-detect screenshots subfolder if filename starts with scr_
   if (!subfolder && safeFilename.startsWith('scr_')) {
@@ -321,7 +321,7 @@ export async function deleteFile(fileUrlOrName) {
   } catch (e) {}
 
   try {
-    const provider = process.env.STORAGE_PROVIDER || 'local';
+    const provider = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim();
     if (provider === 'sftp') {
       const sftp = new Client();
       try {
