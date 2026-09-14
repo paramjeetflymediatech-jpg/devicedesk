@@ -145,22 +145,47 @@ function saveConfig(data) {
 
 // Safely initialize AutoLaunch on startup without crashing process
 function setupAutoLaunch() {
-  try {
-    const agentAutoLauncher = new AutoLaunch({
-      name: 'DeviceDeskAgent',
-      path: process.execPath
-    });
-    agentAutoLauncher.isEnabled().then((isEnabled) => {
-      if (!isEnabled) {
-        agentAutoLauncher.enable().catch((err) => {
-          logToFile(`AutoLaunch enable error: ${err.message}`, 'ERROR');
-        });
+  if (process.platform === 'linux') {
+    try {
+      const autostartDir = path.join(os.homedir(), '.config', 'autostart');
+      if (!fs.existsSync(autostartDir)) {
+        fs.mkdirSync(autostartDir, { recursive: true });
       }
-    }).catch((err) => {
-      logToFile(`AutoLaunch check error: ${err.message}`, 'ERROR');
-    });
-  } catch (e) {
-    logToFile(`AutoLaunch notice: ${e.message}`, 'WARN');
+      const desktopFilePath = path.join(autostartDir, 'devicedesk-agent.desktop');
+      const execPath = process.execPath;
+      const desktopContent = `[Desktop Entry]
+Type=Application
+Version=1.0
+Name=DeviceDesk Agent
+Comment=DeviceDesk Automated Desktop Screen Activity Logger
+Exec="${execPath}" --no-sandbox
+Terminal=false
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+`;
+      fs.writeFileSync(desktopFilePath, desktopContent, 'utf8');
+      logToFile('Linux autostart desktop entry configured with --no-sandbox.', 'INFO');
+    } catch (e) {
+      logToFile(`Linux autostart setup notice: ${e.message}`, 'WARN');
+    }
+  } else {
+    try {
+      const agentAutoLauncher = new AutoLaunch({
+        name: 'DeviceDeskAgent',
+        path: process.execPath
+      });
+      agentAutoLauncher.isEnabled().then((isEnabled) => {
+        if (!isEnabled) {
+          agentAutoLauncher.enable().catch((err) => {
+            logToFile(`AutoLaunch enable error: ${err.message}`, 'ERROR');
+          });
+        }
+      }).catch((err) => {
+        logToFile(`AutoLaunch check error: ${err.message}`, 'ERROR');
+      });
+    } catch (e) {
+      logToFile(`AutoLaunch notice: ${e.message}`, 'WARN');
+    }
   }
 }
 
