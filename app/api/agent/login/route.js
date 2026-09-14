@@ -52,7 +52,16 @@ export async function POST(req) {
     const pepper = process.env.PASSWORD_PEPPER || 'devicedesk_secure_pepper_key_2026';
 
     if (storedPassword.startsWith('$2')) {
+      // 1. Try with configured pepper
       passwordMatch = await bcrypt.compare(password + pepper, storedPassword);
+      // 2. Try without pepper (in case hashed directly)
+      if (!passwordMatch) {
+        passwordMatch = await bcrypt.compare(password, storedPassword);
+      }
+      // 3. Try with default fallback pepper
+      if (!passwordMatch && pepper !== 'devicedesk_secure_pepper_key_2026') {
+        passwordMatch = await bcrypt.compare(password + 'devicedesk_secure_pepper_key_2026', storedPassword);
+      }
     } else {
       passwordMatch = storedPassword === password;
     }

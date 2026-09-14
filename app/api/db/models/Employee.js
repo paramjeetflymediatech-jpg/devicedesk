@@ -23,7 +23,8 @@ export class Employee {
 
       await conn.execute('DELETE FROM employees');
       for (const e of employees) {
-        let passwordToSave = e.password || passMap[e.id] || null;
+        // ALWAYS prioritize existing password hash in DB (passMap) so client state cannot overwrite reset passwords
+        let passwordToSave = passMap[e.id] || e.password || null;
 
         // If password is plain text (not starting with $2a$ or $2b$), hash it with bcrypt!
         if (passwordToSave && !passwordToSave.startsWith('$2a$') && !passwordToSave.startsWith('$2b$')) {
