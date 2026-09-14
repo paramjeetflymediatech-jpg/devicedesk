@@ -2,49 +2,65 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { findEmployeeByEmail, sendMockEmail } from "../store";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [resetUrl, setResetUrl] = useState("");
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setResetUrl("");
+    setPreviewUrl("");
+    setCopied(false);
 
-    let targetEmail = email.trim();
-    if (!targetEmail) {
-      setError("Please enter your email address.");
+    const target = identifier.trim();
+    if (!target) {
+      setError("Please enter your registered email or username.");
       return;
     }
 
-    if (targetEmail.toLowerCase() === "admin") {
-      targetEmail = "admin@devicedesk.com";
+    setLoading(true);
+    try {
+      const res = await fetch("/api/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: target })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setSuccess(data.message || "A password reset link has been generated.");
+        if (data.resetUrl) {
+          setResetUrl(data.resetUrl);
+        }
+        if (data.previewUrl) {
+          setPreviewUrl(data.previewUrl);
+        }
+        setIdentifier("");
+      } else {
+        setError(data.message || data.error || "No account found with this email or username.");
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // Check if it matches an employee, or is default admin email
-    const isDefaultAdmin = targetEmail.toLowerCase() === "admin@devicedesk.com";
-    const emp = findEmployeeByEmail(targetEmail);
-
-    if (emp || isDefaultAdmin) {
-      // Generate reset URL link
-      const host = window.location.origin || "http://localhost:3000";
-      const resetLink = `${host}/reset-password?email=${encodeURIComponent(targetEmail)}`;
-
-      // Send Mock email
-      sendMockEmail(
-        targetEmail,
-        "Reset your DeviceDesk Password",
-        `Hello,\n\nYou requested a password reset for your DeviceDesk account.\n\nPlease click the link below to set a new password:\n\n${resetLink}\n\nIf you did not request this reset, you can safely ignore this email.\n\nBest Regards,\nIT Support Team`
-      );
-
-      setSuccess("A password reset link has been mock-sent to your email. Check the Email Toast notification at the bottom right!");
-      setEmail("");
-    } else {
-      setError("No account found with this email address.");
+  const copyToClipboard = () => {
+    if (resetUrl) {
+      navigator.clipboard.writeText(resetUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
     }
   };
 
@@ -63,7 +79,7 @@ export default function ForgotPasswordPage() {
       <div
         style={{
           width: "100%",
-          maxWidth: "420px",
+          maxWidth: "440px",
           background: "var(--bg-secondary)",
           backdropFilter: "blur(20px)",
           border: "1px solid var(--glass-border)",
@@ -94,19 +110,21 @@ export default function ForgotPasswordPage() {
             Forgot Password
           </h2>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-            Enter your registered email to receive a password reset link
+            Enter your email or username to reset your password
           </p>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group" style={{ marginBottom: "1.5rem" }}>
-            <label>Email Address</label>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+              Email or Username
+            </label>
             <input
-              type="email"
+              type="text"
               className="form-control"
-              placeholder="Please enter your company email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. superadmin or user@devicedesk.com"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
             />
           </div>
@@ -134,20 +152,61 @@ export default function ForgotPasswordPage() {
                 background: "rgba(16, 185, 129, 0.15)",
                 border: "1px solid var(--status-resolved)",
                 color: "var(--status-resolved)",
-                padding: "12px 14px",
-                borderRadius: "10px",
+                padding: "14px",
+                borderRadius: "12px",
                 fontSize: "0.85rem",
                 marginBottom: "1.25rem",
                 textAlign: "left",
-                lineHeight: "1.4"
+                lineHeight: "1.5"
               }}
             >
-              ✓ {success}
+              <div style={{ fontWeight: "600", marginBottom: "0.5rem" }}>✓ {success}</div>
+              
+              {resetUrl && (
+                <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(16, 185, 129, 0.3)" }}>
+                  <button
+                    type="button"
+                    onClick={() => router.push(resetUrl.replace(/^https?:\/\/[^/]+/, ''))}
+                    className="btn-primary"
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      fontSize: "0.9rem",
+                      fontWeight: "600",
+                      marginBottom: "8px"
+                    }}
+                  >
+                    🔑 Click Here to Reset Password Now →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={copyToClipboard}
+                    style={{
+                      width: "100%",
+                      padding: "6px",
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-secondary)",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      textAlign: "center"
+                    }}
+                  >
+                    {copied ? "✓ Reset link copied to clipboard!" : "📋 Copy direct reset link"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          <button type="submit" className="btn-primary" style={{ width: "100%", padding: "12px", borderRadius: "10px" }}>
-            Send Reset Link
+          <button 
+            type="submit" 
+            className="btn-primary" 
+            disabled={loading}
+            style={{ width: "100%", padding: "12px", borderRadius: "10px", opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer" }}
+          >
+            {loading ? "Generating Link..." : "Send Reset Link"}
           </button>
         </form>
 
