@@ -32,9 +32,13 @@ export async function GET(request) {
       return safeEmp;
     });
 
-    // If user is not authorized to view Marketing members, filter them out
+    // If requester is not authorized for marketing, filter out marketing employees
     if (!hasMarketingAccess) {
-      employees = employees.filter(e => (e.department || '').toLowerCase() !== 'marketing');
+      employees = employees.filter(e => {
+        const d = (e.department || '').toLowerCase();
+        const r = (e.role || '').toLowerCase();
+        return d !== 'marketing' && !r.includes('marketing');
+      });
     }
 
     const sent_emails = sent_emails_raw.map(e => ({

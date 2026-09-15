@@ -28,7 +28,7 @@ import {
 } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { playTicketSound } from '../../utils/sound';
-import { applyLeaveRequest, fetchEmployeeLeaves } from '../../utils/api';
+import { applyLeaveRequest, fetchEmployeeLeaves, fetchMarketingAuthorizations } from '../../utils/api';
 import EmployeeTasks from './EmployeeTasks';
 import ChatScreen from '../ChatScreen';
 import AttendanceWidget from '../../components/AttendanceWidget';
@@ -69,6 +69,27 @@ export default function EmployeeDashboard({ user, onLogout }) {
   const [tickets, setTickets] = useState(() => getTickets());
   const [employees, setEmployees] = useState(() => getEmployees());
   const [assignmentHistory, setAssignmentHistory] = useState(() => getAssignmentHistory());
+  const [authorizedMarketingIds, setAuthorizedMarketingIds] = useState([]);
+
+  useEffect(() => {
+    async function loadMarketingAuth() {
+      try {
+        const res = await fetchMarketingAuthorizations();
+        if (res?.success && Array.isArray(res.data)) {
+          setAuthorizedMarketingIds(res.data.map(a => a.employeeId));
+        }
+      } catch (e) {}
+    }
+    loadMarketingAuth();
+  }, []);
+
+  const isMarketingUser =
+    (user?.role || '').toLowerCase().includes('admin') ||
+    (user?.role || '').toLowerCase().includes('superadmin') ||
+    (user?.role || '').toLowerCase().includes('management') ||
+    (user?.department || '').toLowerCase() === 'marketing' ||
+    (user?.role || '').toLowerCase().includes('marketing') ||
+    authorizedMarketingIds.includes(user?.id);
 
   // Complaint form states
   const [category, setCategory] = useState('RAM/Speed');
@@ -751,32 +772,34 @@ export default function EmployeeDashboard({ user, onLogout }) {
             </TouchableOpacity>
 
             {/* Quick Action: Marketing Field Trips Banner */}
-            <TouchableOpacity
-              style={[
-                styles.card,
-                {
-                  backgroundColor: isDark ? '#083344' : '#ecfeff',
-                  borderColor: isDark ? '#155e75' : '#a5f3fc',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: 14,
-                  marginBottom: 16,
-                }
-              ]}
-              onPress={() => setActiveTab('marketing-trips')}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                <Text style={{ fontSize: 24, marginRight: 12 }}>🚗</Text>
-                <View>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>Marketing Field Trips</Text>
-                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>Log starting point, destination & live GPS</Text>
+            {isMarketingUser && (
+              <TouchableOpacity
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: isDark ? '#083344' : '#ecfeff',
+                    borderColor: isDark ? '#155e75' : '#a5f3fc',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: 14,
+                    marginBottom: 16,
+                  }
+                ]}
+                onPress={() => setActiveTab('marketing-trips')}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <Text style={{ fontSize: 24, marginRight: 12 }}>🚗</Text>
+                  <View>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>Marketing Field Trips</Text>
+                    <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>Log starting point, destination & live GPS</Text>
+                  </View>
                 </View>
-              </View>
-              <View style={{ backgroundColor: '#0891b2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
-                <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Field Trips ➔</Text>
-              </View>
-            </TouchableOpacity>
+                <View style={{ backgroundColor: '#0891b2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Field Trips ➔</Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Attendance Punch Section */}
             <AttendanceWidget user={user} />
@@ -1071,16 +1094,18 @@ export default function EmployeeDashboard({ user, onLogout }) {
             </View>
 
             <View style={styles.drawerItemsContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'marketing-trips' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('marketing-trips'); setIsDrawerOpen(false); }}
-              >
-                <AppIcon name="map-pin" size={18} color="#0891b2" style={{ marginRight: 12 }} />
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Marketing Field Trips</Text>
-              </TouchableOpacity>
+              {isMarketingUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'marketing-trips' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('marketing-trips'); setIsDrawerOpen(false); }}
+                >
+                  <AppIcon name="map-pin" size={18} color="#0891b2" style={{ marginRight: 12 }} />
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Marketing Field Trips</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={[

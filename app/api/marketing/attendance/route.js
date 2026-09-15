@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
+import { checkAuth } from '../../utils/storageManager.js';
+import { isMarketingAuthorized } from '../../utils/marketingAuth.js';
 
 async function ensureMarketingAttendanceTable(db) {
   try {
@@ -156,8 +158,16 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
+    const user = await checkAuth(request);
+    const hasMarketingAccess = await isMarketingAuthorized(user);
+
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get('employee_id');
+
+    // Non-authorized user can only view their own attendance (if they are the employee)
+    if (!hasMarketingAccess && (!user || user.id !== employeeId)) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Marketing access restricted.' }, { status: 403 });
+    }
 
     const db = await getDbConnection();
     await ensureMarketingAttendanceTable(db);
