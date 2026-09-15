@@ -426,6 +426,9 @@ export async function getDbConnection() {
     CREATE TABLE IF NOT EXISTS marketing_attendance (
       id VARCHAR(50) PRIMARY KEY,
       employee_id VARCHAR(50) NOT NULL,
+      from_location VARCHAR(255) DEFAULT NULL,
+      to_location VARCHAR(255) DEFAULT NULL,
+      notes TEXT DEFAULT NULL,
       check_in_at TIMESTAMP NULL,
       check_in_latitude DECIMAL(10, 8),
       check_in_longitude DECIMAL(11, 8),
@@ -435,6 +438,78 @@ export async function getDbConnection() {
       total_km DECIMAL(10, 2) DEFAULT 0,
       status VARCHAR(50),
       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN from_location VARCHAR(255) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN to_location VARCHAR(255) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN notes TEXT DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN check_in_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN check_in_latitude DECIMAL(10, 8) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN check_in_longitude DECIMAL(11, 8) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN check_out_at TIMESTAMP NULL DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN check_out_latitude DECIMAL(10, 8) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN check_out_longitude DECIMAL(11, 8) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN total_km DECIMAL(10, 2) DEFAULT 0`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN status VARCHAR(50) DEFAULT 'Checked In'`);
+  } catch (err) {}
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS marketing_location_logs (
+      id VARCHAR(100) PRIMARY KEY,
+      employee_id VARCHAR(50) NOT NULL,
+      attendance_id VARCHAR(100) NOT NULL,
+      latitude DECIMAL(10, 8) NOT NULL,
+      longitude DECIMAL(11, 8) NOT NULL,
+      accuracy DECIMAL(10, 2),
+      recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS marketing_visits (
+      id VARCHAR(100) PRIMARY KEY,
+      marketing_employee_id VARCHAR(50) NOT NULL,
+      client_id VARCHAR(50),
+      project_id VARCHAR(50),
+      location VARCHAR(255),
+      latitude DECIMAL(10, 8),
+      longitude DECIMAL(11, 8),
+      check_in_at TIMESTAMP NULL,
+      check_out_at TIMESTAMP NULL,
+      notes TEXT,
+      status VARCHAR(50)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS marketing_authorizations (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id VARCHAR(50) NOT NULL UNIQUE,
+      employee_name VARCHAR(150),
+      assigned_by VARCHAR(50),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 

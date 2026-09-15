@@ -8,12 +8,16 @@ import { Department } from './models/Department.js';
 import { Email } from './models/Email.js';
 import { Task } from './models/Task.js';
 import { sendPushNotification, sendPushNotificationToAdmins } from '../utils/pushNotifications.js';
+import { checkAuth } from '../utils/storageManager.js';
+import { isMarketingAuthorized } from '../utils/marketingAuth.js';
 
 
-export async function GET() {
+export async function GET(request) {
   try {
     // Ensure DB connection is active and tables are initialized
     await getDbConnection();
+    const user = await checkAuth(request);
+    const hasMarketingAccess = await isMarketingAuthorized(user);
 
     const employeesRaw       = await Employee.getAll();
     const systems            = await System.getAll();
@@ -23,10 +27,15 @@ export async function GET() {
     const sent_emails_raw    = await Email.getAll();
     const tasks              = await Task.getAll();
 
-    const employees = employeesRaw.map(e => {
+    let employees = employeesRaw.map(e => {
       const { password, ...safeEmp } = e;
       return safeEmp;
     });
+
+    // If user is not authorized to view Marketing members, filter them out
+    if (!hasMarketingAccess) {
+      employees = employees.filter(e => (e.department || '').toLowerCase() !== 'marketing');
+    }
 
     const sent_emails = sent_emails_raw.map(e => ({
       id:        e.id,

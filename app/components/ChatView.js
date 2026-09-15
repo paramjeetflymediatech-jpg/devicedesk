@@ -23,6 +23,7 @@ export default function ChatView({ user }) {
   const [showDetailsPanel, setShowDetailsPanel] = useState(false);
   const [previewMediaUrl, setPreviewMediaUrl] = useState(null);
   const [mediaFilter, setMediaFilter] = useState("all");
+  const [authorizedMarketingIds, setAuthorizedMarketingIds] = useState([]);
 
   // Message Edit / Delete / Clear Chat States
   const [clearedChats, setClearedChats] = useState({});
@@ -215,6 +216,7 @@ export default function ChatView({ user }) {
   // 1. Fetch Employees and Chat History on Mount
   useEffect(() => {
     fetchEmployees();
+    fetchMarketingAuthorizations();
     fetchChatHistory();
 
     // Start polling for new messages every 2 seconds
@@ -388,6 +390,20 @@ export default function ChatView({ user }) {
     // Show date if more than 24h ago
     const d = new Date(isoTimestamp);
     return `Last seen: ${d.toLocaleDateString()} at ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  };
+
+  const fetchMarketingAuthorizations = async () => {
+    try {
+      const res = await fetch("/api/marketing/authorizations");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setAuthorizedMarketingIds(data.data.map(item => item.employeeId));
+        }
+      }
+    } catch (err) {
+      // Ignore if not accessible
+    }
   };
 
   const fetchEmployees = async () => {
@@ -1488,15 +1504,57 @@ export default function ChatView({ user }) {
     return groups;
   };
 
-  const filteredEmployees = employees.filter(emp => {
+  const isMarketingMember = (emp) => {
+    if (!emp) return false;
+    const d = (emp.department || '').toLowerCase();
+    const r = (emp.role || '').toLowerCase();
+    return d === 'marketing' || r.includes('marketing');
+  };
+
+  const isUserAuthorizedForMarketing = (currUser) => {
+    if (!currUser) return false;
+    const r = (currUser.role || '').toLowerCase();
+    const d = (currUser.department || '').toLowerCase();
+    if (r.includes('admin') || r.includes('superadmin') || r.includes('management')) return true;
+    if (d === 'marketing' || r.includes('marketing')) return true;
+    if (authorizedMarketingIds.includes(currUser.id)) return true;
+    return false;
+  };
+
+  const isEmployeeVisibleInChat = (emp) => {
+    if (!emp) return false;
     if (String(emp.id).toLowerCase() === String(user?.id || "").toLowerCase()) return false;
     if (isUserBlocked(emp.id) || isUserBlockingMe(emp.id)) return false;
+
+    const currentUserIsMarketing = isMarketingMember(user);
+    const targetIsMarketing = isMarketingMember(emp);
+    const currentUserHasAccess = isUserAuthorizedForMarketing(user);
+
+    // Case 1: Current user is a Marketing member
+    if (currentUserIsMarketing) {
+      // Marketing member can only see Admins, Authorized managers, and fellow Marketing teammates
+      const targetRole = (emp.role || '').toLowerCase();
+      const targetIsAdmin = targetRole.includes('admin') || targetRole.includes('superadmin') || targetRole.includes('management');
+      const targetIsAuthorized = authorizedMarketingIds.includes(emp.id);
+      return targetIsMarketing || targetIsAdmin || targetIsAuthorized;
+    }
+
+    // Case 2: Current user is NOT marketing and NOT authorized
+    if (!currentUserHasAccess) {
+      // Must hide all marketing members
+      if (targetIsMarketing) return false;
+    }
+
+    return true;
+  };
+
+  const filteredEmployees = employees.filter(emp => {
+    if (!isEmployeeVisibleInChat(emp)) return false;
     return emp.name.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   const filteredEmployeesForGroup = employees.filter(emp => {
-    if (String(emp.id).toLowerCase() === String(user?.id || "").toLowerCase()) return false;
-    if (isUserBlocked(emp.id) || isUserBlockingMe(emp.id)) return false;
+    if (!isEmployeeVisibleInChat(emp)) return false;
     return emp.name.toLowerCase().includes(groupSearchQuery.toLowerCase());
   });
 
@@ -3723,7 +3781,7 @@ export default function ChatView({ user }) {
                     return emp || { id, name: id, role: "Member", department: "External" };
                   });
                 } else if (activeChatId.startsWith("dept_") || activeChatId === "general") {
-                  rawMembers = employees.filter(emp => activeChatId === "general" || String(emp.department).toLowerCase() === String(activeChatId.replace("dept_", "")).toLowerCase());
+                  rawMembers = employees.filter(emp => isEmployeeVisibleInChat(emp) && (activeChatId === "general" || String(emp.department).toLowerCase() === String(activeChatId.replace("dept_", "")).toLowerCase()));
                 }
 
                 // Filter by query
@@ -3845,9 +3903,10 @@ export default function ChatView({ user }) {
                   const memberIds = group?.memberIds ? group.memberIds.split(",").map(id => id.toLowerCase()) : [];
                   
                   const notInGroup = employees.filter(emp => {
+                    if (!isEmployeeVisibleInChat(emp)) return false;
                     const isMember = memberIds.includes(String(emp.id).toLowerCase());
                     const matchesSearch = emp.name.toLowerCase().includes(addMembersSearchQuery.toLowerCase()) ||
-                                         emp.department.toLowerCase().includes(addMembersSearchQuery.toLowerCase());
+                                         (emp.department || '').toLowerCase().includes(addMembersSearchQuery.toLowerCase());
                     return !isMember && matchesSearch;
                   });
 

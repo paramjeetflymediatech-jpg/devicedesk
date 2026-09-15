@@ -25,6 +25,7 @@ import ManageTickets from './ManageTickets';
 import ManageHistory from './ManageHistory';
 import ManageDepartments from './ManageDepartments';
 import ManageTasks from './ManageTasks';
+import ManageMarketing from './ManageMarketing';
 import ChatScreen from '../ChatScreen';
 
 const SEVERITY_COLOR = {
@@ -199,6 +200,30 @@ export default function AdminDashboard({ user, onLogout }) {
         )}
       </View>
 
+      {/* Marketing Operations Quick Link */}
+      <TouchableOpacity
+        style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#064e3b22' : '#ecfdf5', borderColor: '#10b981' }]}
+        onPress={() => setActiveTab('marketing')}
+        activeOpacity={0.8}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 18 }}>🚗</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#a7f3d0' : '#065f46' }}>
+                Marketing Field Tracking
+              </Text>
+              <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                Live GPS monitoring & team visit logs
+              </Text>
+            </View>
+          </View>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#10b981' }}>View Live →</Text>
+        </View>
+      </TouchableOpacity>
+
       <View style={styles.welcomeCard}>
         <Text style={styles.welcomeTitle}>Welcome back, {user.name}!</Text>
         <Text style={styles.welcomeDesc}>
@@ -251,6 +276,8 @@ export default function AdminDashboard({ user, onLogout }) {
         return <ManageDepartments currentUser={user} />;
       case 'tasks':
         return <ManageTasks currentUser={user} />;
+      case 'marketing':
+        return <ManageMarketing currentUser={user} onBack={() => setActiveTab('overview')} />;
       case 'chat':
         return <ChatScreen user={user} onBack={() => setActiveTab('overview')} />;
       case 'profile':
@@ -363,6 +390,17 @@ export default function AdminDashboard({ user, onLogout }) {
               >
                 <Text style={styles.drawerItemIcon}>📅</Text>
                 <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Manage Tasks</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'marketing' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('marketing'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>🚗</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Marketing Field Trips</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -770,6 +808,12 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  marketingCardBanner: {
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
   },
   welcomeCard: {
     backgroundColor: '#161b22',

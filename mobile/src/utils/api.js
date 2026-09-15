@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 const API_URL_KEY = 'devicedesk_api_url';
 
 // Default URLs: 10.0.2.2 for Android Emulator, localhost for iOS simulator
-// const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
+const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+// const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
 
 let currentApiUrl = DEFAULT_URL;
 
@@ -279,3 +279,150 @@ export async function fetchEmployeeLeaves(employeeId, status = 'ALL') {
     throw err;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Marketing Field Trips & GPS Attendance APIs
+// ---------------------------------------------------------------------------
+
+export async function fetchMarketingAttendance(employeeId) {
+  const url = employeeId 
+    ? `${currentApiUrl}/api/marketing/attendance?employee_id=${encodeURIComponent(employeeId)}`
+    : `${currentApiUrl}/api/marketing/attendance`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP Error ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch marketing attendance failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function checkInMarketingTrip({ employee_id, from_location, to_location, notes, latitude, longitude }) {
+  const url = `${currentApiUrl}/api/marketing/attendance`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        employee_id,
+        action: 'check_in',
+        from_location,
+        to_location,
+        notes,
+        latitude,
+        longitude,
+      }),
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Marketing trip check-in failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function checkOutMarketingTrip({ employee_id, attendance_id, latitude, longitude, total_km }) {
+  const url = `${currentApiUrl}/api/marketing/attendance`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        employee_id,
+        action: 'check_out',
+        attendance_id,
+        latitude,
+        longitude,
+        total_km: total_km || 0,
+      }),
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Marketing trip check-out failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchMarketingAuthorizations() {
+  const url = `${currentApiUrl}/api/marketing/authorizations`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP Error ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch marketing authorizations failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function postMarketingLocationLog({ employee_id, attendance_id, latitude, longitude, accuracy }) {
+  const url = `${currentApiUrl}/api/marketing/location`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        employee_id,
+        attendance_id,
+        latitude,
+        longitude,
+        accuracy: accuracy || null,
+      }),
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Post marketing location log failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchMarketingLocationLogs(attendance_id, employee_id) {
+  let url = `${currentApiUrl}/api/marketing/location`;
+  if (attendance_id) {
+    url += `?attendance_id=${encodeURIComponent(attendance_id)}`;
+  } else if (employee_id) {
+    url += `?employee_id=${encodeURIComponent(employee_id)}`;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP Error ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch marketing location logs failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+
+
