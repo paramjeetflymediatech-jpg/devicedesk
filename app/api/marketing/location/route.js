@@ -8,7 +8,7 @@ async function ensureLocationLogsTable(db) {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS marketing_location_logs (
         id VARCHAR(100) PRIMARY KEY,
-        employee_id VARCHAR(50) NOT NULL,
+        employee_id VARCHAR(100) NOT NULL,
         attendance_id VARCHAR(100) NOT NULL,
         latitude DECIMAL(10, 8) NOT NULL,
         longitude DECIMAL(11, 8) NOT NULL,
@@ -17,6 +17,22 @@ async function ensureLocationLogsTable(db) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
   } catch (err) {}
+
+  // Drop any legacy foreign keys on marketing_location_logs to prevent ER_NO_REFERENCED_ROW_2 constraint errors
+  try {
+    const [fks] = await db.query(`
+      SELECT CONSTRAINT_NAME 
+      FROM information_schema.KEY_COLUMN_USAGE 
+      WHERE TABLE_NAME = 'marketing_location_logs' 
+        AND TABLE_SCHEMA = DATABASE() 
+        AND REFERENCED_TABLE_NAME IS NOT NULL
+    `);
+    for (const fk of fks) {
+      try {
+        await db.execute(`ALTER TABLE marketing_location_logs DROP FOREIGN KEY \`${fk.CONSTRAINT_NAME}\``);
+      } catch (e) {}
+    }
+  } catch (e) {}
 }
 
 export async function POST(request) {

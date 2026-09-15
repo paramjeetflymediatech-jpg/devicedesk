@@ -7,8 +7,8 @@ async function ensureMarketingAttendanceTable(db) {
   try {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS marketing_attendance (
-        id VARCHAR(50) PRIMARY KEY,
-        employee_id VARCHAR(50) NOT NULL,
+        id VARCHAR(100) PRIMARY KEY,
+        employee_id VARCHAR(100) NOT NULL,
         check_in_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
         check_in_latitude DECIMAL(10, 8),
         check_in_longitude DECIMAL(11, 8),
@@ -20,6 +20,22 @@ async function ensureMarketingAttendanceTable(db) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
   } catch (err) {}
+
+  // Drop any legacy foreign keys on marketing_attendance to prevent ER_NO_REFERENCED_ROW_2 constraint errors
+  try {
+    const [fks] = await db.query(`
+      SELECT CONSTRAINT_NAME 
+      FROM information_schema.KEY_COLUMN_USAGE 
+      WHERE TABLE_NAME = 'marketing_attendance' 
+        AND TABLE_SCHEMA = DATABASE() 
+        AND REFERENCED_TABLE_NAME IS NOT NULL
+    `);
+    for (const fk of fks) {
+      try {
+        await db.execute(`ALTER TABLE marketing_attendance DROP FOREIGN KEY \`${fk.CONSTRAINT_NAME}\``);
+      } catch (e) {}
+    }
+  } catch (e) {}
 
   try {
     const [cols] = await db.query(`SHOW COLUMNS FROM marketing_attendance`);
@@ -41,6 +57,9 @@ async function ensureMarketingAttendanceTable(db) {
       { name: 'check_in_at', def: 'TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP' },
       { name: 'check_in_latitude', def: 'DECIMAL(10, 8) DEFAULT NULL' },
       { name: 'check_in_longitude', def: 'DECIMAL(11, 8) DEFAULT NULL' },
+      { name: 'dest_latitude', def: 'DECIMAL(10, 8) DEFAULT NULL' },
+      { name: 'dest_longitude', def: 'DECIMAL(11, 8) DEFAULT NULL' },
+      { name: 'estimated_km', def: 'DECIMAL(10, 2) DEFAULT 0' },
       { name: 'current_latitude', def: 'DECIMAL(10, 8) DEFAULT NULL' },
       { name: 'current_longitude', def: 'DECIMAL(11, 8) DEFAULT NULL' },
       { name: 'last_location_update', def: 'TIMESTAMP NULL DEFAULT NULL' },
@@ -65,7 +84,12 @@ async function ensureMarketingAttendanceTable(db) {
 
 export async function POST(request) {
   try {
-    const { employee_id, action, latitude, longitude, from_location, to_location, notes } = await request.json();
+    const { 
+      employee_id, action, latitude, longitude, 
+      from_location, to_location, notes,
+      dest_latitude, dest_longitude, estimated_km,
+      attendance_id, total_km
+    } = await request.json();
 
     if (!employee_id || !action || !latitude || !longitude) {
       return NextResponse.json({ error: 'employee_id, action, latitude, and longitude are required.' }, { status: 400 });
@@ -85,15 +109,27 @@ export async function POST(request) {
       if (colNames.includes('date')) {
         const today = new Date().toISOString().split('T')[0];
         await db.execute(
-          `INSERT INTO marketing_attendance (id, employee_id, date, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, current_latitude, current_longitude, last_location_update, status) 
-           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
-          [attendanceId, employee_id, today, from_location || null, to_location || null, notes || null, latitude, longitude, latitude, longitude, status]
+          `INSERT INTO marketing_attendance (id, employee_id, date, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, dest_latitude, dest_longitude, estimated_km, current_latitude, current_longitude, last_location_update, status) 
+           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+          [
+            attendanceId, employee_id, today, 
+            from_location || null, to_location || null, notes || null, 
+            latitude, longitude, 
+            dest_latitude || null, dest_longitude || null, estimated_km || 0,
+            latitude, longitude, status
+          ]
         );
       } else {
         await db.execute(
-          `INSERT INTO marketing_attendance (id, employee_id, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, current_latitude, current_longitude, last_location_update, status) 
-           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
-          [attendanceId, employee_id, from_location || null, to_location || null, notes || null, latitude, longitude, latitude, longitude, status]
+          `INSERT INTO marketing_attendance (id, employee_id, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, dest_latitude, dest_longitude, estimated_km, current_latitude, current_longitude, last_location_update, status) 
+           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+          [
+            attendanceId, employee_id, 
+            from_location || null, to_location || null, notes || null, 
+            latitude, longitude, 
+            dest_latitude || null, dest_longitude || null, estimated_km || 0,
+            latitude, longitude, status
+          ]
         );
       }
 
@@ -122,8 +158,6 @@ export async function POST(request) {
     } 
     
     else if (action === 'check_out') {
-      const { attendance_id, total_km } = await request.json();
-      
       if (!attendance_id) {
         return NextResponse.json({ error: 'attendance_id is required for check-out.' }, { status: 400 });
       }

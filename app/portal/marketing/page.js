@@ -2,7 +2,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../auth/AuthContext';
-import { FiMapPin, FiLogOut } from 'react-icons/fi';
+import ThemeToggle from '../../components/ThemeToggle';
+import { 
+  FiMapPin, FiLogOut, FiNavigation, FiCheckCircle, 
+  FiRefreshCw, FiClock, FiFileText, FiCompass, FiExternalLink, FiUser
+} from 'react-icons/fi';
+
+const PURPOSE_PRESETS = [
+  '🤝 Client Meeting',
+  '💼 Lead Generation',
+  '📦 Product Demo',
+  '💰 Payment Collection',
+  '📋 Site Inspection',
+  '🏢 Office to Field Visit',
+  '🔄 Follow-up Visit',
+];
 
 export default function MarketingDashboard() {
   const router = useRouter();
@@ -11,11 +25,15 @@ export default function MarketingDashboard() {
 
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchingGps, setFetchingGps] = useState(false);
   const [locationLog, setLocationLog] = useState(null);
 
   const [fromLocation, setFromLocation] = useState('');
+  const [currentCoords, setCurrentCoords] = useState(null);
   const [toLocation, setToLocation] = useState('');
-  const [visitNotes, setVisitNotes] = useState('');
+  const [selectedPurpose, setSelectedPurpose] = useState('');
+  const [customNotes, setCustomNotes] = useState('');
+
   const [attendanceHistory, setAttendanceHistory] = useState([]);
   const [activeAttendance, setActiveAttendance] = useState(null);
 
@@ -24,7 +42,6 @@ export default function MarketingDashboard() {
   }, []);
 
   useEffect(() => {
-    // If not authenticated, redirect to login
     if (mounted && typeof window !== 'undefined') {
       const stored = localStorage.getItem('devicedesk_auth_user');
       if (!stored && !user) {
@@ -36,8 +53,48 @@ export default function MarketingDashboard() {
   useEffect(() => {
     if (mounted && myEmployeeId) {
       fetchMyAttendance();
+      fetchCurrentGps();
     }
   }, [mounted, myEmployeeId]);
+
+  const fetchCurrentGps = (showFeedback = false) => {
+    if (!navigator.geolocation) {
+      if (showFeedback) alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setFetchingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setCurrentCoords({ latitude, longitude, accuracy });
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, {
+            headers: { 'User-Agent': 'DeviceDesk-Web/1.0' }
+          });
+          const data = await res.json();
+          if (data?.display_name) {
+            const shortAddr = data.display_name.split(',').slice(0, 3).join(',').trim();
+            setFromLocation(shortAddr || `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          } else {
+            setFromLocation(`GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          }
+        } catch (e) {
+          setFromLocation(`GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        }
+        setFetchingGps(false);
+        if (showFeedback) {
+          alert(`GPS Locked: (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) ±${Math.round(accuracy || 10)}m`);
+        }
+      },
+      (err) => {
+        setFetchingGps(false);
+        if (showFeedback) {
+          alert('GPS error: ' + err.message);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
+  };
 
   const fetchMyAttendance = async () => {
     try {
@@ -50,7 +107,7 @@ export default function MarketingDashboard() {
         if (active) {
           const lat = Number(active.check_in_latitude || 0).toFixed(4);
           const lng = Number(active.check_in_longitude || 0).toFixed(4);
-          setLocationLog(`Active Visit: ${active.from_location || 'Start'} ➔ ${active.to_location || 'Destination'} (Lat: ${lat}, Lng: ${lng})`);
+          setLocationLog(`Active Route: ${active.from_location || 'Start'} ➔ ${active.to_location || 'Destination'} (GPS: ${lat}, ${lng})`);
         }
       }
     } catch (e) {
@@ -73,22 +130,30 @@ export default function MarketingDashboard() {
     }
   };
 
-  const handleCheckIn = () => {
+  const handleStartRoute = () => {
     if (!myEmployeeId) {
-      alert('You must be logged in to check in.');
+      alert('You must be logged in to start a field route.');
       router.push('/login');
       return;
     }
 
-    if (!fromLocation.trim() || !toLocation.trim()) {
-      alert('Please specify both "Where From" (Starting Location) and "Where To" (Destination).');
+    if (!fromLocation.trim()) {
+      alert('Please provide or lock your starting location.');
       return;
     }
+
+    if (!toLocation.trim()) {
+      alert('Please enter your destination (Where To).');
+      return;
+    }
+
+    const combinedNotes = [selectedPurpose, customNotes.trim()].filter(Boolean).join(' - ');
 
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser');
       return;
     }
+
     setLoading(true);
     navigator.geolocation.getCurrentPosition(async (position) => {
       try {
@@ -100,37 +165,35 @@ export default function MarketingDashboard() {
             action: 'check_in',
             from_location: fromLocation.trim(),
             to_location: toLocation.trim(),
-            notes: visitNotes.trim(),
+            notes: combinedNotes,
             latitude: position.coords.latitude,
-            longitude: position.coords.longitude
+            longitude: position.coords.longitude,
+            estimated_km: 0
           })
         });
         const data = await res.json();
         if (data.success) {
-          alert('Check-in and Field Visit logged successfully!');
-          setLocationLog(`Checked In: ${fromLocation} ➔ ${toLocation} at (${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)})`);
-          setFromLocation('');
+          alert('Field Route Started! 🚀 Live GPS tracking is now active.');
           setToLocation('');
-          setVisitNotes('');
+          setSelectedPurpose('');
+          setCustomNotes('');
           fetchMyAttendance();
         } else {
-          alert(data.error || 'Failed to check in');
+          alert(data.error || 'Failed to start field route');
         }
       } catch (err) {
         console.error(err);
+        alert('An error occurred while starting the field route.');
       }
       setLoading(false);
     }, (error) => {
-      alert('Error getting GPS location: ' + error.message);
+      alert('Error getting location: ' + error.message);
       setLoading(false);
-    });
+    }, { enableHighAccuracy: true });
   };
 
-  const handleCheckOut = () => {
-    if (!activeAttendance) {
-      alert('No active check-in found to check out from.');
-      return;
-    }
+  const handleCompleteRoute = () => {
+    if (!activeAttendance) return;
 
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser');
@@ -148,17 +211,18 @@ export default function MarketingDashboard() {
             action: 'check_out',
             attendance_id: activeAttendance.id,
             latitude: position.coords.latitude,
-            longitude: position.coords.longitude
+            longitude: position.coords.longitude,
+            total_km: activeAttendance.estimated_km || 0
           })
         });
         const data = await res.json();
         if (data.success) {
-          alert('Check-out successful! Field visit completed.');
+          alert('Field Route Completed! 🎉 Trip logged successfully.');
           setLocationLog(null);
           setActiveAttendance(null);
           fetchMyAttendance();
         } else {
-          alert(data.error || 'Failed to check out');
+          alert(data.error || 'Failed to complete route');
         }
       } catch (err) {
         console.error(err);
@@ -172,171 +236,450 @@ export default function MarketingDashboard() {
 
   if (!mounted) {
     return (
-      <div className="flex h-screen bg-gray-50 text-gray-900 font-sans items-center justify-center">
-        <p className="text-sm text-gray-500 font-medium">Loading Marketing Portal...</p>
+      <div 
+        className="flex h-screen font-sans items-center justify-center"
+        style={{ background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)' }}
+      >
+        <p className="text-sm font-medium animate-pulse" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+          Loading Marketing Portal...
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-900 font-sans">
+    <div 
+      className="flex flex-col md:flex-row min-h-screen font-sans transition-colors duration-200"
+      style={{ background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)' }}
+    >
       
-      {/* Sidebar / Navigation */}
-      <div className="w-64 bg-white border-r shadow-sm flex flex-col">
-        <div className="p-6 border-b flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl uppercase">
-            {user?.name ? user.name.charAt(0) : 'M'}
-          </div>
-          <div className="overflow-hidden">
-            <h2 className="font-bold text-sm text-gray-800 truncate">{user?.name || 'Marketing'}</h2>
-            <p className="text-xs text-gray-500 truncate">{user?.department || user?.role || 'Marketing Executive'}</p>
-          </div>
-        </div>
-        
-        <nav className="flex-1 p-4 flex flex-col space-y-2">
-          <div className="flex items-center space-x-3 p-3 rounded-lg font-semibold bg-blue-50 text-blue-700">
-            <FiMapPin />
-            <span>Field Attendance & GPS</span>
-          </div>
-        </nav>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto">
-        <header className="bg-white border-b px-8 py-5 flex justify-between items-center sticky top-0 z-10 backdrop-blur-md bg-opacity-90">
-          <h1 className="text-2xl font-bold text-gray-800">
-            Field Tracking & Attendance
-          </h1>
-          <button 
-            onClick={handleSignOut}
-            className="flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+      {/* Sidebar (Desktop) / Topbar Navigation (Mobile) */}
+      <aside 
+        className="w-full md:w-64 md:min-h-screen flex flex-col justify-between shrink-0 shadow-lg"
+        style={{ 
+          background: 'var(--bg-card, #1e293b)', 
+          borderRight: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))',
+          borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))'
+        }}
+      >
+        <div>
+          {/* Brand & User Profile */}
+          <div 
+            className="p-4 sm:p-5 flex items-center justify-between gap-3"
+            style={{ borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' }}
           >
-            <FiLogOut size={16} />
+            <div className="flex items-center space-x-3 overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-extrabold text-lg uppercase shadow-md shadow-cyan-500/20 shrink-0">
+                {user?.name ? user.name.charAt(0) : 'M'}
+              </div>
+              <div className="overflow-hidden">
+                <h2 className="font-bold text-sm truncate" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                  {user?.name || 'Marketing'}
+                </h2>
+                <p className="text-xs font-semibold truncate text-cyan-500">
+                  {user?.department || user?.role || 'Field Executive'}
+                </p>
+              </div>
+            </div>
+
+            <div className="md:hidden">
+              <ThemeToggle />
+            </div>
+          </div>
+          
+          {/* Navigation Links */}
+          <nav className="p-3 sm:p-4 space-y-1.5">
+            <div 
+              className="flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-xs sm:text-sm"
+              style={{
+                background: 'rgba(6, 182, 212, 0.12)',
+                color: '#06b6d4',
+                border: '1px solid rgba(6, 182, 212, 0.25)'
+              }}
+            >
+              <FiNavigation className="text-cyan-500" size={16} />
+              <span>Field Route Tracker</span>
+            </div>
+          </nav>
+        </div>
+
+        {/* Sidebar Footer (Desktop only) */}
+        <div 
+          className="hidden md:flex p-4 flex-col gap-3"
+          style={{ borderTop: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Theme</span>
+            <ThemeToggle />
+          </div>
+
+          <button 
+            type="button"
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center gap-2 text-xs font-bold text-red-500 hover:text-red-400 p-2.5 rounded-xl hover:bg-red-500/10 transition-colors"
+            style={{ border: '1px solid rgba(239, 68, 68, 0.2)' }}
+          >
+            <FiLogOut size={14} />
             <span>Sign Out</span>
           </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        
+        {/* Header Bar */}
+        <header 
+          className="px-4 sm:px-8 py-4 sm:py-5 flex justify-between items-center sticky top-0 z-10 backdrop-blur-md"
+          style={{ 
+            background: 'var(--bg-card, #1e293b)', 
+            borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
+          }}
+        >
+          <div>
+            <h1 
+              className="text-lg sm:text-xl font-extrabold flex items-center gap-2"
+              style={{ color: 'var(--text-primary, #f8fafc)' }}
+            >
+              <FiNavigation className="text-cyan-500" /> Field Route Hub
+            </h1>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+              GPS route creator, objective logging & live tracking
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
+            <button 
+              type="button"
+              onClick={handleSignOut}
+              className="flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-400 px-3 py-2 rounded-xl hover:bg-red-500/10 transition-colors"
+              style={{ border: '1px solid rgba(239, 68, 68, 0.2)' }}
+            >
+              <FiLogOut size={14} />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
+          </div>
         </header>
 
-        <main className="p-8 max-w-5xl mx-auto space-y-6">
-          <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="p-3 bg-blue-100 text-blue-600 rounded-xl">
-                <FiMapPin size={24} />
+        {/* Content Container */}
+        <main className="p-4 sm:p-6 lg:p-8 max-w-5xl w-full mx-auto space-y-6">
+
+          {/* Active Trip Banner */}
+          {activeAttendance && (
+            <div 
+              className="p-5 sm:p-6 rounded-2xl shadow-xl space-y-4"
+              style={{ 
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.12))',
+                border: '1.5px solid rgba(16, 185, 129, 0.4)'
+              }}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs sm:text-sm font-extrabold text-emerald-500 uppercase tracking-wider">
+                    Live Field Route Active
+                  </span>
+                </div>
+                <span className="self-start sm:self-auto px-3 py-1 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-full text-xs font-bold">
+                  ● Tracking in Progress
+                </span>
+              </div>
+
+              <div 
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl"
+                style={{ 
+                  background: 'var(--bg-card, rgba(255, 255, 255, 0.04))',
+                  border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))'
+                }}
+              >
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Start Point</p>
+                  <p className="text-xs sm:text-sm font-bold flex items-center gap-1.5 mt-1" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                    <FiMapPin className="text-cyan-500 shrink-0" /> {activeAttendance.from_location || 'GPS Locked'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Destination</p>
+                  <p className="text-xs sm:text-sm font-bold text-cyan-500 flex items-center gap-1.5 mt-1">
+                    🎯 {activeAttendance.to_location || 'Destination'}
+                  </p>
+                </div>
+              </div>
+
+              {activeAttendance.notes && (
+                <div 
+                  className="p-3.5 rounded-xl text-xs flex items-start gap-2"
+                  style={{ 
+                    background: 'var(--bg-card, rgba(255, 255, 255, 0.04))',
+                    border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))',
+                    color: 'var(--text-secondary, #94a3b8)'
+                  }}
+                >
+                  <FiFileText className="text-cyan-500 shrink-0 mt-0.5" />
+                  <div>
+                    <strong style={{ color: 'var(--text-primary, #f8fafc)' }}>Purpose / Notes: </strong> 
+                    {activeAttendance.notes}
+                  </div>
+                </div>
+              )}
+
+              {/* Live Map Preview inside Active Route */}
+              {(activeAttendance.check_in_latitude && activeAttendance.check_in_longitude) && (
+                <div 
+                  className="w-full h-56 sm:h-72 rounded-2xl overflow-hidden shadow-inner relative"
+                  style={{ border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.15))' }}
+                >
+                  <iframe
+                    title="Active Route Live Map"
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    scrolling="no"
+                    marginHeight="0"
+                    marginWidth="0"
+                    src={`https://maps.google.com/maps?q=${activeAttendance.check_in_latitude},${activeAttendance.check_in_longitude}&hl=en&z=16&output=embed`}
+                    className="w-full h-full border-0"
+                  />
+                  <a
+                    href={`https://maps.google.com/?q=${activeAttendance.check_in_latitude},${activeAttendance.check_in_longitude}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="absolute top-2 right-2 bg-black/70 hover:bg-black text-white text-[11px] font-bold px-2.5 py-1 rounded-lg backdrop-blur-sm transition-colors flex items-center gap-1 shadow-md"
+                  >
+                    <FiExternalLink size={11} /> Open Map App
+                  </a>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+                <div className="text-xs flex items-center gap-1.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                  <FiClock style={{ color: 'var(--text-muted, #64748b)' }} />
+                  Started at {activeAttendance.check_in_at ? new Date(activeAttendance.check_in_at).toLocaleTimeString() : 'Now'}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCompleteRoute}
+                  disabled={loading}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50"
+                >
+                  <FiCheckCircle />
+                  {loading ? 'Completing...' : 'Complete Field Route (Check Out)'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Route Creation Form */}
+          <div 
+            className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-lg"
+            style={{ 
+              background: 'var(--bg-card, #1e293b)',
+              border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
+            }}
+          >
+            <div 
+              className="flex items-center space-x-3 mb-6 pb-4"
+              style={{ borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' }}
+            >
+              <div 
+                className="p-3 rounded-xl"
+                style={{ background: 'rgba(6, 182, 212, 0.12)', color: '#06b6d4', border: '1px solid rgba(6, 182, 212, 0.25)' }}
+              >
+                <FiNavigation size={22} />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-800">Field Attendance & Trip Logger</h2>
-                <p className="text-gray-500 text-sm">Enter where you are starting from, where you are going, and log your live GPS</p>
+                <h2 className="text-base sm:text-lg font-bold" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                  Create & Start Field Route
+                </h2>
+                <p className="text-xs" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                  Enter your starting point, destination, and visit purpose to begin tracking
+                </p>
               </div>
             </div>
 
-            {/* Location / Trip inputs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Inputs: Start & Destination */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 mb-5">
+              {/* Start Point */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                  Where From (Starting Location) <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                    <FiMapPin className="text-cyan-500" /> Start Point (Current GPS) <span className="text-cyan-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => fetchCurrentGps(true)}
+                    disabled={fetchingGps || !!activeAttendance}
+                    className="text-xs text-cyan-500 hover:text-cyan-400 flex items-center gap-1 hover:underline disabled:opacity-50"
+                  >
+                    <FiRefreshCw className={fetchingGps ? 'animate-spin' : ''} size={11} />
+                    {fetchingGps ? 'Locking...' : 'Refresh GPS'}
+                  </button>
+                </div>
                 <input
                   type="text"
-                  placeholder="e.g. Office / Home / Sector 17"
+                  placeholder="e.g. Office / Sector 17 / Live GPS"
                   value={fromLocation}
                   onChange={(e) => setFromLocation(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm focus:outline-none"
+                  style={{
+                    background: 'var(--bg-primary, rgba(0, 0, 0, 0.05))',
+                    color: 'var(--text-primary, #f8fafc)',
+                    border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.12))'
+                  }}
                   disabled={loading || !!activeAttendance}
                 />
+                {currentCoords && (
+                  <p className="text-[11px] text-emerald-500 mt-1.5 flex items-center gap-1 font-medium">
+                    ✓ GPS Locked: {currentCoords.latitude.toFixed(4)}, {currentCoords.longitude.toFixed(4)} (±{Math.round(currentCoords.accuracy || 10)}m)
+                  </p>
+                )}
               </div>
+
+              {/* Destination */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                  Where To / Destination (Going To) <span className="text-red-500">*</span>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                  Where To / Destination <span className="text-cyan-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Client Office Sector 62 / Market Visit"
+                  placeholder="e.g. Client Office Sector 62 / Market Visit / Client Name"
                   value={toLocation}
                   onChange={(e) => setToLocation(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm focus:outline-none"
+                  style={{
+                    background: 'var(--bg-primary, rgba(0, 0, 0, 0.05))',
+                    color: 'var(--text-primary, #f8fafc)',
+                    border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.12))'
+                  }}
                   disabled={loading || !!activeAttendance}
                 />
               </div>
             </div>
 
-            <div className="mb-6">
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                Purpose / Notes (Optional)
+            {/* Purpose Preset Chips */}
+            <div className="mb-5">
+              <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                Purpose of Going / Visit Objective
               </label>
-              <input
-                type="text"
-                placeholder="e.g. Meeting with client regarding product demo"
-                value={visitNotes}
-                onChange={(e) => setVisitNotes(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+              <div className="flex flex-wrap gap-2 mb-3">
+                {PURPOSE_PRESETS.map((preset) => {
+                  const isSelected = selectedPurpose === preset;
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setSelectedPurpose(isSelected ? '' : preset)}
+                      disabled={loading || !!activeAttendance}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/25'
+                          : 'hover:opacity-80'
+                      }`}
+                      style={{
+                        background: isSelected ? undefined : 'var(--bg-primary, rgba(0, 0, 0, 0.05))',
+                        color: isSelected ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
+                        border: isSelected ? 'none' : '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))'
+                      }}
+                    >
+                      {preset}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Notes */}
+              <textarea
+                rows={2}
+                placeholder="Add specific details (e.g. Client contact name, agenda, quotation discussion)..."
+                value={customNotes}
+                onChange={(e) => setCustomNotes(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm focus:outline-none resize-none"
+                style={{
+                  background: 'var(--bg-primary, rgba(0, 0, 0, 0.05))',
+                  color: 'var(--text-primary, #f8fafc)',
+                  border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.12))'
+                }}
                 disabled={loading || !!activeAttendance}
               />
             </div>
             
-            <div className="flex flex-wrap gap-4 items-center mb-6">
+            {/* Big Start Route Button */}
+            <div className="pt-2">
               <button 
-                onClick={handleCheckIn}
-                disabled={loading || !!activeAttendance}
-                className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50 shadow-md shadow-blue-600/20 flex items-center gap-2"
+                type="button"
+                onClick={handleStartRoute}
+                disabled={loading || !!activeAttendance || !fromLocation.trim() || !toLocation.trim()}
+                className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold px-8 py-3.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 text-sm sm:text-base"
               >
-                <FiMapPin />
-                {loading ? 'Processing GPS...' : 'Check In (Start Trip)'}
-              </button>
-              <button 
-                onClick={handleCheckOut}
-                disabled={loading || !activeAttendance}
-                className="bg-gray-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-900 transition-all disabled:opacity-50 shadow-md"
-              >
-                Check Out (Complete Trip)
+                <FiNavigation size={18} />
+                {loading ? 'Starting Live Tracking...' : activeAttendance ? 'Active Route in Progress' : '🚀 Start Field Route'}
               </button>
             </div>
-
-            {locationLog && (
-              <div className="p-4 bg-green-50 text-green-800 rounded-xl border border-green-200 flex items-center space-x-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                </span>
-                <span className="font-medium text-sm">{locationLog}</span>
-              </div>
-            )}
           </div>
 
-          {/* Trip & Attendance History */}
-          <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">My Recent Field Visits</h3>
+          {/* Trip History Table */}
+          <div 
+            className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-lg"
+            style={{ 
+              background: 'var(--bg-card, #1e293b)',
+              border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
+            }}
+          >
+            <h3 className="text-sm sm:text-base font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+              <FiClock className="text-cyan-500" /> My Recent Field Visits
+            </h3>
+            
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y" style={{ borderColor: 'var(--glass-border, rgba(255, 255, 255, 0.08))' }}>
                 <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">From</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Going To</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Check-In</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Check-Out</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">GPS Location</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                  <tr style={{ background: 'var(--bg-primary, rgba(0, 0, 0, 0.05))' }}>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>From</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Destination</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Purpose / Notes</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Check-In</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Check-Out</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>GPS Map</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 text-sm">
+                <tbody className="divide-y text-xs" style={{ borderColor: 'var(--glass-border, rgba(255, 255, 255, 0.05))' }}>
                   {attendanceHistory.map(item => (
-                    <tr key={item.id} className="hover:bg-gray-50/50">
-                      <td className="px-4 py-3 font-semibold text-gray-800">{item.from_location || '-'}</td>
-                      <td className="px-4 py-3 font-semibold text-blue-600">{item.to_location || '-'}</td>
-                      <td className="px-4 py-3 text-gray-500">{item.check_in_at ? new Date(item.check_in_at).toLocaleString() : '-'}</td>
-                      <td className="px-4 py-3 text-gray-500">{item.check_out_at ? new Date(item.check_out_at).toLocaleString() : '-'}</td>
+                    <tr key={item.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                      <td className="px-4 py-3 font-semibold" style={{ color: 'var(--text-primary, #f8fafc)' }}>{item.from_location || '-'}</td>
+                      <td className="px-4 py-3 font-bold text-cyan-500">{item.to_location || '-'}</td>
+                      <td className="px-4 py-3 max-w-xs truncate" style={{ color: 'var(--text-secondary, #94a3b8)' }} title={item.notes || ''}>
+                        {item.notes || '-'}
+                      </td>
+                      <td className="px-4 py-3" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                        {item.check_in_at ? new Date(item.check_in_at).toLocaleString() : '-'}
+                      </td>
+                      <td className="px-4 py-3" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                        {item.check_out_at ? new Date(item.check_out_at).toLocaleString() : item.status === 'Checked In' ? <span className="text-emerald-500 font-bold">Active</span> : '-'}
+                      </td>
                       <td className="px-4 py-3">
                         {item.check_in_latitude && item.check_in_longitude ? (
                           <a 
                             href={`https://maps.google.com/?q=${item.check_in_latitude},${item.check_in_longitude}`} 
                             target="_blank" 
                             rel="noreferrer"
-                            className="text-cyan-600 hover:underline inline-flex items-center gap-1 font-mono text-xs"
+                            className="text-cyan-500 hover:text-cyan-400 inline-flex items-center gap-1 font-mono text-xs hover:underline"
                           >
                             <FiMapPin size={12} /> {Number(item.check_in_latitude || 0).toFixed(4)}, {Number(item.check_in_longitude || 0).toFixed(4)}
                           </a>
                         ) : '-'}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${item.status === 'Checked In' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                          item.status === 'Checked In' 
+                            ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' 
+                            : 'bg-gray-500/15 text-gray-400 border border-gray-500/20'
+                        }`}>
                           {item.status || 'Checked Out'}
                         </span>
                       </td>
@@ -344,7 +687,9 @@ export default function MarketingDashboard() {
                   ))}
                   {attendanceHistory.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="px-4 py-6 text-center text-gray-400">No field visits logged yet.</td>
+                      <td colSpan="7" className="px-4 py-8 text-center text-xs" style={{ color: 'var(--text-muted, #64748b)' }}>
+                        No field routes recorded yet.
+                      </td>
                     </tr>
                   )}
                 </tbody>

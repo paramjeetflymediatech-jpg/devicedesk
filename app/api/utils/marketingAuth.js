@@ -26,8 +26,11 @@ export async function isMarketingAuthorized(user) {
   // 3. Check explicit authorization in database
   try {
     const db = await getDbConnection();
+    const [cols] = await db.query(`SHOW COLUMNS FROM marketing_authorizations`);
+    const colNames = cols.map(c => c.Field);
+    const idCol = colNames.includes('employee_id') ? 'employee_id' : 'employeeId';
     const [rows] = await db.query(
-      `SELECT employeeId FROM marketing_authorizations WHERE employeeId = ? LIMIT 1`,
+      `SELECT ${idCol} FROM marketing_authorizations WHERE ${idCol} = ? LIMIT 1`,
       [user.id]
     );
     return rows && rows.length > 0;
@@ -43,7 +46,10 @@ export async function isMarketingAuthorized(user) {
 export async function getAuthorizedMarketingEmployeeIds() {
   try {
     const db = await getDbConnection();
-    const [rows] = await db.query(`SELECT employeeId FROM marketing_authorizations`);
+    const [cols] = await db.query(`SHOW COLUMNS FROM marketing_authorizations`);
+    const colNames = cols.map(c => c.Field);
+    const idCol = colNames.includes('employee_id') ? 'employee_id' : 'employeeId';
+    const [rows] = await db.query(`SELECT ${idCol} AS employeeId FROM marketing_authorizations`);
     return rows.map(r => r.employeeId);
   } catch (e) {
     return [];

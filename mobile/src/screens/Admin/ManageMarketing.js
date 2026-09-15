@@ -477,6 +477,16 @@ export default function ManageMarketing({ currentUser, onBack }) {
                           </Text>
                         </View>
                       </View>
+
+                      {trip.estimated_km > 0 ? (
+                        <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={[styles.statusBadge, { backgroundColor: isDark ? '#083344' : '#ecfeff' }]}>
+                            <Text style={[styles.statusBadgeText, { color: '#0891b2' }]}>
+                              🛣️ Route Distance: {trip.estimated_km} KM
+                            </Text>
+                          </View>
+                        </View>
+                      ) : null}
                     </View>
 
                     {/* Purpose / Notes */}
@@ -614,12 +624,21 @@ export default function ManageMarketing({ currentUser, onBack }) {
                       </Text>
                     </View>
 
-                    {/* Purpose / Note */}
-                    {item.notes ? (
-                      <Text style={[styles.historyNotes, { color: themeColors.textSecondary }]} numberOfLines={2}>
-                        📝 {item.notes}
-                      </Text>
-                    ) : null}
+                    {/* Distance Badge & Purpose / Note */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginVertical: 4 }}>
+                      {(item.total_km > 0 || item.estimated_km > 0) ? (
+                        <View style={[styles.statusBadge, { backgroundColor: isDark ? '#083344' : '#ecfeff', paddingVertical: 2, paddingHorizontal: 6 }]}>
+                          <Text style={[styles.statusBadgeText, { color: '#0891b2', fontSize: 10 }]}>
+                            🚗 {item.total_km > 0 ? `${item.total_km} KM (Actual)` : `${item.estimated_km} KM (Est.)`}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {item.notes ? (
+                        <Text style={[styles.historyNotes, { color: themeColors.textSecondary, flex: 1, marginBottom: 0 }]} numberOfLines={1}>
+                          📝 {item.notes}
+                        </Text>
+                      ) : null}
+                    </View>
 
                     {/* Footer with GPS Map Pins */}
                     <View style={styles.historyCardFooter}>
