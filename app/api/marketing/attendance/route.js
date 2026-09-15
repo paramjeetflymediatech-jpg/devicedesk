@@ -7,8 +7,8 @@ async function ensureMarketingAttendanceTable(db) {
   try {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS marketing_attendance (
-        id VARCHAR(50) PRIMARY KEY,
-        employee_id VARCHAR(50) NOT NULL,
+        id VARCHAR(100) PRIMARY KEY,
+        employee_id VARCHAR(100) NOT NULL,
         check_in_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
         check_in_latitude DECIMAL(10, 8),
         check_in_longitude DECIMAL(11, 8),
@@ -20,6 +20,22 @@ async function ensureMarketingAttendanceTable(db) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
   } catch (err) {}
+
+  // Drop any legacy foreign keys on marketing_attendance to prevent ER_NO_REFERENCED_ROW_2 constraint errors
+  try {
+    const [fks] = await db.query(`
+      SELECT CONSTRAINT_NAME 
+      FROM information_schema.KEY_COLUMN_USAGE 
+      WHERE TABLE_NAME = 'marketing_attendance' 
+        AND TABLE_SCHEMA = DATABASE() 
+        AND REFERENCED_TABLE_NAME IS NOT NULL
+    `);
+    for (const fk of fks) {
+      try {
+        await db.execute(`ALTER TABLE marketing_attendance DROP FOREIGN KEY \`${fk.CONSTRAINT_NAME}\``);
+      } catch (e) {}
+    }
+  } catch (e) {}
 
   try {
     const [cols] = await db.query(`SHOW COLUMNS FROM marketing_attendance`);
