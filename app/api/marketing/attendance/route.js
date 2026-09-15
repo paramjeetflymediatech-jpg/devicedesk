@@ -87,7 +87,8 @@ export async function POST(request) {
     const { 
       employee_id, action, latitude, longitude, 
       from_location, to_location, notes,
-      dest_latitude, dest_longitude, estimated_km
+      dest_latitude, dest_longitude, estimated_km,
+      attendance_id, total_km
     } = await request.json();
 
     if (!employee_id || !action || !latitude || !longitude) {
@@ -157,8 +158,6 @@ export async function POST(request) {
     } 
     
     else if (action === 'check_out') {
-      const { attendance_id, total_km } = await request.json();
-      
       if (!attendance_id) {
         return NextResponse.json({ error: 'attendance_id is required for check-out.' }, { status: 400 });
       }
