@@ -2785,7 +2785,7 @@ export default function Home() {
           {/* ================= VIEW: SCREENSHOTS ================= */}
           {currentView === "screenshots" && !isITSupport && (
             <div className="page-section active">
-              <ScreenshotsTab />
+              <ScreenshotsTab user={user} />
             </div>
           )}
 

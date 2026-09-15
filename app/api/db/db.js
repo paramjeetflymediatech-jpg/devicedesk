@@ -238,6 +238,19 @@ export async function getDbConnection() {
   `);
 
   await db.execute(`
+    CREATE TABLE IF NOT EXISTS login_otps (
+      id VARCHAR(100) PRIMARY KEY,
+      employeeId VARCHAR(50) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      otp VARCHAR(255) NOT NULL,
+      createdAt VARCHAR(50) NOT NULL,
+      expiresAt VARCHAR(50) NOT NULL,
+      used INT DEFAULT 0,
+      INDEX idx_login_otp_email (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS chat_messages (
       id VARCHAR(100) PRIMARY KEY,
       senderId VARCHAR(50) NOT NULL,
