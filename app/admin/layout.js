@@ -213,7 +213,7 @@ export default function AdminLayout({ children }) {
       title: "Security & Auditing",
       items: [
         { name: "System Logs", path: "/admin/audit-logs", icon: <FiFileText />, adminOnly: true },
-        { name: "Activity Log", path: "/admin/activity-log", icon: <FiActivity /> }
+        { name: "Activity & Screenshots", path: "/admin/screenshots", icon: <FiActivity /> }
       ]
     }
   ];
@@ -477,8 +477,8 @@ export default function AdminLayout({ children }) {
                         <FiUsers size={20} /><span>Clients</span>
                       </Link>
                     )}
-                    <Link href="/admin/activity-log" className={`nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-colors ${pathname === '/admin/activity-log' ? 'bg-[var(--glass-bg)] border-l-4 border-[var(--accent-cyan)] text-[var(--accent-cyan)] shadow-[var(--neon-glow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]'}`}>
-                      <FiActivity size={20} /><span>Activity Log</span>
+                    <Link href="/admin/screenshots" className={`nav-link flex items-center space-x-3 px-4 py-3 rounded-lg mb-2 transition-colors ${pathname === '/admin/screenshots' ? 'bg-[var(--glass-bg)] border-l-4 border-[var(--accent-cyan)] text-[var(--accent-cyan)] shadow-[var(--neon-glow)]' : 'text-[var(--text-secondary)] hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]'}`}>
+                      <FiActivity size={20} /><span>Activity & Screenshots</span>
                     </Link>
                     <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: "2px" }}>
                       {empDetails?.role || "Administrator"}

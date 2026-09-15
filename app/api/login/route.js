@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
 import bcrypt from 'bcryptjs';
+import { sendMailNotification } from '../utils/mailHelper.js';
 
 export async function POST(request) {
   try {
@@ -79,6 +80,26 @@ export async function POST(request) {
     }
 
     const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader';
+
+    // HR OTP Check
+    const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
+    const deptStr = `${emp.department || ''}`.toLowerCase().trim();
+    const isAdminUser = 
+      dbRoleStr === 'admin' || 
+      dbRoleStr === 'superadmin' || 
+      dbRoleStr === 'management' ||
+      emp.email === 'admin@yopmail.com' || 
+      emp.email === 'pravi@yopmail.com';
+    const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+
+    if (isHRUser) {
+      return NextResponse.json({
+        success: true,
+        requiresOtp: true,
+        email: emp.email,
+        userId: emp.id
+      });
+    }
 
     return NextResponse.json({
       success: true,

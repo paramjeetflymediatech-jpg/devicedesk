@@ -72,6 +72,67 @@ DeviceDesk Automated Fleet Monitor
 --------------------------------------------------
 [2026-09-14T07:10:22.316Z] To: superadmin@devicedesk.com | ResetLink: http://localhost:3000/reset-password?token=48b6307fc32fb43f62824ff4e0ac78ea699184c85815494d3d40073944340038 | EtherealURL: https://ethereal.email/message/aqed23S9RyYb0Akraqed3l31x4oQTKS1AAAAAU3c5aOBALAubMMi.trFx5g
 --------------------------------------------------
+<<<<<<< HEAD
+[2026-09-15T06:01:18.121Z] To: hr@yopmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <97e3329c-5856-9f8f-89b7-1500b3feef81@ethereal.email>
+Text:
+Your OTP is: 871941
+--------------------------------------------------
+[2026-09-15T06:10:07.477Z] To: hr@yopmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <4811f76b-bd81-da91-8aa2-cf72d1ff482b@ethereal.email>
+Text:
+Your OTP is: 905976
+--------------------------------------------------
+[2026-09-15T06:22:42.796Z] To: hr@yopmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <ba74a72f-6198-ff67-f519-a859f44eb077@ethereal.email>
+Text:
+Your OTP is: 649773
+--------------------------------------------------
+[2026-09-15T06:33:28.245Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <fbf8b36a-3d5b-5b1d-099f-8043c5858d53@ethereal.email>
+Text:
+Your OTP is: 683654
+--------------------------------------------------
+[2026-09-15T06:50:34.179Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <9622b30c-8e7a-00ff-a296-206dd7d7c91b@devicedeskflymeditech.com>
+Text:
+Your OTP is: 626945
+--------------------------------------------------
+[2026-09-15T06:53:30.893Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <60c5817c-7371-593a-2df1-67c591a03cfe@devicedeskflymeditech.com>
+Text:
+Your OTP is: 643937
+--------------------------------------------------
+[2026-09-15T06:56:15.295Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <c328d15c-c502-0580-24fd-b3619ea29dd6@devicedeskflymeditech.com>
+Text:
+Your OTP is: 422563
+--------------------------------------------------
+[2026-09-15T06:59:10.494Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <becb9198-92c5-ce95-8857-de95adc89a52@devicedeskflymeditech.com>
+Text:
+Your OTP is: 650701
+--------------------------------------------------
+[2026-09-15T07:03:37.546Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <36cb3583-d60f-863a-b515-f35f12b6ccd6@devicedeskflymeditech.com>
+Text:
+Your OTP is: 332575
+--------------------------------------------------
+[2026-09-15T07:05:03.539Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <32b78aa6-1940-355f-8cdc-9d9e91c5a52a@devicedeskflymeditech.com>
+Text:
+Your OTP is: 791052
+--------------------------------------------------
+[2026-09-15T07:06:10.793Z] To: amandeepkumar.flymediatech@gmail.com | Subject: Resend: DeviceDesk HR Login Verification | MessageID: <a87d7017-9c8c-5762-7190-1e8b36239113@devicedeskflymeditech.com>
+Text:
+Your new OTP is: 386523
+--------------------------------------------------
+[2026-09-15T07:16:42.655Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <981cf75b-36ae-ed07-a9c0-b04cb01b511f@devicedeskflymeditech.com>
+Text:
+Your OTP is: 101339
+--------------------------------------------------
+[2026-09-15T07:21:18.843Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <f907289d-c1f4-2ab8-e647-12a4b5702c88@devicedeskflymeditech.com>
+Text:
+Your OTP is: 415210
+--------------------------------------------------
+[2026-09-15T07:27:31.437Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <c663f95b-c2a0-f726-4fe8-8d5fa0c6f01a@devicedeskflymeditech.com>
+Text:
+Your OTP is: 765571
+--------------------------------------------------
+[2026-09-15T07:33:10.310Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <3e30b57c-c77b-b730-598e-63d260371256@devicedeskflymeditech.com>
+Text:
+Your OTP is: 723679
+=======
 [2026-09-15T04:24:07.610Z] To: hr@yopmail.com | ResetLink: http://localhost:3000/reset-password?token=61b78934dbeb0b20251e39081c1e34f06e77884ad6011cb7435adeed8600df49 | EtherealURL: https://ethereal.email/message/aqjIZF.qZeQKg0G5aqjIZ.LvAxtdpvrrAAAAARIhpQ8Cj.WM17P8E91i3L4
 --------------------------------------------------
 [2026-09-15T04:42:22.396Z] To: hr@yopmail.com | ResetLink: http://localhost:3000/reset-password?token=bd11f9adedd710f7d1173a41eacd649ccf8bf1ef40032bb9179b9632eae27ac3 | EtherealURL: https://ethereal.email/message/aqjMq1.qZeQKg7htaqjMrmBC2Znvd2fLAAAAAUFdY6EXOgh1XjwnCQOyuaQ
@@ -85,4 +146,5 @@ DeviceDesk Automated Fleet Monitor
 [2026-09-15T06:44:06.287Z] To: hr@yopmail.com | ResetLink: http://localhost:3000/reset-password?token=5ff235327792ae5e3430281841fbf9c17ae56e16070111f2e51092e43a93747d | EtherealURL: https://ethereal.email/message/aqjpMl.qZeQKhw8yaqjpNvLvAxtdpwUBAAAAAVKmZjyoxnRju46-8mydwHw
 --------------------------------------------------
 [2026-09-15T06:47:46.893Z] To: hr@yopmail.com | ResetLink: http://localhost:3000/reset-password?token=2110973e9a02c748ab6a1973e8b21d974c92c57d47bdc6d3650981b22cfd347c | EtherealURL: N/A
+>>>>>>> f991e892682a1668ba1c9105f84364208e4bb3c1
 --------------------------------------------------

@@ -40,7 +40,7 @@ const getTodayDateStr = () => {
   return `${year}-${month}-${day}`;
 };
 
-export default function ScreenshotsTab() {
+export default function ScreenshotsTab({ user }) {
   const [screenshots, setScreenshots] = useState([]);
   const [employeesList, setEmployeesList] = useState([]);
   const [departmentsList, setDepartmentsList] = useState([]);
@@ -69,6 +69,17 @@ export default function ScreenshotsTab() {
   const [inspectModal, setInspectModal] = useState({ open: false, data: null });
   const [showGuideModal, setShowGuideModal] = useState(false);
 
+  // Determine user roles
+  const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
+  const deptStr = `${user?.department || ''}`.toLowerCase().trim();
+  const isAdminUser = 
+    dbRoleStr === 'admin' || 
+    dbRoleStr === 'superadmin' || 
+    dbRoleStr === 'management' ||
+    user?.email === 'admin@yopmail.com' || 
+    user?.email === 'pravi@yopmail.com';
+  const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+
   // Fetch Employees List for filter dropdown
   useEffect(() => {
     async function loadFilterOptions() {
@@ -77,8 +88,12 @@ export default function ScreenshotsTab() {
         if (empRes.ok) {
           const empData = await empRes.json();
           if (empData.success && Array.isArray(empData.data)) {
-            setEmployeesList(empData.data);
-            const deptSet = new Set(empData.data.map(e => e.department).filter(Boolean));
+            let filteredEmps = empData.data;
+            if (isHRUser && user?.id) {
+              filteredEmps = filteredEmps.filter(e => e.id !== user.id);
+            }
+            setEmployeesList(filteredEmps);
+            const deptSet = new Set(filteredEmps.map(e => e.department).filter(Boolean));
             setDepartmentsList(Array.from(deptSet));
           }
         }
@@ -106,8 +121,17 @@ export default function ScreenshotsTab() {
       const res = await fetch(`/api/screenshots/list?${queryParams.toString()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
-        setScreenshots(data.data || []);
-        if (data.registrations) setAgentRegistrations(data.registrations);
+        // HR Access Control: HR cannot see their own screenshots
+        let finalScreenshots = data.data || [];
+        let finalRegistrations = data.registrations || [];
+
+        if (isHRUser && user?.id) {
+          finalScreenshots = finalScreenshots.filter(s => s.employeeId !== user.id);
+          finalRegistrations = finalRegistrations.filter(r => r.employeeId !== user.id);
+        }
+
+        setScreenshots(finalScreenshots);
+        if (data.registrations) setAgentRegistrations(finalRegistrations);
         if (data.stats) setStats(data.stats);
       }
     } catch (err) {

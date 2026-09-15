@@ -263,8 +263,8 @@ export default function EmployeeLayout({ children }) {
                     <span className="nav-icon"><FiCalendar /></span> All Leaves
                   </Link>
                 </li>
-                <li className={`nav-item ${pathname === "/admin/activity-log" ? "active" : ""}`}>
-                  <Link href="/admin/activity-log" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                <li className={`nav-item ${pathname === "/admin/screenshots" ? "active" : ""}`}>
+                  <Link href="/admin/screenshots" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
                     <span className="nav-icon"><FiActivity /></span> Activity & Screenshots
                   </Link>
                 </li>
@@ -387,8 +387,8 @@ export default function EmployeeLayout({ children }) {
                 <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiCalendar /> All Leaves</span>
               </Link>
               <Link
-                href="/admin/activity-log"
-                className={`mobile-drawer-item ${pathname === "/admin/activity-log" ? "active" : ""}`}
+                href="/admin/screenshots"
+                className={`mobile-drawer-item ${pathname === "/admin/screenshots" ? "active" : ""}`}
                 onClick={() => setMobileMenuOpen(false)}
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
               >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../auth/AuthContext";
 import ThemeToggle from "../components/ThemeToggle.js";
@@ -18,9 +18,45 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  
+  // OTP States
+  const [requiresOtp, setRequiresOtp] = useState(false);
+  const [otpUserId, setOtpUserId] = useState(null);
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  
+  const isSubmitting = React.useRef(false);
+
+  const requestOtp = async (uid, uemail) => {
+    setSendingOtp(true);
+    try {
+      await fetch('/api/login/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, email: uemail })
+      });
+      // Start countdown after successful dispatch
+      setResendTimer(60);
+      const interval = setInterval(() => {
+        setResendTimer((prev) => {
+          if (prev <= 1) clearInterval(interval);
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      console.error("Failed to request OTP:", err);
+    } finally {
+      setSendingOtp(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting.current) return;
+    isSubmitting.current = true;
+    
     setError("");
     setLoading(true);
 
@@ -32,7 +68,15 @@ export default function LoginPage() {
       });
       const data = await res.json();
 
-      if (data.success) {
+      if (data.success && data.requiresOtp) {
+        setRequiresOtp(true);
+        setOtpUserId(data.userId);
+        setOtpEmail(data.email);
+        
+        // Immediately dispatch the OTP in the background without blocking the UI
+        requestOtp(data.userId, data.email);
+        
+      } else if (data.success) {
         login(data.user);
         const dbRoleLower = (data.user?.dbRole || '').toLowerCase();
         const emailLower = (data.user?.email || '').toLowerCase();
@@ -47,12 +91,6 @@ export default function LoginPage() {
           emailLower === 'admin@yopmail.com' ||
           emailLower === 'pravi@yopmail.com' ||
           emailLower === 'admin@devicedesk.com';
-
-        // IT Support staff (only non-Admin IT personnel)
-        const isITSupport = !isRootAdmin && (
-          dbRoleLower.includes('it') ||
-          deptLower.includes('it')
-        );
 
         if (emailLower === 'developer@devicedesk.com') {
           router.push('/developer/dashboard');
@@ -72,7 +110,44 @@ export default function LoginPage() {
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);
+      isSubmitting.current = false;
     }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (isSubmitting.current) return;
+    isSubmitting.current = true;
+    
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/login/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: otpUserId, otp })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        login(data.user);
+        router.push('/employee-dashboard');
+      } else {
+        setError(data.message || 'Invalid OTP.');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+      isSubmitting.current = false;
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    setError("");
+    await requestOtp(otpUserId, otpEmail);
   };
 
   return (
@@ -184,81 +259,178 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Username / Team Member Name</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Enter your email or username"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group" style={{ marginBottom: "1.5rem" }}>
-            <label>Password</label>
-            <div style={{ position: "relative" }}>
+        {!requiresOtp ? (
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>Username / Team Member Name</label>
               <input
-                type={showPassword ? "text" : "password"}
+                type="text"
                 className="form-control"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your email or username"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 required
-                style={{ paddingRight: "40px" }}
               />
+            </div>
+            <div className="form-group" style={{ marginBottom: "1.5rem" }}>
+              <label>Password</label>
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="form-control"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{ paddingRight: "40px" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "4px"
+                  }}
+                >
+                  {showPassword ? <FiEyeOff style={{ fontSize: "1.1rem" }} /> : <FiEye style={{ fontSize: "1.1rem" }} />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div
+                style={{
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid var(--status-critical)",
+                  color: "var(--status-critical)",
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  fontSize: "0.85rem",
+                  marginBottom: "1.25rem",
+                  textAlign: "center",
+                }}
+              >
+                ⚠️ {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loading}
+              style={{ width: "100%", padding: "12px", borderRadius: "10px", opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer", alignItems:"center", justifyContent:"center", display:"flex"
+              }}
+            >
+              {loading ? "Signing In..." : "Sign In"}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOtp}>
+            {sendingOtp ? (
+              <div style={{ textAlign: "center", marginBottom: "1.5rem", padding: "10px", background: "rgba(6, 182, 212, 0.1)", borderRadius: "8px", border: "1px solid var(--accent-cyan)" }}>
+                <p style={{ color: "var(--accent-cyan)", fontSize: "0.9rem", fontWeight: "600", margin: 0 }}>
+                  <span style={{ display: "inline-block", animation: "spin 1s linear infinite", marginRight: "8px" }}>⏳</span>
+                  Dispatching verification code to your email...
+                </p>
+              </div>
+            ) : (
+              <p style={{ textAlign: "center", color: "var(--text-secondary)", marginBottom: "1.5rem", fontSize: "0.9rem" }}>
+                A 6-digit verification code has been sent to your registered email <strong style={{ color: "var(--text-primary)" }}>{otpEmail}</strong>.
+              </p>
+            )}
+            <style jsx>{`
+              @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
+            <div className="form-group" style={{ marginBottom: "1.5rem" }}>
+              <label>Enter OTP Code</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="123456"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                required
+                style={{ textAlign: "center", fontSize: "1.5rem", letterSpacing: "5px" }}
+              />
+            </div>
+
+            {error && (
+              <div
+                style={{
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid var(--status-critical)",
+                  color: "var(--status-critical)",
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  fontSize: "0.85rem",
+                  marginBottom: "1.25rem",
+                  textAlign: "center",
+                }}
+              >
+                ⚠️ {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loading || otp.length < 6}
+              style={{ width: "100%", padding: "12px", borderRadius: "10px", opacity: (loading || otp.length < 6) ? 0.7 : 1, cursor: (loading || otp.length < 6) ? "not-allowed" : "pointer", alignItems:"center", justifyContent:"center", display:"flex", marginBottom: "1rem" }}
+            >
+              {loading ? "Verifying..." : "Verify OTP"}
+            </button>
+
+            <div style={{ textAlign: "center" }}>
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={handleResendOtp}
+                disabled={resendTimer > 0}
                 style={{
-                  position: "absolute",
-                  right: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: resendTimer > 0 ? "var(--text-secondary)" : "var(--accent-cyan)",
+                  fontWeight: "500",
+                  cursor: resendTimer > 0 ? "default" : "pointer",
+                  fontSize: "0.85rem",
+                  opacity: resendTimer > 0 ? 0.5 : 1
+                }}
+              >
+                {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Resend OTP"}
+              </button>
+            </div>
+            
+            <div style={{ textAlign: "center", marginTop: "1rem" }}>
+              <button
+                type="button"
+                onClick={() => setRequiresOtp(false)}
+                style={{
                   background: "none",
                   border: "none",
                   color: "var(--text-secondary)",
+                  fontSize: "0.85rem",
                   cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "4px"
+                  textDecoration: "underline"
                 }}
               >
-                {showPassword ? <FiEyeOff style={{ fontSize: "1.1rem" }} /> : <FiEye style={{ fontSize: "1.1rem" }} />}
+                Back to Login
               </button>
             </div>
-          </div>
-
-          {error && (
-            <div
-              style={{
-                background: "rgba(239, 68, 68, 0.1)",
-                border: "1px solid var(--status-critical)",
-                color: "var(--status-critical)",
-                padding: "10px 14px",
-                borderRadius: "10px",
-                fontSize: "0.85rem",
-                marginBottom: "1.25rem",
-                textAlign: "center",
-              }}
-            >
-              ⚠️ {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading}
-            style={{ width: "100%", padding: "12px", borderRadius: "10px", opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer", alignItems:"center", justifyContent:"center", display:"flex"
-            }}
-          >
-            {loading ? "Signing In..." : "Sign In"}
-          </button>
-        </form>
+          </form>
+        )}
 
 
         <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
