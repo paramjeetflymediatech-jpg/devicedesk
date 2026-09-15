@@ -564,11 +564,6 @@ export default function AdminMarketingOverview() {
                             ON FIELD
                           </span>
                         </div>
-                        <span className="px-2.5 py-1 bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                          ON FIELD
-                        </span>
-                      </div>
 
                       {/* Route Path */}
                       <div 
@@ -667,8 +662,9 @@ export default function AdminMarketingOverview() {
                 );
               })}
             </div>
-          )}
-        </div>
+          </>
+        )}
+      </div>
       )}
 
       {/* ================= TAB 2: TRIP HISTORY & LOGS ================= */}
