@@ -28,6 +28,7 @@ const ROLES = [
   'Team Leader',
   'IT Engineer',
   'Management',
+  'HR Management',
   'Admin',
   'Client',
   'Marketing',

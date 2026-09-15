@@ -84,13 +84,13 @@ export async function POST(request) {
     // HR OTP Check
     const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
     const deptStr = `${emp.department || ''}`.toLowerCase().trim();
-    const isAdminUser = 
-      dbRoleStr === 'admin' || 
-      dbRoleStr === 'superadmin' || 
+    const isAdminUser =
+      dbRoleStr === 'admin' ||
+      dbRoleStr === 'superadmin' ||
       dbRoleStr === 'management' ||
-      emp.email === 'admin@yopmail.com' || 
+      emp.email === 'admin@yopmail.com' ||
       emp.email === 'pravi@yopmail.com';
-    const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+    const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 
     if (isHRUser) {
       return NextResponse.json({
@@ -104,12 +104,12 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       user: {
-        id:          emp.id,
-        name:        emp.name,
-        email:       emp.email,
-        role:        isDeskRole ? 'admin' : 'employee',
-        dbRole:      emp.role,
-        department:  emp.department,
+        id: emp.id,
+        name: emp.name,
+        email: emp.email,
+        role: isDeskRole ? 'admin' : 'employee',
+        dbRole: emp.role,
+        department: emp.department,
         ticketLimit: emp.ticketLimit
       }
     });

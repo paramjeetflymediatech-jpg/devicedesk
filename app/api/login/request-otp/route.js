@@ -32,30 +32,69 @@ export async function POST(request) {
       [otpId, userId, email, otpCode, new Date().toISOString(), expiresAt, 0]
     );
 
-    // Send Email
     const emailContent = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #06b6d4;">HR Portal Login Verification</h2>
-        <p>Hi ${emp.name},</p>
-        <p>Please use the following One-Time Password (OTP) to complete your login:</p>
-        <div style="font-size: 24px; font-weight: bold; margin: 20px 0; padding: 15px; background: #f4f4f4; border-radius: 8px; text-align: center; letter-spacing: 2px;">
-          ${otpCode}
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 40px 20px; }
+          .container { max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eaedf1; }
+          .header { background-color: #06b6d4; padding: 25px 20px; text-align: center; }
+          .header h2 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
+          .content { padding: 35px 30px; color: #444444; line-height: 1.6; }
+          .greeting { font-size: 18px; font-weight: 600; color: #1f2937; margin-bottom: 20px; }
+          .instructions { font-size: 15px; color: #6b7280; margin-bottom: 25px; }
+          .otp-container { background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; margin: 25px 0; }
+          .otp-code { font-size: 32px; font-weight: 700; color: #0f172a; letter-spacing: 6px; margin: 0; }
+          .footer { padding: 25px 30px; background-color: #f8fafc; border-top: 1px solid #eaedf1; text-align: center; font-size: 13px; color: #94a3b8; }
+          .warning { color: #ef4444; font-size: 13px; margin-top: 20px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>DeviceDesk Security</h2>
+          </div>
+          <div class="content">
+            <div class="greeting">Hello ${emp.name},</div>
+            <div class="instructions">
+              You recently requested to sign in to the HR Portal. Please use the following One-Time Password to complete your secure login:
+            </div>
+            
+            <div class="otp-container">
+              <div class="otp-code">${otpCode}</div>
+            </div>
+            
+            <div class="instructions" style="text-align: center; margin-bottom: 0;">
+              This code will expire in <strong>5 minutes</strong>.
+            </div>
+            
+            <div class="warning">
+              If you did not request this code, please ignore this email or contact IT Support immediately.
+            </div>
+          </div>
+          <div class="footer">
+            &copy; ${new Date().getFullYear()} DeviceDesk. All rights reserved.
+          </div>
         </div>
-        <p>This code will expire in 5 minutes.</p>
-        <p>If you did not request this login, please contact IT Support immediately.</p>
-      </div>
+      </body>
+      </html>
     `;
 
-    await sendMailNotification({
+    // Send Email in background (fire-and-forget) to prevent blocking the UI
+    sendMailNotification({
       to: email,
       subject: 'DeviceDesk HR Login Verification',
       text: `Your OTP is: ${otpCode}`,
       html: emailContent
+    }).catch(err => {
+      console.error('Background OTP email failed:', err);
     });
 
-    return NextResponse.json({ success: true, message: 'OTP resent successfully.' });
+    return NextResponse.json({ success: true, message: 'OTP dispatch initiated.' });
   } catch (err) {
-    console.error('Resend OTP API Error:', err);
+    console.error('Request OTP API Error:', err);
     return NextResponse.json({ success: false, message: 'Server error. Please try again.' }, { status: 500 });
   }
 }

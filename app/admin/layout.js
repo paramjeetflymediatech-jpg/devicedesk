@@ -111,7 +111,7 @@ export default function AdminLayout({ children }) {
     user?.email === 'admin@yopmail.com' ||
     user?.email === 'pravi@yopmail.com';
 
-  const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+  const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 
   const renderProfileAvatar = (emp, size = "24px") => {
     const getInitials = (name) => {

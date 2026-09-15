@@ -65,10 +65,10 @@ async function seed() {
     },
     {
       id: 'emp_hr',
-      name: 'HR Management',
+      name: 'Management',
       email: 'hr@yopmail.com',
       rawPass: 'hr123',
-      role: 'HR Management',
+      role: 'Management',
       department: 'HR',
       ticketLimit: 20
     },

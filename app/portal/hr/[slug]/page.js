@@ -5,9 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getEmployees, getDepartments } from "../../../store.js";
 import { findEmployeeBySlug, getEmployeeSlug } from "../../../utils/slugUtils.js";
-import { 
-  FiUserCheck, FiArrowLeft, FiUsers, FiClock, FiCalendar, 
-  FiFileText, FiLink, FiCheck, FiX, FiActivity 
+import {
+  FiUserCheck, FiArrowLeft, FiUsers, FiClock, FiCalendar,
+  FiFileText, FiLink, FiCheck, FiX, FiActivity
 } from "react-icons/fi";
 
 export default function HRSlugPortal() {
@@ -109,7 +109,7 @@ export default function HRSlugPortal() {
               <FiArrowLeft /> All HR Consoles
             </Link>
             <h1 style={{ fontSize: "1.85rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>
-              <FiUserCheck style={{ color: "#ec4899" }} /> {hrUser?.name || "HR Officer"} &bull; HR Management Portal
+              <FiUserCheck style={{ color: "#ec4899" }} /> {hrUser?.name || "HR Officer"} &bull; Management Portal
             </h1>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px" }}>
               <span className="timer-badge" style={{ color: "var(--accent-purple, #a855f7)", borderColor: "rgba(168, 85, 247, 0.4)", background: "rgba(168, 85, 247, 0.08)" }}>

@@ -106,7 +106,7 @@ export default function EmployeeLayout({ children }) {
 
   const showITSupportDesk = isITDepartment;
   const isTeamLeader = dbRoleStr === 'Team Leader';
-  const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
+  const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
 
   // Auth check
   useEffect(() => {
