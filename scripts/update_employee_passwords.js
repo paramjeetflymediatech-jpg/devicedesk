@@ -87,12 +87,12 @@ function isExcludedAccount(emp) {
   // HR checks
   if (
     role === 'hr' ||
-    role === 'hr management' ||
+    role === 'Management' ||
     role.includes('hr') ||
     dept === 'hr' ||
     dept === 'human resources' ||
     name === 'hr' ||
-    name.includes('hr management') ||
+    name.includes('Management') ||
     email.startsWith('hr@') ||
     email.startsWith('hrmanagement@')
   ) {

@@ -72,13 +72,13 @@ export default function ScreenshotsTab({ user }) {
   // Determine user roles
   const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
   const deptStr = `${user?.department || ''}`.toLowerCase().trim();
-  const isAdminUser = 
-    dbRoleStr === 'admin' || 
-    dbRoleStr === 'superadmin' || 
+  const isAdminUser =
+    dbRoleStr === 'admin' ||
+    dbRoleStr === 'superadmin' ||
     dbRoleStr === 'management' ||
-    user?.email === 'admin@yopmail.com' || 
+    user?.email === 'admin@yopmail.com' ||
     user?.email === 'pravi@yopmail.com';
-  const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+  const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 
   // Fetch Employees List for filter dropdown
   useEffect(() => {
@@ -187,20 +187,20 @@ export default function ScreenshotsTab({ user }) {
     let filteredAgents = agentRegistrations;
 
     if (selectedEmployee !== 'all') {
-      filteredAgents = filteredAgents.filter(reg => 
+      filteredAgents = filteredAgents.filter(reg =>
         (reg.employeeId || '').toLowerCase() === selectedEmployee.toLowerCase()
       );
     }
 
     if (selectedDepartment !== 'all') {
-      filteredAgents = filteredAgents.filter(reg => 
+      filteredAgents = filteredAgents.filter(reg =>
         (reg.department || '').toLowerCase() === selectedDepartment.toLowerCase()
       );
     }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      filteredAgents = filteredAgents.filter(reg => 
+      filteredAgents = filteredAgents.filter(reg =>
         (reg.employeeName || '').toLowerCase().includes(q) ||
         (reg.employeeId || '').toLowerCase().includes(q) ||
         (reg.department || '').toLowerCase().includes(q) ||
@@ -236,7 +236,7 @@ export default function ScreenshotsTab({ user }) {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      filteredScreenshots = filteredScreenshots.filter(item => 
+      filteredScreenshots = filteredScreenshots.filter(item =>
         (item.employeeName || '').toLowerCase().includes(q) ||
         (item.employeeId || '').toLowerCase().includes(q) ||
         (item.department || '').toLowerCase().includes(q) ||
@@ -960,7 +960,7 @@ export default function ScreenshotsTab({ user }) {
                             </div>
 
                             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', maxWidth: '560px', lineHeight: '1.4' }}>
-                              The Desktop Agent is registered for <strong style={{ color: 'var(--text-primary)' }}>{group.employeeName}</strong>. 
+                              The Desktop Agent is registered for <strong style={{ color: 'var(--text-primary)' }}>{group.employeeName}</strong>.
                               Automated activity screenshots stream every 3 minutes while the agent is running on their PC.
                             </div>
 
