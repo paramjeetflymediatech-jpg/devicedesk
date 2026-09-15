@@ -9,7 +9,8 @@ export default function AttendanceTab({ user }) {
   const userEmail = (user?.email || '').toLowerCase();
   // Full Admin privileges (viewing all company logs) reserved strictly for Root Admin, Executive Management, HR, and Superadmin
   const isFullAdmin = 
-    ['admin', 'management', 'hr', 'superadmin', 'executive'].includes(userDbRole) ||
+    ['admin', 'management', 'superadmin', 'executive', 'hr management'].includes(userDbRole) ||
+    userDbRole.includes('hr') ||
     ['admin@yopmail.com', 'pravi@yopmail.com'].includes(userEmail);
   const isAdmin = isFullAdmin;
 

@@ -89,8 +89,13 @@ export default function ScreenshotsTab({ user }) {
           const empData = await empRes.json();
           if (empData.success && Array.isArray(empData.data)) {
             let filteredEmps = empData.data;
-            if (isHRUser && user?.id) {
-              filteredEmps = filteredEmps.filter(e => e.id !== user.id);
+            if (isHRUser) {
+              // HR cannot see any HR employees in the dropdown
+              filteredEmps = filteredEmps.filter(e => {
+                const dept = (e.department || '').toLowerCase();
+                const role = (e.role || '').toLowerCase();
+                return !dept.includes('hr') && !role.includes('hr');
+              });
             }
             setEmployeesList(filteredEmps);
             const deptSet = new Set(filteredEmps.map(e => e.department).filter(Boolean));
@@ -121,13 +126,19 @@ export default function ScreenshotsTab({ user }) {
       const res = await fetch(`/api/screenshots/list?${queryParams.toString()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
-        // HR Access Control: HR cannot see their own screenshots
+        // HR Access Control: HR cannot see screenshots of ANY HR employee
         let finalScreenshots = data.data || [];
         let finalRegistrations = data.registrations || [];
 
-        if (isHRUser && user?.id) {
-          finalScreenshots = finalScreenshots.filter(s => s.employeeId !== user.id);
-          finalRegistrations = finalRegistrations.filter(r => r.employeeId !== user.id);
+        if (isHRUser) {
+          finalScreenshots = finalScreenshots.filter(s => {
+            const dept = (s.department || '').toLowerCase();
+            return !dept.includes('hr');
+          });
+          finalRegistrations = finalRegistrations.filter(r => {
+            const dept = (r.department || '').toLowerCase();
+            return !dept.includes('hr');
+          });
         }
 
         setScreenshots(finalScreenshots);
