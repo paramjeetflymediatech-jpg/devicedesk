@@ -33,6 +33,7 @@ import EmployeeTasks from './EmployeeTasks';
 import ChatScreen from '../ChatScreen';
 import AttendanceWidget from '../../components/AttendanceWidget';
 import AttendanceLogs from './AttendanceLogs';
+import MarketingFieldScreen from '../Marketing/MarketingFieldScreen';
 import AppIcon from '../../components/AppIcon';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
 
@@ -291,6 +292,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'marketing-trips':
+        return <MarketingFieldScreen user={user} onBack={() => setActiveTab('overview')} />;
       case 'tasks':
         return <EmployeeTasks currentUser={user} />;
       case 'attendance':
@@ -747,6 +750,34 @@ export default function EmployeeDashboard({ user, onLogout }) {
               </View>
             </TouchableOpacity>
 
+            {/* Quick Action: Marketing Field Trips Banner */}
+            <TouchableOpacity
+              style={[
+                styles.card,
+                {
+                  backgroundColor: isDark ? '#083344' : '#ecfeff',
+                  borderColor: isDark ? '#155e75' : '#a5f3fc',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 14,
+                  marginBottom: 16,
+                }
+              ]}
+              onPress={() => setActiveTab('marketing-trips')}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Text style={{ fontSize: 24, marginRight: 12 }}>🚗</Text>
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>Marketing Field Trips</Text>
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>Log starting point, destination & live GPS</Text>
+                </View>
+              </View>
+              <View style={{ backgroundColor: '#0891b2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+                <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Field Trips ➔</Text>
+              </View>
+            </TouchableOpacity>
+
             {/* Attendance Punch Section */}
             <AttendanceWidget user={user} />
 
@@ -1040,6 +1071,17 @@ export default function EmployeeDashboard({ user, onLogout }) {
             </View>
 
             <View style={styles.drawerItemsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'marketing-trips' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('marketing-trips'); setIsDrawerOpen(false); }}
+              >
+                <AppIcon name="map-pin" size={18} color="#0891b2" style={{ marginRight: 12 }} />
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Marketing Field Trips</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[
                   styles.drawerItem,

@@ -58,7 +58,7 @@ export default function AdminLayout({ children }) {
       if (data.success) {
         setLeaveCount((data.data || []).length);
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   // Sync unread chat count
@@ -103,12 +103,12 @@ export default function AdminLayout({ children }) {
   const empDetails = employees.find((e) => e.id === user?.id) || user || {};
   const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
   const deptStr = `${user?.department || empDetails?.department || ''}`.toLowerCase().trim();
-  
-  const isAdminUser = 
-    dbRoleStr === 'admin' || 
-    dbRoleStr === 'superadmin' || 
+
+  const isAdminUser =
+    dbRoleStr === 'admin' ||
+    dbRoleStr === 'superadmin' ||
     dbRoleStr === 'management' ||
-    user?.email === 'admin@yopmail.com' || 
+    user?.email === 'admin@yopmail.com' ||
     user?.email === 'pravi@yopmail.com';
 
   const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
@@ -227,7 +227,7 @@ export default function AdminLayout({ children }) {
     .filter(group => group.items.length > 0);
 
   const isNavActive = (item) => {
-    if (item.exact) return pathname === "/admin" || pathname === "/";
+    if (item.exact) return pathname === "/admin";
     return pathname.startsWith(item.path);
   };
 

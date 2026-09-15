@@ -46,7 +46,7 @@ export default function AdminMainDashboard() {
     { title: 'Attendance Log', desc: 'Daily punches, work hours & regularizations', icon: FiClock, href: '/admin/attendance', count: 'Realtime', color: '#10b981' },
     { title: 'Leave Requests', desc: 'Staff leave applications & review queue', icon: FiCalendar, href: '/admin/leaves', count: 'Active', color: '#ec4899' },
     { title: 'Client Projects', desc: 'Project timelines, budgets & client links', icon: FiFolder, href: '/admin/projects', count: analytics?.projects || 0, color: '#6366f1' },
-    { title: 'Marketing', desc: 'Campaign tracking, leads & field logs', icon: FiTrendingUp, href: '/admin/marketing', count: analytics?.leads || 0, color: '#14b8a6' },
+    { title: 'Marketing', desc: 'Field trips, GPS tracking & authorizations', icon: FiTrendingUp, href: '/admin/marketing', count: 'Active', color: '#14b8a6' },
     { title: 'Work Submissions', desc: 'Departmental deliverables & approvals', icon: FiFileText, href: '/admin/submissions', count: analytics?.work_submissions || 0, color: '#8b5cf6' },
     { title: 'Audit Trail', desc: 'System activity history & change logs', icon: FiActivity, href: '/admin/audit-logs', count: 'Logs', color: '#f43f5e' }
   ];

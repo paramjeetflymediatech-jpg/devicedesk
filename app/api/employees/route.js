@@ -1,17 +1,27 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
 import bcrypt from 'bcryptjs';
+import { checkAuth } from '../utils/storageManager.js';
+import { isMarketingAuthorized } from '../utils/marketingAuth.js';
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const user = await checkAuth(request);
+    const hasMarketingAccess = await isMarketingAuthorized(user);
+
     const db = await getDbConnection();
     try {
       await db.query(`ALTER TABLE employees ADD COLUMN createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
     } catch (e) {}
 
-    const [rows] = await db.query(
+    let [rows] = await db.query(
       `SELECT * FROM employees ORDER BY name ASC`
     );
+
+    if (!hasMarketingAccess) {
+      rows = rows.filter(e => (e.department || '').toLowerCase() !== 'marketing');
+    }
+
     return NextResponse.json({
       success: true,
       count: rows.length,

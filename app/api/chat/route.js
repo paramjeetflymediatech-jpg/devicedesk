@@ -3,6 +3,7 @@ import { getDbConnection } from '../db/db.js';
 import { checkAuth, deleteFile } from '../utils/storageManager.js';
 import { ChatMessage } from '../db/models/ChatMessage.js';
 import { sendPushNotification } from '../utils/pushNotifications.js';
+import { isMarketingAuthorized } from '../utils/marketingAuth.js';
 
 export async function GET(request) {
   try {
@@ -100,6 +101,22 @@ export async function POST(request) {
       }
 
       const db = await getDbConnection();
+      const isCreatorAuth = await isMarketingAuthorized(user);
+
+      // If creator is not Admin / authorized, block adding marketing members
+      if (!isCreatorAuth) {
+        const [mktMembers] = await db.query(
+          `SELECT id FROM employees WHERE id IN (?) AND LOWER(department) = 'marketing'`,
+          [members]
+        );
+        if (mktMembers && mktMembers.length > 0) {
+          return NextResponse.json({
+            success: false,
+            error: 'Cannot add Marketing team members to this group. Marketing members can only be grouped by Admin or authorized managers.'
+          }, { status: 403 });
+        }
+      }
+
       const groupId = 'group_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
       const createdAt = new Date().toISOString();
 
@@ -339,6 +356,29 @@ export async function POST(request) {
       );
       if (blockRows.length > 0) {
         return NextResponse.json({ success: false, error: 'Cannot send message. This user has blocked you, or you have blocked them.' }, { status: 400 });
+      }
+
+      // Marketing Isolation Protection for Direct Messages
+      const [recRows] = await db.execute(
+        'SELECT id, department, role FROM employees WHERE id = ? LIMIT 1',
+        [receiverId]
+      );
+      if (recRows.length > 0) {
+        const receiver = recRows[0];
+        const isSenderMkt = (user.department || '').toLowerCase() === 'marketing';
+        const isReceiverMkt = (receiver.department || '').toLowerCase() === 'marketing';
+
+        if (isSenderMkt || isReceiverMkt) {
+          const senderAuth = await isMarketingAuthorized(user);
+          const receiverAuth = await isMarketingAuthorized(receiver);
+
+          if (!senderAuth || !receiverAuth) {
+            return NextResponse.json({
+              success: false,
+              error: 'Communication restricted: Marketing team members can only be messaged by Admin and authorized personnel.'
+            }, { status: 403 });
+          }
+        }
       }
     }
 

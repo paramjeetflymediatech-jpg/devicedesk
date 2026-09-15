@@ -2,23 +2,23 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
-import { 
-  FiUser, 
+import {
+  FiUser,
   FiUsers,
-  FiLink, 
-  FiArrowLeft, 
-  FiEdit2, 
-  FiTrash2, 
+  FiLink,
+  FiArrowLeft,
+  FiEdit2,
+  FiTrash2,
   FiKey,
-  FiCheck, 
-  FiX, 
-  FiShield, 
-  FiPlus, 
-  FiUserPlus, 
-  FiSearch, 
-  FiEye, 
-  FiEyeOff, 
-  FiDownload 
+  FiCheck,
+  FiX,
+  FiShield,
+  FiPlus,
+  FiUserPlus,
+  FiSearch,
+  FiEye,
+  FiEyeOff,
+  FiDownload
 } from 'react-icons/fi';
 import { getEmployeeSlug } from '../../utils/slugUtils.js';
 import Pagination from '../../components/Pagination.js';
@@ -31,8 +31,6 @@ const ROLES = [
   'Admin',
   'Client',
   'Marketing',
-  'Dept Team Leader',
-  'Dept Team Member'
 ];
 
 const DEFAULT_DEPARTMENTS = [
@@ -56,12 +54,12 @@ export default function UsersManagementPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  
+
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
-  
+
   const [showAddPassword, setShowAddPassword] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -226,7 +224,7 @@ export default function UsersManagementPage() {
       Swal.fire({ icon: 'warning', title: 'Required', text: 'Email address cannot be empty.' });
       return;
     }
-    
+
     try {
       setSubmitting(true);
       const res = await fetch(`/api/employees/${editForm.id}`, {
@@ -341,15 +339,15 @@ export default function UsersManagementPage() {
     const headers = ['ID', 'Name', 'User Slug', 'Email', 'Role', 'Department', 'Status'];
     const csvContent = [
       headers.join(','),
-      ...filteredUsers.map(u => 
+      ...filteredUsers.map(u =>
         `"${u.id}","${u.name}","${getEmployeeSlug(u)}","${u.email}","${u.role || ''}","${u.department || ''}","${u.status || 'Active'}"`
       )
     ].join('\n');
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `users_export_${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
   };
 
@@ -380,11 +378,11 @@ export default function UsersManagementPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)', padding: '2rem' }}>
       <div style={{ maxWidth: '1250px', margin: '0 auto' }}>
-        
+
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <Link 
+            <Link
               href="/"
               style={{
                 display: 'inline-flex',
@@ -406,14 +404,14 @@ export default function UsersManagementPage() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button 
-              onClick={exportCSV} 
-              className="btn-secondary" 
+            <button
+              onClick={exportCSV}
+              className="btn-secondary"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' }}
             >
               <FiDownload /> Export CSV
             </button>
-            <button 
+            <button
               onClick={() => {
                 setAddForm(prev => ({
                   ...prev,
@@ -421,14 +419,14 @@ export default function UsersManagementPage() {
                 }));
                 setShowAddPassword(false);
                 setShowAddModal(true);
-              }} 
-              className="btn-primary" 
-              style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                gap: '8px', 
-                padding: '9px 18px', 
-                borderRadius: '8px', 
+              }}
+              className="btn-primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
                 cursor: 'pointer',
                 fontWeight: 600,
                 fontSize: '0.875rem',
@@ -441,30 +439,30 @@ export default function UsersManagementPage() {
         </div>
 
         {/* Search & Filters Toolbar */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '12px', 
-          marginBottom: '1.5rem', 
-          background: 'rgba(255, 255, 255, 0.02)', 
-          padding: '1rem', 
-          borderRadius: '12px', 
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          marginBottom: '1.5rem',
+          background: 'rgba(255, 255, 255, 0.02)',
+          padding: '1rem',
+          borderRadius: '12px',
           border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))',
           flexWrap: 'wrap',
           alignItems: 'center'
         }}>
           <div style={{ position: 'relative', flex: '1', minWidth: '260px' }}>
             <FiSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #64748b)' }} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               className="form-control"
-              placeholder="Search by name, email, @slug, department, or role..." 
+              placeholder="Search by name, email, @slug, department, or role..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               style={{ paddingLeft: '36px', width: '100%', height: '40px' }}
             />
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <select 
+            <select
               className="form-control"
               value={roleFilter}
               onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
@@ -475,7 +473,7 @@ export default function UsersManagementPage() {
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
-            <select 
+            <select
               className="form-control"
               value={deptFilter}
               onChange={(e) => { setDeptFilter(e.target.value); setCurrentPage(1); }}
@@ -486,7 +484,7 @@ export default function UsersManagementPage() {
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>
-            <select 
+            <select
               className="form-control"
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
@@ -498,13 +496,13 @@ export default function UsersManagementPage() {
             </select>
           </div>
         </div>
-        
+
         {/* Users Table */}
-        <div className="table-wrapper" style={{ 
-          background: 'rgba(255, 255, 255, 0.02)', 
-          border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))', 
-          borderRadius: '16px', 
-          overflow: 'hidden' 
+        <div className="table-wrapper" style={{
+          background: 'rgba(255, 255, 255, 0.02)',
+          border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))',
+          borderRadius: '16px',
+          overflow: 'hidden'
         }}>
           <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -525,7 +523,7 @@ export default function UsersManagementPage() {
                 return (
                   <tr key={user.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <td style={{ padding: '14px 16px', fontWeight: 600 }}>
-                      <Link 
+                      <Link
                         href={`/admin/users/${userSlug}`}
                         style={{ color: 'var(--text-primary, #f8fafc)', textDecoration: 'none' }}
                       >
@@ -570,8 +568,8 @@ export default function UsersManagementPage() {
 
                     <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                        <button 
-                          onClick={() => handleResetClick(user)} 
+                        <button
+                          onClick={() => handleResetClick(user)}
                           style={{
                             padding: '6px 9px',
                             background: 'rgba(234, 179, 8, 0.1)',
@@ -588,16 +586,16 @@ export default function UsersManagementPage() {
                         >
                           <FiKey />
                         </button>
-                        <button 
-                          onClick={() => handleEditClick(user)} 
+                        <button
+                          onClick={() => handleEditClick(user)}
                           className="btn-action start"
                           style={{ padding: '6px 12px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                           title="Edit Team Member"
                         >
                           <FiEdit2 /> Edit
                         </button>
-                        <button 
-                          onClick={() => handleDeleteUser(user)} 
+                        <button
+                          onClick={() => handleDeleteUser(user)}
                           className="btn-action resolve"
                           style={{ padding: '6px 9px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
                           title="Delete User"
@@ -641,23 +639,23 @@ export default function UsersManagementPage() {
 
       {/* ================= MODAL: ADD TEAM MEMBER ================= */}
       {showAddModal && (
-        <div style={{ 
-          position: 'fixed', 
-          inset: 0, 
-          background: 'rgba(0, 0, 0, 0.7)', 
-          backdropFilter: 'blur(6px)', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           zIndex: 1000,
           padding: '1rem'
         }}>
-          <div style={{ 
-            background: 'var(--bg-card, #1e293b)', 
-            padding: '2rem', 
-            borderRadius: '16px', 
-            width: '100%', 
-            maxWidth: '480px', 
+          <div style={{
+            background: 'var(--bg-card, #1e293b)',
+            padding: '2rem',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '480px',
             border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.15))',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
           }}>
@@ -665,7 +663,7 @@ export default function UsersManagementPage() {
               <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary, #f8fafc)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FiUserPlus style={{ color: 'var(--accent-cyan, #06b6d4)' }} /> Add New Team Member
               </h3>
-              <button 
+              <button
                 onClick={() => setShowAddModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #94a3b8)', fontSize: '1.25rem', cursor: 'pointer', padding: '4px' }}
               >
@@ -678,13 +676,13 @@ export default function UsersManagementPage() {
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                   Team Member Name <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. John Doe" 
-                  required 
-                  value={addForm.name} 
-                  onChange={e => setAddForm({ ...addForm, name: e.target.value })} 
-                  className="form-control" 
+                <input
+                  type="text"
+                  placeholder="e.g. John Doe"
+                  required
+                  value={addForm.name}
+                  onChange={e => setAddForm({ ...addForm, name: e.target.value })}
+                  className="form-control"
                   style={{ width: '100%' }}
                 />
               </div>
@@ -693,13 +691,13 @@ export default function UsersManagementPage() {
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                   Email Address <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-                <input 
-                  type="email" 
-                  placeholder="e.g. john@company.com" 
-                  required 
-                  value={addForm.email} 
-                  onChange={e => setAddForm({ ...addForm, email: e.target.value })} 
-                  className="form-control" 
+                <input
+                  type="email"
+                  placeholder="e.g. john@company.com"
+                  required
+                  value={addForm.email}
+                  onChange={e => setAddForm({ ...addForm, email: e.target.value })}
+                  className="form-control"
                   style={{ width: '100%' }}
                 />
               </div>
@@ -709,17 +707,17 @@ export default function UsersManagementPage() {
                   Password <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <input 
-                    type={showAddPassword ? 'text' : 'password'} 
-                    placeholder="Create a secure password" 
-                    required 
-                    value={addForm.password} 
-                    onChange={e => setAddForm({ ...addForm, password: e.target.value })} 
-                    className="form-control" 
+                  <input
+                    type={showAddPassword ? 'text' : 'password'}
+                    placeholder="Create a secure password"
+                    required
+                    value={addForm.password}
+                    onChange={e => setAddForm({ ...addForm, password: e.target.value })}
+                    className="form-control"
                     style={{ width: '100%', paddingRight: '40px' }}
                   />
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowAddPassword(!showAddPassword)}
                     style={{
                       position: 'absolute',
@@ -747,8 +745,8 @@ export default function UsersManagementPage() {
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                     Role <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  <select 
-                    value={addForm.role} 
+                  <select
+                    value={addForm.role}
                     onChange={e => setAddForm({ ...addForm, role: e.target.value })}
                     className="form-control"
                     style={{ width: '100%' }}
@@ -763,8 +761,8 @@ export default function UsersManagementPage() {
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                     Department <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  <select 
-                    value={addForm.department} 
+                  <select
+                    value={addForm.department}
                     onChange={e => setAddForm({ ...addForm, department: e.target.value })}
                     className="form-control"
                     style={{ width: '100%' }}
@@ -780,26 +778,26 @@ export default function UsersManagementPage() {
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                   Ticket Limit
                 </label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="9999" 
-                  value={addForm.ticketLimit} 
-                  onChange={e => setAddForm({ ...addForm, ticketLimit: parseInt(e.target.value) || 100 })} 
-                  className="form-control" 
+                <input
+                  type="number"
+                  min="1"
+                  max="9999"
+                  value={addForm.ticketLimit}
+                  onChange={e => setAddForm({ ...addForm, ticketLimit: parseInt(e.target.value) || 100 })}
+                  className="form-control"
                   style={{ width: '100%' }}
                 />
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={submitting}
-                  className="btn-primary" 
-                  style={{ 
-                    flex: 1, 
-                    padding: '11px', 
-                    borderRadius: '8px', 
+                  className="btn-primary"
+                  style={{
+                    flex: 1,
+                    padding: '11px',
+                    borderRadius: '8px',
                     fontWeight: 600,
                     cursor: submitting ? 'not-allowed' : 'pointer',
                     opacity: submitting ? 0.7 : 1
@@ -807,10 +805,10 @@ export default function UsersManagementPage() {
                 >
                   {submitting ? 'Creating...' : '+ Create Team Member'}
                 </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowAddModal(false)} 
-                  className="btn-secondary" 
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="btn-secondary"
                   style={{ flex: 1, padding: '11px', borderRadius: '8px' }}
                 >
                   Cancel
@@ -823,23 +821,23 @@ export default function UsersManagementPage() {
 
       {/* ================= MODAL: EDIT TEAM MEMBER ================= */}
       {showEditModal && (
-        <div style={{ 
-          position: 'fixed', 
-          inset: 0, 
-          background: 'rgba(0, 0, 0, 0.7)', 
-          backdropFilter: 'blur(6px)', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           zIndex: 1000,
           padding: '1rem'
         }}>
-          <div style={{ 
-            background: 'var(--bg-card, #1e293b)', 
-            padding: '2rem', 
-            borderRadius: '16px', 
-            width: '100%', 
-            maxWidth: '480px', 
+          <div style={{
+            background: 'var(--bg-card, #1e293b)',
+            padding: '2rem',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '480px',
             border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.15))',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
           }}>
@@ -847,7 +845,7 @@ export default function UsersManagementPage() {
               <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary, #f8fafc)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FiEdit2 style={{ color: 'var(--accent-cyan, #06b6d4)' }} /> Edit Team Member
               </h3>
-              <button 
+              <button
                 onClick={() => setShowEditModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #94a3b8)', fontSize: '1.25rem', cursor: 'pointer', padding: '4px' }}
               >
@@ -860,12 +858,12 @@ export default function UsersManagementPage() {
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                   Team Member Name <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-                <input 
-                  type="text" 
-                  required 
-                  value={editForm.name} 
-                  onChange={e => setEditForm({ ...editForm, name: e.target.value })} 
-                  className="form-control" 
+                <input
+                  type="text"
+                  required
+                  value={editForm.name}
+                  onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                  className="form-control"
                   style={{ width: '100%' }}
                 />
               </div>
@@ -874,12 +872,12 @@ export default function UsersManagementPage() {
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                   Email Address <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-                <input 
-                  type="email" 
-                  required 
-                  value={editForm.email} 
-                  onChange={e => setEditForm({ ...editForm, email: e.target.value })} 
-                  className="form-control" 
+                <input
+                  type="email"
+                  required
+                  value={editForm.email}
+                  onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                  className="form-control"
                   style={{ width: '100%' }}
                 />
               </div>
@@ -889,8 +887,8 @@ export default function UsersManagementPage() {
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                     Role <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  <select 
-                    value={editForm.role} 
+                  <select
+                    value={editForm.role}
                     onChange={e => setEditForm({ ...editForm, role: e.target.value })}
                     className="form-control"
                     style={{ width: '100%' }}
@@ -905,8 +903,8 @@ export default function UsersManagementPage() {
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                     Department <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  <select 
-                    value={editForm.department} 
+                  <select
+                    value={editForm.department}
                     onChange={e => setEditForm({ ...editForm, department: e.target.value })}
                     className="form-control"
                     style={{ width: '100%' }}
@@ -923,8 +921,8 @@ export default function UsersManagementPage() {
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                     Status <span style={{ color: '#ef4444' }}>*</span>
                   </label>
-                  <select 
-                    value={editForm.status} 
+                  <select
+                    value={editForm.status}
                     onChange={e => setEditForm({ ...editForm, status: e.target.value })}
                     className="form-control"
                     style={{ width: '100%' }}
@@ -938,27 +936,27 @@ export default function UsersManagementPage() {
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
                     Ticket Limit
                   </label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    max="9999" 
-                    value={editForm.ticketLimit} 
-                    onChange={e => setEditForm({ ...editForm, ticketLimit: parseInt(e.target.value) || 100 })} 
-                    className="form-control" 
+                  <input
+                    type="number"
+                    min="1"
+                    max="9999"
+                    value={editForm.ticketLimit}
+                    onChange={e => setEditForm({ ...editForm, ticketLimit: parseInt(e.target.value) || 100 })}
+                    className="form-control"
                     style={{ width: '100%' }}
                   />
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={submitting}
-                  className="btn-primary" 
-                  style={{ 
-                    flex: 1, 
-                    padding: '11px', 
-                    borderRadius: '8px', 
+                  className="btn-primary"
+                  style={{
+                    flex: 1,
+                    padding: '11px',
+                    borderRadius: '8px',
                     fontWeight: 600,
                     cursor: submitting ? 'not-allowed' : 'pointer',
                     opacity: submitting ? 0.7 : 1
@@ -966,10 +964,10 @@ export default function UsersManagementPage() {
                 >
                   {submitting ? 'Saving...' : 'Save Changes'}
                 </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowEditModal(false)} 
-                  className="btn-secondary" 
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="btn-secondary"
                   style={{ flex: 1, padding: '11px', borderRadius: '8px' }}
                 >
                   Cancel
@@ -982,23 +980,23 @@ export default function UsersManagementPage() {
 
       {/* ================= MODAL: RESET PASSWORD ================= */}
       {showResetModal && (
-        <div style={{ 
-          position: 'fixed', 
-          inset: 0, 
-          background: 'rgba(0, 0, 0, 0.7)', 
-          backdropFilter: 'blur(6px)', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           zIndex: 1000,
           padding: '1rem'
         }}>
-          <div style={{ 
-            background: 'var(--bg-card, #1e293b)', 
-            padding: '2rem', 
-            borderRadius: '16px', 
-            width: '100%', 
-            maxWidth: '420px', 
+          <div style={{
+            background: 'var(--bg-card, #1e293b)',
+            padding: '2rem',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '420px',
             border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.15))',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
           }}>
@@ -1006,7 +1004,7 @@ export default function UsersManagementPage() {
               <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#eab308', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FiKey /> Reset Password
               </h3>
-              <button 
+              <button
                 onClick={() => setShowResetModal(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #94a3b8)', fontSize: '1.25rem', cursor: 'pointer', padding: '4px' }}
               >
@@ -1020,17 +1018,17 @@ export default function UsersManagementPage() {
 
             <form onSubmit={handleResetPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ position: 'relative' }}>
-                <input 
-                  type={showResetPassword ? 'text' : 'password'} 
-                  placeholder="Enter new password" 
-                  required 
-                  value={resetForm.newPassword} 
-                  onChange={e => setResetForm({ ...resetForm, newPassword: e.target.value })} 
-                  className="form-control" 
+                <input
+                  type={showResetPassword ? 'text' : 'password'}
+                  placeholder="Enter new password"
+                  required
+                  value={resetForm.newPassword}
+                  onChange={e => setResetForm({ ...resetForm, newPassword: e.target.value })}
+                  className="form-control"
                   style={{ width: '100%', paddingRight: '40px' }}
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowResetPassword(!showResetPassword)}
                   style={{
                     position: 'absolute',
@@ -1053,26 +1051,26 @@ export default function UsersManagementPage() {
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '0.75rem' }}>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={submitting}
-                  style={{ 
-                    flex: 1, 
-                    padding: '10px', 
-                    borderRadius: '8px', 
-                    background: '#eab308', 
-                    color: '#0f172a', 
-                    fontWeight: 700, 
-                    border: 'none', 
-                    cursor: submitting ? 'not-allowed' : 'pointer' 
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: '8px',
+                    background: '#eab308',
+                    color: '#0f172a',
+                    fontWeight: 700,
+                    border: 'none',
+                    cursor: submitting ? 'not-allowed' : 'pointer'
                   }}
                 >
                   {submitting ? 'Updating...' : 'Set Password'}
                 </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowResetModal(false)} 
-                  className="btn-secondary" 
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  className="btn-secondary"
                   style={{ flex: 1, padding: '10px', borderRadius: '8px' }}
                 >
                   Cancel

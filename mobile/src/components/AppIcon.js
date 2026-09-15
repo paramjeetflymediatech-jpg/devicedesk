@@ -360,6 +360,53 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
         </Svg>
       );
 
+    case 'map-pin':
+    case 'mappin':
+    case 'location':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+          <Circle cx="12" cy="10" r="3" />
+        </Svg>
+      );
+
+    case 'navigation':
+    case 'send':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polygon points="3 11 22 2 13 21 11 13 3 11" />
+        </Svg>
+      );
+
+    case 'arrow-left':
+    case 'arrowleft':
+    case 'back':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Line x1="19" y1="12" x2="5" y2="12" />
+          <Polyline points="12 19 5 12 12 5" />
+        </Svg>
+      );
+
+    case 'refresh-cw':
+    case 'refresh':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="23 4 23 10 17 10" />
+          <Polyline points="1 20 1 14 7 14" />
+          <Path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+        </Svg>
+      );
+
+    case 'check-circle':
+    case 'checkcircle':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <Polyline points="22 4 12 14.01 9 11.01" />
+        </Svg>
+      );
+
     default:
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>

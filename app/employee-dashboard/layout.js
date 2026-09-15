@@ -90,22 +90,22 @@ export default function EmployeeLayout({ children }) {
   const empDetails = employees.find((e) => e.id === user?.id) || user || {};
   const deptStr = `${user?.department || empDetails?.department || ''}`.toLowerCase().trim();
   const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
-  const isITDepartment = 
-    deptStr === 'it' || 
-    deptStr.startsWith('it ') || 
-    deptStr.includes('it support') || 
-    deptStr.includes('information technology') || 
+  const isITDepartment =
+    deptStr === 'it' ||
+    deptStr.startsWith('it ') ||
+    deptStr.includes('it support') ||
+    deptStr.includes('information technology') ||
     deptStr.includes('it department') ||
     dbRoleStr.includes('it');
-  const isAdminUser = 
-    dbRoleStr === 'admin' || 
-    dbRoleStr === 'superadmin' || 
+  const isAdminUser =
+    dbRoleStr === 'admin' ||
+    dbRoleStr === 'superadmin' ||
     dbRoleStr === 'management' ||
-    user?.email === 'admin@yopmail.com' || 
+    user?.email === 'admin@yopmail.com' ||
     user?.email === 'pravi@yopmail.com';
 
   const showITSupportDesk = isITDepartment;
-  const isTeamLeader = dbRoleStr === 'dept team leader';
+  const isTeamLeader = dbRoleStr === 'Team Leader';
   const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'hr management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
 
   // Auth check
