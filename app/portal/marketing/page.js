@@ -2,7 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../auth/AuthContext';
-import { FiMapPin, FiLogOut, FiNavigation, FiCheckCircle, FiRefreshCw, FiClock, FiFileText } from 'react-icons/fi';
+import ThemeToggle from '../../components/ThemeToggle';
+import { 
+  FiMapPin, FiLogOut, FiNavigation, FiCheckCircle, 
+  FiRefreshCw, FiClock, FiFileText, FiCompass, FiExternalLink, FiUser
+} from 'react-icons/fi';
 
 const PURPOSE_PRESETS = [
   '🤝 Client Meeting',
@@ -29,7 +33,6 @@ export default function MarketingDashboard() {
   const [toLocation, setToLocation] = useState('');
   const [selectedPurpose, setSelectedPurpose] = useState('');
   const [customNotes, setCustomNotes] = useState('');
-  const [estimatedKm, setEstimatedKm] = useState(0);
 
   const [attendanceHistory, setAttendanceHistory] = useState([]);
   const [activeAttendance, setActiveAttendance] = useState(null);
@@ -165,36 +168,32 @@ export default function MarketingDashboard() {
             notes: combinedNotes,
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-            estimated_km: estimatedKm || 0
+            estimated_km: 0
           })
         });
         const data = await res.json();
         if (data.success) {
-          alert('Field Route Started Successfully! 🚀 Live GPS tracking active.');
-          setLocationLog(`Active Route: ${fromLocation} ➔ ${toLocation}`);
+          alert('Field Route Started! 🚀 Live GPS tracking is now active.');
           setToLocation('');
           setSelectedPurpose('');
           setCustomNotes('');
-          setEstimatedKm(0);
           fetchMyAttendance();
         } else {
           alert(data.error || 'Failed to start field route');
         }
       } catch (err) {
         console.error(err);
+        alert('An error occurred while starting the field route.');
       }
       setLoading(false);
     }, (error) => {
-      alert('Error getting GPS location: ' + error.message);
+      alert('Error getting location: ' + error.message);
       setLoading(false);
-    });
+    }, { enableHighAccuracy: true });
   };
 
   const handleCompleteRoute = () => {
-    if (!activeAttendance) {
-      alert('No active field route found.');
-      return;
-    }
+    if (!activeAttendance) return;
 
     if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser');
@@ -237,102 +236,209 @@ export default function MarketingDashboard() {
 
   if (!mounted) {
     return (
-      <div className="flex h-screen bg-gray-950 text-gray-100 font-sans items-center justify-center">
-        <p className="text-sm text-gray-400 font-medium animate-pulse">Loading Marketing Portal...</p>
+      <div 
+        className="flex h-screen font-sans items-center justify-center"
+        style={{ background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)' }}
+      >
+        <p className="text-sm font-medium animate-pulse" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+          Loading Marketing Portal...
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-950 text-gray-100 font-sans">
+    <div 
+      className="flex flex-col md:flex-row min-h-screen font-sans transition-colors duration-200"
+      style={{ background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)' }}
+    >
       
-      {/* Sidebar */}
-      <div className="w-64 bg-gray-900 border-r border-gray-800 shadow-xl flex flex-col">
-        <div className="p-6 border-b border-gray-800 flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl uppercase shadow-md shadow-cyan-500/20">
-            {user?.name ? user.name.charAt(0) : 'M'}
-          </div>
-          <div className="overflow-hidden">
-            <h2 className="font-bold text-sm text-white truncate">{user?.name || 'Marketing'}</h2>
-            <p className="text-xs text-cyan-400 truncate font-medium">{user?.department || user?.role || 'Marketing Executive'}</p>
-          </div>
-        </div>
-        
-        <nav className="flex-1 p-4 flex flex-col space-y-2">
-          <div className="flex items-center space-x-3 p-3 rounded-xl font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-sm">
-            <FiNavigation className="text-cyan-400" />
-            <span>Field Route Tracker</span>
-          </div>
-        </nav>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto">
-        <header className="bg-gray-900/90 border-b border-gray-800 px-8 py-5 flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
-          <div>
-            <h1 className="text-xl font-extrabold text-white flex items-center gap-2">
-              <FiNavigation className="text-cyan-400" /> Marketing Field Route
-            </h1>
-            <p className="text-xs text-gray-400">GPS route creator, objective logging & live tracking</p>
-          </div>
-          <button 
-            onClick={handleSignOut}
-            className="flex items-center gap-1.5 text-sm font-semibold text-gray-400 hover:text-red-400 px-3 py-1.5 rounded-xl hover:bg-red-500/10 transition-colors"
+      {/* Sidebar (Desktop) / Topbar Navigation (Mobile) */}
+      <aside 
+        className="w-full md:w-64 md:min-h-screen flex flex-col justify-between shrink-0 shadow-lg"
+        style={{ 
+          background: 'var(--bg-card, #1e293b)', 
+          borderRight: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))',
+          borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))'
+        }}
+      >
+        <div>
+          {/* Brand & User Profile */}
+          <div 
+            className="p-4 sm:p-5 flex items-center justify-between gap-3"
+            style={{ borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' }}
           >
-            <FiLogOut size={16} />
+            <div className="flex items-center space-x-3 overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-extrabold text-lg uppercase shadow-md shadow-cyan-500/20 shrink-0">
+                {user?.name ? user.name.charAt(0) : 'M'}
+              </div>
+              <div className="overflow-hidden">
+                <h2 className="font-bold text-sm truncate" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                  {user?.name || 'Marketing'}
+                </h2>
+                <p className="text-xs font-semibold truncate text-cyan-500">
+                  {user?.department || user?.role || 'Field Executive'}
+                </p>
+              </div>
+            </div>
+
+            <div className="md:hidden">
+              <ThemeToggle />
+            </div>
+          </div>
+          
+          {/* Navigation Links */}
+          <nav className="p-3 sm:p-4 space-y-1.5">
+            <div 
+              className="flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-xs sm:text-sm"
+              style={{
+                background: 'rgba(6, 182, 212, 0.12)',
+                color: '#06b6d4',
+                border: '1px solid rgba(6, 182, 212, 0.25)'
+              }}
+            >
+              <FiNavigation className="text-cyan-500" size={16} />
+              <span>Field Route Tracker</span>
+            </div>
+          </nav>
+        </div>
+
+        {/* Sidebar Footer (Desktop only) */}
+        <div 
+          className="hidden md:flex p-4 flex-col gap-3"
+          style={{ borderTop: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Theme</span>
+            <ThemeToggle />
+          </div>
+
+          <button 
+            type="button"
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center gap-2 text-xs font-bold text-red-500 hover:text-red-400 p-2.5 rounded-xl hover:bg-red-500/10 transition-colors"
+            style={{ border: '1px solid rgba(239, 68, 68, 0.2)' }}
+          >
+            <FiLogOut size={14} />
             <span>Sign Out</span>
           </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        
+        {/* Header Bar */}
+        <header 
+          className="px-4 sm:px-8 py-4 sm:py-5 flex justify-between items-center sticky top-0 z-10 backdrop-blur-md"
+          style={{ 
+            background: 'var(--bg-card, #1e293b)', 
+            borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
+          }}
+        >
+          <div>
+            <h1 
+              className="text-lg sm:text-xl font-extrabold flex items-center gap-2"
+              style={{ color: 'var(--text-primary, #f8fafc)' }}
+            >
+              <FiNavigation className="text-cyan-500" /> Field Route Hub
+            </h1>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+              GPS route creator, objective logging & live tracking
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
+            <button 
+              type="button"
+              onClick={handleSignOut}
+              className="flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-400 px-3 py-2 rounded-xl hover:bg-red-500/10 transition-colors"
+              style={{ border: '1px solid rgba(239, 68, 68, 0.2)' }}
+            >
+              <FiLogOut size={14} />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
+          </div>
         </header>
 
-        <main className="p-8 max-w-5xl mx-auto space-y-6">
+        {/* Content Container */}
+        <main className="p-4 sm:p-6 lg:p-8 max-w-5xl w-full mx-auto space-y-6">
 
           {/* Active Trip Banner */}
           {activeAttendance && (
-            <div className="bg-gradient-to-r from-emerald-950/60 to-cyan-950/60 border border-emerald-500/40 p-6 rounded-2xl shadow-xl space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            <div 
+              className="p-5 sm:p-6 rounded-2xl shadow-xl space-y-4"
+              style={{ 
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.12))',
+                border: '1.5px solid rgba(16, 185, 129, 0.4)'
+              }}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
                   <span className="relative flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                   </span>
-                  <span className="text-sm font-bold text-emerald-300 uppercase tracking-wider">Live Field Route Active</span>
+                  <span className="text-xs sm:text-sm font-extrabold text-emerald-500 uppercase tracking-wider">
+                    Live Field Route Active
+                  </span>
                 </div>
-                <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-xs font-semibold">
-                  Tracking in Progress
+                <span className="self-start sm:self-auto px-3 py-1 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-full text-xs font-bold">
+                  ● Tracking in Progress
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-900/80 p-4 rounded-xl border border-gray-800">
+              <div 
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl"
+                style={{ 
+                  background: 'var(--bg-card, rgba(255, 255, 255, 0.04))',
+                  border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))'
+                }}
+              >
                 <div>
-                  <p className="text-xs text-gray-400 font-semibold uppercase">Start Point</p>
-                  <p className="text-sm font-bold text-white flex items-center gap-1 mt-0.5">
-                    <FiMapPin className="text-cyan-400" /> {activeAttendance.from_location || 'GPS Locked'}
+                  <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Start Point</p>
+                  <p className="text-xs sm:text-sm font-bold flex items-center gap-1.5 mt-1" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                    <FiMapPin className="text-cyan-500 shrink-0" /> {activeAttendance.from_location || 'GPS Locked'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400 font-semibold uppercase">Destination</p>
-                  <p className="text-sm font-bold text-cyan-300 flex items-center gap-1 mt-0.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Destination</p>
+                  <p className="text-xs sm:text-sm font-bold text-cyan-500 flex items-center gap-1.5 mt-1">
                     🎯 {activeAttendance.to_location || 'Destination'}
                   </p>
                 </div>
               </div>
 
               {activeAttendance.notes && (
-                <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-800/80 text-xs text-gray-300 flex items-center gap-2">
-                  <FiFileText className="text-cyan-400 shrink-0" />
-                  <span><strong className="text-white">Purpose / Notes:</strong> {activeAttendance.notes}</span>
+                <div 
+                  className="p-3.5 rounded-xl text-xs flex items-start gap-2"
+                  style={{ 
+                    background: 'var(--bg-card, rgba(255, 255, 255, 0.04))',
+                    border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))',
+                    color: 'var(--text-secondary, #94a3b8)'
+                  }}
+                >
+                  <FiFileText className="text-cyan-500 shrink-0 mt-0.5" />
+                  <div>
+                    <strong style={{ color: 'var(--text-primary, #f8fafc)' }}>Purpose / Notes: </strong> 
+                    {activeAttendance.notes}
+                  </div>
                 </div>
               )}
 
-              <div className="flex items-center justify-between pt-2">
-                <div className="text-xs text-gray-400 flex items-center gap-1.5">
-                  <FiClock className="text-gray-500" />
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+                <div className="text-xs flex items-center gap-1.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                  <FiClock style={{ color: 'var(--text-muted, #64748b)' }} />
                   Started at {activeAttendance.check_in_at ? new Date(activeAttendance.check_in_at).toLocaleTimeString() : 'Now'}
                 </div>
                 <button
+                  type="button"
                   onClick={handleCompleteRoute}
                   disabled={loading}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2 text-sm disabled:opacity-50"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50"
                 >
                   <FiCheckCircle />
                   {loading ? 'Completing...' : 'Complete Field Route (Check Out)'}
@@ -342,30 +448,46 @@ export default function MarketingDashboard() {
           )}
 
           {/* Route Creation Form */}
-          <div className="bg-gray-900 p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-800">
-            <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-800">
-              <div className="p-3 bg-cyan-500/10 text-cyan-400 rounded-xl border border-cyan-500/20">
+          <div 
+            className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-lg"
+            style={{ 
+              background: 'var(--bg-card, #1e293b)',
+              border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
+            }}
+          >
+            <div 
+              className="flex items-center space-x-3 mb-6 pb-4"
+              style={{ borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' }}
+            >
+              <div 
+                className="p-3 rounded-xl"
+                style={{ background: 'rgba(6, 182, 212, 0.12)', color: '#06b6d4', border: '1px solid rgba(6, 182, 212, 0.25)' }}
+              >
                 <FiNavigation size={22} />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Create & Start Field Route</h2>
-                <p className="text-gray-400 text-xs">Enter your starting point, destination, and visit purpose to begin tracking</p>
+                <h2 className="text-base sm:text-lg font-bold" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                  Create & Start Field Route
+                </h2>
+                <p className="text-xs" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                  Enter your starting point, destination, and visit purpose to begin tracking
+                </p>
               </div>
             </div>
 
-            {/* Step 1 & 2: Start & Destination */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            {/* Inputs: Start & Destination */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 mb-5">
               {/* Start Point */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1">
-                    <FiMapPin className="text-cyan-400" /> Start Point (Current Location) <span className="text-cyan-400">*</span>
+                  <label className="text-xs font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                    <FiMapPin className="text-cyan-500" /> Start Point (Current GPS) <span className="text-cyan-500">*</span>
                   </label>
                   <button
                     type="button"
                     onClick={() => fetchCurrentGps(true)}
                     disabled={fetchingGps || !!activeAttendance}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline"
+                    className="text-xs text-cyan-500 hover:text-cyan-400 flex items-center gap-1 hover:underline disabled:opacity-50"
                   >
                     <FiRefreshCw className={fetchingGps ? 'animate-spin' : ''} size={11} />
                     {fetchingGps ? 'Locking...' : 'Refresh GPS'}
@@ -376,11 +498,16 @@ export default function MarketingDashboard() {
                   placeholder="e.g. Office / Sector 17 / Live GPS"
                   value={fromLocation}
                   onChange={(e) => setFromLocation(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-xl text-sm focus:outline-none focus:border-cyan-500 text-white placeholder-gray-500"
+                  className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm focus:outline-none"
+                  style={{
+                    background: 'var(--bg-primary, rgba(0, 0, 0, 0.05))',
+                    color: 'var(--text-primary, #f8fafc)',
+                    border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.12))'
+                  }}
                   disabled={loading || !!activeAttendance}
                 />
                 {currentCoords && (
-                  <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
+                  <p className="text-[11px] text-emerald-500 mt-1.5 flex items-center gap-1 font-medium">
                     ✓ GPS Locked: {currentCoords.latitude.toFixed(4)}, {currentCoords.longitude.toFixed(4)} (±{Math.round(currentCoords.accuracy || 10)}m)
                   </p>
                 )}
@@ -388,41 +515,54 @@ export default function MarketingDashboard() {
 
               {/* Destination */}
               <div>
-                <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                  Where To / Destination <span className="text-cyan-400">*</span>
+                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                  Where To / Destination <span className="text-cyan-500">*</span>
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. Client Office Sector 62 / Market Visit / Client Name"
                   value={toLocation}
                   onChange={(e) => setToLocation(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-xl text-sm focus:outline-none focus:border-cyan-500 text-white placeholder-gray-500"
+                  className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm focus:outline-none"
+                  style={{
+                    background: 'var(--bg-primary, rgba(0, 0, 0, 0.05))',
+                    color: 'var(--text-primary, #f8fafc)',
+                    border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.12))'
+                  }}
                   disabled={loading || !!activeAttendance}
                 />
               </div>
             </div>
 
-            {/* Step 3: Purpose Preset Chips */}
+            {/* Purpose Preset Chips */}
             <div className="mb-5">
-              <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
                 Purpose of Going / Visit Objective
               </label>
               <div className="flex flex-wrap gap-2 mb-3">
-                {PURPOSE_PRESETS.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setSelectedPurpose(selectedPurpose === preset ? '' : preset)}
-                    disabled={loading || !!activeAttendance}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                      selectedPurpose === preset
-                        ? 'bg-cyan-500 text-gray-950 font-bold shadow-md shadow-cyan-500/20'
-                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700/60'
-                    }`}
-                  >
-                    {preset}
-                  </button>
-                ))}
+                {PURPOSE_PRESETS.map((preset) => {
+                  const isSelected = selectedPurpose === preset;
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setSelectedPurpose(isSelected ? '' : preset)}
+                      disabled={loading || !!activeAttendance}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/25'
+                          : 'hover:opacity-80'
+                      }`}
+                      style={{
+                        background: isSelected ? undefined : 'var(--bg-primary, rgba(0, 0, 0, 0.05))',
+                        color: isSelected ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
+                        border: isSelected ? 'none' : '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))'
+                      }}
+                    >
+                      {preset}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Custom Notes */}
@@ -431,56 +571,68 @@ export default function MarketingDashboard() {
                 placeholder="Add specific details (e.g. Client contact name, agenda, quotation discussion)..."
                 value={customNotes}
                 onChange={(e) => setCustomNotes(e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-950 border border-gray-700 rounded-xl text-sm focus:outline-none focus:border-cyan-500 text-white placeholder-gray-500 resize-none"
+                className="w-full px-4 py-3 rounded-xl text-xs sm:text-sm focus:outline-none resize-none"
+                style={{
+                  background: 'var(--bg-primary, rgba(0, 0, 0, 0.05))',
+                  color: 'var(--text-primary, #f8fafc)',
+                  border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.12))'
+                }}
                 disabled={loading || !!activeAttendance}
               />
             </div>
             
-            {/* Step 4: Big Start Route Button */}
+            {/* Big Start Route Button */}
             <div className="pt-2">
               <button 
                 type="button"
                 onClick={handleStartRoute}
                 disabled={loading || !!activeAttendance || !fromLocation.trim() || !toLocation.trim()}
-                className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-gray-950 font-extrabold px-10 py-3.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 text-base"
+                className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold px-8 py-3.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 text-sm sm:text-base"
               >
-                <FiNavigation className="text-gray-950" size={18} />
+                <FiNavigation size={18} />
                 {loading ? 'Starting Live Tracking...' : activeAttendance ? 'Active Route in Progress' : '🚀 Start Field Route'}
               </button>
             </div>
           </div>
 
           {/* Trip History Table */}
-          <div className="bg-gray-900 p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-800">
-            <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-              <FiClock className="text-cyan-400" /> My Recent Field Visits
+          <div 
+            className="p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-lg"
+            style={{ 
+              background: 'var(--bg-card, #1e293b)',
+              border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
+            }}
+          >
+            <h3 className="text-sm sm:text-base font-bold mb-4 flex items-center gap-2" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+              <FiClock className="text-cyan-500" /> My Recent Field Visits
             </h3>
+            
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-800">
+              <table className="min-w-full divide-y" style={{ borderColor: 'var(--glass-border, rgba(255, 255, 255, 0.08))' }}>
                 <thead>
-                  <tr className="bg-gray-950/60 text-gray-400 text-xs font-semibold uppercase tracking-wider">
-                    <th className="px-4 py-3 text-left">From</th>
-                    <th className="px-4 py-3 text-left">Destination</th>
-                    <th className="px-4 py-3 text-left">Purpose / Notes</th>
-                    <th className="px-4 py-3 text-left">Check-In</th>
-                    <th className="px-4 py-3 text-left">Check-Out</th>
-                    <th className="px-4 py-3 text-left">GPS Map</th>
-                    <th className="px-4 py-3 text-left">Status</th>
+                  <tr style={{ background: 'var(--bg-primary, rgba(0, 0, 0, 0.05))' }}>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>From</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Destination</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Purpose / Notes</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Check-In</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Check-Out</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>GPS Map</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/60 text-sm">
+                <tbody className="divide-y text-xs" style={{ borderColor: 'var(--glass-border, rgba(255, 255, 255, 0.05))' }}>
                   {attendanceHistory.map(item => (
-                    <tr key={item.id} className="hover:bg-gray-800/40 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-gray-200">{item.from_location || '-'}</td>
-                      <td className="px-4 py-3 font-bold text-cyan-400">{item.to_location || '-'}</td>
-                      <td className="px-4 py-3 text-gray-400 text-xs max-w-xs truncate" title={item.notes || ''}>
+                    <tr key={item.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                      <td className="px-4 py-3 font-semibold" style={{ color: 'var(--text-primary, #f8fafc)' }}>{item.from_location || '-'}</td>
+                      <td className="px-4 py-3 font-bold text-cyan-500">{item.to_location || '-'}</td>
+                      <td className="px-4 py-3 max-w-xs truncate" style={{ color: 'var(--text-secondary, #94a3b8)' }} title={item.notes || ''}>
                         {item.notes || '-'}
                       </td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">
+                      <td className="px-4 py-3" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
                         {item.check_in_at ? new Date(item.check_in_at).toLocaleString() : '-'}
                       </td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">
-                        {item.check_out_at ? new Date(item.check_out_at).toLocaleString() : '-'}
+                      <td className="px-4 py-3" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                        {item.check_out_at ? new Date(item.check_out_at).toLocaleString() : item.status === 'Checked In' ? <span className="text-emerald-500 font-bold">Active</span> : '-'}
                       </td>
                       <td className="px-4 py-3">
                         {item.check_in_latitude && item.check_in_longitude ? (
@@ -488,17 +640,17 @@ export default function MarketingDashboard() {
                             href={`https://maps.google.com/?q=${item.check_in_latitude},${item.check_in_longitude}`} 
                             target="_blank" 
                             rel="noreferrer"
-                            className="text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1 font-mono text-xs hover:underline"
+                            className="text-cyan-500 hover:text-cyan-400 inline-flex items-center gap-1 font-mono text-xs hover:underline"
                           >
                             <FiMapPin size={12} /> {Number(item.check_in_latitude || 0).toFixed(4)}, {Number(item.check_in_longitude || 0).toFixed(4)}
                           </a>
                         ) : '-'}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
                           item.status === 'Checked In' 
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                            : 'bg-gray-800 text-gray-400 border border-gray-700'
+                            ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' 
+                            : 'bg-gray-500/15 text-gray-400 border border-gray-500/20'
                         }`}>
                           {item.status || 'Checked Out'}
                         </span>
@@ -507,7 +659,7 @@ export default function MarketingDashboard() {
                   ))}
                   {attendanceHistory.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="px-4 py-8 text-center text-gray-500 text-sm">
+                      <td colSpan="7" className="px-4 py-8 text-center text-xs" style={{ color: 'var(--text-muted, #64748b)' }}>
                         No field routes recorded yet.
                       </td>
                     </tr>
