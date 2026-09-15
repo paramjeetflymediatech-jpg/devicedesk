@@ -429,6 +429,34 @@ export default function MarketingDashboard() {
                 </div>
               )}
 
+              {/* Live Map Preview inside Active Route */}
+              {(activeAttendance.check_in_latitude && activeAttendance.check_in_longitude) && (
+                <div 
+                  className="w-full h-56 sm:h-72 rounded-2xl overflow-hidden shadow-inner relative"
+                  style={{ border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.15))' }}
+                >
+                  <iframe
+                    title="Active Route Live Map"
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    scrolling="no"
+                    marginHeight="0"
+                    marginWidth="0"
+                    src={`https://maps.google.com/maps?q=${activeAttendance.check_in_latitude},${activeAttendance.check_in_longitude}&hl=en&z=16&output=embed`}
+                    className="w-full h-full border-0"
+                  />
+                  <a
+                    href={`https://maps.google.com/?q=${activeAttendance.check_in_latitude},${activeAttendance.check_in_longitude}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="absolute top-2 right-2 bg-black/70 hover:bg-black text-white text-[11px] font-bold px-2.5 py-1 rounded-lg backdrop-blur-sm transition-colors flex items-center gap-1 shadow-md"
+                  >
+                    <FiExternalLink size={11} /> Open Map App
+                  </a>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
                 <div className="text-xs flex items-center gap-1.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
                   <FiClock style={{ color: 'var(--text-muted, #64748b)' }} />

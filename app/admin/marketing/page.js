@@ -29,6 +29,7 @@ export default function AdminMarketingOverview() {
   const [activeTrailModal, setActiveTrailModal] = useState(null);
   const [trailLogs, setTrailLogs] = useState([]);
   const [trailLoading, setTrailLoading] = useState(false);
+  const [selectedLiveTripId, setSelectedLiveTripId] = useState(null);
 
   useEffect(() => {
     fetchMarketingData();
@@ -381,37 +382,187 @@ export default function AdminMarketingOverview() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-              {activeTrips.map(trip => {
-                const emp = allEmployees.find(e => e.id === trip.employee_id);
-                const empName = trip.employee_name || emp?.name || trip.employee_id;
-                const hasGps = trip.current_latitude && trip.current_longitude || trip.check_in_latitude && trip.check_in_longitude;
-                const lat = trip.current_latitude || trip.check_in_latitude;
-                const lng = trip.current_longitude || trip.check_in_longitude;
+            <>
+              {/* Interactive Live Map Radar Viewer */}
+              {(() => {
+                const currentLiveTrip = activeTrips.find(t => t.id === selectedLiveTripId) || activeTrips[0];
+                const currentLiveEmp = allEmployees.find(e => e.id === currentLiveTrip?.employee_id);
+                const currentEmpName = currentLiveTrip?.employee_name || currentLiveEmp?.name || currentLiveTrip?.employee_id;
+                const currentLat = currentLiveTrip?.current_latitude || currentLiveTrip?.check_in_latitude;
+                const currentLng = currentLiveTrip?.current_longitude || currentLiveTrip?.check_in_longitude;
+                const hasCurrentGps = !!(currentLat && currentLng);
 
                 return (
                   <div 
-                    key={trip.id}
-                    className="p-5 sm:p-6 rounded-3xl shadow-sm space-y-4 flex flex-col justify-between transition-all"
+                    className="p-5 sm:p-6 rounded-3xl shadow-xl space-y-4 overflow-hidden"
                     style={{ 
-                      background: 'var(--bg-card, rgba(255, 255, 255, 0.04))',
-                      border: '1px solid rgba(16, 185, 129, 0.35)'
+                      background: 'var(--bg-card, #1e293b)',
+                      border: '1.5px solid rgba(16, 185, 129, 0.35)'
                     }}
                   >
-                    <div>
-                      {/* Executive Info & Pulse */}
-                      <div 
-                        className="flex items-center justify-between pb-3"
-                        style={{ borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-extrabold text-sm uppercase shadow-md shadow-emerald-500/20">
-                            {empName.charAt(0)}
+                    {/* Live Radar Header & Executive Selector */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                          </span>
+                          <h3 className="text-base sm:text-lg font-extrabold flex items-center gap-2" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                            📡 Live GPS Device Map Radar
+                          </h3>
+                        </div>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                          Live real-time position of on-field staff & vehicles
+                        </p>
+                      </div>
+
+                      {/* Quick Executive Switcher Pills */}
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                        {activeTrips.map(trip => {
+                          const emp = allEmployees.find(e => e.id === trip.employee_id);
+                          const name = trip.employee_name || emp?.name || trip.employee_id;
+                          const isSelected = (trip.id === (selectedLiveTripId || activeTrips[0]?.id));
+
+                          return (
+                            <button
+                              key={trip.id}
+                              type="button"
+                              onClick={() => setSelectedLiveTripId(trip.id)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                                isSelected
+                                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                                  : 'hover:opacity-80'
+                              }`}
+                              style={{
+                                background: isSelected ? undefined : 'var(--bg-primary, rgba(0,0,0,0.05))',
+                                color: isSelected ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
+                                border: isSelected ? 'none' : '1px solid var(--glass-border, rgba(255,255,255,0.1))'
+                              }}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-white' : 'bg-emerald-500'}`}></span>
+                              <span>{name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Interactive Embedded Map Frame */}
+                    <div 
+                      className="relative w-full h-80 sm:h-96 rounded-2xl overflow-hidden shadow-inner"
+                      style={{ 
+                        background: 'var(--bg-primary, #0f172a)',
+                        border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))'
+                      }}
+                    >
+                      {hasCurrentGps ? (
+                        <iframe
+                          title="Live GPS Radar Map"
+                          width="100%"
+                          height="100%"
+                          frameBorder="0"
+                          scrolling="no"
+                          marginHeight="0"
+                          marginWidth="0"
+                          src={`https://maps.google.com/maps?q=${currentLat},${currentLng}&hl=en&z=16&output=embed`}
+                          className="w-full h-full border-0"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center p-6 text-center text-xs" style={{ color: 'var(--text-muted, #64748b)' }}>
+                          No live GPS coordinates received for this device yet.
+                        </div>
+                      )}
+
+                      {/* Floating Live Telemetry Overlay Badge */}
+                      {hasCurrentGps && (
+                        <div 
+                          className="absolute top-3 left-3 right-3 sm:right-auto max-w-sm p-3.5 rounded-2xl shadow-xl backdrop-blur-md space-y-1.5 z-10"
+                          style={{ 
+                            background: 'var(--bg-card, rgba(15, 23, 42, 0.85))',
+                            border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.15))'
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <div className="w-7 h-7 rounded-lg bg-emerald-500 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                                {currentEmpName.charAt(0)}
+                              </div>
+                              <span className="font-bold text-xs truncate" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                                {currentEmpName}
+                              </span>
+                            </div>
+                            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-full text-[10px] font-extrabold uppercase">
+                              LIVE PIN
+                            </span>
                           </div>
-                          <div>
-                            <h4 className="font-bold text-sm truncate max-w-[150px]" style={{ color: 'var(--text-primary, #f8fafc)' }}>{empName}</h4>
-                            <p className="text-[11px] font-mono" style={{ color: 'var(--text-muted, #64748b)' }}>{trip.employee_id}</p>
+
+                          <div className="text-[11px] font-mono text-cyan-500">
+                            📍 {Number(currentLat).toFixed(5)}°, {Number(currentLng).toFixed(5)}°
                           </div>
+
+                          <div className="text-[11px] truncate" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                            <strong>To: </strong> {currentLiveTrip?.to_location || 'Destination'}
+                          </div>
+
+                          <div className="pt-1 flex items-center justify-between text-[10px]" style={{ color: 'var(--text-muted, #64748b)' }}>
+                            <span>Started: {currentLiveTrip?.check_in_at ? new Date(currentLiveTrip.check_in_at).toLocaleTimeString() : 'Now'}</span>
+                            <a
+                              href={`https://maps.google.com/?q=${currentLat},${currentLng}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-cyan-500 hover:text-cyan-400 font-bold inline-flex items-center gap-1 hover:underline"
+                            >
+                              <FiExternalLink size={10} /> Full Map
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Active Executive Trip Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {activeTrips.map(trip => {
+                  const emp = allEmployees.find(e => e.id === trip.employee_id);
+                  const empName = trip.employee_name || emp?.name || trip.employee_id;
+                  const hasGps = trip.current_latitude && trip.current_longitude || trip.check_in_latitude && trip.check_in_longitude;
+                  const lat = trip.current_latitude || trip.check_in_latitude;
+                  const lng = trip.current_longitude || trip.check_in_longitude;
+                  const isSelectedOnMap = trip.id === (selectedLiveTripId || activeTrips[0]?.id);
+
+                  return (
+                    <div 
+                      key={trip.id}
+                      className={`p-5 sm:p-6 rounded-3xl shadow-sm space-y-4 flex flex-col justify-between transition-all ${
+                        isSelectedOnMap ? 'ring-2 ring-emerald-500' : ''
+                      }`}
+                      style={{ 
+                        background: 'var(--bg-card, rgba(255, 255, 255, 0.04))',
+                        border: '1px solid rgba(16, 185, 129, 0.35)'
+                      }}
+                    >
+                      <div>
+                        {/* Executive Info & Pulse */}
+                        <div 
+                          className="flex items-center justify-between pb-3"
+                          style={{ borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-extrabold text-sm uppercase shadow-md shadow-emerald-500/20">
+                              {empName.charAt(0)}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-sm truncate max-w-[150px]" style={{ color: 'var(--text-primary, #f8fafc)' }}>{empName}</h4>
+                              <p className="text-[11px] font-mono" style={{ color: 'var(--text-muted, #64748b)' }}>{trip.employee_id}</p>
+                            </div>
+                          </div>
+                          <span className="px-2.5 py-1 bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            ON FIELD
+                          </span>
                         </div>
                         <span className="px-2.5 py-1 bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
@@ -470,15 +621,35 @@ export default function AdminMarketingOverview() {
                     >
                       <button
                         type="button"
-                        onClick={() => openTrailModal(trip)}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+                        onClick={() => {
+                          setSelectedLiveTripId(trip.id);
+                          window.scrollTo({ top: 120, behavior: 'smooth' });
+                        }}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                          isSelectedOnMap 
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' 
+                            : 'hover:bg-cyan-500/10'
+                        }`}
                         style={{
-                          background: 'rgba(6, 182, 212, 0.1)',
-                          color: '#06b6d4',
-                          border: '1px solid rgba(6, 182, 212, 0.25)'
+                          background: isSelectedOnMap ? undefined : 'rgba(6, 182, 212, 0.1)',
+                          color: isSelectedOnMap ? undefined : '#06b6d4',
+                          border: isSelectedOnMap ? undefined : '1px solid rgba(6, 182, 212, 0.25)'
                         }}
                       >
-                        <FiMapPin size={13} /> GPS Waypoints
+                        <FiCompass size={13} /> {isSelectedOnMap ? 'Viewing on Map' : 'Focus on Map'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openTrailModal(trip)}
+                        className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          color: 'var(--text-secondary, #94a3b8)',
+                          border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))'
+                        }}
+                      >
+                        <FiMapPin size={13} /> Trail
                       </button>
 
                       {hasGps && (
@@ -486,9 +657,9 @@ export default function AdminMarketingOverview() {
                           href={`https://maps.google.com/?q=${lat},${lng}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all"
+                          className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all"
                         >
-                          <FiExternalLink size={13} /> Open Live Pin
+                          <FiExternalLink size={13} /> Pin
                         </a>
                       )}
                     </div>
