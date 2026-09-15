@@ -21,8 +21,9 @@ export class Employee {
         passMap[row.id] = row.password;
       }
 
-      await conn.execute('DELETE FROM employees');
+      // Non-destructive upsert: Never delete existing employees
       for (const e of employees) {
+        if (!e.id) continue;
         // ALWAYS prioritize existing password hash in DB (passMap) so client state cannot overwrite reset passwords
         let passwordToSave = passMap[e.id] || e.password || null;
 
@@ -32,7 +33,17 @@ export class Employee {
         }
 
         await conn.execute(
-          `INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status, avatarUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status, avatarUrl) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE 
+             name = VALUES(name),
+             email = VALUES(email),
+             password = COALESCE(VALUES(password), password),
+             role = VALUES(role),
+             department = VALUES(department),
+             ticketLimit = VALUES(ticketLimit),
+             status = VALUES(status),
+             avatarUrl = COALESCE(VALUES(avatarUrl), avatarUrl)`,
           [
             e.id || null,
             e.name || null,

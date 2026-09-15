@@ -12,10 +12,23 @@ export class System {
     const conn = await db.getConnection();
     await conn.beginTransaction();
     try {
-      await conn.execute('DELETE FROM systems');
+      // Non-destructive upsert: Never delete existing systems
       for (const s of systems) {
+        if (!s.id) continue;
         await conn.execute(
-          `INSERT INTO systems (id, systemNumber, cpu, gpu, ram, storage, os, model, assignedTo, status, remarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO systems (id, systemNumber, cpu, gpu, ram, storage, os, model, assignedTo, status, remarks) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             systemNumber = VALUES(systemNumber),
+             cpu = VALUES(cpu),
+             gpu = VALUES(gpu),
+             ram = VALUES(ram),
+             storage = VALUES(storage),
+             os = VALUES(os),
+             model = VALUES(model),
+             assignedTo = VALUES(assignedTo),
+             status = VALUES(status),
+             remarks = VALUES(remarks)`,
           [
             s.id || null,
             s.systemNumber || null,
