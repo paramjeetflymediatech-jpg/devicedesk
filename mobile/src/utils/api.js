@@ -329,7 +329,7 @@ export async function fetchMarketingAttendance(employeeId) {
   }
 }
 
-export async function checkInMarketingTrip({ employee_id, from_location, to_location, notes, latitude, longitude }) {
+export async function checkInMarketingTrip({ employee_id, from_location, to_location, notes, latitude, longitude, dest_latitude, dest_longitude, estimated_km }) {
   const url = `${currentApiUrl}/api/marketing/attendance`;
   try {
     const response = await fetch(url, {
@@ -346,6 +346,9 @@ export async function checkInMarketingTrip({ employee_id, from_location, to_loca
         notes,
         latitude,
         longitude,
+        dest_latitude: dest_latitude || null,
+        dest_longitude: dest_longitude || null,
+        estimated_km: estimated_km || 0,
       }),
     });
     return await response.json();

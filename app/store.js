@@ -158,26 +158,7 @@ export function getSystems() {
 
 export function getEmployees() {
   if (typeof window === 'undefined') return initialEmployees;
-  const list = dbCache.employees || [];
-  let updated = false;
-  const mapped = list.map(e => {
-    let modified = false;
-    if (!e.email) {
-      const firstName = e.name ? e.name.split(' ')[0].toLowerCase() : 'employee';
-      e.email = firstName + '@devicedesk.com';
-      modified = true;
-    }
-    if (e.ticketLimit === undefined) {
-      e.ticketLimit = 5;
-      modified = true;
-    }
-    if (modified) updated = true;
-    return e;
-  });
-  if (updated) {
-    saveEmployees(mapped);
-  }
-  return mapped;
+  return dbCache.employees || [];
 }
 
 export function getTickets() {

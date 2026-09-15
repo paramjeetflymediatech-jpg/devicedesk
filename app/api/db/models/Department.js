@@ -12,10 +12,12 @@ export class Department {
     const conn = await db.getConnection();
     await conn.beginTransaction();
     try {
-      await conn.execute('DELETE FROM departments');
+      // Non-destructive upsert: Never delete existing departments
       for (const d of departments) {
+        if (!d.id) continue;
         await conn.execute(
-          `INSERT INTO departments (id, name) VALUES (?, ?)`,
+          `INSERT INTO departments (id, name) VALUES (?, ?)
+           ON DUPLICATE KEY UPDATE name = VALUES(name)`,
           [d.id, d.name]
         );
       }
