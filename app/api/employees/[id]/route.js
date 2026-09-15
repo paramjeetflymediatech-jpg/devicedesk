@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
+import { checkAuth } from '../../utils/storageManager.js';
+import { isMarketingAuthorized } from '../../utils/marketingAuth.js';
 
 export async function GET(request, { params }) {
   try {
@@ -12,6 +14,15 @@ export async function GET(request, { params }) {
     }
 
     let employee = rows[0];
+
+    const isEmpMarketing = (employee.department || '').toLowerCase() === 'marketing' || (employee.role || '').toLowerCase().includes('marketing');
+    if (isEmpMarketing) {
+      const user = await checkAuth(request);
+      const isAuth = await isMarketingAuthorized(user);
+      if (!isAuth && (!user || user.id !== employee.id)) {
+        return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
+      }
+    }
 
     // If client, fetch advanced details
     if (employee.role && employee.role.toLowerCase() === 'client') {

@@ -66,7 +66,7 @@ export async function checkAuth(req) {
 
     const db = await getDbConnection();
     const [rows] = await db.execute(
-      'SELECT id, name, email, role, status FROM employees WHERE id = ? LIMIT 1',
+      'SELECT id, name, email, role, department, status FROM employees WHERE id = ? LIMIT 1',
       [userId]
     );
     if (rows.length === 0 || rows[0].status !== 'Active') {

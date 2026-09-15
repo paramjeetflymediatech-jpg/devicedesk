@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 const API_URL_KEY = 'devicedesk_api_url';
 
 // Default URLs: 10.0.2.2 for Android Emulator, localhost for iOS simulator
-const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-// const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
+//const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
 
 let currentApiUrl = DEFAULT_URL;
 
@@ -41,11 +41,22 @@ export async function setApiUrl(url) {
 export async function fetchFromDb() {
   const url = `${currentApiUrl}/api/db`;
   try {
+    const headers = {
+      'Accept': 'application/json',
+    };
+    try {
+      const storedUser = await AsyncStorage.getItem('@currentUser');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.id) {
+          headers['x-user-id'] = parsed.id;
+        }
+      }
+    } catch (e) {}
+
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers,
     });
     if (!response.ok) {
       throw new Error(`HTTP Error ${response.status}`);
@@ -284,16 +295,29 @@ export async function fetchEmployeeLeaves(employeeId, status = 'ALL') {
 // Marketing Field Trips & GPS Attendance APIs
 // ---------------------------------------------------------------------------
 
+async function getAuthHeaders() {
+  const headers = { 'Accept': 'application/json' };
+  try {
+    const storedUser = await AsyncStorage.getItem('@currentUser');
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      if (parsed?.id) {
+        headers['x-user-id'] = parsed.id;
+      }
+    }
+  } catch (e) {}
+  return headers;
+}
+
 export async function fetchMarketingAttendance(employeeId) {
   const url = employeeId 
     ? `${currentApiUrl}/api/marketing/attendance?employee_id=${encodeURIComponent(employeeId)}`
     : `${currentApiUrl}/api/marketing/attendance`;
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers,
     });
     if (!response.ok) {
       throw new Error(`HTTP Error ${response.status}`);
@@ -359,11 +383,10 @@ export async function checkOutMarketingTrip({ employee_id, attendance_id, latitu
 export async function fetchMarketingAuthorizations() {
   const url = `${currentApiUrl}/api/marketing/authorizations`;
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers,
     });
     if (!response.ok) {
       throw new Error(`HTTP Error ${response.status}`);
@@ -408,11 +431,10 @@ export async function fetchMarketingLocationLogs(attendance_id, employee_id) {
   }
 
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers,
     });
     if (!response.ok) {
       throw new Error(`HTTP Error ${response.status}`);

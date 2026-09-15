@@ -19,7 +19,11 @@ export async function GET(request) {
     );
 
     if (!hasMarketingAccess) {
-      rows = rows.filter(e => (e.department || '').toLowerCase() !== 'marketing');
+      rows = rows.filter(e => {
+        const d = (e.department || '').toLowerCase();
+        const r = (e.role || '').toLowerCase();
+        return d !== 'marketing' && !r.includes('marketing');
+      });
     }
 
     return NextResponse.json({

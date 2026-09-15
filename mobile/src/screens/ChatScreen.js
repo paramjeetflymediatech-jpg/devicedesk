@@ -21,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SoundPlayer from 'react-native-sound-player';
 import { getEmployees, getSystems, subscribe } from '../store/store';
-import { getApiUrl } from '../utils/api';
+import { getApiUrl, fetchMarketingAuthorizations } from '../utils/api';
 import { pick } from '@react-native-documents/picker';
 import { launchCamera } from 'react-native-image-picker';
 import { useTheme } from '../utils/ThemeContext';
@@ -235,6 +235,62 @@ export default function ChatScreen({ user, onBack }) {
 
   // Employee list
   const [employees, setEmployees] = useState(getEmployees());
+  const [authorizedMarketingIds, setAuthorizedMarketingIds] = useState([]);
+
+  useEffect(() => {
+    async function loadMarketingAuth() {
+      try {
+        const res = await fetchMarketingAuthorizations();
+        if (res?.success && Array.isArray(res.data)) {
+          setAuthorizedMarketingIds(res.data.map(a => a.employeeId));
+        }
+      } catch (e) {}
+    }
+    loadMarketingAuth();
+  }, []);
+
+  const isMarketingMember = (emp) => {
+    if (!emp) return false;
+    const d = (emp.department || '').toLowerCase();
+    const r = (emp.role || '').toLowerCase();
+    return d === 'marketing' || r.includes('marketing');
+  };
+
+  const isUserAuthorizedForMarketing = (currUser) => {
+    if (!currUser) return false;
+    const r = (currUser.role || '').toLowerCase();
+    const d = (currUser.department || '').toLowerCase();
+    if (r.includes('admin') || r.includes('superadmin') || r.includes('management')) return true;
+    if (d === 'marketing' || r.includes('marketing')) return true;
+    if (authorizedMarketingIds.includes(currUser.id)) return true;
+    return false;
+  };
+
+  const isEmployeeVisibleInChat = (emp) => {
+    if (!emp) return false;
+    if (String(emp.id).toLowerCase() === String(user?.id || '').toLowerCase()) return false;
+
+    const currentUserIsMarketing = isMarketingMember(user);
+    const targetIsMarketing = isMarketingMember(emp);
+    const currentUserHasAccess = isUserAuthorizedForMarketing(user);
+
+    // Case 1: Current user is a Marketing member
+    if (currentUserIsMarketing) {
+      // Marketing member can only see Admins, Authorized managers, and fellow Marketing teammates
+      const targetRole = (emp.role || '').toLowerCase();
+      const targetIsAdmin = targetRole.includes('admin') || targetRole.includes('superadmin') || targetRole.includes('management');
+      const targetIsAuthorized = authorizedMarketingIds.includes(emp.id);
+      return targetIsMarketing || targetIsAdmin || targetIsAuthorized;
+    }
+
+    // Case 2: Current user is NOT marketing and NOT authorized
+    if (!currentUserHasAccess) {
+      // Must hide all marketing members
+      if (targetIsMarketing) return false;
+    }
+
+    return true;
+  };
 
   const scrollViewRef = useRef(null);
 
@@ -983,7 +1039,7 @@ export default function ChatScreen({ user, onBack }) {
 
   // Filter & sort contacts
   const filteredEmployees = employees.filter(emp => {
-    if (String(emp.id).toLowerCase() === String(user?.id || '').toLowerCase()) return false;
+    if (!isEmployeeVisibleInChat(emp)) return false;
     return emp.name.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
@@ -1722,9 +1778,9 @@ export default function ChatScreen({ user, onBack }) {
                         })() : (
                           <View>
                             <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#8b949e', textTransform: 'uppercase', marginBottom: 6 }}>
-                              Channel Members ({employees.length})
+                              Channel Members ({sortedEmployees.length})
                             </Text>
-                            {employees.slice(0, 8).map(e => (
+                            {sortedEmployees.slice(0, 8).map(e => (
                               <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
                                 <View style={[styles.avatarBox, { width: 24, height: 24, borderRadius: 6, backgroundColor: '#38bdf8', marginRight: 8 }]}>
                                   <Text style={{ fontSize: 10, color: '#fff' }}>{e.name.charAt(0)}</Text>

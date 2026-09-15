@@ -55,6 +55,10 @@ export async function POST(request) {
       if (!passwordMatch && pepper !== 'devicedesk_secure_pepper_key_2026') {
         passwordMatch = await bcrypt.compare(password + 'devicedesk_secure_pepper_key_2026', storedPassword);
       }
+      // 4. Try with securelevel fallback pepper
+      if (!passwordMatch && pepper !== 'securelevel') {
+        passwordMatch = await bcrypt.compare(password + 'securelevel', storedPassword);
+      }
     } else {
       // Legacy plain-text fallback
       passwordMatch = storedPassword === password;
