@@ -152,8 +152,7 @@ export default function AdminMarketingOverview() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Check-Out Time</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">GPS Pin</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Route Trail</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Total KM</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Distance (KM)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
@@ -195,7 +194,9 @@ export default function AdminMarketingOverview() {
                         {a.status || 'Checked Out'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm font-bold text-gray-200">{a.total_km || 0}</td>
+                    <td className="px-4 py-3 text-sm font-bold text-gray-200">
+                      {a.total_km > 0 ? `${a.total_km} KM` : a.estimated_km > 0 ? `${a.estimated_km} KM (Est)` : '0 KM'}
+                    </td>
                   </tr>
                 );
               })}

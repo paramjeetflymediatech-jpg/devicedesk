@@ -41,6 +41,9 @@ async function ensureMarketingAttendanceTable(db) {
       { name: 'check_in_at', def: 'TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP' },
       { name: 'check_in_latitude', def: 'DECIMAL(10, 8) DEFAULT NULL' },
       { name: 'check_in_longitude', def: 'DECIMAL(11, 8) DEFAULT NULL' },
+      { name: 'dest_latitude', def: 'DECIMAL(10, 8) DEFAULT NULL' },
+      { name: 'dest_longitude', def: 'DECIMAL(11, 8) DEFAULT NULL' },
+      { name: 'estimated_km', def: 'DECIMAL(10, 2) DEFAULT 0' },
       { name: 'current_latitude', def: 'DECIMAL(10, 8) DEFAULT NULL' },
       { name: 'current_longitude', def: 'DECIMAL(11, 8) DEFAULT NULL' },
       { name: 'last_location_update', def: 'TIMESTAMP NULL DEFAULT NULL' },
@@ -65,7 +68,11 @@ async function ensureMarketingAttendanceTable(db) {
 
 export async function POST(request) {
   try {
-    const { employee_id, action, latitude, longitude, from_location, to_location, notes } = await request.json();
+    const { 
+      employee_id, action, latitude, longitude, 
+      from_location, to_location, notes,
+      dest_latitude, dest_longitude, estimated_km
+    } = await request.json();
 
     if (!employee_id || !action || !latitude || !longitude) {
       return NextResponse.json({ error: 'employee_id, action, latitude, and longitude are required.' }, { status: 400 });
@@ -85,15 +92,27 @@ export async function POST(request) {
       if (colNames.includes('date')) {
         const today = new Date().toISOString().split('T')[0];
         await db.execute(
-          `INSERT INTO marketing_attendance (id, employee_id, date, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, current_latitude, current_longitude, last_location_update, status) 
-           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
-          [attendanceId, employee_id, today, from_location || null, to_location || null, notes || null, latitude, longitude, latitude, longitude, status]
+          `INSERT INTO marketing_attendance (id, employee_id, date, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, dest_latitude, dest_longitude, estimated_km, current_latitude, current_longitude, last_location_update, status) 
+           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+          [
+            attendanceId, employee_id, today, 
+            from_location || null, to_location || null, notes || null, 
+            latitude, longitude, 
+            dest_latitude || null, dest_longitude || null, estimated_km || 0,
+            latitude, longitude, status
+          ]
         );
       } else {
         await db.execute(
-          `INSERT INTO marketing_attendance (id, employee_id, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, current_latitude, current_longitude, last_location_update, status) 
-           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
-          [attendanceId, employee_id, from_location || null, to_location || null, notes || null, latitude, longitude, latitude, longitude, status]
+          `INSERT INTO marketing_attendance (id, employee_id, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, dest_latitude, dest_longitude, estimated_km, current_latitude, current_longitude, last_location_update, status) 
+           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+          [
+            attendanceId, employee_id, 
+            from_location || null, to_location || null, notes || null, 
+            latitude, longitude, 
+            dest_latitude || null, dest_longitude || null, estimated_km || 0,
+            latitude, longitude, status
+          ]
         );
       }
 
