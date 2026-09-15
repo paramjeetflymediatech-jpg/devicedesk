@@ -22,7 +22,7 @@ const FEATURES = [
   { label: 'Receive Real-Time Updates', icon: 'bell' },
 ];
 
-export default function WelcomeScreen({ onGetStarted }) {
+export default function WelcomeScreen({ onGetStarted, onRegister }) {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -189,6 +189,16 @@ export default function WelcomeScreen({ onGetStarted }) {
             </Animated.View>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={onRegister}
+            style={{ marginTop: 15 }}
+          >
+            <View style={styles.btnSecondary}>
+              <Text style={styles.btnSecondaryText}>Apply for a Job / Register</Text>
+            </View>
+          </TouchableOpacity>
+
           <Text style={styles.footerNote}>Secured by DeviceDesk</Text>
         </Animated.View>
 
@@ -306,5 +316,20 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 12,
     fontWeight: '500',
+  },
+  btnSecondary: {
+    paddingHorizontal: 40,
+    paddingVertical: 14,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#0f172a',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnSecondaryText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
   },
 });

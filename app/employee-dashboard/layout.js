@@ -17,6 +17,7 @@ import {
   FiMessageSquare,
   FiCheckSquare,
   FiUser,
+  FiUserPlus,
   FiLogOut,
   FiShield,
   FiCalendar,
@@ -258,6 +259,11 @@ export default function EmployeeLayout({ children }) {
                     <span className="nav-icon"><FiClock /></span> All Attendance
                   </Link>
                 </li>
+                <li className={`nav-item ${pathname === "/employee-dashboard/hr-recruitment" ? "active" : ""}`}>
+                  <Link href="/employee-dashboard/hr-recruitment" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                    <span className="nav-icon"><FiUserPlus /></span> Recruitment
+                  </Link>
+                </li>
                 <li className={`nav-item ${pathname === "/admin/leaves" ? "active" : ""}`}>
                   <Link href="/admin/leaves" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
                     <span className="nav-icon"><FiCalendar /></span> All Leaves
@@ -377,6 +383,14 @@ export default function EmployeeLayout({ children }) {
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiClock /> All Attendance</span>
+              </Link>
+              <Link
+                href="/employee-dashboard/hr-recruitment"
+                className={`mobile-drawer-item ${pathname === "/employee-dashboard/hr-recruitment" ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiUserPlus /> Recruitment</span>
               </Link>
               <Link
                 href="/admin/leaves"

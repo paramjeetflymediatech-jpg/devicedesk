@@ -8,6 +8,8 @@ import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import AdminDashboard from './src/screens/Admin/Dashboard';
 import EmployeeDashboard from './src/screens/Employee/Dashboard';
+import CandidateRegistrationScreen from './src/screens/CandidateRegistrationScreen';
+import CandidateDashboardScreen from './src/screens/CandidateDashboardScreen';
 
 import { setupPushNotifications, getFcmToken } from './src/utils/notifications';
 import { getOrCreateDeviceId, registerDeviceToken, deregisterDeviceToken } from './src/utils/api';
@@ -57,6 +59,8 @@ function MainAppContent() {
             setCurrentUser(userObj);
             if (userObj.role === 'admin') {
               setCurrentScreen('admin');
+            } else if ((userObj.role || '').toLowerCase() === 'candidate') {
+              setCurrentScreen('candidateDashboard');
             } else {
               setCurrentScreen('employee');
             }
@@ -125,6 +129,8 @@ function MainAppContent() {
 
     if (userObj.role === 'admin') {
       setCurrentScreen('admin');
+    } else if ((userObj.role || '').toLowerCase() === 'candidate') {
+      setCurrentScreen('candidateDashboard');
     } else {
       setCurrentScreen('employee');
     }
@@ -168,6 +174,7 @@ function MainAppContent() {
         return (
           <WelcomeScreen
             onGetStarted={() => setCurrentScreen('login')}
+            onRegister={() => setCurrentScreen('candidateRegistration')}
           />
         );
       case 'forgot':
@@ -186,6 +193,19 @@ function MainAppContent() {
       case 'employee':
         return (
           <EmployeeDashboard
+            user={currentUser}
+            onLogout={handleLogout}
+          />
+        );
+      case 'candidateRegistration':
+        return (
+          <CandidateRegistrationScreen
+            onNavigateBack={() => setCurrentScreen('welcome')}
+          />
+        );
+      case 'candidateDashboard':
+        return (
+          <CandidateDashboardScreen
             user={currentUser}
             onLogout={handleLogout}
           />

@@ -2,812 +2,274 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
-import { 
-  FiUser, 
-  FiUsers,
-  FiLink, 
-  FiArrowLeft, 
-  FiEdit2, 
-  FiTrash2, 
-  FiKey,
-  FiCheck, 
-  FiX, 
-  FiShield, 
-  FiPlus, 
-  FiUserPlus, 
-  FiSearch, 
-  FiEye, 
-  FiEyeOff, 
-  FiDownload 
-} from 'react-icons/fi';
-import { getEmployeeSlug } from '../../utils/slugUtils.js';
-import Pagination from '../../components/Pagination.js';
-
-const ROLES = [
-  'Candidate'
-];
-
-const DEFAULT_DEPARTMENTS = [
-  'Development',
-  'Design',
-  'Marketing',
-  'Sales',
-  'HR',
-  'IT Support',
-  'Operations',
-  'Management'
-];
+import { FiUsers, FiUserPlus, FiArrowLeft, FiCheck, FiX, FiFileText, FiRefreshCw, FiEye } from 'react-icons/fi';
 
 export default function HrRecruitmentPage() {
-  const [users, setUsers] = useState([]);
-  const [departments, setDepartments] = useState([]);
+  const [activeTab, setActiveTab] = useState('applications'); // 'applications' | 'candidates'
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('All');
-  const [deptFilter, setDeptFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [registrations, setRegistrations] = useState([]);
+  const [assignedTests, setAssignedTests] = useState([]);
   
-  // Modals state
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showResetModal, setShowResetModal] = useState(false);
-  
-  const [showAddPassword, setShowAddPassword] = useState(false);
-  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  // Forms state
-  const [addForm, setAddForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'Candidate',
-    department: 'HR',
-    ticketLimit: 10,
-    status: 'Applied'
+  const [selectedReg, setSelectedReg] = useState(null);
+  const [approveForm, setApproveForm] = useState({
+    testTitle: '',
+    testInstructions: '',
+    fileUrl: ''
   });
 
-  const [editForm, setEditForm] = useState({
-    id: '',
-    name: '',
-    email: '',
-    role: 'Candidate',
-    department: 'HR',
-    ticketLimit: 10,
-    status: 'Applied'
-  });
-
-  const [resetForm, setResetForm] = useState({
-    id: '',
-    name: '',
-    newPassword: ''
-  });
-
-  const refreshUsers = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/employees');
+      const res = await fetch('/api/candidates/list');
       const data = await res.json();
       if (data.success) {
-        setUsers(data.data.filter(u => u.role === 'Candidate'));
+        setRegistrations(data.registrations || []);
+        setAssignedTests(data.tests || []);
       }
     } catch (err) {
-      console.error('Error fetching users:', err);
+      console.error('Error fetching candidates:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadInitialData() {
-      try {
-        setLoading(true);
-        const [usersRes, deptsRes] = await Promise.all([
-          fetch('/api/employees'),
-          fetch('/api/departments')
-        ]);
-        const usersData = await usersRes.json();
-        const deptsData = await deptsRes.json();
-
-        if (isMounted) {
-          if (usersData.success) {
-            setUsers(usersData.data.filter(u => u.role === 'Candidate'));
-          }
-          if (deptsData.success && deptsData.data && deptsData.data.length > 0) {
-            setDepartments(deptsData.data.map(d => d.name));
-          } else {
-            setDepartments(DEFAULT_DEPARTMENTS);
-          }
-        }
-      } catch (err) {
-        console.error('Error loading initial data:', err);
-        if (isMounted) {
-          setDepartments(DEFAULT_DEPARTMENTS);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadInitialData();
-
-    return () => {
-      isMounted = false;
-    };
+    fetchData();
   }, []);
 
-  const handleAddSubmit = async (e) => {
+  const handleApproveClick = (reg) => {
+    setSelectedReg(reg);
+    setApproveForm({ testTitle: 'Technical Assessment', testInstructions: '', fileUrl: '' });
+    setShowApproveModal(true);
+  };
+
+  const submitApprove = async (e) => {
     e.preventDefault();
-    if (!addForm.name.trim()) {
-      Swal.fire({ icon: 'warning', title: 'Required Field', text: 'Please enter team member name.' });
-      return;
-    }
-    if (!addForm.email.trim()) {
-      Swal.fire({ icon: 'warning', title: 'Required Field', text: 'Please enter email address.' });
-      return;
-    }
-    if (!addForm.password.trim()) {
-      Swal.fire({ icon: 'warning', title: 'Required Field', text: 'Please enter a password.' });
+    if (!approveForm.testTitle || !approveForm.testInstructions) {
+      Swal.fire({ icon: 'warning', title: 'Required', text: 'Test title and instructions are required.' });
       return;
     }
 
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-      const res = await fetch('/api/employees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(addForm)
-      });
-      const data = await res.json();
-
-      if (res.ok && (data.success || data.employee)) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Created!',
-          text: `Team member "${addForm.name}" created successfully.`,
-          timer: 2000,
-          showConfirmButton: false
-        });
-        setShowAddModal(false);
-        setAddForm({
-          name: '',
-          email: '',
-          password: '',
-          role: 'Candidate',
-          department: 'HR',
-          ticketLimit: 10,
-          status: 'Applied'
-        });
-        setShowAddPassword(false);
-        refreshUsers();
-      } else {
-        Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Failed to add team member' });
-      }
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Error creating user' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEditClick = (user) => {
-    setEditForm({
-      id: user.id,
-      name: user.name || '',
-      email: user.email || '',
-      role: user.role || 'Team Member',
-      department: user.department || 'Development',
-      ticketLimit: user.ticketLimit || 100,
-      status: user.status || 'Active'
-    });
-    setShowEditModal(true);
-  };
-
-  const handleUpdateSubmit = async (e) => {
-    e.preventDefault();
-    if (!editForm.id) return;
-    if (!editForm.name.trim()) {
-      Swal.fire({ icon: 'warning', title: 'Required', text: 'Team member name cannot be empty.' });
-      return;
-    }
-    if (!editForm.email.trim()) {
-      Swal.fire({ icon: 'warning', title: 'Required', text: 'Email address cannot be empty.' });
-      return;
-    }
-    
-    try {
-      setSubmitting(true);
-      const res = await fetch(`/api/employees/${editForm.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editForm.name,
-          email: editForm.email,
-          role: editForm.role,
-          department: editForm.department,
-          ticketLimit: editForm.ticketLimit,
-          status: editForm.status
-        })
-      });
-      const data = await res.json();
-      if (res.ok && (data.success || data.message)) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Updated!',
-          text: 'Team member details updated successfully.',
-          timer: 1500,
-          showConfirmButton: false
-        });
-        setShowEditModal(false);
-        refreshUsers();
-      } else {
-        Swal.fire({ icon: 'error', title: 'Failed', text: data.error || 'Failed to update user' });
-      }
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Error updating user' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleResetClick = (user) => {
-    setResetForm({
-      id: user.id,
-      name: user.name || 'Team Member',
-      newPassword: ''
-    });
-    setShowResetPassword(false);
-    setShowResetModal(true);
-  };
-
-  const handleResetPasswordSubmit = async (e) => {
-    e.preventDefault();
-    if (!resetForm.newPassword.trim()) {
-      Swal.fire({ icon: 'warning', title: 'Required', text: 'Please enter a new password.' });
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const res = await fetch('/api/employees/reset-password', {
+      const res = await fetch('/api/candidates/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: resetForm.id,
-          newPassword: resetForm.newPassword.trim()
+          registrationId: selectedReg.id,
+          ...approveForm
         })
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
+        setShowApproveModal(false);
+        fetchData();
         Swal.fire({
           icon: 'success',
-          title: 'Password Reset',
-          text: `Password for ${resetForm.name} updated successfully.`,
-          timer: 2000,
-          showConfirmButton: false
+          title: 'Candidate Approved!',
+          html: `Temporary Login Details Generated:<br/><br/>
+                 <b>Email:</b> ${data.credentials.email}<br/>
+                 <b>Password:</b> ${data.credentials.password}<br/><br/>
+                 <i>Please copy these details and securely share them with the candidate.</i>`,
+          confirmButtonText: 'Got it!'
         });
-        setShowResetModal(false);
-        setResetForm({ id: '', name: '', newPassword: '' });
       } else {
-        Swal.fire({ icon: 'error', title: 'Failed', text: data.error || 'Failed to reset password' });
+        Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Failed to approve.' });
       }
     } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Error', text: 'Error resetting password' });
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Network error.' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteUser = async (user) => {
-    const result = await Swal.fire({
-      title: `Delete ${user.name}?`,
-      text: "This will permanently remove the user, unassign their systems, and clear their permissions. This cannot be undone!",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#475569',
-      confirmButtonText: 'Yes, Delete'
-    });
+  const renderApplications = () => (
+    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
+        <thead style={{ background: 'var(--bg-tertiary)', textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
+          <tr>
+            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Candidate Name</th>
+            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Contact</th>
+            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Experience</th>
+            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Status</th>
+            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {registrations.length === 0 ? (
+            <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No applications found.</td></tr>
+          ) : registrations.map(reg => (
+            <tr key={reg.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+              <td style={{ padding: '16px' }}>
+                <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{reg.name}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>{new Date(reg.created_at).toLocaleString()}</div>
+              </td>
+              <td style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <div>{reg.email}</div>
+                <div style={{ marginTop: '2px' }}>{reg.phone}</div>
+              </td>
+              <td style={{ padding: '16px', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+                  <span style={{ 
+                    padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold',
+                    background: reg.experience_level === 'Fresher' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                    color: reg.experience_level === 'Fresher' ? '#10b981' : '#f59e0b',
+                    border: reg.experience_level === 'Fresher' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(245,158,11,0.2)'
+                  }}>
+                    {reg.experience_level}
+                  </span>
+                  {reg.experience_level === 'Experienced' && reg.experience_details && (
+                    <button 
+                      onClick={() => { setSelectedReg(reg); setShowDetailsModal(true); }}
+                      style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '0.75rem', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontWeight: '500' }}
+                    >
+                      View Details
+                    </button>
+                  )}
+                </div>
+              </td>
+              <td style={{ padding: '16px' }}>
+                <span style={{ 
+                  padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold',
+                  background: reg.status === 'Approved' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                  color: reg.status === 'Approved' ? '#10b981' : '#ef4444',
+                  border: reg.status === 'Approved' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)'
+                }}>
+                  {reg.status}
+                </span>
+              </td>
+              <td style={{ padding: '16px', textAlign: 'right' }}>
+                {reg.status === 'Pending' && (
+                  <button onClick={() => handleApproveClick(reg)} style={{ background: 'var(--accent-cyan)', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 10px rgba(6, 182, 212, 0.2)', transition: 'transform 0.2s' }}>
+                    <FiCheck /> Approve & Assign Test
+                  </button>
+                )}
+                {reg.status === 'Approved' && (
+                  <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}><FiCheck /> Approved</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
-    if (result.isConfirmed) {
-      try {
-        const res = await fetch(`/api/employees/${user.id}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (data.success) {
-          Swal.fire({ icon: 'success', title: 'Deleted', text: 'User has been deleted.', timer: 1500, showConfirmButton: false });
-          refreshUsers();
-        } else {
-          Swal.fire({ icon: 'error', title: 'Failed', text: data.error || 'Failed to delete user' });
-        }
-      } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to delete user' });
-      }
-    }
-  };
-
-  const exportCSV = () => {
-    const headers = ['ID', 'Name', 'User Slug', 'Email', 'Role', 'Department', 'Status'];
-    const csvContent = [
-      headers.join(','),
-      ...filteredUsers.map(u => 
-        `"${u.id}","${u.name}","${getEmployeeSlug(u)}","${u.email}","${u.role || ''}","${u.department || ''}","${u.status || 'Active'}"`
-      )
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `users_export_${new Date().toISOString().slice(0,10)}.csv`;
-    link.click();
-  };
-
-  const allDepts = Array.from(new Set([...departments, ...DEFAULT_DEPARTMENTS, ...users.map(u => u.department).filter(Boolean)])).sort();
-  const allRoles = Array.from(new Set([...ROLES, ...users.map(u => u.role).filter(Boolean)])).sort();
-
-  // Filter users list
-  const filteredUsers = users.filter(u => {
-    const slug = getEmployeeSlug(u).toLowerCase();
-    const name = (u.name || '').toLowerCase();
-    const email = (u.email || '').toLowerCase();
-    const dept = (u.department || '').toLowerCase();
-    const role = (u.role || '').toLowerCase();
-    const q = searchTerm.toLowerCase();
-
-    const matchesSearch = name.includes(q) || email.includes(q) || slug.includes(q) || dept.includes(q) || role.includes(q);
-    const matchesRole = roleFilter === 'All' || role === roleFilter.toLowerCase();
-    const matchesDept = deptFilter === 'All' || dept === deptFilter.toLowerCase();
-    const matchesStatus = statusFilter === 'All' || (statusFilter === 'Active' ? u.status !== 'Inactive' : u.status === 'Inactive');
-
-    return matchesSearch && matchesRole && matchesDept && matchesStatus;
-  });
-
-  const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedUsers = filteredUsers.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+  const renderTests = () => (
+    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
+        <thead style={{ background: 'var(--bg-tertiary)', textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
+          <tr>
+            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Candidate Name</th>
+            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Assigned Test</th>
+            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Date Assigned</th>
+            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Test Instructions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {assignedTests.length === 0 ? (
+            <tr><td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No tests assigned yet.</td></tr>
+          ) : assignedTests.map(test => (
+            <tr key={test.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+              <td style={{ padding: '16px' }}>
+                <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{test.candidate_name}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{test.candidate_email}</div>
+              </td>
+              <td style={{ padding: '16px', fontWeight: '600', color: 'var(--accent-cyan)' }}>{test.test_title}</td>
+              <td style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(test.created_at).toLocaleString()}</td>
+              <td style={{ padding: '16px', fontSize: '0.85rem', maxWidth: '250px' }}>
+                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-secondary)' }}>
+                  {test.test_instructions}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)', padding: '2rem' }}>
-      <div style={{ maxWidth: '1250px', margin: '0 auto' }}>
+    <div style={{ padding: '1.5rem' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
-            <Link 
-              href="/"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                color: 'var(--accent-cyan, #06b6d4)',
-                textDecoration: 'none',
-                fontSize: '0.85rem',
-                marginBottom: '8px'
-              }}
-            >
-              <FiArrowLeft /> Back to Main Dashboard
-            </Link>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <FiUsers style={{ color: 'var(--accent-cyan, #06b6d4)' }} /> User & Role Management
+            <h1 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '1.5rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <FiUsers style={{ color: 'var(--accent-cyan)' }} /> HR Recruitment Hub
             </h1>
-            <p style={{ color: 'var(--text-secondary, #94a3b8)', fontSize: '0.875rem', marginTop: '4px' }}>
-              Direct access to all registered users, dynamic user slugs, team member creation, and role permission assignments.
-            </p>
+            <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0', fontSize: '0.9rem' }}>Review candidate applications, assign tests, and generate temporary login credentials.</p>
           </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button 
-              onClick={exportCSV} 
-              className="btn-secondary" 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' }}
-            >
-              <FiDownload /> Export CSV
-            </button>
-            <button 
-              onClick={() => {
-                setAddForm(prev => ({
-                  ...prev,
-                  department: allDepts[0] || 'Development'
-                }));
-                setShowAddPassword(false);
-                setShowAddModal(true);
-              }} 
-              className="btn-primary" 
-              style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                gap: '8px', 
-                padding: '9px 18px', 
-                borderRadius: '8px', 
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                boxShadow: '0 4px 14px rgba(6, 182, 212, 0.25)'
-              }}
-            >
-              <FiUserPlus style={{ fontSize: '1.05rem' }} /> + Add Team Member
-            </button>
-          </div>
+          <button onClick={fetchData} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', transition: 'background 0.2s' }}>
+            <FiRefreshCw className={loading ? "spin-icon" : ""} style={{ color: 'var(--accent-cyan)' }} /> Refresh
+          </button>
         </div>
 
-        {/* Search & Filters Toolbar */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '12px', 
-          marginBottom: '1.5rem', 
-          background: 'rgba(255, 255, 255, 0.02)', 
-          padding: '1rem', 
-          borderRadius: '12px', 
-          border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))',
-          flexWrap: 'wrap',
-          alignItems: 'center'
-        }}>
-          <div style={{ position: 'relative', flex: '1', minWidth: '260px' }}>
-            <FiSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #64748b)' }} />
-            <input 
-              type="text" 
-              className="form-control"
-              placeholder="Search by name, email, @slug, department, or role..." 
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              style={{ paddingLeft: '36px', width: '100%', height: '40px' }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <select 
-              className="form-control"
-              value={roleFilter}
-              onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
-              style={{ minWidth: '130px', height: '40px' }}
-            >
-              <option value="All">All Roles</option>
-              {allRoles.map(r => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-            <select 
-              className="form-control"
-              value={deptFilter}
-              onChange={(e) => { setDeptFilter(e.target.value); setCurrentPage(1); }}
-              style={{ minWidth: '140px', height: '40px' }}
-            >
-              <option value="All">All Departments</option>
-              {allDepts.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-            <select 
-              className="form-control"
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              style={{ minWidth: '130px', height: '40px' }}
-            >
-              <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
-        
-        {/* Users Table */}
-        <div className="table-wrapper" style={{ 
-          background: 'rgba(255, 255, 255, 0.02)', 
-          border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))', 
-          borderRadius: '16px', 
-          overflow: 'hidden' 
-        }}>
-          <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'rgba(255, 255, 255, 0.04)', textAlign: 'left' }}>
-                <th style={{ padding: '14px 16px' }}>Name</th>
-                <th style={{ padding: '14px 16px' }}>User Slug</th>
-                <th style={{ padding: '14px 16px' }}>Email</th>
-                <th style={{ padding: '14px 16px' }}>Role</th>
-                <th style={{ padding: '14px 16px' }}>Department</th>
-                <th style={{ padding: '14px 16px' }}>Status</th>
-                <th style={{ padding: '14px 16px', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedUsers.map((user) => {
-                const userSlug = getEmployeeSlug(user);
-
-                return (
-                  <tr key={user.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '14px 16px', fontWeight: 600 }}>
-                      <Link 
-                        href={`/admin/users/${userSlug}`}
-                        style={{ color: 'var(--text-primary, #f8fafc)', textDecoration: 'none' }}
-                      >
-                        {user.name}
-                      </Link>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <Link
-                        href={`/admin/users/${userSlug}`}
-                        className="timer-badge"
-                        style={{
-                          fontSize: '0.72rem',
-                          color: 'var(--accent-purple, #a855f7)',
-                          borderColor: 'rgba(168, 85, 247, 0.4)',
-                          background: 'rgba(168, 85, 247, 0.08)',
-                          textDecoration: 'none',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                        title={`View profile for ${userSlug}`}
-                      >
-                        <FiLink style={{ fontSize: '0.65rem' }} /> @{userSlug}
-                      </Link>
-                    </td>
-                    <td style={{ padding: '14px 16px', color: 'var(--text-secondary, #94a3b8)', fontSize: '0.85rem' }}>
-                      {user.email}
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span className="status-tag inprogress" style={{ fontSize: '0.75rem' }}>
-                        {user.role}
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 16px', color: 'var(--text-secondary, #94a3b8)' }}>
-                      {user.department || '—'}
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span className={`status-tag ${user.status === 'Inactive' ? 'open' : 'resolved'}`}>
-                        {user.status || 'Active'}
-                      </span>
-                    </td>
-
-                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                        <button 
-                          onClick={() => handleResetClick(user)} 
-                          style={{
-                            padding: '6px 9px',
-                            background: 'rgba(234, 179, 8, 0.1)',
-                            color: '#eab308',
-                            border: '1px solid rgba(234, 179, 8, 0.3)',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            fontSize: '0.75rem'
-                          }}
-                          title="Reset Password"
-                        >
-                          <FiKey />
-                        </button>
-                        <button 
-                          onClick={() => handleEditClick(user)} 
-                          className="btn-action start"
-                          style={{ padding: '6px 12px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                          title="Edit Team Member"
-                        >
-                          <FiEdit2 /> Edit
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteUser(user)} 
-                          className="btn-action resolve"
-                          style={{ padding: '6px 9px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
-                          title="Delete User"
-                        >
-                          <FiTrash2 />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filteredUsers.length === 0 && !loading && (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                    No team members found matching your search and filter criteria.
-                  </td>
-                </tr>
-              )}
-              {loading && (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                    Loading user listings...
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '1.5rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px' }}>
+          <button 
+            onClick={() => setActiveTab('applications')} 
+            style={{ padding: '8px 20px', borderRadius: '20px', border: 'none', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', background: activeTab === 'applications' ? 'var(--accent-cyan)' : 'transparent', color: activeTab === 'applications' ? '#fff' : 'var(--text-secondary)', boxShadow: activeTab === 'applications' ? '0 4px 10px rgba(6, 182, 212, 0.3)' : 'none' }}
+          >
+            New Applications
+          </button>
+          <button 
+            onClick={() => setActiveTab('candidates')} 
+            style={{ padding: '8px 20px', borderRadius: '20px', border: 'none', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', background: activeTab === 'candidates' ? 'var(--accent-cyan)' : 'transparent', color: activeTab === 'candidates' ? '#fff' : 'var(--text-secondary)', boxShadow: activeTab === 'candidates' ? '0 4px 10px rgba(6, 182, 212, 0.3)' : 'none' }}
+          >
+            Assigned Candidate Tests
+          </button>
         </div>
 
-        {/* Pagination */}
-        <Pagination
-          currentPage={safeCurrentPage}
-          totalPages={totalPages}
-          totalItems={filteredUsers.length}
-          pageSize={pageSize}
-          onPageChange={setCurrentPage}
-          onPageSizeChange={(newSize) => { setPageSize(newSize); setCurrentPage(1); }}
-          itemName="team members"
-        />
+        {/* Content */}
+        {loading ? (
+          <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <FiRefreshCw className="spin-icon" style={{ fontSize: '24px', marginBottom: '10px', color: 'var(--accent-cyan)' }} />
+            <div>Loading recruitment data...</div>
+          </div>
+        ) : (
+          activeTab === 'applications' ? renderApplications() : renderTests()
+        )}
       </div>
 
-      {/* ================= MODAL: ADD TEAM MEMBER ================= */}
-      {showAddModal && (
-        <div style={{ 
-          position: 'fixed', 
-          inset: 0, 
-          background: 'rgba(0, 0, 0, 0.7)', 
-          backdropFilter: 'blur(6px)', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{ 
-            background: 'var(--bg-card, #1e293b)', 
-            padding: '2rem', 
-            borderRadius: '16px', 
-            width: '100%', 
-            maxWidth: '480px', 
-            border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.15))',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary, #f8fafc)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FiUserPlus style={{ color: 'var(--accent-cyan, #06b6d4)' }} /> Add New Team Member
-              </h3>
-              <button 
-                onClick={() => setShowAddModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #94a3b8)', fontSize: '1.25rem', cursor: 'pointer', padding: '4px' }}
-              >
-                <FiX />
-              </button>
+      {/* Approve Modal */}
+      {showApproveModal && selectedReg && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '550px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+            <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
+              <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}><FiFileText style={{ color: 'var(--accent-cyan)' }} /> Assign Test to {selectedReg.name}</h3>
+              <button onClick={() => setShowApproveModal(false)} style={{ background: 'var(--bg-tertiary)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}><FiX /></button>
             </div>
-
-            <form onSubmit={handleAddSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                  Team Member Name <span style={{ color: '#ef4444' }}>*</span>
-                </label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. John Doe" 
-                  required 
-                  value={addForm.name} 
-                  onChange={e => setAddForm({ ...addForm, name: e.target.value })} 
-                  className="form-control" 
-                  style={{ width: '100%' }}
-                />
+            
+            <form onSubmit={submitApprove} style={{ padding: '25px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', gap: '10px' }}>
+                <FiCheck style={{ marginTop: '2px', flexShrink: 0 }} />
+                <div>Approving this candidate will automatically generate a temporary login account for them to access the test dashboard.</div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                  Email Address <span style={{ color: '#ef4444' }}>*</span>
-                </label>
-                <input 
-                  type="email" 
-                  placeholder="e.g. john@company.com" 
-                  required 
-                  value={addForm.email} 
-                  onChange={e => setAddForm({ ...addForm, email: e.target.value })} 
-                  className="form-control" 
-                  style={{ width: '100%' }}
-                />
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Test Title</label>
+                <input required type="text" value={approveForm.testTitle} onChange={e => setApproveForm({...approveForm, testTitle: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', outline: 'none' }} />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                  Password <span style={{ color: '#ef4444' }}>*</span>
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input 
-                    type={showAddPassword ? 'text' : 'password'} 
-                    placeholder="Create a secure password" 
-                    required 
-                    value={addForm.password} 
-                    onChange={e => setAddForm({ ...addForm, password: e.target.value })} 
-                    className="form-control" 
-                    style={{ width: '100%', paddingRight: '40px' }}
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowAddPassword(!showAddPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '10px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-secondary, #94a3b8)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '4px'
-                    }}
-                    title={showAddPassword ? 'Hide Password' : 'Show Password'}
-                  >
-                    {showAddPassword ? <FiEyeOff /> : <FiEye />}
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                    Role <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <select 
-                    value={addForm.role} 
-                    onChange={e => setAddForm({ ...addForm, role: e.target.value })}
-                    className="form-control"
-                    style={{ width: '100%' }}
-                  >
-                    {allRoles.map(role => (
-                      <option key={role} value={role}>{role}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                    Department <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <select 
-                    value={addForm.department} 
-                    onChange={e => setAddForm({ ...addForm, department: e.target.value })}
-                    className="form-control"
-                    style={{ width: '100%' }}
-                  >
-                    {allDepts.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Test Instructions / Questions</label>
+                <textarea required rows="5" value={approveForm.testInstructions} onChange={e => setApproveForm({...approveForm, testInstructions: e.target.value})} placeholder="Write the coding question, writing prompt, or test instructions here..." style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', resize: 'vertical', outline: 'none' }}></textarea>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                  Ticket Limit
-                </label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="9999" 
-                  value={addForm.ticketLimit} 
-                  onChange={e => setAddForm({ ...addForm, ticketLimit: parseInt(e.target.value) || 100 })} 
-                  className="form-control" 
-                  style={{ width: '100%' }}
-                />
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Resource File URL (Optional)</label>
+                <input type="text" value={approveForm.fileUrl} onChange={e => setApproveForm({...approveForm, fileUrl: e.target.value})} placeholder="https://..." style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', outline: 'none' }} />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                <button 
-                  type="submit" 
-                  disabled={submitting}
-                  className="btn-primary" 
-                  style={{ 
-                    flex: 1, 
-                    padding: '11px', 
-                    borderRadius: '8px', 
-                    fontWeight: 600,
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    opacity: submitting ? 0.7 : 1
-                  }}
-                >
-                  {submitting ? 'Creating...' : '+ Create Team Member'}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowAddModal(false)} 
-                  className="btn-secondary" 
-                  style={{ flex: 1, padding: '11px', borderRadius: '8px' }}
-                >
-                  Cancel
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px', paddingTop: '20px', borderTop: '1px solid var(--glass-border)' }}>
+                <button type="button" onClick={() => setShowApproveModal(false)} style={{ padding: '10px 18px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', cursor: 'pointer', fontWeight: '500' }}>Cancel</button>
+                <button type="submit" disabled={submitting} style={{ padding: '10px 24px', borderRadius: '8px', background: 'var(--accent-cyan)', color: '#fff', border: 'none', fontWeight: 'bold', cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1, boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)' }}>
+                  {submitting ? 'Processing...' : 'Approve & Assign Test'}
                 </button>
               </div>
             </form>
@@ -815,268 +277,20 @@ export default function HrRecruitmentPage() {
         </div>
       )}
 
-      {/* ================= MODAL: EDIT TEAM MEMBER ================= */}
-      {showEditModal && (
-        <div style={{ 
-          position: 'fixed', 
-          inset: 0, 
-          background: 'rgba(0, 0, 0, 0.7)', 
-          backdropFilter: 'blur(6px)', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{ 
-            background: 'var(--bg-card, #1e293b)', 
-            padding: '2rem', 
-            borderRadius: '16px', 
-            width: '100%', 
-            maxWidth: '480px', 
-            border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.15))',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary, #f8fafc)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FiEdit2 style={{ color: 'var(--accent-cyan, #06b6d4)' }} /> Edit Team Member
-              </h3>
-              <button 
-                onClick={() => setShowEditModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #94a3b8)', fontSize: '1.25rem', cursor: 'pointer', padding: '4px' }}
-              >
-                <FiX />
-              </button>
+      {/* Experience Details Modal */}
+      {showDetailsModal && selectedReg && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '500px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+            <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
+              <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Experience Details</h3>
+              <button onClick={() => setShowDetailsModal(false)} style={{ background: 'var(--bg-tertiary)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FiX /></button>
             </div>
-
-            <form onSubmit={handleUpdateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                  Team Member Name <span style={{ color: '#ef4444' }}>*</span>
-                </label>
-                <input 
-                  type="text" 
-                  required 
-                  value={editForm.name} 
-                  onChange={e => setEditForm({ ...editForm, name: e.target.value })} 
-                  className="form-control" 
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                  Email Address <span style={{ color: '#ef4444' }}>*</span>
-                </label>
-                <input 
-                  type="email" 
-                  required 
-                  value={editForm.email} 
-                  onChange={e => setEditForm({ ...editForm, email: e.target.value })} 
-                  className="form-control" 
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                    Role <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <select 
-                    value={editForm.role} 
-                    onChange={e => setEditForm({ ...editForm, role: e.target.value })}
-                    className="form-control"
-                    style={{ width: '100%' }}
-                  >
-                    {allRoles.map(role => (
-                      <option key={role} value={role}>{role}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                    Department <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <select 
-                    value={editForm.department} 
-                    onChange={e => setEditForm({ ...editForm, department: e.target.value })}
-                    className="form-control"
-                    style={{ width: '100%' }}
-                  >
-                    {allDepts.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                    Status <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <select 
-                    value={editForm.status} 
-                    onChange={e => setEditForm({ ...editForm, status: e.target.value })}
-                    className="form-control"
-                    style={{ width: '100%' }}
-                  >
-                    <option value="Applied">Applied</option>
-                    <option value="Screening">Screening</option>
-                    <option value="Interview">Interview</option>
-                    <option value="Testing">Testing</option>
-                    <option value="Hired">Hired (Active)</option>
-                    <option value="Rejected">Rejected</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
-                    Ticket Limit
-                  </label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    max="9999" 
-                    value={editForm.ticketLimit} 
-                    onChange={e => setEditForm({ ...editForm, ticketLimit: parseInt(e.target.value) || 100 })} 
-                    className="form-control" 
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                <button 
-                  type="submit" 
-                  disabled={submitting}
-                  className="btn-primary" 
-                  style={{ 
-                    flex: 1, 
-                    padding: '11px', 
-                    borderRadius: '8px', 
-                    fontWeight: 600,
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    opacity: submitting ? 0.7 : 1
-                  }}
-                >
-                  {submitting ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowEditModal(false)} 
-                  className="btn-secondary" 
-                  style={{ flex: 1, padding: '11px', borderRadius: '8px' }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL: RESET PASSWORD ================= */}
-      {showResetModal && (
-        <div style={{ 
-          position: 'fixed', 
-          inset: 0, 
-          background: 'rgba(0, 0, 0, 0.7)', 
-          backdropFilter: 'blur(6px)', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{ 
-            background: 'var(--bg-card, #1e293b)', 
-            padding: '2rem', 
-            borderRadius: '16px', 
-            width: '100%', 
-            maxWidth: '420px', 
-            border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.15))',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#eab308', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FiKey /> Reset Password
-              </h3>
-              <button 
-                onClick={() => setShowResetModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #94a3b8)', fontSize: '1.25rem', cursor: 'pointer', padding: '4px' }}
-              >
-                <FiX />
-              </button>
+            <div style={{ padding: '25px', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: '1.6', fontSize: '0.95rem' }}>
+              {selectedReg.experience_details}
             </div>
-
-            <p style={{ color: 'var(--text-secondary, #94a3b8)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-              Resetting password for: <strong style={{ color: 'var(--text-primary, #f8fafc)' }}>{resetForm.name}</strong>
-            </p>
-
-            <form onSubmit={handleResetPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ position: 'relative' }}>
-                <input 
-                  type={showResetPassword ? 'text' : 'password'} 
-                  placeholder="Enter new password" 
-                  required 
-                  value={resetForm.newPassword} 
-                  onChange={e => setResetForm({ ...resetForm, newPassword: e.target.value })} 
-                  className="form-control" 
-                  style={{ width: '100%', paddingRight: '40px' }}
-                />
-                <button 
-                  type="button" 
-                  onClick={() => setShowResetPassword(!showResetPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '10px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-secondary, #94a3b8)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '4px'
-                  }}
-                  title={showResetPassword ? 'Hide Password' : 'Show Password'}
-                >
-                  {showResetPassword ? <FiEyeOff /> : <FiEye />}
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '0.75rem' }}>
-                <button 
-                  type="submit" 
-                  disabled={submitting}
-                  style={{ 
-                    flex: 1, 
-                    padding: '10px', 
-                    borderRadius: '8px', 
-                    background: '#eab308', 
-                    color: '#0f172a', 
-                    fontWeight: 700, 
-                    border: 'none', 
-                    cursor: submitting ? 'not-allowed' : 'pointer' 
-                  }}
-                >
-                  {submitting ? 'Updating...' : 'Set Password'}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowResetModal(false)} 
-                  className="btn-secondary" 
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px' }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+            <div style={{ padding: '15px 25px', borderTop: '1px solid var(--glass-border)', textAlign: 'right', background: 'var(--bg-secondary)' }}>
+              <button onClick={() => setShowDetailsModal(false)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', cursor: 'pointer', fontWeight: '500' }}>Close</button>
+            </div>
           </div>
         </div>
       )}

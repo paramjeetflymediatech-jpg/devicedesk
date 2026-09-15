@@ -446,5 +446,36 @@ export async function fetchMarketingLocationLogs(attendance_id, employee_id) {
   }
 }
 
+export async function postCandidateRegistration(data) {
+  const url = `${currentApiUrl}/api/candidates/register`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Post candidate registration failed at ${url}:`, err);
+    throw err;
+  }
+}
 
-
+export async function fetchCandidateTest(candidateId) {
+  const url = `${currentApiUrl}/api/candidates/me?candidateId=${encodeURIComponent(candidateId)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch candidate test failed at ${url}:`, err);
+    throw err;
+  }
+}

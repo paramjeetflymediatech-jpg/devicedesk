@@ -18,6 +18,7 @@ import {
   FiClock,
   FiMessageSquare,
   FiUser,
+  FiUserPlus,
   FiAlertTriangle,
   FiLogOut,
   FiEye,
@@ -197,6 +198,7 @@ export default function AdminLayout({ children }) {
       items: [
         { name: "Team Directory", path: "/admin/users", icon: <FiUser />, adminOnly: true },
         { name: "Departments", path: "/admin/departments", icon: <FiBriefcase />, adminOnly: true },
+        { name: "Recruitment", path: "/employee-dashboard/hr-recruitment", icon: <FiUserPlus /> },
         { name: "Attendance", path: "/admin/attendance", icon: <FiClock /> },
         { name: "Leave Requests", path: "/admin/leaves", icon: <FiCalendar />, badge: leaveCount }
       ]

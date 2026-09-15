@@ -90,7 +90,7 @@ export async function POST(request) {
       dbRoleStr === 'management' ||
       emp.email === 'admin@yopmail.com' ||
       emp.email === 'pravi@yopmail.com';
-    const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+    const isHRUser = !isAdminUser && dbRoleStr !== 'candidate' && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 
     if (isHRUser) {
       return NextResponse.json({
