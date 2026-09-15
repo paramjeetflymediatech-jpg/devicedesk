@@ -147,15 +147,24 @@ export default function AttendanceWidget({ user, onStatusChange }) {
         return false;
       }
     } else if (Platform.OS === 'ios') {
-      try {
-        if (typeof Geolocation.requestAuthorization === 'function') {
-          Geolocation.requestAuthorization('whenInUse');
+      return new Promise((resolve) => {
+        try {
+          if (Geolocation && typeof Geolocation.requestAuthorization === 'function') {
+            Geolocation.requestAuthorization(
+              () => resolve(true),
+              (err) => {
+                console.warn('iOS requestAuthorization warning in AttendanceWidget:', err);
+                resolve(true);
+              }
+            );
+          } else {
+            resolve(true);
+          }
+        } catch (err) {
+          console.warn('Error requesting iOS location permission:', err);
+          resolve(true);
         }
-        return true;
-      } catch (err) {
-        console.error('Error requesting iOS location permission:', err);
-        return false;
-      }
+      });
     }
     return true;
   };

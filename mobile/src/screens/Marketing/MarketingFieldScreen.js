@@ -87,6 +87,21 @@ export default function MarketingFieldScreen({ user, onBack }) {
 
   const searchDebounceRef = useRef(null);
 
+  // Initialize Geolocation configuration for iOS
+  useEffect(() => {
+    if (Platform.OS === 'ios' && Geolocation && typeof Geolocation.setRNConfiguration === 'function') {
+      try {
+        Geolocation.setRNConfiguration({
+          skipPermissionRequests: false,
+          authorizationLevel: 'whenInUse',
+          locationProvider: 'auto',
+        });
+      } catch (e) {
+        console.warn('Geolocation setRNConfiguration error:', e);
+      }
+    }
+  }, []);
+
   // Request Location Permissions
   const requestLocationPermission = async () => {
     if (Platform.OS === 'android') {
@@ -107,20 +122,29 @@ export default function MarketingFieldScreen({ user, onBack }) {
         return false;
       }
     } else if (Platform.OS === 'ios') {
-      try {
-        if (typeof Geolocation.requestAuthorization === 'function') {
-          Geolocation.requestAuthorization('whenInUse');
+      return new Promise((resolve) => {
+        try {
+          if (Geolocation && typeof Geolocation.requestAuthorization === 'function') {
+            Geolocation.requestAuthorization(
+              () => resolve(true),
+              (err) => {
+                console.warn('iOS requestAuthorization warning:', err);
+                resolve(true); // Still proceed to getCurrentPosition
+              }
+            );
+          } else {
+            resolve(true);
+          }
+        } catch (err) {
+          console.warn('iOS location permission error:', err);
+          resolve(true);
         }
-        return true;
-      } catch (err) {
-        console.warn('iOS location permission error:', err);
-        return false;
-      }
+      });
     }
     return true;
   };
 
-  // Get Current High-Accuracy GPS Position
+  // Get Current GPS Position with iOS & low-accuracy fallback
   const getCurrentLocation = () => {
     return new Promise(async (resolve, reject) => {
       const hasPermission = await requestLocationPermission();
@@ -132,6 +156,7 @@ export default function MarketingFieldScreen({ user, onBack }) {
         return reject(new Error('Geolocation service is unavailable on this device.'));
       }
 
+      // Try high-accuracy first
       Geolocation.getCurrentPosition(
         (position) => {
           resolve({
@@ -140,18 +165,34 @@ export default function MarketingFieldScreen({ user, onBack }) {
             accuracy: position.coords.accuracy,
           });
         },
-        (error) => {
-          let msg = 'Failed to fetch GPS location.';
-          if (error.code === 1) {
-            msg = 'Location permission denied. Please enable GPS in device settings.';
-          } else if (error.code === 2) {
-            msg = 'GPS signal unavailable. Please ensure location is switched ON.';
-          } else if (error.code === 3) {
-            msg = 'Location request timed out. Retrying...';
-          }
-          reject(new Error(msg));
+        (primaryErr) => {
+          // Fallback with enableHighAccuracy: false
+          Geolocation.getCurrentPosition(
+            (fallbackPos) => {
+              resolve({
+                latitude: fallbackPos.coords.latitude,
+                longitude: fallbackPos.coords.longitude,
+                accuracy: fallbackPos.coords.accuracy,
+              });
+            },
+            (fallbackErr) => {
+              const code = fallbackErr?.code || primaryErr?.code;
+              let msg = 'Failed to fetch GPS location.';
+              if (code === 1) {
+                msg = 'Location permission denied. Please allow location access in iOS Settings.';
+              } else if (code === 2) {
+                msg = Platform.OS === 'ios'
+                  ? 'Location unavailable. In iOS Simulator, select Features ➔ Location ➔ Apple / Custom Location. On a physical iPhone, ensure Location Services are ON.'
+                  : 'GPS signal unavailable. Please ensure location is switched ON in device settings.';
+              } else if (code === 3) {
+                msg = 'Location request timed out. Please retry with a stronger GPS signal.';
+              }
+              reject(new Error(msg));
+            },
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 10000 }
+          );
         },
-        { enableHighAccuracy: Platform.OS === 'android', timeout: 15000, maximumAge: 5000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
       );
     });
   };
@@ -818,7 +859,7 @@ export default function MarketingFieldScreen({ user, onBack }) {
               <>
                 <AppIcon name="navigation" size={18} color="#ffffff" />
                 <Text style={styles.checkInBtnText}>
-                  {activeTrip ? 'Active Field Trip in Progress' : 'Start Route & Check In'}
+                  {activeTrip ? 'Active Field Route in Progress' : '🚀 Start Field Route'}
                 </Text>
               </>
             )}
