@@ -487,6 +487,9 @@ export async function getDbConnection() {
   try {
     await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN status VARCHAR(50) DEFAULT 'Checked In'`);
   } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE marketing_attendance ADD COLUMN device_id VARCHAR(100) DEFAULT NULL`);
+  } catch (err) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS marketing_location_logs (

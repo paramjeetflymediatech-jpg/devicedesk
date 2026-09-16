@@ -15,7 +15,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getApiUrl, setApiUrl, initApiUrl } from '../utils/api';
+import { getApiUrl, setApiUrl, initApiUrl, getOrCreateDeviceId } from '../utils/api';
 import { findEmployeeByCredentials, isAdminCredentials, syncWithServer } from '../store/store';
 import { sweetAlert } from '../utils/sweetAlert';
 import AppIcon from '../components/AppIcon';
@@ -107,13 +107,21 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
     const baseUrl = getApiUrl();
 
     try {
+      const deviceId = await getOrCreateDeviceId();
+      const deviceModel = Platform.OS === 'android' ? 'Android Device' : 'iOS Device';
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
 
       const response = await fetch(`${baseUrl}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: cleanUsername, password }),
+        body: JSON.stringify({ 
+          identifier: cleanUsername, 
+          password,
+          deviceId,
+          deviceModel
+        }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -135,8 +143,15 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
         return;
       } else {
         setLoading(false);
+        let alertTitle = 'Error';
+        if (data.activeRouteBlocked) {
+          alertTitle = 'Active Route in Progress 🚫';
+        } else if (response.status === 403) {
+          alertTitle = 'Access Restricted';
+        }
+
         sweetAlert({
-          title: response.status === 403 ? 'Account Paused' : 'Error',
+          title: alertTitle,
           text: data.message || 'Invalid credentials.',
           type: 'error'
         });

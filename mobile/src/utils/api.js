@@ -329,9 +329,10 @@ export async function fetchMarketingAttendance(employeeId) {
   }
 }
 
-export async function checkInMarketingTrip({ employee_id, from_location, to_location, notes, latitude, longitude, dest_latitude, dest_longitude, estimated_km }) {
+export async function checkInMarketingTrip({ employee_id, from_location, to_location, notes, latitude, longitude, dest_latitude, dest_longitude, estimated_km, device_id }) {
   const url = `${currentApiUrl}/api/marketing/attendance`;
   try {
+    const devId = device_id || await getOrCreateDeviceId();
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -349,6 +350,7 @@ export async function checkInMarketingTrip({ employee_id, from_location, to_loca
         dest_latitude: dest_latitude || null,
         dest_longitude: dest_longitude || null,
         estimated_km: estimated_km || 0,
+        device_id: devId,
       }),
     });
     return await response.json();

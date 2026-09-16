@@ -160,6 +160,11 @@ Your OTP is: 700673
 Text:
 Your OTP is: 235980
 --------------------------------------------------
+<<<<<<< HEAD
+[2026-09-16T07:05:18.822Z] To: hr@flymediatech.com | Subject: DeviceDesk Test Notification | MessageID: <680bf0e0-c773-a427-ab3a-0601c055715f@devicedeskflymeditech.com>
+Text:
+This is a test notification to verify delivery to hr@flymediatech.com
+=======
 [2026-09-15T11:18:45.816Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <f886f9a9-69d5-82d1-2fe1-2b2ed280b640@devicedeskflymeditech.com>
 Text:
 Your OTP is: 376756
@@ -216,6 +221,7 @@ Reviewed At: 16/9/2026, 12:39:20 pm
 Rejection Reason: test
 
 Please log in to DeviceDesk to view details.
+>>>>>>> bf70729b24e497a47fdc990124ddfdb15e17d658
 --------------------------------------------------
 [2026-09-16T08:43:45.633Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <02b82e3f-f8dc-5221-c30a-a9b3cbd11a1e@devicedeskflymeditech.com>
 Text:

@@ -67,7 +67,8 @@ async function ensureMarketingAttendanceTable(db) {
       { name: 'check_out_latitude', def: 'DECIMAL(10, 8) DEFAULT NULL' },
       { name: 'check_out_longitude', def: 'DECIMAL(11, 8) DEFAULT NULL' },
       { name: 'total_km', def: 'DECIMAL(10, 2) DEFAULT 0' },
-      { name: 'status', def: "VARCHAR(50) DEFAULT 'Checked In'" }
+      { name: 'status', def: "VARCHAR(50) DEFAULT 'Checked In'" },
+      { name: 'device_id', def: 'VARCHAR(100) DEFAULT NULL' }
     ];
 
     for (const col of columnsToAdd) {
@@ -88,7 +89,8 @@ export async function POST(request) {
       employee_id, action, latitude, longitude, 
       from_location, to_location, notes,
       dest_latitude, dest_longitude, estimated_km,
-      attendance_id, total_km
+      attendance_id, total_km,
+      device_id, deviceId
     } = await request.json();
 
     if (!employee_id || !action || !latitude || !longitude) {
@@ -101,36 +103,66 @@ export async function POST(request) {
     if (action === 'check_in') {
       const attendanceId = 'att_' + Date.now();
       const status = 'Checked In';
+      const activeDeviceId = device_id || deviceId || null;
 
       // Check current table columns to construct matching insert query
       const [cols] = await db.query(`SHOW COLUMNS FROM marketing_attendance`);
       const colNames = cols.map(c => c.Field);
+      const hasDeviceIdCol = colNames.includes('device_id');
 
       if (colNames.includes('date')) {
         const today = new Date().toISOString().split('T')[0];
-        await db.execute(
-          `INSERT INTO marketing_attendance (id, employee_id, date, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, dest_latitude, dest_longitude, estimated_km, current_latitude, current_longitude, last_location_update, status) 
-           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
-          [
-            attendanceId, employee_id, today, 
-            from_location || null, to_location || null, notes || null, 
-            latitude, longitude, 
-            dest_latitude || null, dest_longitude || null, estimated_km || 0,
-            latitude, longitude, status
-          ]
-        );
+        if (hasDeviceIdCol) {
+          await db.execute(
+            `INSERT INTO marketing_attendance (id, employee_id, date, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, dest_latitude, dest_longitude, estimated_km, current_latitude, current_longitude, last_location_update, status, device_id) 
+             VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)`,
+            [
+              attendanceId, employee_id, today, 
+              from_location || null, to_location || null, notes || null, 
+              latitude, longitude, 
+              dest_latitude || null, dest_longitude || null, estimated_km || 0,
+              latitude, longitude, status, activeDeviceId
+            ]
+          );
+        } else {
+          await db.execute(
+            `INSERT INTO marketing_attendance (id, employee_id, date, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, dest_latitude, dest_longitude, estimated_km, current_latitude, current_longitude, last_location_update, status) 
+             VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+            [
+              attendanceId, employee_id, today, 
+              from_location || null, to_location || null, notes || null, 
+              latitude, longitude, 
+              dest_latitude || null, dest_longitude || null, estimated_km || 0,
+              latitude, longitude, status
+            ]
+          );
+        }
       } else {
-        await db.execute(
-          `INSERT INTO marketing_attendance (id, employee_id, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, dest_latitude, dest_longitude, estimated_km, current_latitude, current_longitude, last_location_update, status) 
-           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
-          [
-            attendanceId, employee_id, 
-            from_location || null, to_location || null, notes || null, 
-            latitude, longitude, 
-            dest_latitude || null, dest_longitude || null, estimated_km || 0,
-            latitude, longitude, status
-          ]
-        );
+        if (hasDeviceIdCol) {
+          await db.execute(
+            `INSERT INTO marketing_attendance (id, employee_id, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, dest_latitude, dest_longitude, estimated_km, current_latitude, current_longitude, last_location_update, status, device_id) 
+             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)`,
+            [
+              attendanceId, employee_id, 
+              from_location || null, to_location || null, notes || null, 
+              latitude, longitude, 
+              dest_latitude || null, dest_longitude || null, estimated_km || 0,
+              latitude, longitude, status, activeDeviceId
+            ]
+          );
+        } else {
+          await db.execute(
+            `INSERT INTO marketing_attendance (id, employee_id, from_location, to_location, notes, check_in_at, check_in_latitude, check_in_longitude, dest_latitude, dest_longitude, estimated_km, current_latitude, current_longitude, last_location_update, status) 
+             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+            [
+              attendanceId, employee_id, 
+              from_location || null, to_location || null, notes || null, 
+              latitude, longitude, 
+              dest_latitude || null, dest_longitude || null, estimated_km || 0,
+              latitude, longitude, status
+            ]
+          );
+        }
       }
 
       // Also create the initial point in marketing_location_logs
