@@ -1,5 +1,6 @@
 package com.devicedesk.app
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -15,6 +16,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import org.json.JSONObject
@@ -22,6 +24,8 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 class BackgroundLocationService : Service(), LocationListener {
 
@@ -47,14 +51,15 @@ class BackgroundLocationService : Service(), LocationListener {
 
     private var locationManager: LocationManager? = null
     private var wakeLock: PowerManager.WakeLock? = null
-    private val executor = Executors.newSingleThreadExecutor()
+    private var scheduler: ScheduledExecutorService? = null
 
     private var employeeId: String = ""
     private var attendanceId: String = ""
     private var apiUrl: String = "https://devicedesk.flymediatech.com"
 
+    private var lastLocation: Location? = null
     private var lastSendTimestamp: Long = 0L
-    private val minSendIntervalMs = 25000L // Send coordinates every 25 seconds
+    private val minSendIntervalMs = 15000L // Send coordinates every 15-20 seconds
 
     override fun onCreate() {
         super.onCreate()
@@ -65,7 +70,7 @@ class BackgroundLocationService : Service(), LocationListener {
             val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
             wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DeviceDesk::LocationWakeLock")
             wakeLock?.setReferenceCounted(false)
-            wakeLock?.acquire(24 * 60 * 60 * 1000L) // 24h safety timeout
+            wakeLock?.acquire(48 * 60 * 60 * 1000L) // 48h safety timeout
         } catch (e: Exception) {
             Log.w(TAG, "Could not acquire wake lock: ${e.message}")
         }
@@ -113,12 +118,13 @@ class BackgroundLocationService : Service(), LocationListener {
 
         startAsForegroundService()
         startLocationUpdates()
+        startPeriodicPolling()
 
         return START_STICKY
     }
 
     private fun startAsForegroundService() {
-        val notification = buildNotification("Live Field Route Tracking Active", "Recording coordinates in background")
+        val notification = buildNotification("Marketing Route Tracking Active", "Recording live field GPS coordinates")
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -150,7 +156,7 @@ class BackgroundLocationService : Service(), LocationListener {
                 "DeviceDesk Field Tracking",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Notifies when background GPS tracking is recording marketing field trips"
+                description = "Live background GPS tracking for marketing field visits"
                 setShowBadge(false)
             }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
@@ -187,7 +193,7 @@ class BackgroundLocationService : Service(), LocationListener {
     private fun updateNotificationText(content: String) {
         try {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-            val notification = buildNotification("DeviceDesk Marketing Route Tracking", content)
+            val notification = buildNotification("Marketing Route Tracking Active", content)
             manager?.notify(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
             Log.w(TAG, "updateNotificationText error: ${e.message}")
@@ -200,42 +206,45 @@ class BackgroundLocationService : Service(), LocationListener {
                 locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
             }
 
-            // Remove any existing listeners first
             locationManager?.removeUpdates(this)
 
-            // Register GPS Provider (high accuracy)
+            // Register GPS Provider with 0 distance threshold so it triggers unconditionally
             if (locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true) {
                 locationManager?.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
-                    15000L, // 15 seconds
-                    5f,     // 5 meters
+                    10000L, // 10s
+                    0f,     // 0m
                     this
                 )
-                Log.d(TAG, "GPS_PROVIDER registered")
+                Log.d(TAG, "GPS_PROVIDER registered with 0m threshold")
             }
 
-            // Register Network Provider (fast, coarse fallback)
+            // Register Network Provider
             if (locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true) {
                 locationManager?.requestLocationUpdates(
                     LocationManager.NETWORK_PROVIDER,
-                    20000L, // 20 seconds
-                    10f,    // 10 meters
+                    15000L, // 15s
+                    0f,     // 0m
                     this
                 )
-                Log.d(TAG, "NETWORK_PROVIDER registered")
+                Log.d(TAG, "NETWORK_PROVIDER registered with 0m threshold")
             }
 
-            // Try getting last known location immediately
-            val lastGps = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            val lastNet = locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-            val bestInitial = when {
-                lastGps != null && lastNet != null -> if (lastGps.time > lastNet.time) lastGps else lastNet
-                lastGps != null -> lastGps
-                else -> lastNet
+            // Register Passive Provider
+            if (locationManager?.isProviderEnabled(LocationManager.PASSIVE_PROVIDER) == true) {
+                locationManager?.requestLocationUpdates(
+                    LocationManager.PASSIVE_PROVIDER,
+                    10000L,
+                    0f,
+                    this
+                )
             }
 
-            bestInitial?.let { loc ->
-                sendLocationToServer(loc)
+            // Trigger initial location check
+            val best = getBestKnownLocation()
+            if (best != null) {
+                lastLocation = best
+                sendLocationToServer(best)
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Location permission missing: ${e.message}")
@@ -244,7 +253,48 @@ class BackgroundLocationService : Service(), LocationListener {
         }
     }
 
+    private fun getBestKnownLocation(): Location? {
+        try {
+            val lm = locationManager ?: return null
+            val gpsLoc = try { lm.getLastKnownLocation(LocationManager.GPS_PROVIDER) } catch (e: Exception) { null }
+            val netLoc = try { lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) } catch (e: Exception) { null }
+            val pasLoc = try { lm.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER) } catch (e: Exception) { null }
+
+            val list = listOfNotNull(gpsLoc, netLoc, pasLoc)
+            if (list.isEmpty()) return null
+
+            // Pick the newest or most accurate
+            return list.maxByOrNull { it.time }
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    private fun startPeriodicPolling() {
+        scheduler?.shutdownNow()
+        scheduler = Executors.newSingleThreadScheduledExecutor()
+
+        // Periodically poll location and ensure coordinates are dispatched every 15-20 seconds
+        scheduler?.scheduleWithFixedDelay({
+            try {
+                val now = System.currentTimeMillis()
+                val best = getBestKnownLocation()
+                val locToSend = best ?: lastLocation
+
+                if (locToSend != null) {
+                    if (now - lastSendTimestamp >= minSendIntervalMs || lastSendTimestamp == 0L) {
+                        lastSendTimestamp = now
+                        sendLocationToServer(locToSend)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Periodic polling error: ${e.message}")
+            }
+        }, 5, 15, TimeUnit.SECONDS)
+    }
+
     override fun onLocationChanged(location: Location) {
+        lastLocation = location
         val now = System.currentTimeMillis()
         if (now - lastSendTimestamp >= minSendIntervalMs || lastSendTimestamp == 0L) {
             lastSendTimestamp = now
@@ -254,11 +304,16 @@ class BackgroundLocationService : Service(), LocationListener {
 
     private fun sendLocationToServer(location: Location) {
         if (employeeId.isBlank() || attendanceId.isBlank()) {
-            Log.d(TAG, "Skipping send: employeeId or attendanceId is blank")
-            return
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            employeeId = prefs.getString(KEY_EMPLOYEE_ID, "") ?: ""
+            attendanceId = prefs.getString(KEY_ATTENDANCE_ID, "") ?: ""
+            if (employeeId.isBlank() || attendanceId.isBlank()) {
+                Log.d(TAG, "Skipping send: employeeId or attendanceId is blank")
+                return
+            }
         }
 
-        executor.execute {
+        Thread {
             var conn: HttpURLConnection? = null
             try {
                 val endpoint = "${apiUrl}/api/marketing/location"
@@ -285,22 +340,55 @@ class BackgroundLocationService : Service(), LocationListener {
                 }
 
                 val responseCode = conn.responseCode
-                Log.d(TAG, "Location posted: (${location.latitude}, ${location.longitude}) -> Response Code $responseCode")
+                Log.d(TAG, "POST /api/marketing/location (${location.latitude}, ${location.longitude}) -> Response $responseCode")
 
                 if (responseCode in 200..299) {
                     val latStr = String.format("%.4f", location.latitude)
                     val lngStr = String.format("%.4f", location.longitude)
-                    updateNotificationText("Live GPS locked: $latStr, $lngStr")
+                    updateNotificationText("GPS: $latStr, $lngStr (Live)")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to post background location: ${e.message}")
+                Log.e(TAG, "Failed to post location: ${e.message}")
             } finally {
                 conn?.disconnect()
             }
+        }.start()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Log.d(TAG, "onTaskRemoved: App swiped/cleared from recents. Keeping service alive.")
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val isRunning = prefs.getBoolean(KEY_IS_RUNNING, false)
+
+        if (isRunning) {
+            val restartIntent = Intent(applicationContext, BackgroundLocationService::class.java).apply {
+                action = ACTION_START
+                putExtra(EXTRA_EMPLOYEE_ID, prefs.getString(KEY_EMPLOYEE_ID, ""))
+                putExtra(EXTRA_ATTENDANCE_ID, prefs.getString(KEY_ATTENDANCE_ID, ""))
+                putExtra(EXTRA_API_URL, prefs.getString(KEY_API_URL, ""))
+            }
+            val pendingIntent = PendingIntent.getService(
+                applicationContext,
+                1,
+                restartIntent,
+                PendingIntent.FLAG_ONE_SHOT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            alarmManager?.set(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + 1000,
+                pendingIntent
+            )
         }
+        super.onTaskRemoved(rootIntent)
     }
 
     private fun stopTracking() {
+        try {
+            scheduler?.shutdownNow()
+            scheduler = null
+        } catch (e: Exception) {}
+
         try {
             locationManager?.removeUpdates(this)
         } catch (e: Exception) {
@@ -332,7 +420,6 @@ class BackgroundLocationService : Service(), LocationListener {
     override fun onDestroy() {
         Log.d(TAG, "BackgroundLocationService onDestroy")
         stopTracking()
-        executor.shutdown()
         super.onDestroy()
     }
 

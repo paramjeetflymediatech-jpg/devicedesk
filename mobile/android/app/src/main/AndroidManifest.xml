@@ -46,6 +46,7 @@
         android:name=".BackgroundLocationService"
         android:enabled="true"
         android:exported="false"
+        android:stopWithTask="false"
         android:foregroundServiceType="location" />
     </application>
 </manifest>

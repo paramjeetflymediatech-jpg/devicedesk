@@ -428,10 +428,11 @@ export default function MarketingFieldScreen({ user, onBack }) {
       });
 
       if (res && res.success) {
-        if (res.data?.id) {
+        const tripId = res.attendance_id || res.data?.id || res.id;
+        if (tripId) {
           startBackgroundTracking({
             employeeId,
-            attendanceId: res.data.id,
+            attendanceId: tripId,
           });
         }
         sweetAlert({

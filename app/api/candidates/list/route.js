@@ -14,7 +14,7 @@ export async function GET(request) {
     const [tests] = await db.query(
       `SELECT t.*, e.name as candidate_name, e.email as candidate_email 
        FROM candidate_tests t 
-       JOIN employees e ON t.candidate_employee_id = e.id 
+       LEFT JOIN employees e ON (t.candidate_employee_id COLLATE utf8mb4_unicode_ci = e.id COLLATE utf8mb4_unicode_ci)
        ORDER BY t.created_at DESC`
     );
 

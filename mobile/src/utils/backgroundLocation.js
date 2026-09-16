@@ -12,40 +12,26 @@ export async function requestBackgroundPermissions() {
   }
 
   try {
-    // 1. Request foreground fine location first
-    const fineGranted = await PermissionsAndroid.request(
+    // 1. Request foreground fine location and coarse location together (required on Android 12+)
+    const permissionsToRequest = [
       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      {
-        title: 'DeviceDesk Location Access',
-        message: 'DeviceDesk tracks your field trip route to accurately log distance and client visits.',
-        buttonNeutral: 'Ask Later',
-        buttonNegative: 'Cancel',
-        buttonPositive: 'Allow GPS',
-      }
-    );
+      PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+    ];
 
-    if (fineGranted !== PermissionsAndroid.RESULTS.GRANTED) {
-      console.warn('Fine location permission denied');
+    if (Platform.Version >= 33 && PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS) {
+      permissionsToRequest.push(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    }
+
+    const result = await PermissionsAndroid.requestMultiple(permissionsToRequest);
+    const fineGranted = result[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
+    const coarseGranted = result[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
+
+    if (!fineGranted && !coarseGranted) {
+      console.warn('Location permissions denied');
       return false;
     }
 
-    // 2. Request notification permission for Android 13+ (API 33+)
-    if (Platform.Version >= 33 && PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS) {
-      try {
-        await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-          {
-            title: 'Live Tracking Notification',
-            message: 'DeviceDesk displays an ongoing notification while field route tracking is active.',
-            buttonPositive: 'OK',
-          }
-        );
-      } catch (err) {
-        console.warn('Notification permission request error (non-fatal):', err);
-      }
-    }
-
-    // 3. Request background location permission for Android 10+ (API 29+)
+    // 2. Request background location permission separately for Android 10+ (API 29+)
     if (Platform.Version >= 29 && PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION) {
       try {
         const bgGranted = await PermissionsAndroid.request(
