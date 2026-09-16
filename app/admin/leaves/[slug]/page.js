@@ -24,7 +24,7 @@ export default function AdminLeavesSlugPage() {
         .then((r) => r.json())
         .then((d) => {
           if (d.success) {
-            const userLeaves = (d.data || []).filter((l) => l.employeeId === found.id || l.employeeName === found.name);
+            const userLeaves = (d.requests || []).filter((l) => l.employeeId === found.id || l.employeeName === found.name);
             setLeaves(userLeaves);
           }
         })

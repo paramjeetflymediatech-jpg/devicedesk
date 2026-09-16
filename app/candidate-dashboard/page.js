@@ -10,6 +10,9 @@ export default function CandidateDashboard() {
   
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mcqData, setMcqData] = useState([]);
+  const [answers, setAnswers] = useState({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     // If not logged in, or not a candidate, boot them
@@ -28,6 +31,13 @@ export default function CandidateDashboard() {
         const data = await res.json();
         if (data.success) {
           setTest(data.test);
+          if (data.test && data.test.test_type === 'mcq') {
+            try {
+              setMcqData(typeof data.test.test_data === 'string' ? JSON.parse(data.test.test_data) : data.test.test_data || []);
+            } catch (e) {
+              console.error('Failed to parse MCQ data');
+            }
+          }
         }
       } catch (err) {
         console.error('Error fetching test:', err);
@@ -90,19 +100,89 @@ export default function CandidateDashboard() {
               </div>
             </div>
 
-            {test.file_url && (
+            {test.test_type === 'mcq' ? (
               <div style={{ marginBottom: '30px' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '10px', color: '#334155' }}>Resources</h3>
-                <a href={test.file_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', padding: '12px 20px', borderRadius: '8px', textDecoration: 'none', fontWeight: '600' }}>
-                  <FiDownload /> Download Provided Resource
-                </a>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '20px', color: '#0f172a' }}>Multiple Choice Assessment</h3>
+                
+                {test.status === 'Completed' ? (
+                   <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '20px', borderRadius: '12px', textAlign: 'center' }}>
+                     <FiCheckCircle style={{ fontSize: '2rem', marginBottom: '10px' }} />
+                     <h3 style={{ margin: '0 0 5px' }}>Assessment Completed</h3>
+                     <p style={{ margin: 0 }}>You have successfully completed this test. HR will review your results.</p>
+                   </div>
+                ) : (
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (Object.keys(answers).length < mcqData.length) {
+                      alert('Please answer all questions before submitting.');
+                      return;
+                    }
+                    if (!confirm('Are you sure you want to submit your test? This action cannot be undone.')) return;
+                    setSubmitting(true);
+                    try {
+                      const res = await fetch('/api/candidates/submit-test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ testId: test.id, candidateId: user.id, candidateAnswers: answers })
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                         alert('Test submitted successfully!');
+                         window.location.reload();
+                      } else {
+                         alert(data.error || 'Failed to submit test');
+                      }
+                    } catch (err) {
+                      alert('Network error during submission.');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}>
+                    {mcqData.map((q, idx) => (
+                      <div key={idx} style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '15px', border: '1px solid #e2e8f0' }}>
+                        <h4 style={{ margin: '0 0 15px', color: '#1e293b', fontSize: '1rem' }}>
+                          <span style={{ color: '#06b6d4', marginRight: '8px' }}>Q{idx + 1}.</span> {q.question}
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {q.options.map((opt, optIdx) => (
+                            <label key={optIdx} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer' }}>
+                              <input 
+                                type="radio" 
+                                name={`question-${idx}`} 
+                                value={optIdx}
+                                checked={answers[idx] === optIdx}
+                                onChange={() => setAnswers({...answers, [idx]: optIdx})}
+                              />
+                              <span style={{ color: '#475569', fontSize: '0.95rem' }}>{opt}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <button type="submit" disabled={submitting} style={{ background: '#06b6d4', color: '#fff', border: 'none', padding: '15px 30px', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: submitting ? 'not-allowed' : 'pointer', width: '100%', marginTop: '20px', boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)' }}>
+                      {submitting ? 'Submitting...' : 'Submit Assessment'}
+                    </button>
+                  </form>
+                )}
               </div>
-            )}
+            ) : (
+              <>
+                {test.file_url && (
+                  <div style={{ marginBottom: '30px' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '10px', color: '#334155' }}>Resources</h3>
+                    <a href={test.file_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', padding: '12px 20px', borderRadius: '8px', textDecoration: 'none', fontWeight: '600' }}>
+                      <FiDownload /> Download Provided Resource
+                    </a>
+                  </div>
+                )}
 
-            <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '15px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <FiCheckCircle style={{ fontSize: '1.2rem' }} />
-              <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>When you are finished, please submit your work directly to the HR contact via email or as instructed.</span>
-            </div>
+                <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '15px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FiCheckCircle style={{ fontSize: '1.2rem' }} />
+                  <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>When you are finished, please submit your work directly to the HR contact via email or as instructed.</span>
+                </div>
+              </>
+            )}
 
           </div>
         ) : (

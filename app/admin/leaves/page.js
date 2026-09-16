@@ -14,6 +14,8 @@ export default function AdminLeavesPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [rejectModalLeaveId, setRejectModalLeaveId] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     setEmployees(getEmployees());
@@ -31,6 +33,25 @@ export default function AdminLeavesPage() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReview = async (leaveId, action, reason = '') => {
+    try {
+      const res = await fetch("/api/leave/review", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leaveId, action, rejectionReason: reason, reviewerName: 'Admin' }) // Uses static 'Admin' for demo purposes, could map to actual logged-in user
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchLeaves(); // Refresh the list
+      } else {
+        alert(data.message);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error updating leave.');
     }
   };
 
@@ -154,7 +175,20 @@ export default function AdminLeavesPage() {
                         {l.status || "Pending"}
                       </span>
                     </td>
-                    <td style={{ padding: "14px 16px", textAlign: "right" }}>
+                    <td style={{ padding: "14px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
+                      {l.status === "Pending" && (
+                        <>
+                          <button onClick={() => handleReview(l.id, 'Approved')} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', marginRight: '6px', transition: 'background 0.2s' }} title="Approve">
+                            <FiCheck />
+                          </button>
+                          <button onClick={() => {
+                            setRejectModalLeaveId(l.id);
+                            setRejectReason('');
+                          }} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', marginRight: '10px', transition: 'background 0.2s' }} title="Reject">
+                            <FiX />
+                          </button>
+                        </>
+                      )}
                       <Link href={`/admin/leaves/${empSlug}`} className="btn-action start" style={{ padding: "4px 10px", fontSize: "0.75rem", textDecoration: "none" }}>
                         View &rarr;
                       </Link>
@@ -183,6 +217,46 @@ export default function AdminLeavesPage() {
           onPageSizeChange={(newSize) => { setPageSize(newSize); setCurrentPage(1); }}
           itemName="leave requests"
         />
+        
+        {/* Reject Modal */}
+        {rejectModalLeaveId && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+            <div style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '500px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+              <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}><FiX style={{ color: '#ef4444' }} /> Reject Leave Request</h3>
+                <button onClick={() => setRejectModalLeaveId(null)} style={{ background: 'var(--bg-tertiary)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}><FiX /></button>
+              </div>
+              <div style={{ padding: '25px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Reason for Rejection (Required)</label>
+                  <textarea 
+                    autoFocus
+                    required 
+                    rows="4" 
+                    value={rejectReason} 
+                    onChange={e => setRejectReason(e.target.value)} 
+                    placeholder="E.g. Not enough accrued leave, overlapping with critical project deadlines..." 
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', resize: 'vertical', outline: 'none' }}
+                  ></textarea>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
+                  <button type="button" onClick={() => setRejectModalLeaveId(null)} style={{ background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}>Cancel</button>
+                  <button 
+                    type="button" 
+                    disabled={!rejectReason.trim()}
+                    onClick={() => {
+                      handleReview(rejectModalLeaveId, 'Rejected', rejectReason);
+                      setRejectModalLeaveId(null);
+                    }} 
+                    style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: rejectReason.trim() ? 'pointer' : 'not-allowed', fontWeight: '600', opacity: rejectReason.trim() ? 1 : 0.6, transition: 'all 0.2s' }}
+                  >
+                    Confirm Rejection
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
