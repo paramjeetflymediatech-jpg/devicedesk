@@ -196,16 +196,15 @@ export default function AdminLayout({ children }) {
     {
       title: "Organization & HR",
       items: [
-        { name: "Team Directory", path: "/admin/users", icon: <FiUser />, adminOnly: true },
-        { name: "Departments", path: "/admin/departments", icon: <FiBriefcase />, adminOnly: true },
-        { name: "Recruitment", path: "/employee-dashboard/hr-recruitment", icon: <FiUserPlus /> },
+        { name: "Team Directory", path: "/admin/users", icon: <FiUser /> },
+        { name: "Departments", path: "/admin/departments", icon: <FiBriefcase /> },
+        // { name: "Recruitment", path: "/employee-dashboard/hr-recruitment", icon: <FiUserPlus /> },
         { name: "Attendance", path: "/admin/attendance", icon: <FiClock /> },
         { name: "Leave Requests", path: "/admin/leaves", icon: <FiCalendar />, badge: leaveCount }
       ]
     },
     {
       title: "IT & Infrastructure",
-      adminOnly: true,
       items: [
         { name: "Systems Inventory", path: "/admin/systems", icon: <FiServer /> },
         { name: "Raise Records", path: "/admin/tickets", icon: <FiTag /> }
@@ -216,6 +215,12 @@ export default function AdminLayout({ children }) {
       items: [
         { name: "System Logs", path: "/admin/audit-logs", icon: <FiFileText />, adminOnly: true },
         { name: "Activity & Screenshots", path: "/admin/screenshots", icon: <FiActivity /> }
+      ]
+    },
+    {
+      title: "HR Portal",
+      items: [
+        { name: "Recruitment", path: "/admin/recruitment", icon: <FiUserPlus /> }
       ]
     }
   ];

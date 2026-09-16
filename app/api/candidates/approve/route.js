@@ -36,7 +36,7 @@ export async function POST(request) {
     await db.execute(
       `INSERT INTO employees (id, name, email, password, role, department, status, ticketLimit)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [empId, reg.name, reg.email, hashedPassword, 'Candidate', 'HR', 'Active', 0]
+      [empId, reg.name, reg.email, hashedPassword, 'Candidate', 'N/A', 'Active', 0]
     );
 
     // 4. Update registration status
