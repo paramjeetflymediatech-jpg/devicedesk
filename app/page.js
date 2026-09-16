@@ -2387,7 +2387,7 @@ export default function Home() {
                         <button onClick={() => window.location.href = "/admin/departments"}><span className="nav-icon"><FiBriefcase /></span> Departments</button>
                       </li>
                       <li className="nav-item">
-                        <button onClick={() => window.location.href = "/employee-dashboard/hr-recruitment"}><span className="nav-icon"><FiUserPlus /></span> HR Portal</button>
+                        {/* <button onClick={() => window.location.href = "/employee-dashboard/hr-recruitment"}><span className="nav-icon"><FiUserPlus /></span> HR Portal</button> */}
                       </li>
                       {!isITSupport && (
                         <li className="nav-item">
@@ -2550,7 +2550,7 @@ export default function Home() {
                     <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
                       <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/users"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUser /></span> Team Directory</button>
                       <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/departments"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments</button>
-                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/employee-dashboard/hr-recruitment"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUserPlus /></span> HR Portal</button>
+                      {/* <button className="mobile-drawer-item" onClick={() => { window.location.href = "/employee-dashboard/hr-recruitment"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUserPlus /></span> HR Portal</button> */}
                       {!isITSupport && (
                         <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/attendance"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiClock /></span> Attendance</button>
                       )}
