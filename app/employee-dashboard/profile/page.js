@@ -324,11 +324,11 @@ export default function MyProfilePage() {
   const renderProfileAvatar = (emp, size = "60px") => {
     const getInitials = (name) => {
       if (!name) return "";
-      const parts = name.split(" ");
+      const parts = name.trim().split(/\s+/);
       if (parts.length >= 2) {
         return (parts[0][0] + parts[1][0]).toUpperCase();
       }
-      return name.slice(0, 2).toUpperCase();
+      return parts[0].slice(0, 2).toUpperCase();
     };
 
     if (emp?.avatarUrl) {

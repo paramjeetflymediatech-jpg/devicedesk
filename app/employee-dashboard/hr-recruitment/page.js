@@ -15,10 +15,29 @@ export default function HrRecruitmentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedReg, setSelectedReg] = useState(null);
   const [approveForm, setApproveForm] = useState({
+    testType: 'text',
     testTitle: '',
     testInstructions: '',
-    fileUrl: ''
+    fileUrl: '',
+    mcqData: []
   });
+
+  const predefinedTemplates = {
+    aptitude: [
+      { question: 'What is 15% of 80?', options: ['10', '12', '15', '20'], correctIndex: 1 },
+      { question: 'If all bloops are razzies and all razzies are lazzies, are all bloops lazzies?', options: ['Yes', 'No', 'Cannot be determined', 'Sometimes'], correctIndex: 0 },
+      { question: 'A train travels 60 miles in 1.5 hours. What is its average speed in mph?', options: ['30', '40', '45', '50'], correctIndex: 1 }
+    ],
+    english: [
+      { question: 'Choose the correct synonym for "Abundant":', options: ['Scarce', 'Plentiful', 'Empty', 'Brief'], correctIndex: 1 },
+      { question: 'Identify the grammatically correct sentence:', options: ['He don\'t know nothing.', 'She doesn\'t know anything.', 'They hasn\'t known nothing.', 'I doesn\'t know anything.'], correctIndex: 1 },
+      { question: 'What is the antonym of "Expand"?', options: ['Enlarge', 'Shrink', 'Grow', 'Develop'], correctIndex: 1 }
+    ],
+    frontend: [
+      { question: 'Which of the following is NOT a valid CSS position property value?', options: ['static', 'absolute', 'relative', 'floating'], correctIndex: 3 },
+      { question: 'In React, what hook is used to handle side effects?', options: ['useState', 'useContext', 'useEffect', 'useReducer'], correctIndex: 2 }
+    ]
+  };
 
   const fetchData = async () => {
     try {
@@ -42,14 +61,22 @@ export default function HrRecruitmentPage() {
 
   const handleApproveClick = (reg) => {
     setSelectedReg(reg);
-    setApproveForm({ testTitle: 'Technical Assessment', testInstructions: '', fileUrl: '' });
+    setApproveForm({ testType: 'text', testTitle: 'Technical Assessment', testInstructions: '', fileUrl: '', mcqData: [] });
     setShowApproveModal(true);
   };
 
   const submitApprove = async (e) => {
     e.preventDefault();
-    if (!approveForm.testTitle || !approveForm.testInstructions) {
-      Swal.fire({ icon: 'warning', title: 'Required', text: 'Test title and instructions are required.' });
+    if (!approveForm.testTitle) {
+      Swal.fire({ icon: 'warning', title: 'Required', text: 'Test title is required.' });
+      return;
+    }
+    if (approveForm.testType === 'text' && !approveForm.testInstructions) {
+      Swal.fire({ icon: 'warning', title: 'Required', text: 'Test instructions are required.' });
+      return;
+    }
+    if (approveForm.testType === 'mcq' && approveForm.mcqData.length === 0) {
+      Swal.fire({ icon: 'warning', title: 'Required', text: 'Please add at least one MCQ question.' });
       return;
     }
 
@@ -121,14 +148,12 @@ export default function HrRecruitmentPage() {
                   }}>
                     {reg.experience_level}
                   </span>
-                  {reg.experience_level === 'Experienced' && reg.experience_details && (
-                    <button 
-                      onClick={() => { setSelectedReg(reg); setShowDetailsModal(true); }}
-                      style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '0.75rem', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontWeight: '500' }}
-                    >
-                      View Details
-                    </button>
-                  )}
+                  <button 
+                    onClick={() => { setSelectedReg(reg); setShowDetailsModal(true); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '0.75rem', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontWeight: '500' }}
+                  >
+                    View Profile
+                  </button>
                 </div>
               </td>
               <td style={{ padding: '16px' }}>
@@ -167,12 +192,22 @@ export default function HrRecruitmentPage() {
             <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Assigned Test</th>
             <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Date Assigned</th>
             <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Test Instructions</th>
+            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Status / Score</th>
           </tr>
         </thead>
         <tbody>
           {assignedTests.length === 0 ? (
-            <tr><td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No tests assigned yet.</td></tr>
-          ) : assignedTests.map(test => (
+            <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No tests assigned yet.</td></tr>
+          ) : assignedTests.map(test => {
+            let scoreDisplay = null;
+            if (test.test_type === 'mcq' && test.status === 'Completed' && test.test_data) {
+              try {
+                const data = typeof test.test_data === 'string' ? JSON.parse(test.test_data) : test.test_data;
+                const correctCount = data.filter(q => q.isCorrect).length;
+                scoreDisplay = `${correctCount} / ${data.length}`;
+              } catch (e) {}
+            }
+            return (
             <tr key={test.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
               <td style={{ padding: '16px' }}>
                 <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{test.candidate_name}</div>
@@ -185,8 +220,23 @@ export default function HrRecruitmentPage() {
                   {test.test_instructions}
                 </div>
               </td>
+              <td style={{ padding: '16px' }}>
+                {test.status === 'Completed' ? (
+                  <div>
+                    <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '15px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold' }}>Completed</span>
+                    {scoreDisplay && (
+                      <div style={{ marginTop: '6px', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)' }}>
+                        Score: <span style={{ color: 'var(--accent-cyan)' }}>{scoreDisplay}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '15px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', fontSize: '0.8rem', fontWeight: 'bold' }}>{test.status || 'Assigned'}</span>
+                )}
+              </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -251,20 +301,93 @@ export default function HrRecruitmentPage() {
                 <div>Approving this candidate will automatically generate a temporary login account for them to access the test dashboard.</div>
               </div>
 
+              <div style={{ display: 'flex', gap: '20px', marginBottom: '10px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                  <input type="radio" checked={approveForm.testType === 'text'} onChange={() => setApproveForm({...approveForm, testType: 'text'})} /> 
+                  Open-Ended Task
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                  <input type="radio" checked={approveForm.testType === 'mcq'} onChange={() => setApproveForm({...approveForm, testType: 'mcq'})} /> 
+                  MCQ Quiz
+                </label>
+              </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Test Title</label>
                 <input required type="text" value={approveForm.testTitle} onChange={e => setApproveForm({...approveForm, testTitle: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', outline: 'none' }} />
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Test Instructions / Questions</label>
-                <textarea required rows="5" value={approveForm.testInstructions} onChange={e => setApproveForm({...approveForm, testInstructions: e.target.value})} placeholder="Write the coding question, writing prompt, or test instructions here..." style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', resize: 'vertical', outline: 'none' }}></textarea>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Resource File URL (Optional)</label>
-                <input type="text" value={approveForm.fileUrl} onChange={e => setApproveForm({...approveForm, fileUrl: e.target.value})} placeholder="https://..." style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', outline: 'none' }} />
-              </div>
+              {approveForm.testType === 'text' ? (
+                <>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Test Instructions / Questions</label>
+                    <textarea required rows="5" value={approveForm.testInstructions} onChange={e => setApproveForm({...approveForm, testInstructions: e.target.value})} placeholder="Write the coding question, writing prompt, or test instructions here..." style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', resize: 'vertical', outline: 'none' }}></textarea>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px' }}>Resource File URL (Optional)</label>
+                    <input type="text" value={approveForm.fileUrl} onChange={e => setApproveForm({...approveForm, fileUrl: e.target.value})} placeholder="https://..." style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', outline: 'none' }} />
+                  </div>
+                </>
+              ) : (
+                <div style={{ marginTop: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)' }}>MCQ Questions</label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <select onChange={(e) => {
+                        const templateKey = e.target.value;
+                        if (templateKey && predefinedTemplates[templateKey]) {
+                          if (confirm(`Load the "${templateKey}" template? This will replace any existing questions.`)) {
+                            setApproveForm({...approveForm, mcqData: JSON.parse(JSON.stringify(predefinedTemplates[templateKey]))});
+                          }
+                        }
+                        e.target.value = ''; // Reset selection
+                      }} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', padding: '6px 10px', borderRadius: '6px', outline: 'none', fontSize: '0.8rem' }}>
+                        <option value="">-- Load Template --</option>
+                        <option value="aptitude">General Aptitude</option>
+                        <option value="english">Basic English</option>
+                        <option value="frontend">Frontend Dev (React/CSS)</option>
+                      </select>
+                      <button type="button" onClick={() => setApproveForm({...approveForm, mcqData: [...approveForm.mcqData, { question: '', options: ['', '', '', ''], correctIndex: 0 }]})} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>+ Add Question</button>
+                    </div>
+                  </div>
+                  <div style={{ maxHeight: '350px', overflowY: 'auto', border: '1px solid var(--glass-border)', borderRadius: '8px', padding: '10px', background: 'var(--bg-tertiary)' }}>
+                    {approveForm.mcqData.length === 0 ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>No questions added. Click "Add Question" to start.</div>
+                    ) : approveForm.mcqData.map((mcq, qIdx) => (
+                      <div key={qIdx} style={{ background: 'var(--bg-primary)', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid var(--glass-border)', position: 'relative' }}>
+                        <button type="button" onClick={() => {
+                          const newData = [...approveForm.mcqData];
+                          newData.splice(qIdx, 1);
+                          setApproveForm({...approveForm, mcqData: newData});
+                        }} style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}><FiX /></button>
+                        <h4 style={{ margin: '0 0 10px', fontSize: '0.9rem', color: 'var(--text-primary)' }}>Question {qIdx + 1}</h4>
+                        <input required placeholder="Enter the question here..." value={mcq.question} onChange={e => {
+                          const newData = [...approveForm.mcqData];
+                          newData[qIdx].question = e.target.value;
+                          setApproveForm({...approveForm, mcqData: newData});
+                        }} style={{ width: '100%', padding: '8px', marginBottom: '10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {mcq.options.map((opt, oIdx) => (
+                            <div key={oIdx} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <input type="radio" name={`correct-${qIdx}`} checked={mcq.correctIndex === oIdx} onChange={() => {
+                                const newData = [...approveForm.mcqData];
+                                newData[qIdx].correctIndex = oIdx;
+                                setApproveForm({...approveForm, mcqData: newData});
+                              }} style={{ cursor: 'pointer' }} />
+                              <input required placeholder={`Option ${oIdx + 1}`} value={opt} onChange={e => {
+                                const newData = [...approveForm.mcqData];
+                                newData[qIdx].options[oIdx] = e.target.value;
+                                setApproveForm({...approveForm, mcqData: newData});
+                              }} style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px', paddingTop: '20px', borderTop: '1px solid var(--glass-border)' }}>
                 <button type="button" onClick={() => setShowApproveModal(false)} style={{ padding: '10px 18px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', cursor: 'pointer', fontWeight: '500' }}>Cancel</button>
@@ -280,14 +403,53 @@ export default function HrRecruitmentPage() {
       {/* Experience Details Modal */}
       {showDetailsModal && selectedReg && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '500px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+          <div style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '600px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
             <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
-              <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Experience Details</h3>
+              <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Candidate Profile: {selectedReg.name}</h3>
               <button onClick={() => setShowDetailsModal(false)} style={{ background: 'var(--bg-tertiary)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FiX /></button>
             </div>
-            <div style={{ padding: '25px', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: '1.6', fontSize: '0.95rem' }}>
-              {selectedReg.experience_details}
+            
+            <div style={{ padding: '25px', color: 'var(--text-secondary)', lineHeight: '1.6', fontSize: '0.95rem', maxHeight: '60vh', overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+                <div><strong>Email:</strong> {selectedReg.email}</div>
+                <div><strong>Phone:</strong> {selectedReg.phone}</div>
+                <div><strong>Position:</strong> {selectedReg.position_applied || 'N/A'}</div>
+                <div><strong>Education:</strong> {selectedReg.education || 'N/A'}</div>
+                <div><strong>Notice Period:</strong> {selectedReg.notice_period || 'N/A'}</div>
+                {selectedReg.portfolio_url && (
+                  <div><strong>Portfolio:</strong> <a href={selectedReg.portfolio_url} target="_blank" style={{ color: 'var(--accent-cyan)' }}>Link</a></div>
+                )}
+              </div>
+              
+              {selectedReg.skills && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>Skills:</strong>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+                    {selectedReg.skills.split(',').map(s => <span key={s} style={{ background: 'var(--bg-tertiary)', padding: '4px 10px', borderRadius: '15px', fontSize: '0.8rem' }}>{s.trim()}</span>)}
+                  </div>
+                </div>
+              )}
+
+              {selectedReg.experience_details && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>Experience Details:</strong>
+                  <div style={{ whiteSpace: 'pre-wrap', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '8px', marginTop: '8px' }}>
+                    {selectedReg.experience_details}
+                  </div>
+                </div>
+              )}
+
+              {selectedReg.resume_url && (
+                <div>
+                  <strong>Resume:</strong>
+                  <br />
+                  <a href={selectedReg.resume_url} target="_blank" download style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--accent-cyan)', color: '#fff', padding: '8px 16px', borderRadius: '8px', textDecoration: 'none', marginTop: '8px', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                    <FiFileText /> Download Resume
+                  </a>
+                </div>
+              )}
             </div>
+            
             <div style={{ padding: '15px 25px', borderTop: '1px solid var(--glass-border)', textAlign: 'right', background: 'var(--bg-secondary)' }}>
               <button onClick={() => setShowDetailsModal(false)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', cursor: 'pointer', fontWeight: '500' }}>Close</button>
             </div>

@@ -4,7 +4,7 @@ import { getDbConnection } from '../../../api/db/db.js';
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { name, email, phone, address, experience_level, experience_details } = data;
+    const { name, email, phone, address, experience_level, experience_details, resume_url, portfolio_url, education, skills, notice_period, position_applied } = data;
 
     if (!name || !email || !phone) {
       return NextResponse.json({ success: false, error: 'Name, email, and phone are required.' }, { status: 400 });
@@ -25,8 +25,11 @@ export async function POST(request) {
     const id = `cand_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
     await db.execute(
-      `INSERT INTO candidate_registrations (id, name, email, phone, address, experience_level, experience_details, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, name, email, phone, address || '', experience_level || 'Fresher', experience_details || '', 'Pending']
+      `INSERT INTO candidate_registrations (id, name, email, phone, address, experience_level, experience_details, status, resume_url, portfolio_url, education, skills, notice_period, position_applied) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id, name, email, phone, address || '', experience_level || 'Fresher', experience_details || '', 'Pending',
+        resume_url || null, portfolio_url || null, education || null, skills || null, notice_period || null, position_applied || null
+      ]
     );
 
     return NextResponse.json({ success: true, message: 'Application submitted successfully', id });

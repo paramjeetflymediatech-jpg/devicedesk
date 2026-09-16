@@ -15,16 +15,84 @@ export default function CandidateRegistration() {
     years_worked: '',
     current_salary: '',
     expected_salary: '',
-    why_left: ''
+    why_left: '',
+    resume_url: '',
+    portfolio_url: '',
+    education: '',
+    skills: '',
+    notice_period: '',
+    position_applied: ''
   });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
+
+  const handleResumeUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingResume(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file, file.name);
+
+      const res = await fetch("/api/candidates/upload", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setForm({ ...form, resume_url: data.fileUrls[0] });
+        Swal.fire({ icon: 'success', title: 'Resume Uploaded', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+      } else {
+        throw new Error(data.error || "Upload failed");
+      }
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message });
+    } finally {
+      setUploadingResume(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.email || !form.phone) {
-      Swal.fire({ icon: 'warning', title: 'Missing Fields', text: 'Please fill in your name, email, and phone number.' });
+    
+    // 1. Basic Required Fields Validation
+    if (!form.name || !form.email || !form.phone || !form.position_applied) {
+      Swal.fire({ icon: 'warning', title: 'Missing Fields', text: 'Please fill in all mandatory fields, including Position Applied For.' });
       return;
+    }
+
+    // 2. Email Format Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      Swal.fire({ icon: 'warning', title: 'Invalid Email', text: 'Please enter a valid email address.' });
+      return;
+    }
+
+    // 3. Phone Format Validation
+    const phoneRegex = /^[0-9+\-\s()]{10,15}$/;
+    if (!phoneRegex.test(form.phone)) {
+      Swal.fire({ icon: 'warning', title: 'Invalid Phone Number', text: 'Please enter a valid phone number (10-15 digits).' });
+      return;
+    }
+
+    // 4. Resume Validation
+    if (!form.resume_url) {
+      Swal.fire({ icon: 'warning', title: 'Resume Required', text: 'Please upload your resume before submitting.' });
+      return;
+    }
+
+    // 5. Experience Validation
+    if (form.experience_level === 'Experienced') {
+      if (!form.company_name || !form.company_location || !form.years_worked || !form.why_left || !form.notice_period) {
+        Swal.fire({ icon: 'warning', title: 'Missing Experience Details', text: 'Please fill in all required experience details, including Notice Period.' });
+        return;
+      }
+      if (isNaN(parseFloat(form.years_worked))) {
+        Swal.fire({ icon: 'warning', title: 'Invalid Years Worked', text: 'Please enter a valid number for years worked (e.g., 2.5).' });
+        return;
+      }
     }
 
     setLoading(true);
@@ -45,7 +113,13 @@ Reason for Leaving: ${form.why_left}`;
         phone: form.phone,
         address: form.address,
         experience_level: form.experience_level,
-        experience_details
+        experience_details,
+        resume_url: form.resume_url,
+        portfolio_url: form.portfolio_url,
+        education: form.education,
+        skills: form.skills,
+        notice_period: form.notice_period,
+        position_applied: form.position_applied
       };
 
       const res = await fetch('/api/candidates/register', {
@@ -187,6 +261,57 @@ Reason for Leaving: ${form.why_left}`;
               ></textarea>
             </div>
 
+            {/* Professional Details Section */}
+            <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a' }}>Professional Details</h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Position Applied For</label>
+                  <input type="text" value={form.position_applied} onChange={e => setForm({...form, position_applied: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. Software Engineer" />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Highest Education</label>
+                  <input type="text" value={form.education} onChange={e => setForm({...form, education: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. B.Tech Computer Science" />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Key Skills (Comma separated)</label>
+                  <input type="text" value={form.skills} onChange={e => setForm({...form, skills: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. React, Node.js, SQL" />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Portfolio / LinkedIn URL</label>
+                  <input type="url" value={form.portfolio_url} onChange={e => setForm({...form, portfolio_url: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="https://" />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Upload Resume (PDF/Word)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <input 
+                    type="file" 
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleResumeUpload}
+                    disabled={uploadingResume}
+                    style={{
+                      padding: '8px',
+                      background: '#fff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      width: '100%',
+                      cursor: uploadingResume ? 'not-allowed' : 'pointer'
+                    }}
+                  />
+                  {uploadingResume && <span style={{ fontSize: '0.85rem', color: '#06b6d4', fontWeight: '600', whiteSpace: 'nowrap' }}>Uploading...</span>}
+                </div>
+                {form.resume_url && (
+                  <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: '#10b981', fontWeight: '500' }}>✓ Resume attached successfully</p>
+                )}
+              </div>
+            </div>
+
             {/* Experience Level */}
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '10px' }}>Experience Level</label>
@@ -230,6 +355,17 @@ Reason for Leaving: ${form.why_left}`;
                   <div>
                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Expected Salary</label>
                     <input type="text" value={form.expected_salary} onChange={e => setForm({...form, expected_salary: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. 70k" />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Notice Period</label>
+                    <select value={form.notice_period} onChange={e => setForm({...form, notice_period: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}>
+                      <option value="">Select...</option>
+                      <option value="Immediate">Immediate</option>
+                      <option value="15 Days">15 Days</option>
+                      <option value="30 Days">30 Days</option>
+                      <option value="45 Days">45 Days</option>
+                      <option value="60+ Days">60+ Days</option>
+                    </select>
                   </div>
                 </div>
 

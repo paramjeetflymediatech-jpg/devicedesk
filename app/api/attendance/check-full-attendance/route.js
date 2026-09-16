@@ -22,8 +22,8 @@ export async function POST(request) {
       const body = await request.json();
       if (body.period) period = body.period;
       if (body.force) force = true;
-    } catch(e) {}
-    
+    } catch (e) { }
+
     const result = await checkAndSendSummaryReport(null, period, force);
     return NextResponse.json(result);
   } catch (error) {
