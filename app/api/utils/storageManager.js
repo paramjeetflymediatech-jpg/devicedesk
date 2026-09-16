@@ -153,6 +153,7 @@ export async function uploadFile(buffer, filename, subfolder = '') {
   const uniqueFilename = sanitizeFilename(filename);
   const provider = String(getEnvVariable('STORAGE_PROVIDER', 'local')).toLowerCase().trim();
 
+  let sftpSuccess = false;
   if (provider === 'sftp') {
     const sftp = new Client();
     try {
@@ -171,6 +172,7 @@ export async function uploadFile(buffer, filename, subfolder = '') {
 
       const remoteFilePath = `${remoteDir.replace(/\/$/, '')}/${uniqueFilename}`;
       await sftp.put(buffer, remoteFilePath);
+      sftpSuccess = true;
 
       // Return full public URL if WHM_SFTP_BASE_URL is defined, else relative path
       const baseUrl = process.env.WHM_SFTP_BASE_URL;
@@ -181,14 +183,18 @@ export async function uploadFile(buffer, filename, subfolder = '') {
       }
 
       return subfolder ? `/uploads/${subfolder.replace(/^\//, '')}/${uniqueFilename}` : uniqueFilename;
+    } catch (err) {
+      console.error('SFTP Upload failed, falling back to local:', err.message);
     } finally {
-      await sftp.end();
+      try { await sftp.end(); } catch (e) {}
     }
-  } else {
+  }
+  
+  if (!sftpSuccess) {
     // Local storage fallback
     const targetDir = subfolder 
       ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''))
-      : join(process.cwd(), 'uploads');
+      : join(process.cwd(), 'public', 'uploads');
 
     await fs.mkdir(targetDir, { recursive: true });
     const localFilePath = join(targetDir, uniqueFilename);
@@ -197,7 +203,7 @@ export async function uploadFile(buffer, filename, subfolder = '') {
     if (subfolder) {
       return `/uploads/${subfolder.replace(/^\//, '')}/${uniqueFilename}`;
     }
-    return uniqueFilename;
+    return `/uploads/${uniqueFilename}`;
   }
 }
 

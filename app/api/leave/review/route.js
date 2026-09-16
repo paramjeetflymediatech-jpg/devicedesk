@@ -56,8 +56,9 @@ export async function POST(request) {
 
       if (empEmail) {
         const isApproved = action === 'Approved';
+        const formattedReviewedAt = new Date(reviewedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short', hour12: true });
         const subject = `Leave Request ${action}: ${leaveReq.leaveType} (${leaveReq.fromDate} to ${leaveReq.toDate})`;
-        const textBody = `Leave Application Update\n\nHello ${leaveReq.employeeName},\n\nYour leave application for ${leaveReq.leaveType} (${leaveReq.fromDate} to ${leaveReq.toDate}, ${leaveReq.totalDays} day(s)) has been ${action.toUpperCase()} by ${reviewerName}.\n\nReviewed At: ${new Date(reviewedAt).toLocaleString()}\n${action === 'Rejected' && rejectionReason ? `Rejection Reason: ${rejectionReason.trim()}\n` : ''}\nPlease log in to DeviceDesk to view details.`;
+        const textBody = `Leave Application Update\n\nHello ${leaveReq.employeeName},\n\nYour leave application for ${leaveReq.leaveType} (${leaveReq.fromDate} to ${leaveReq.toDate}, ${leaveReq.totalDays} day(s)) has been ${action.toUpperCase()} by ${reviewerName}.\n\nReviewed At: ${formattedReviewedAt}\n${action === 'Rejected' && rejectionReason ? `Rejection Reason: ${rejectionReason.trim()}\n` : ''}\nPlease log in to DeviceDesk to view details.`;
 
         const htmlBody = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #ffffff;">
@@ -73,7 +74,7 @@ export async function POST(request) {
                 <tr><td style="padding: 8px 0; font-weight: bold; color: #555555;">Duration:</td><td style="padding: 8px 0;"><strong>${leaveReq.fromDate}</strong> to <strong>${leaveReq.toDate}</strong> (${leaveReq.totalDays} ${leaveReq.totalDays === 1 ? 'day' : 'days'})</td></tr>
                 <tr><td style="padding: 8px 0; font-weight: bold; color: #555555;">Decision Status:</td><td style="padding: 8px 0;"><span style="background: ${isApproved ? '#dcfce7' : '#fee2e2'}; color: ${isApproved ? '#15803d' : '#b91c1c'}; padding: 3px 10px; border-radius: 12px; font-weight: bold; font-size: 12px;">${action}</span></td></tr>
                 <tr><td style="padding: 8px 0; font-weight: bold; color: #555555;">Reviewed By:</td><td style="padding: 8px 0;">${reviewerName}</td></tr>
-                <tr><td style="padding: 8px 0; font-weight: bold; color: #555555;">Review Date:</td><td style="padding: 8px 0;">${new Date(reviewedAt).toLocaleString()}</td></tr>
+                <tr><td style="padding: 8px 0; font-weight: bold; color: #555555;">Review Date:</td><td style="padding: 8px 0;">${formattedReviewedAt}</td></tr>
               </table>
               ${action === 'Rejected' && rejectionReason ? `
                 <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; border-radius: 6px; margin-top: 10px;">

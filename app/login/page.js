@@ -96,6 +96,8 @@ export default function LoginPage() {
           router.push('/developer/dashboard');
         } else if (dbRoleLower === 'client') {
           router.push('/portal/client');
+        } else if (dbRoleLower === 'candidate') {
+          router.push('/candidate-dashboard');
         } else if (dbRoleLower === 'marketing') {
           router.push('/portal/marketing');
         } else if (isRootAdmin) {
@@ -132,7 +134,12 @@ export default function LoginPage() {
 
       if (data.success) {
         login(data.user);
-        router.push('/employee-dashboard');
+        const dbRoleLower = (data.user?.dbRole || '').toLowerCase();
+        if (dbRoleLower === 'candidate') {
+          router.push('/candidate-dashboard');
+        } else {
+          router.push('/employee-dashboard');
+        }
       } else {
         setError(data.message || 'Invalid OTP.');
       }

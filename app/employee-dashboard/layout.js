@@ -17,6 +17,7 @@ import {
   FiMessageSquare,
   FiCheckSquare,
   FiUser,
+  FiUserPlus,
   FiLogOut,
   FiShield,
   FiCalendar,
@@ -133,11 +134,11 @@ export default function EmployeeLayout({ children }) {
   const renderProfileAvatar = (emp, size = "24px") => {
     const getInitials = (name) => {
       if (!name) return "";
-      const parts = name.split(" ");
+      const parts = name.trim().split(/\s+/);
       if (parts.length >= 2) {
         return (parts[0][0] + parts[1][0]).toUpperCase();
       }
-      return name.slice(0, 2).toUpperCase();
+      return parts[0].slice(0, 2).toUpperCase();
     };
 
     if (emp?.avatarUrl) {
@@ -256,6 +257,11 @@ export default function EmployeeLayout({ children }) {
                 <li className={`nav-item ${pathname === "/admin/attendance" ? "active" : ""}`}>
                   <Link href="/admin/attendance" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
                     <span className="nav-icon"><FiClock /></span> All Attendance
+                  </Link>
+                </li>
+                <li className={`nav-item ${pathname === "/employee-dashboard/hr-recruitment" ? "active" : ""}`}>
+                  <Link href="/employee-dashboard/hr-recruitment" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
+                    <span className="nav-icon"><FiUserPlus /></span> Recruitment
                   </Link>
                 </li>
                 <li className={`nav-item ${pathname === "/admin/leaves" ? "active" : ""}`}>
@@ -377,6 +383,14 @@ export default function EmployeeLayout({ children }) {
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiClock /> All Attendance</span>
+              </Link>
+              <Link
+                href="/employee-dashboard/hr-recruitment"
+                className={`mobile-drawer-item ${pathname === "/employee-dashboard/hr-recruitment" ? "active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiUserPlus /> Recruitment</span>
               </Link>
               <Link
                 href="/admin/leaves"

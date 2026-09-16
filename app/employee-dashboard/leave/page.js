@@ -402,6 +402,7 @@ export default function ApplyLeavePage() {
   const [leaveFrom, setLeaveFrom] = useState("");
   const [leaveTo, setLeaveTo] = useState("");
   const [leaveReason, setLeaveReason] = useState("");
+  const [isHalfDay, setIsHalfDay] = useState(false);
   const [leaveFilterStatus, setLeaveFilterStatus] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [leaveLoading, setLeaveLoading] = useState(false);
@@ -475,7 +476,8 @@ export default function ApplyLeavePage() {
           leaveType,
           fromDate: leaveFrom,
           toDate: leaveTo,
-          reason: leaveReason
+          reason: leaveReason,
+          isHalfDay: leaveFrom === leaveTo ? isHalfDay : false
         })
       });
       const data = await res.json();
@@ -491,6 +493,7 @@ export default function ApplyLeavePage() {
         setLeaveFrom("");
         setLeaveTo("");
         setLeaveReason("");
+        setIsHalfDay(false);
         fetchLeaveRequests();
 
         if (typeof window !== "undefined") {
@@ -830,8 +833,23 @@ export default function ApplyLeavePage() {
                   onChange={(from, to) => {
                     setLeaveFrom(from);
                     setLeaveTo(to);
+                    if (from !== to) setIsHalfDay(false);
                   }}
                 />
+                {leaveFrom && leaveFrom === leaveTo && (
+                  <div style={{ marginTop: "1rem", display: "flex", alignItems: "center", gap: "8px", background: "var(--bg-tertiary)", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--glass-border)", width: "100%", maxWidth: "350px" }}>
+                    <input
+                      type="checkbox"
+                      id="halfDayCheck"
+                      checked={isHalfDay}
+                      onChange={(e) => setIsHalfDay(e.target.checked)}
+                      style={{ cursor: "pointer", width: "16px", height: "16px", accentColor: "var(--accent-cyan)" }}
+                    />
+                    <label htmlFor="halfDayCheck" style={{ fontSize: "0.85rem", color: "var(--text-primary)", cursor: "pointer", fontWeight: "600" }}>
+                      This is a Half-Day Leave (0.5 days)
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -160,7 +160,66 @@ Your OTP is: 700673
 Text:
 Your OTP is: 235980
 --------------------------------------------------
+<<<<<<< HEAD
 [2026-09-16T07:05:18.822Z] To: hr@flymediatech.com | Subject: DeviceDesk Test Notification | MessageID: <680bf0e0-c773-a427-ab3a-0601c055715f@devicedeskflymeditech.com>
 Text:
 This is a test notification to verify delivery to hr@flymediatech.com
+=======
+[2026-09-15T11:18:45.816Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <f886f9a9-69d5-82d1-2fe1-2b2ed280b640@devicedeskflymeditech.com>
+Text:
+Your OTP is: 376756
+--------------------------------------------------
+[2026-09-15T11:30:03.169Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <c2938f2c-0dda-aeaf-0a23-3de428c87ae0@devicedeskflymeditech.com>
+Text:
+Your OTP is: 466619
+--------------------------------------------------
+[2026-09-15T12:37:13.144Z] To: vishal@yopmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <ee86e07b-e588-2c4f-0be5-21e0c34970b8@devicedeskflymeditech.com>
+Text:
+Your OTP is: 663508
+--------------------------------------------------
+[2026-09-15T12:41:58.226Z] To: vishal@yopmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <e2e3b329-bc53-b7e3-1f84-4a17360c96a7@devicedeskflymeditech.com>
+Text:
+Your OTP is: 506670
+--------------------------------------------------
+[2026-09-16T05:51:16.649Z] To: h@yopmail.com | Subject: Application Approved - Test Assigned: Technical Assessment | MessageID: <883d00c0-147e-6f75-6c7e-1c159fcc5e34@devicedeskflymeditech.com>
+Text:
+undefined
+--------------------------------------------------
+[2026-09-16T07:09:17.636Z] To: aman@yopmail.com | Subject: Leave Request Approved: Casual Leave (2026-08-20 to 2026-08-28) | MessageID: <518b7652-2c56-5404-1d0c-2e5b0da4b6be@devicedeskflymeditech.com>
+Text:
+Leave Application Update
+
+Hello Aman,
+
+Your leave application for Casual Leave (2026-08-20 to 2026-08-28, 7 day(s)) has been APPROVED by Admin.
+
+Reviewed At: 16/9/2026, 12:37:28 pm
+
+Please log in to DeviceDesk to view details.
+--------------------------------------------------
+[2026-09-16T07:10:22.618Z] To: aman@yopmail.com | Subject: Leave Request Approved: Casual Leave (2026-08-08 to 2026-08-19) | MessageID: <d30831c8-e2bb-a3d7-33ed-62ed1ab8f74c@devicedeskflymeditech.com>
+Text:
+Leave Application Update
+
+Hello Aman,
+
+Your leave application for Casual Leave (2026-08-08 to 2026-08-19, 8 day(s)) has been APPROVED by Admin.
+
+Reviewed At: 16/9/2026, 12:38:13 pm
+
+Please log in to DeviceDesk to view details.
+--------------------------------------------------
+[2026-09-16T07:11:13.909Z] To: aman@yopmail.com | Subject: Leave Request Rejected: Casual Leave (2026-02-20 to 2026-02-20) | MessageID: <7b71bf44-a7b6-11e8-f2ea-54809b0357c3@devicedeskflymeditech.com>
+Text:
+Leave Application Update
+
+Hello Aman,
+
+Your leave application for Casual Leave (2026-02-20 to 2026-02-20, 1 day(s)) has been REJECTED by Admin.
+
+Reviewed At: 16/9/2026, 12:39:20 pm
+Rejection Reason: test
+
+Please log in to DeviceDesk to view details.
+>>>>>>> bf70729b24e497a47fdc990124ddfdb15e17d658
 --------------------------------------------------

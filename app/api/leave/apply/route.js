@@ -18,7 +18,7 @@ function calcWorkingDays(from, to) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { employeeId, employeeName, leaveType, fromDate, toDate, reason } = body;
+    const { employeeId, employeeName, leaveType, fromDate, toDate, reason, isHalfDay } = body;
 
     if (!employeeId || !employeeName || !leaveType || !fromDate || !toDate) {
       return NextResponse.json({ success: false, message: 'Missing required fields.' }, { status: 400 });
@@ -51,7 +51,11 @@ export async function POST(request) {
 
     const id = `leave_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const appliedAt = new Date().toISOString();
-    const totalDays = calcWorkingDays(fromDate, toDate);
+    let totalDays = calcWorkingDays(fromDate, toDate);
+
+    if (isHalfDay && fromDate === toDate) {
+      totalDays = 0.5;
+    }
 
     await db.execute(
       `INSERT INTO leave_requests
@@ -84,8 +88,9 @@ export async function POST(request) {
     recipientEmails = Array.from(new Set(recipientEmails));
 
     if (recipientEmails.length > 0) {
+      const formattedAppliedAt = new Date(appliedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short', hour12: true });
       const subject = `🌴 New Leave Application: ${employeeName} (${leaveType})`;
-      const textBody = `New Leave Application Submitted\n\nEmployee: ${employeeName}\nLeave Type: ${leaveType}\nDuration: ${fromDate} to ${toDate} (${totalDays} day(s))\nReason:\n${reason.trim()}\n\nApplied At: ${new Date(appliedAt).toLocaleString()}\n\nPlease log in to the DeviceDesk Admin Panel to review and process this leave request.`;
+      const textBody = `New Leave Application Submitted\n\nEmployee: ${employeeName}\nLeave Type: ${leaveType}\nDuration: ${fromDate} to ${toDate} (${totalDays} day(s))\nReason:\n${reason.trim()}\n\nApplied At: ${formattedAppliedAt}\n\nPlease log in to the DeviceDesk Admin Panel to review and process this leave request.`;
 
       const htmlBody = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #ffffff;">
@@ -98,7 +103,7 @@ export async function POST(request) {
               <tr><td style="padding: 8px 0; font-weight: bold; width: 140px; color: #555555;">Employee Name:</td><td style="padding: 8px 0; font-weight: bold;">${employeeName}</td></tr>
               <tr><td style="padding: 8px 0; font-weight: bold; color: #555555;">Leave Type:</td><td style="padding: 8px 0;"><span style="background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 12px; font-weight: bold; font-size: 12px;">${leaveType}</span></td></tr>
               <tr><td style="padding: 8px 0; font-weight: bold; color: #555555;">Dates / Duration:</td><td style="padding: 8px 0;"><strong>${fromDate}</strong> to <strong>${toDate}</strong> (${totalDays} ${totalDays === 1 ? 'day' : 'days'})</td></tr>
-              <tr><td style="padding: 8px 0; font-weight: bold; color: #555555;">Applied At:</td><td style="padding: 8px 0;">${new Date(appliedAt).toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 0; font-weight: bold; color: #555555;">Applied At:</td><td style="padding: 8px 0;">${formattedAppliedAt}</td></tr>
             </table>
             <div style="background-color: #f8fafc; border-left: 4px solid #0284c7; padding: 15px; border-radius: 6px; margin-top: 10px;">
               <p style="margin: 0 0 8px 0; font-weight: bold; color: #0369a1; font-size: 14px;">Reason for Leave:</p>
