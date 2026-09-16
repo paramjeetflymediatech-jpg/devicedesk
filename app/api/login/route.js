@@ -5,8 +5,8 @@ import { sendMailNotification } from '../utils/mailHelper.js';
 
 export async function POST(request) {
   try {
-    const { identifier, password } = await request.json();
-    console.log(`[API /login] Login attempt for identifier: "${identifier}" at ${new Date().toISOString()}`);
+    const { identifier, password, deviceId, deviceModel } = await request.json();
+    console.log(`[API /login] Login attempt for identifier: "${identifier}" from device: "${deviceId || 'web/unknown'}" at ${new Date().toISOString()}`);
 
     if (!identifier || !password) {
       return NextResponse.json({ success: false, message: 'Email/name and password are required.' }, { status: 400 });
@@ -77,6 +77,63 @@ export async function POST(request) {
       } catch (migrateErr) {
         console.warn('Auto-hash password migration failed:', migrateErr);
       }
+    }
+
+    // --- Active Marketing Route Multi-Device Restriction ---
+    // If user has an active route/trip ('Checked In' and check_out_at IS NULL),
+    // do not allow logging in from another device.
+    try {
+      const [activeRoutes] = await db.query(
+        `SELECT id, from_location, to_location, check_in_at, device_id, status 
+         FROM marketing_attendance 
+         WHERE employee_id = ? AND status = 'Checked In' AND check_out_at IS NULL
+         ORDER BY check_in_at DESC 
+         LIMIT 1`,
+        [emp.id]
+      );
+
+      if (activeRoutes && activeRoutes.length > 0) {
+        const activeRoute = activeRoutes[0];
+        let routeDeviceId = activeRoute.device_id || null;
+
+        // If route doesn't have device_id recorded yet, check user_devices for active registered device
+        if (!routeDeviceId) {
+          try {
+            const [devRows] = await db.query(
+              `SELECT deviceId FROM user_devices WHERE userId = ? ORDER BY lastActive DESC LIMIT 1`,
+              [emp.id]
+            );
+            if (devRows && devRows.length > 0 && devRows[0].deviceId) {
+              routeDeviceId = devRows[0].deviceId;
+            }
+          } catch (e) {}
+        }
+
+        const cleanIncomingDeviceId = deviceId ? String(deviceId).trim() : '';
+
+        if (routeDeviceId) {
+          // If incoming deviceId is different from the device where the route is running
+          if (!cleanIncomingDeviceId || cleanIncomingDeviceId !== routeDeviceId) {
+            const routeOrigin = activeRoute.from_location ? ` from "${activeRoute.from_location}"` : '';
+            const routeDest = activeRoute.to_location ? ` to "${activeRoute.to_location}"` : '';
+            return NextResponse.json({
+              success: false,
+              activeRouteBlocked: true,
+              message: `🚫 Login Restricted: You currently have an active marketing route in progress${routeOrigin}${routeDest}. Logging in from another device is not permitted while your route is active. Please complete (check out) your route on your active device before logging in on a new device.`
+            }, { status: 403 });
+          }
+        } else if (cleanIncomingDeviceId) {
+          // First time deviceId is captured for this active route, bind it to this route
+          try {
+            await db.execute(
+              `UPDATE marketing_attendance SET device_id = ? WHERE id = ?`,
+              [cleanIncomingDeviceId, activeRoute.id]
+            );
+          } catch (e) {}
+        }
+      }
+    } catch (routeCheckErr) {
+      console.warn('Active route check notice during login:', routeCheckErr);
     }
 
     const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader';

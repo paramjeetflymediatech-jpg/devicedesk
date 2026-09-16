@@ -160,3 +160,7 @@ Your OTP is: 700673
 Text:
 Your OTP is: 235980
 --------------------------------------------------
+[2026-09-16T07:05:18.822Z] To: hr@flymediatech.com | Subject: DeviceDesk Test Notification | MessageID: <680bf0e0-c773-a427-ab3a-0601c055715f@devicedeskflymeditech.com>
+Text:
+This is a test notification to verify delivery to hr@flymediatech.com
+--------------------------------------------------

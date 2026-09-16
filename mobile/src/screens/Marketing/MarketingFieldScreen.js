@@ -21,6 +21,7 @@ import {
   checkInMarketingTrip,
   checkOutMarketingTrip,
   postMarketingLocationLog,
+  getOrCreateDeviceId,
 } from '../../utils/api';
 import AppIcon from '../../components/AppIcon';
 
@@ -398,6 +399,8 @@ export default function MarketingFieldScreen({ user, onBack }) {
         ? calculateHaversineDistance(coords.latitude, coords.longitude, destinationCoords.latitude, destinationCoords.longitude)
         : estimatedKm || 0;
 
+      const currentDevId = await getOrCreateDeviceId();
+
       const res = await checkInMarketingTrip({
         employee_id: employeeId,
         from_location: startAddress,
@@ -408,6 +411,7 @@ export default function MarketingFieldScreen({ user, onBack }) {
         dest_latitude: destinationCoords?.latitude || null,
         dest_longitude: destinationCoords?.longitude || null,
         estimated_km: calculatedKm,
+        device_id: currentDevId,
       });
 
       if (res && res.success) {
