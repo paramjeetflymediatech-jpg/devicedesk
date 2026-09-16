@@ -165,10 +165,15 @@ export default function UsersManagementPage() {
 
     try {
       setSubmitting(true);
+      const finalAddForm = {
+        ...addForm,
+        department: addForm.role === 'Candidate' ? 'N/A' : addForm.department
+      };
+
       const res = await fetch('/api/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(addForm)
+        body: JSON.stringify(finalAddForm)
       });
       const data = await res.json();
 
@@ -228,17 +233,19 @@ export default function UsersManagementPage() {
 
     try {
       setSubmitting(true);
+      const finalEditForm = {
+        name: editForm.name,
+        email: editForm.email,
+        role: editForm.role,
+        department: editForm.role === 'Candidate' ? 'N/A' : editForm.department,
+        ticketLimit: editForm.ticketLimit,
+        status: editForm.status
+      };
+
       const res = await fetch(`/api/employees/${editForm.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editForm.name,
-          email: editForm.email,
-          role: editForm.role,
-          department: editForm.department,
-          ticketLimit: editForm.ticketLimit,
-          status: editForm.status
-        })
+        body: JSON.stringify(finalEditForm)
       });
       const data = await res.json();
       if (res.ok && (data.success || data.message)) {
@@ -763,14 +770,19 @@ export default function UsersManagementPage() {
                     Department <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <select
-                    value={addForm.department}
+                    value={addForm.role === 'Candidate' ? 'N/A' : addForm.department}
                     onChange={e => setAddForm({ ...addForm, department: e.target.value })}
                     className="form-control"
                     style={{ width: '100%' }}
+                    disabled={addForm.role === 'Candidate'}
                   >
-                    {allDepts.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
+                    {addForm.role === 'Candidate' ? (
+                      <option value="N/A">N/A</option>
+                    ) : (
+                      allDepts.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>
@@ -905,14 +917,19 @@ export default function UsersManagementPage() {
                     Department <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <select
-                    value={editForm.department}
+                    value={editForm.role === 'Candidate' ? 'N/A' : editForm.department}
                     onChange={e => setEditForm({ ...editForm, department: e.target.value })}
                     className="form-control"
                     style={{ width: '100%' }}
+                    disabled={editForm.role === 'Candidate'}
                   >
-                    {allDepts.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
+                    {editForm.role === 'Candidate' ? (
+                      <option value="N/A">N/A</option>
+                    ) : (
+                      allDepts.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>

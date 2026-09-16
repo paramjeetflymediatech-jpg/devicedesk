@@ -65,7 +65,7 @@ import SystemHistoryModal from "./components/modals/SystemHistoryModal.js";
 import DeviceDetailsModal from "./components/modals/DeviceDetailsModal.js";
 import SystemImportModal from "./components/modals/SystemImportModal.js";
 import AuxiliaryModals from "./components/modals/AuxiliaryModals.js";
-import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock, FiCalendar, FiCheck, FiX, FiFolder, FiGlobe, FiTrendingUp, FiActivity, FiChevronDown, FiChevronRight } from "react-icons/fi";
+import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock, FiCalendar, FiCheck, FiX, FiFolder, FiGlobe, FiTrendingUp, FiActivity, FiChevronDown, FiChevronRight, FiUserPlus } from "react-icons/fi";
 
 export default function Home() {
   const { user, logout } = useAuth();
@@ -2386,6 +2386,9 @@ export default function Home() {
                       <li className="nav-item">
                         <button onClick={() => window.location.href = "/admin/departments"}><span className="nav-icon"><FiBriefcase /></span> Departments</button>
                       </li>
+                      <li className="nav-item">
+                        <button onClick={() => window.location.href = "/employee-dashboard/hr-recruitment"}><span className="nav-icon"><FiUserPlus /></span> HR Portal</button>
+                      </li>
                       {!isITSupport && (
                         <li className="nav-item">
                           <button onClick={() => window.location.href = "/admin/attendance"}><span className="nav-icon"><FiClock /></span> Attendance</button>
@@ -2547,6 +2550,7 @@ export default function Home() {
                     <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
                       <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/users"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUser /></span> Team Directory</button>
                       <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/departments"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments</button>
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/employee-dashboard/hr-recruitment"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUserPlus /></span> HR Portal</button>
                       {!isITSupport && (
                         <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/attendance"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiClock /></span> Attendance</button>
                       )}

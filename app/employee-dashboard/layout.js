@@ -253,27 +253,20 @@ export default function EmployeeLayout({ children }) {
             )}
             {isHRUser && (
               <>
-                <li style={{ padding: '16px 14px 8px', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px' }}>HR Portal</li>
-                <li className={`nav-item ${pathname === "/admin/attendance" ? "active" : ""}`}>
-                  <Link href="/admin/attendance" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
-                    <span className="nav-icon"><FiClock /></span> All Attendance
-                  </Link>
-                </li>
-                <li className={`nav-item ${pathname === "/employee-dashboard/hr-recruitment" ? "active" : ""}`}>
-                  <Link href="/employee-dashboard/hr-recruitment" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
-                    <span className="nav-icon"><FiUserPlus /></span> Recruitment
-                  </Link>
-                </li>
-                <li className={`nav-item ${pathname === "/admin/leaves" ? "active" : ""}`}>
-                  <Link href="/admin/leaves" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
-                    <span className="nav-icon"><FiCalendar /></span> All Leaves
-                  </Link>
-                </li>
-                <li className={`nav-item ${pathname === "/admin/screenshots" ? "active" : ""}`}>
-                  <Link href="/admin/screenshots" style={{ display: "flex", alignItems: "center", width: "100%", textDecoration: "none" }}>
-                    <span className="nav-icon"><FiActivity /></span> Activity & Screenshots
-                  </Link>
-                </li>
+                <div style={{ padding: '0 16px', marginBottom: '8px', marginTop: '16px' }}>
+                  <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>HR Mode</span>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                      <div style={{ position: 'relative' }}>
+                        <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={false} onChange={() => window.location.href = "/admin/recruitment"} />
+                        <div style={{ width: '36px', height: '20px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '20px', border: '1px solid var(--glass-border)', position: 'relative' }}>
+                          <div style={{ position: 'absolute', top: '2px', left: '3px', width: '14px', height: '14px', borderRadius: '50%', background: 'var(--text-secondary)', transition: 'all 0.3s' }}></div>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
               </>
             )}
           </ul>
@@ -375,39 +368,20 @@ export default function EmployeeLayout({ children }) {
           )}
           {isHRUser && (
             <>
-              <div style={{ padding: '16px 14px 8px', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px' }}>HR Portal</div>
-              <Link
-                href="/admin/attendance"
-                className={`mobile-drawer-item ${pathname === "/admin/attendance" ? "active" : ""}`}
-                onClick={() => setMobileMenuOpen(false)}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiClock /> All Attendance</span>
-              </Link>
-              <Link
-                href="/employee-dashboard/hr-recruitment"
-                className={`mobile-drawer-item ${pathname === "/employee-dashboard/hr-recruitment" ? "active" : ""}`}
-                onClick={() => setMobileMenuOpen(false)}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiUserPlus /> Recruitment</span>
-              </Link>
-              <Link
-                href="/admin/leaves"
-                className={`mobile-drawer-item ${pathname === "/admin/leaves" ? "active" : ""}`}
-                onClick={() => setMobileMenuOpen(false)}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiCalendar /> All Leaves</span>
-              </Link>
-              <Link
-                href="/admin/screenshots"
-                className={`mobile-drawer-item ${pathname === "/admin/screenshots" ? "active" : ""}`}
-                onClick={() => setMobileMenuOpen(false)}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textDecoration: "none" }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><FiActivity /> Activity & Screenshots</span>
-              </Link>
+              <div style={{ padding: '0 14px', marginBottom: '8px', marginTop: '12px' }}>
+                <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>HR Mode</span>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={false} onChange={() => window.location.href = "/admin/recruitment"} />
+                      <div style={{ width: '36px', height: '20px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '20px', border: '1px solid var(--glass-border)', position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: '2px', left: '3px', width: '14px', height: '14px', borderRadius: '50%', background: 'var(--text-secondary)', transition: 'all 0.3s' }}></div>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
             </>
           )}
         </nav>

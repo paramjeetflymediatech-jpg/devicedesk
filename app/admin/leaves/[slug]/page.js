@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { FiCalendar, FiArrowLeft, FiUser, FiLink } from "react-icons/fi";
 import { getEmployees } from "../../../store.js";
@@ -8,7 +8,9 @@ import { findEmployeeBySlug, getEmployeeSlug } from "../../../utils/slugUtils.js
 
 export default function AdminLeavesSlugPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params?.slug ? String(params.slug) : "";
+  const specificLeaveId = searchParams.get("leaveId");
 
   const [employee, setEmployee] = useState(null);
   const [leaves, setLeaves] = useState([]);
@@ -24,7 +26,10 @@ export default function AdminLeavesSlugPage() {
         .then((r) => r.json())
         .then((d) => {
           if (d.success) {
-            const userLeaves = (d.requests || []).filter((l) => l.employeeId === found.id || l.employeeName === found.name);
+            let userLeaves = (d.requests || []).filter((l) => l.employeeId === found.id || l.employeeName === found.name);
+            if (specificLeaveId) {
+              userLeaves = userLeaves.filter((l) => l.id === specificLeaveId);
+            }
             setLeaves(userLeaves);
           }
         })

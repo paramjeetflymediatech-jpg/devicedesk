@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 const API_URL_KEY = 'devicedesk_api_url';
 
 // Default URLs: 10.0.2.2 for Android Emulator, localhost for iOS simulator
-//const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
+const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+// const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
 
 let currentApiUrl = DEFAULT_URL;
 
@@ -463,6 +463,23 @@ export async function postCandidateRegistration(data) {
     return await response.json();
   } catch (err) {
     console.error(`Post candidate registration failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function uploadCandidateFile(formData) {
+  const url = `${currentApiUrl}/api/candidates/upload`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+      },
+      body: formData,
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Upload candidate file failed at ${url}:`, err);
     throw err;
   }
 }

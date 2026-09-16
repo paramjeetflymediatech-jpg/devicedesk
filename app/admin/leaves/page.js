@@ -189,7 +189,7 @@ export default function AdminLeavesPage() {
                           </button>
                         </>
                       )}
-                      <Link href={`/admin/leaves/${empSlug}`} className="btn-action start" style={{ padding: "4px 10px", fontSize: "0.75rem", textDecoration: "none" }}>
+                      <Link href={`/admin/leaves/${empSlug}?leaveId=${l.id}`} className="btn-action start" style={{ padding: "4px 10px", fontSize: "0.75rem", textDecoration: "none" }}>
                         View &rarr;
                       </Link>
                     </td>
