@@ -11,6 +11,8 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3D996F37EED2C173F362E47B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
+		46B180012D88000100000001 /* BackgroundLocationModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46B180022D88000100000001 /* BackgroundLocationModule.swift */; };
+		46B180032D88000100000001 /* BackgroundLocationModuleBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 46B180042D88000100000001 /* BackgroundLocationModuleBridge.m */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		DACF4AA9ADCB8B5A43A83AE7 /* libPods-DeviceDeskMobile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93550C37D0D85FFEBEABBEF9 /* libPods-DeviceDeskMobile.a */; };
 /* End PBXBuildFile section */
@@ -25,6 +27,8 @@
 		463E806E3019C66F00B7067E /* DeviceDeskMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = DeviceDeskMobile.entitlements; path = DeviceDeskMobile/DeviceDeskMobile.entitlements; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-DeviceDeskMobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DeviceDeskMobile.release.xcconfig"; path = "Target Support Files/Pods-DeviceDeskMobile/Pods-DeviceDeskMobile.release.xcconfig"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = DeviceDeskMobile/AppDelegate.swift; sourceTree = "<group>"; };
+		46B180022D88000100000001 /* BackgroundLocationModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BackgroundLocationModule.swift; path = DeviceDeskMobile/BackgroundLocationModule.swift; sourceTree = "<group>"; };
+		46B180042D88000100000001 /* BackgroundLocationModuleBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BackgroundLocationModuleBridge.m; path = DeviceDeskMobile/BackgroundLocationModuleBridge.m; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = DeviceDeskMobile/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		93550C37D0D85FFEBEABBEF9 /* libPods-DeviceDeskMobile.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-DeviceDeskMobile.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -48,6 +52,8 @@
 				463E806E3019C66F00B7067E /* DeviceDeskMobile.entitlements */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				46B180022D88000100000001 /* BackgroundLocationModule.swift */,
+				46B180042D88000100000001 /* BackgroundLocationModuleBridge.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -267,6 +273,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				46B180012D88000100000001 /* BackgroundLocationModule.swift in Sources */,
+				46B180032D88000100000001 /* BackgroundLocationModuleBridge.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -12,7 +12,8 @@ import CandidateRegistrationScreen from './src/screens/CandidateRegistrationScre
 import CandidateDashboardScreen from './src/screens/CandidateDashboardScreen';
 
 import { setupPushNotifications, getFcmToken } from './src/utils/notifications';
-import { getOrCreateDeviceId, registerDeviceToken, deregisterDeviceToken } from './src/utils/api';
+import { getOrCreateDeviceId, registerDeviceToken, deregisterDeviceToken, fetchMarketingAttendance } from './src/utils/api';
+import { startBackgroundTracking, stopBackgroundTracking } from './src/utils/backgroundLocation';
 
 import SweetAlertModal from './src/components/SweetAlertModal';
 import { sweetAlertRef } from './src/utils/sweetAlert';
@@ -76,6 +77,21 @@ function MainAppContent() {
             } catch (tokenErr) {
               console.warn('Silent device token registration failed (non-fatal):', tokenErr);
             }
+
+            // If marketing employee has an active trip, ensure continuous background tracking is running
+            try {
+              const isMkt = (userObj.department || '').toLowerCase() === 'marketing' || (userObj.role || '').toLowerCase().includes('marketing');
+              if (isMkt) {
+                fetchMarketingAttendance(userObj.id).then((res) => {
+                  const active = res?.data?.find((a) => a.status === 'Checked In');
+                  if (active) {
+                    startBackgroundTracking({ employeeId: userObj.id, attendanceId: active.id });
+                  }
+                }).catch(() => {});
+              }
+            } catch (bgErr) {
+              console.warn('Background tracking launch check error (non-fatal):', bgErr);
+            }
           } else {
             setCurrentScreen('welcome');
           }
@@ -137,6 +153,13 @@ function MainAppContent() {
   };
 
   const handleLogout = async () => {
+    // 0. Stop background tracking service if active
+    try {
+      await stopBackgroundTracking();
+    } catch (err) {
+      console.warn('Stop background tracking on logout error (non-fatal):', err);
+    }
+
     // 1. Get tokens & deviceId to deregister on server
     let fcmToken = null;
     let deviceId = null;
