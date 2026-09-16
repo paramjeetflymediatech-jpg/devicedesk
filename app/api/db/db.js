@@ -691,6 +691,14 @@ export async function getDbConnection() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN test_type VARCHAR(50) DEFAULT 'text'`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN test_data JSON DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN score INT DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN submitted_at TIMESTAMP NULL DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN file_url TEXT DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN test_instructions TEXT DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN status VARCHAR(50) DEFAULT 'Pending'`); } catch (e) {}
+
   // Check if DB was already seeded
   const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");
   const alreadySeeded = metaRows.length > 0 && metaRows[0].meta_value === 'true';

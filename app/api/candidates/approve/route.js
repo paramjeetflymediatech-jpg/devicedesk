@@ -3,6 +3,43 @@ import { getDbConnection } from '../../../api/db/db.js';
 import bcrypt from 'bcryptjs';
 import { sendMailNotification } from '../../utils/mailHelper.js';
 
+async function ensureCandidateTestsTable(db) {
+  try {
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS candidate_tests (
+        id VARCHAR(100) PRIMARY KEY,
+        candidate_employee_id VARCHAR(100) NOT NULL,
+        test_title VARCHAR(255) NOT NULL,
+        test_instructions TEXT,
+        file_url TEXT,
+        test_type VARCHAR(50) DEFAULT 'text',
+        test_data JSON,
+        status VARCHAR(50) DEFAULT 'Pending',
+        score INT DEFAULT NULL,
+        submitted_at TIMESTAMP NULL DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } catch (err) {}
+
+  const columnsToAdd = [
+    { name: 'test_type', def: "VARCHAR(50) DEFAULT 'text'" },
+    { name: 'test_data', def: "JSON DEFAULT NULL" },
+    { name: 'score', def: "INT DEFAULT NULL" },
+    { name: 'submitted_at', def: "TIMESTAMP NULL DEFAULT NULL" },
+    { name: 'file_url', def: "TEXT DEFAULT NULL" },
+    { name: 'test_instructions', def: "TEXT DEFAULT NULL" },
+    { name: 'status', def: "VARCHAR(50) DEFAULT 'Pending'" },
+  ];
+
+  for (const col of columnsToAdd) {
+    try {
+      await db.execute(`ALTER TABLE candidate_tests ADD COLUMN \`${col.name}\` ${col.def}`);
+    } catch (e) {}
+  }
+}
+
 export async function POST(request) {
   try {
     const data = await request.json();
@@ -16,6 +53,7 @@ export async function POST(request) {
     }
 
     const db = await getDbConnection();
+    await ensureCandidateTestsTable(db);
     
     // 1. Fetch registration
     const [regs] = await db.execute(`SELECT * FROM candidate_registrations WHERE id = ? LIMIT 1`, [registrationId]);
