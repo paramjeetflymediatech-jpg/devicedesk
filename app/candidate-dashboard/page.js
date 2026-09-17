@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../auth/AuthContext';
 import { FiLogOut, FiFileText, FiDownload, FiCheckCircle } from 'react-icons/fi';
+import Swal from 'sweetalert2';
 
 export default function CandidateDashboard() {
   const { user, logout } = useAuth();
@@ -13,6 +14,12 @@ export default function CandidateDashboard() {
   const [mcqData, setMcqData] = useState([]);
   const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     // If not logged in, or not a candidate, boot them
@@ -49,7 +56,7 @@ export default function CandidateDashboard() {
     fetchTest();
   }, [user, router]);
 
-  if (!user || user.dbRole !== 'Candidate') return null;
+  if (!mounted || !user || user.dbRole !== 'Candidate') return null;
 
   return (
     <div style={{ width: '100%', flex: 1, minHeight: '100vh', background: '#f8fafc', fontFamily: 'system-ui, -apple-system, sans-serif', color: '#0f172a' }}>
@@ -104,65 +111,127 @@ export default function CandidateDashboard() {
               <div style={{ marginBottom: '30px' }}>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '20px', color: '#0f172a' }}>Multiple Choice Assessment</h3>
                 
-                {test.status === 'Completed' ? (
-                   <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '20px', borderRadius: '12px', textAlign: 'center' }}>
-                     <FiCheckCircle style={{ fontSize: '2rem', marginBottom: '10px' }} />
-                     <h3 style={{ margin: '0 0 5px' }}>Assessment Completed</h3>
-                     <p style={{ margin: 0 }}>You have successfully completed this test. HR will review your results.</p>
-                   </div>
-                ) : (
+                  {test.status === 'Completed' ? (() => {
+                     const correctCount = mcqData.filter(q => q.isCorrect === true).length;
+                     const wrongCount = mcqData.filter(q => q.isCorrect === false).length;
+                     return (
+                       <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '30px', borderRadius: '12px', textAlign: 'center' }}>
+                         <FiCheckCircle style={{ fontSize: '3rem', marginBottom: '15px' }} />
+                         <h3 style={{ margin: '0 0 10px', fontSize: '1.5rem' }}>Assessment Completed</h3>
+                         <p style={{ margin: '0 0 20px', color: '#047857' }}>You have successfully completed this test. Here is your preliminary score:</p>
+                         
+                         <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', margin: '20px 0' }}>
+                           <div style={{ background: '#fff', padding: '15px 25px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: '1px solid #10b981' }}>
+                             <div style={{ fontSize: '2rem', fontWeight: '800', color: '#10b981' }}>{correctCount}</div>
+                             <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Correct</div>
+                           </div>
+                           <div style={{ background: '#fff', padding: '15px 25px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: '1px solid #ef4444' }}>
+                             <div style={{ fontSize: '2rem', fontWeight: '800', color: '#ef4444' }}>{wrongCount}</div>
+                             <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Wrong</div>
+                           </div>
+                         </div>
+                         
+                         <p style={{ margin: 0, fontSize: '0.9rem', color: '#047857' }}>HR will review your full results shortly.</p>
+                       </div>
+                     );
+                  })() : (
                   <form onSubmit={async (e) => {
                     e.preventDefault();
                     if (Object.keys(answers).length < mcqData.length) {
-                      alert('Please answer all questions before submitting.');
+                      Swal.fire({
+                        title: 'Incomplete Test',
+                        text: 'Please answer all questions before submitting.',
+                        icon: 'warning',
+                        confirmButtonColor: '#06b6d4'
+                      });
                       return;
                     }
-                    if (!confirm('Are you sure you want to submit your test? This action cannot be undone.')) return;
-                    setSubmitting(true);
-                    try {
-                      const res = await fetch('/api/candidates/submit-test', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ testId: test.id, candidateId: user.id, candidateAnswers: answers })
-                      });
-                      const data = await res.json();
-                      if (data.success) {
-                         alert('Test submitted successfully!');
-                         window.location.reload();
-                      } else {
-                         alert(data.error || 'Failed to submit test');
-                      }
-                    } catch (err) {
-                      alert('Network error during submission.');
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }}>
-                    {mcqData.map((q, idx) => (
-                      <div key={idx} style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '15px', border: '1px solid #e2e8f0' }}>
-                        <h4 style={{ margin: '0 0 15px', color: '#1e293b', fontSize: '1rem' }}>
-                          <span style={{ color: '#06b6d4', marginRight: '8px' }}>Q{idx + 1}.</span> {q.question}
-                        </h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          {q.options.map((opt, optIdx) => (
-                            <label key={optIdx} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer' }}>
-                              <input 
-                                type="radio" 
-                                name={`question-${idx}`} 
-                                value={optIdx}
-                                checked={answers[idx] === optIdx}
-                                onChange={() => setAnswers({...answers, [idx]: optIdx})}
-                              />
-                              <span style={{ color: '#475569', fontSize: '0.95rem' }}>{opt}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
                     
-                    <button type="submit" disabled={submitting} style={{ background: '#06b6d4', color: '#fff', border: 'none', padding: '15px 30px', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: submitting ? 'not-allowed' : 'pointer', width: '100%', marginTop: '20px', boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)' }}>
-                      {submitting ? 'Submitting...' : 'Submit Assessment'}
-                    </button>
+                    Swal.fire({
+                      title: 'Submit Assessment?',
+                      text: 'Are you sure you want to submit your test? This action cannot be undone.',
+                      icon: 'question',
+                      showCancelButton: true,
+                      confirmButtonColor: '#06b6d4',
+                      cancelButtonColor: '#64748b',
+                      confirmButtonText: 'Yes, submit it!'
+                    }).then(async (result) => {
+                      if (result.isConfirmed) {
+                        setSubmitting(true);
+                        try {
+                          const res = await fetch('/api/candidates/submit-test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ testId: test.id, candidateId: user.id, candidateAnswers: answers })
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                             Swal.fire({ title: 'Success!', text: 'Test submitted successfully!', icon: 'success', confirmButtonColor: '#06b6d4' }).then(() => {
+                               window.location.reload();
+                             });
+                          } else {
+                             Swal.fire('Error', data.error || 'Failed to submit test', 'error');
+                          }
+                        } catch (err) {
+                          Swal.fire('Error', 'Network error during submission.', 'error');
+                        } finally {
+                          setSubmitting(false);
+                        }
+                      }
+                    });
+                  }}>
+                    {mcqData.length > 0 && (() => {
+                      const idx = currentPage;
+                      const q = mcqData[idx];
+                      return (
+                        <div style={{ background: '#f8fafc', padding: '25px', borderRadius: '12px', marginBottom: '15px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+                            <span style={{ background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', padding: '6px 14px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '700' }}>
+                              Part: {q.category || 'General'}
+                            </span>
+                            <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: '600' }}>
+                              Question {idx + 1} of {mcqData.length}
+                            </span>
+                          </div>
+                          
+                          <h4 style={{ margin: '0 0 25px', color: '#1e293b', fontSize: '1.15rem', lineHeight: '1.6' }}>
+                            {q.question}
+                          </h4>
+                          
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {q.options.map((opt, optIdx) => (
+                              <label key={optIdx} style={{ display: 'flex', alignItems: 'center', gap: '15px', background: answers[idx] === optIdx ? 'rgba(6, 182, 212, 0.05)' : '#fff', padding: '16px', borderRadius: '8px', border: answers[idx] === optIdx ? '2px solid #06b6d4' : '1px solid #cbd5e1', cursor: 'pointer', transition: 'all 0.2s' }}>
+                                <input 
+                                  type="radio" 
+                                  name={`question-${idx}`} 
+                                  value={optIdx}
+                                  checked={answers[idx] === optIdx}
+                                  onChange={() => setAnswers({...answers, [idx]: optIdx})}
+                                  style={{ transform: 'scale(1.2)' }}
+                                />
+                                <span style={{ color: answers[idx] === optIdx ? '#0f172a' : '#475569', fontSize: '1rem', fontWeight: answers[idx] === optIdx ? '600' : '400' }}>{opt}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '30px', gap: '15px', flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))} disabled={currentPage === 0} style={{ background: '#fff', color: '#64748b', border: '1px solid #cbd5e1', padding: '14px 25px', borderRadius: '8px', fontSize: '0.95rem', fontWeight: 'bold', cursor: currentPage === 0 ? 'not-allowed' : 'pointer', opacity: currentPage === 0 ? 0.5 : 1 }}>
+                        Previous
+                      </button>
+                      
+                      {currentPage < mcqData.length - 1 ? (
+                        <button type="button" onClick={() => setCurrentPage(prev => Math.min(mcqData.length - 1, prev + 1))} style={{ background: '#0f172a', color: '#fff', border: 'none', padding: '14px 40px', borderRadius: '8px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                          Next
+                        </button>
+                      ) : (
+                        <button type="submit" disabled={submitting} style={{ background: '#06b6d4', color: '#fff', border: 'none', padding: '14px 30px', borderRadius: '8px', fontSize: '0.95rem', fontWeight: 'bold', cursor: submitting ? 'not-allowed' : 'pointer', flex: 1, marginLeft: 'auto', maxWidth: '250px', boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)' }}>
+                          {submitting ? 'Submitting...' : 'Submit Assessment'}
+                        </button>
+                      )}
+                    </div>
                   </form>
                 )}
               </div>

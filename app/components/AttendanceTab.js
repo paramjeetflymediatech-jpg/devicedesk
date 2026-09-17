@@ -4,7 +4,7 @@ import Swal from "sweetalert2";
 import AttendanceWidget from "./AttendanceWidget";
 import { FiDownload, FiPlus, FiX } from "react-icons/fi";
 
-export default function AttendanceTab({ user }) {
+export default function AttendanceTab({ user, mode }) {
   const userDbRole = (user?.dbRole || '').toLowerCase();
   const userEmail = (user?.email || '').toLowerCase();
   // Full Admin privileges (viewing all company logs) reserved strictly for Root Admin, Executive Management, HR, and Superadmin
@@ -12,7 +12,7 @@ export default function AttendanceTab({ user }) {
     ['admin', 'management', 'superadmin', 'executive', 'hr management'].includes(userDbRole) ||
     userDbRole.includes('hr') ||
     ['admin@yopmail.com', 'pravi@yopmail.com'].includes(userEmail);
-  const isAdmin = isFullAdmin;
+  const isAdmin = mode === 'personal' ? false : isFullAdmin;
 
   const [records, setRecords] = useState([]);
   const [summary, setSummary] = useState(null);

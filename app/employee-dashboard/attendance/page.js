@@ -17,7 +17,7 @@ export default function AttendancePage() {
   return (
     <div className="page-container emp-container" style={{ overflowY: "auto" }}>
       <div className="page-section active">
-        <AttendanceTab user={user} />
+        <AttendanceTab user={user} mode="personal" />
       </div>
     </div>
   );

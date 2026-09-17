@@ -510,7 +510,7 @@ export default function UsersManagementPage() {
           background: 'rgba(255, 255, 255, 0.02)',
           border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))',
           borderRadius: '16px',
-          overflow: 'hidden'
+          overflowX: 'auto'
         }}>
           <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>

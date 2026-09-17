@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import DocumentPicker from '@react-native-documents/picker';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Image, SafeAreaView, Platform, StatusBar } from 'react-native';
+import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { useTheme } from '../utils/ThemeContext';
 import { sweetAlertRef } from '../utils/sweetAlert';
 import { postCandidateRegistration, uploadCandidateFile } from '../utils/api';
@@ -33,12 +33,15 @@ export default function CandidateRegistrationScreen({ onNavigateBack }) {
 
   const handleDocumentPick = async () => {
     try {
-      const res = await DocumentPicker.pickSingle({
-        type: [DocumentPicker.types.pdf, DocumentPicker.types.doc, DocumentPicker.types.docx],
+      const res = await pick({
+        type: [types.pdf, types.doc, types.docx],
+        allowMultiSelection: false,
       });
-      setResumeFile(res);
+      if (res && res.length > 0) {
+        setResumeFile(res[0]);
+      }
     } catch (err) {
-      if (!DocumentPicker.isCancel(err)) {
+      if (!(isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED)) {
         sweetAlertRef.current?.show({
           type: 'error',
           title: 'Error',
@@ -111,7 +114,8 @@ Reason for Leaving: ${form.why_left}`;
         portfolio_url: form.portfolio_url,
         resume_url: finalResumeUrl,
         experience_level: form.experience_level,
-        experience_details
+        experience_details,
+        notice_period: form.notice_period
       };
 
       const data = await postCandidateRegistration(payload);
@@ -161,15 +165,36 @@ Reason for Leaving: ${form.why_left}`;
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      <View style={[styles.header, { backgroundColor: themeColors.headerBg }]}>
-        <Text style={styles.headerTitle}>Candidate Enrollment</Text>
-        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 5 }}>Fill out all details accurately.</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+      <View style={[styles.header, { backgroundColor: '#0f172a', paddingTop: Platform.OS === 'android' ? 20 : 10 }]}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity 
+            style={styles.backButtonTop} 
+            onPress={onNavigateBack}
+            activeOpacity={0.7}
+          >
+            <AppIcon name="arrow-left" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.logoContainer}>
+            <Image 
+              source={require('../assets/flymedia_logo_white.png')} 
+              style={styles.logoImage} 
+              resizeMode="contain" 
+            />
+          </View>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerTitle}>Register as a Candidate</Text>
+          <Text style={styles.headerSubtitle}>Join Fly Media Technology</Text>
+        </View>
       </View>
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
         
         {/* Personal Details */}
+        
         <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border, borderWidth: 1 }]}>
           <SectionTitle title="Personal Details" icon="user" />
           
@@ -187,6 +212,7 @@ Reason for Leaving: ${form.why_left}`;
         </View>
 
         {/* Professional Details */}
+
         <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border, borderWidth: 1, marginTop: 15 }]}>
           <SectionTitle title="Professional Details" icon="briefcase" />
 
@@ -261,7 +287,7 @@ Reason for Leaving: ${form.why_left}`;
         </TouchableOpacity>
 
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -271,14 +297,54 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    marginBottom: 10,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 25,
+    marginBottom: 20,
+  },
+  backButtonTop: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  logoImage: {
+    width: 140,
+    height: 40,
+  },
+  headerTextContainer: {
+    alignItems: 'center',
+    paddingBottom: 15,
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    color: '#06b6d4',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   scrollContent: {
     padding: 16,

@@ -501,3 +501,21 @@ export async function fetchCandidateTest(candidateId) {
     throw err;
   }
 }
+
+export async function submitCandidateTest(testId, candidateId, candidateAnswers) {
+  const url = `${currentApiUrl}/api/candidates/submit-test`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ testId, candidateId, candidateAnswers })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Submit candidate test failed at ${url}:`, err);
+    throw err;
+  }
+}

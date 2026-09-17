@@ -1873,3 +1873,9 @@ textarea.form-control {
 
 
 
+
+/* Responsive utility classes for tables */
+.table-wrapper { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+@media (max-width: 768px) {
+  .modal-card, .modal-content { max-width: 95vw !important; padding: 1.25rem !important; }
+}
