@@ -3,7 +3,7 @@ import CoreLocation
 import React
 
 @objc(BackgroundLocationModule)
-class BackgroundLocationModule: NSObject, RCTBridgeModule, CLLocationManagerDelegate {
+class BackgroundLocationModule: NSObject, CLLocationManagerDelegate {
 
   static func moduleName() -> String! {
     return "BackgroundLocationModule"
