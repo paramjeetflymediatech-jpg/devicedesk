@@ -37,11 +37,11 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app requires location permission to verify your presence at the office when punching in or out.</string>
+	<string>DeviceDesk requires location permission to verify your presence and track field marketing routes.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app requires location permission to verify your presence at the office when punching in or out.</string>
+	<string>DeviceDesk requires continuous background location access to track field routes and client visits accurately even when the app is in the background or locked.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>This app requires location permission to verify your presence at the office when punching in or out.</string>
+	<string>DeviceDesk requires continuous background location access to track field routes and client visits accurately even when the app is in the background or locked.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app requires access to your photo library to allow you to select and upload photos, profile pictures, and documents.</string>
 	<key>NSCameraUsageDescription</key>
@@ -50,6 +50,8 @@
 	<string>This app requires access to save photos to your photo library.</string>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>location</string>
+		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
 	<key>UILaunchStoryboardName</key>

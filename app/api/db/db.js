@@ -650,8 +650,54 @@ export async function getDbConnection() {
       INDEX idx_domain_name (domain_name),
       INDEX idx_expiry_date (expiry_date),
       INDEX idx_domain_status (status)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS candidate_registrations (
+      id VARCHAR(100) PRIMARY KEY,
+      name VARCHAR(150) NOT NULL,
+      email VARCHAR(150) NOT NULL,
+      phone VARCHAR(50),
+      address TEXT,
+      experience_level VARCHAR(50),
+      experience_details TEXT,
+      status VARCHAR(50) DEFAULT 'Pending',
+      resume_url TEXT,
+      portfolio_url TEXT,
+      education TEXT,
+      skills TEXT,
+      notice_period VARCHAR(50),
+      position_applied VARCHAR(150),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS candidate_tests (
+      id VARCHAR(100) PRIMARY KEY,
+      candidate_employee_id VARCHAR(100) NOT NULL,
+      test_title VARCHAR(255) NOT NULL,
+      test_instructions TEXT,
+      file_url TEXT,
+      test_type VARCHAR(50) DEFAULT 'text',
+      test_data JSON,
+      status VARCHAR(50) DEFAULT 'Pending',
+      score INT DEFAULT NULL,
+      submitted_at TIMESTAMP NULL DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN test_type VARCHAR(50) DEFAULT 'text'`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN test_data JSON DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN score INT DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN submitted_at TIMESTAMP NULL DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN file_url TEXT DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN test_instructions TEXT DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN status VARCHAR(50) DEFAULT 'Pending'`); } catch (e) {}
 
   // Check if DB was already seeded
   const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");

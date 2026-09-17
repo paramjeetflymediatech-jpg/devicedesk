@@ -23,6 +23,10 @@ import {
   postMarketingLocationLog,
   getOrCreateDeviceId,
 } from '../../utils/api';
+import {
+  startBackgroundTracking,
+  stopBackgroundTracking,
+} from '../../utils/backgroundLocation';
 import AppIcon from '../../components/AppIcon';
 
 // Haversine distance in KM
@@ -339,9 +343,18 @@ export default function MarketingFieldScreen({ user, onBack }) {
     }
   }, [currentGps, destinationCoords]);
 
-  // Periodic Live GPS Coordinates Logging (Every 30s) while trip is active
+  // Continuous Background & Foreground Live GPS Coordinates Tracking
   useEffect(() => {
-    if (!activeTrip || !employeeId) return;
+    if (!activeTrip || !employeeId) {
+      stopBackgroundTracking();
+      return;
+    }
+
+    // Launch Native Android Foreground Service for persistent tracking (even when app is minimized or closed)
+    startBackgroundTracking({
+      employeeId: employeeId,
+      attendanceId: activeTrip.id,
+    });
 
     let isMounted = true;
     const sendLocationPing = async () => {
@@ -361,7 +374,7 @@ export default function MarketingFieldScreen({ user, onBack }) {
     };
 
     sendLocationPing();
-    const intervalId = setInterval(sendLocationPing, 30000);
+    const intervalId = setInterval(sendLocationPing, 25000);
 
     return () => {
       isMounted = false;
@@ -415,6 +428,13 @@ export default function MarketingFieldScreen({ user, onBack }) {
       });
 
       if (res && res.success) {
+        const tripId = res.attendance_id || res.data?.id || res.id;
+        if (tripId) {
+          startBackgroundTracking({
+            employeeId,
+            attendanceId: tripId,
+          });
+        }
         sweetAlert({
           title: 'Route Started! 🚀',
           text: `GPS locked from ${startAddress} to ${destinationQuery} (${calculatedKm} KM). Live tracking is now active.`,
@@ -481,6 +501,7 @@ export default function MarketingFieldScreen({ user, onBack }) {
       });
 
       if (res && res.success) {
+        await stopBackgroundTracking();
         sweetAlert({
           title: 'Trip Completed! 🎉',
           text: `Field visit finished successfully. Total logged distance: ${totalKm} KM.`,
