@@ -55,7 +55,7 @@ export async function GET(request) {
       if (employeeId) {
         if (records.length === 0) {
           const [empRows] = await pool.query(
-            `SELECT id, name FROM employees WHERE id = ? AND (status IS NULL OR (status != 'Paused' AND status != 'Inactive'))`,
+            `SELECT id, name FROM employees WHERE id = ? AND (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive'))`,
             [employeeId]
           );
           if (empRows.length > 0) {
@@ -80,7 +80,7 @@ export async function GET(request) {
         }
       } else {
         const [empRows] = await pool.query(
-          `SELECT id, name FROM employees WHERE (status IS NULL OR (status != 'Paused' AND status != 'Inactive')) AND LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client')`
+          `SELECT id, name FROM employees WHERE (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive')) AND LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client')`
         );
         const existingEmpIds = new Set(records.map(r => r.employeeId));
 

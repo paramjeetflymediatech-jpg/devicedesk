@@ -49,7 +49,7 @@ export async function checkAndSendSummaryReport(connectionOverride = null, perio
       const [activeEmps] = await db.execute(
         `SELECT id, name, role, department, email FROM employees 
          WHERE LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client') 
-           AND (status IS NULL OR (status != 'Paused' AND status != 'Inactive'))`
+           AND (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive'))`
       );
 
       if (activeEmps.length === 0) {
