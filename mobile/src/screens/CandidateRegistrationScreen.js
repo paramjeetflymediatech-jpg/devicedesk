@@ -142,15 +142,45 @@ Reason for Leaving: ${form.why_left}`;
 
   if (submitted) {
     return (
-      <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-        <View style={[styles.card, { backgroundColor: themeColors.card, margin: 20, marginTop: 80, alignItems: 'center' }]}>
-          <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 20 }}>✅</Text>
-          <Text style={[styles.title, { color: themeColors.text }]}>Application Submitted</Text>
-          <Text style={[styles.text, { color: themeColors.textSecondary, textAlign: 'center' }]}>
-            Thank you for registering. Our HR team has received your application. Once reviewed, you will be provided with a temporary login ID and password to access your test dashboard.
+      <View style={[styles.container, { backgroundColor: themeColors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <View style={[styles.card, { 
+          backgroundColor: themeColors.card, 
+          width: '100%', 
+          maxWidth: 400, 
+          alignItems: 'center', 
+          padding: 30, 
+          borderRadius: 24,
+          shadowColor: '#10b981',
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.15,
+          shadowRadius: 20,
+          elevation: 10
+        }]}>
+          <View style={{
+            width: 80,
+            height: 80,
+            borderRadius: 40,
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 24
+          }}>
+            <AppIcon name="check" size={40} color="#10b981" />
+          </View>
+          
+          <Text style={[styles.title, { color: themeColors.text, fontSize: 24, marginBottom: 12, textAlign: 'center' }]}>
+            Application Submitted
           </Text>
-          <TouchableOpacity style={[styles.buttonPrimary, { width: '100%', marginTop: 20 }]} onPress={onNavigateBack}>
-            <Text style={styles.buttonText}>Back to Welcome</Text>
+          
+          <Text style={[styles.text, { color: themeColors.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: 30 }]}>
+            Thank you for registering! Our HR team has successfully received your application. Once reviewed, we will send your temporary login ID and password to your registered email address.
+          </Text>
+          
+          <TouchableOpacity 
+            style={[styles.buttonPrimary, { width: '100%', paddingVertical: 16, borderRadius: 12 }]} 
+            onPress={onNavigateBack}
+          >
+            <Text style={[styles.buttonText, { fontSize: 16, fontWeight: 'bold' }]}>Back to Welcome</Text>
           </TouchableOpacity>
         </View>
       </View>

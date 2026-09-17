@@ -371,6 +371,9 @@ export default function UsersManagementPage() {
     const role = (u.role || '').toLowerCase();
     const q = searchTerm.toLowerCase();
 
+    // Exclude admins from the team directory listing
+    if (role === 'admin' || role === 'superadmin') return false;
+
     const matchesSearch = name.includes(q) || email.includes(q) || slug.includes(q) || dept.includes(q) || role.includes(q);
     const matchesRole = roleFilter === 'All' || role === roleFilter.toLowerCase();
     const matchesDept = deptFilter === 'All' || dept === deptFilter.toLowerCase();
