@@ -156,9 +156,15 @@ export async function GET(request) {
     const totalWorkHours = (totalNetMinutes / 60).toFixed(1);
     const avgWorkHours = totalRecords > 0 ? (totalNetMinutes / 60 / totalRecords).toFixed(1) : '0.0';
 
+    // Sanitize records to prevent data exposure
+    const safeRecords = records.map(r => {
+      const { ipAddress, deviceInfo, punchInLatitude, punchInLongitude, punchOutLatitude, punchOutLongitude, modifiedBy, modifiedReason, ...safeData } = r;
+      return safeData;
+    });
+
     return NextResponse.json({
       success: true,
-      records,
+      records: safeRecords,
       summary: {
         totalRecords,
         presentCount,
