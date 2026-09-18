@@ -48,7 +48,11 @@ export async function POST(request) {
 
     const emp = empRows[0];
 
-    const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader';
+    const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
+    const deptStr = `${emp.department || ''}`.toLowerCase().trim();
+    const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
+
+    const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader' || isHRUser;
 
     return NextResponse.json({
       success: true,

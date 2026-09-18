@@ -10,7 +10,11 @@ export function AuthProvider({ children }) {
       const stored = localStorage.getItem("devicedesk_auth_user");
       if (stored) {
         try {
-          return JSON.parse(stored);
+          const parsedUser = JSON.parse(stored);
+          // Sync cookie just in case it expired but localStorage is still active
+          document.cookie = `devicedesk_user_role=${parsedUser.role}; path=/; max-age=86400; SameSite=Lax`;
+          document.cookie = `devicedesk_auth_user=${encodeURIComponent(stored)}; path=/; max-age=86400; SameSite=Lax`;
+          return parsedUser;
         } catch (e) {
           localStorage.removeItem("devicedesk_auth_user");
         }

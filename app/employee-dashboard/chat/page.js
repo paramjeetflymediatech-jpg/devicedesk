@@ -15,8 +15,8 @@ export default function ChatWorkspacePage() {
   if (!mounted || !user) return null;
 
   return (
-    <div className="page-container emp-container" style={{ overflowY: "hidden", padding: 0 }}>
-      <div className="page-section active" style={{ height: "calc(100vh - 140px)", overflow: "hidden", padding: 0 }}>
+    <div className="w-full h-[calc(100vh-60px)] md:h-[calc(100vh-80px)] flex flex-col p-2 md:p-4">
+      <div className="flex-1 w-full relative" style={{ overflow: "hidden", padding: 0 }}>
         <ChatView user={user} />
       </div>
     </div>

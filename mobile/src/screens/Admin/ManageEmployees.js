@@ -1,3 +1,4 @@
+import { useTheme } from '../../utils/ThemeContext';
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -28,6 +29,8 @@ import {
 } from '../../store/store';
 
 export default function ManageEmployees({ currentUser }) {
+  const { themeColors, isDark } = useTheme();
+  const styles = getStyles(themeColors, isDark);
   const [employees, setEmployees] = useState(() => getEmployees());
   const [systems, setSystems] = useState(() => getSystems());
   const [departments, setDepartments] = useState(() => getDepartments());
@@ -331,7 +334,7 @@ export default function ManageEmployees({ currentUser }) {
           <TextInput
             style={[styles.searchInput, { width: '100%', marginRight: 0, paddingRight: 35 }]}
             placeholder="Search by Name, Department or Role..."
-            placeholderTextColor="#8b949e"
+            placeholderTextColor="#64748b"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -346,7 +349,7 @@ export default function ManageEmployees({ currentUser }) {
               }}
               onPress={() => setSearchQuery('')}
             >
-              <Text style={{ color: '#8b949e', fontSize: 16 }}>✕</Text>
+              <Text style={{ color: themeColors.textSecondary, fontSize: 16 }}>✕</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -417,7 +420,7 @@ export default function ManageEmployees({ currentUser }) {
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Dept:</Text>
                     <TouchableOpacity onPress={() => handleOpenDeptDetails(e.department)}>
-                      <Text style={[styles.detailVal, { color: '#58a6ff', textDecorationLine: 'underline' }]}>
+                      <Text style={[styles.detailVal, { color: themeColors.accent, textDecorationLine: 'underline' }]}>
                         {e.department}
                       </Text>
                     </TouchableOpacity>
@@ -569,7 +572,7 @@ export default function ManageEmployees({ currentUser }) {
                 <Text style={styles.infoText}>
                   📁 Choose an Excel (.xlsx, .xls) or CSV file containing your team member list.
                 </Text>
-                <Text style={[styles.infoText, { fontWeight: 'bold', marginTop: 5, color: '#58a6ff' }]}>
+                <Text style={[styles.infoText, { fontWeight: 'bold', marginTop: 5, color: themeColors.accent }]}>
                   Supported columns: Name*, Email, Password, Role, Department, Ticket Limit
                 </Text>
               </View>
@@ -588,13 +591,13 @@ export default function ManageEmployees({ currentUser }) {
 
               {parsedEmployees.length > 0 && (
                 <View style={{ marginTop: 15 }}>
-                  <Text style={[styles.label, { color: '#58a6ff' }]}>Parsed Preview ({parsedEmployees.length} rows)</Text>
+                  <Text style={[styles.label, { color: themeColors.accent }]}>Parsed Preview ({parsedEmployees.length} rows)</Text>
                   <View style={styles.previewContainer}>
                     <ScrollView nestedScrollEnabled={true}>
                       {parsedEmployees.map((emp, index) => (
                         <View key={index} style={styles.previewRow}>
                           <Text style={styles.previewText}>👤 {emp.name}</Text>
-                          <Text style={[styles.previewText, { color: '#8b949e' }]}>🏢 {emp.department} | {emp.role}</Text>
+                          <Text style={[styles.previewText, { color: themeColors.textSecondary }]}>🏢 {emp.department} | {emp.role}</Text>
                         </View>
                       ))}
                     </ScrollView>
@@ -679,7 +682,7 @@ export default function ManageEmployees({ currentUser }) {
                 <View>
                   <View style={styles.specRow}>
                     <Text style={styles.specLabel}>System Number:</Text>
-                    <Text style={[styles.specValue, { color: '#58a6ff', fontWeight: 'bold' }]}>
+                    <Text style={[styles.specValue, { color: themeColors.accent, fontWeight: 'bold' }]}>
                       {selectedSys.systemNumber}
                     </Text>
                   </View>
@@ -715,7 +718,7 @@ export default function ManageEmployees({ currentUser }) {
                   </View>
                   <View style={[styles.specRow, { flexDirection: 'column', alignItems: 'flex-start' }]}>
                     <Text style={styles.specLabel}>Remarks / Hardware Issues:</Text>
-                    <Text style={[styles.specValue, { marginTop: 4, fontStyle: 'italic', color: '#8b949e' }]}>
+                    <Text style={[styles.specValue, { marginTop: 4, fontStyle: 'italic', color: themeColors.textSecondary }]}>
                       {selectedSys.remarks || 'No remarks provided.'}
                     </Text>
                   </View>
@@ -758,7 +761,7 @@ export default function ManageEmployees({ currentUser }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (themeColors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -766,24 +769,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 15,
     borderBottomWidth: 1,
-    borderColor: '#30363d',
-    backgroundColor: '#161b22',
+    borderColor: themeColors.border,
+    backgroundColor: themeColors.card,
     alignItems: 'center',
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     marginRight: 10,
   },
   addBtn: {
-    backgroundColor: '#1f6feb',
+    backgroundColor: themeColors.primary,
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 10,
@@ -797,15 +800,15 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   emptyText: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     textAlign: 'center',
     marginTop: 30,
     fontSize: 15,
   },
   employeeCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
@@ -818,11 +821,11 @@ const styles = StyleSheet.create({
   empName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   empEmail: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     marginTop: 3,
   },
   deleteIcon: {
@@ -837,7 +840,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#30363d',
+    backgroundColor: themeColors.border,
     marginVertical: 10,
   },
   detailsGrid: {
@@ -850,12 +853,12 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     marginRight: 4,
   },
   detailVal: {
     fontSize: 13,
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontWeight: '500',
   },
   systemsContainer: {
@@ -865,19 +868,19 @@ const styles = StyleSheet.create({
   },
   systemsLabel: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     marginRight: 6,
     width: '100%',
     marginBottom: 6,
   },
   noSystems: {
     fontSize: 13,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontStyle: 'italic',
   },
   systemBadge: {
     fontSize: 12,
-    color: '#58a6ff',
+    color: themeColors.accent,
     backgroundColor: 'rgba(88, 166, 255, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(88, 166, 255, 0.3)',
@@ -893,11 +896,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     padding: 20,
     maxHeight: '80%',
   },
@@ -907,42 +910,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     borderBottomWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     paddingBottom: 10,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   closeBtnText: {
     fontSize: 20,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
   },
   formContainer: {
     marginBottom: 10,
   },
   label: {
     fontSize: 14,
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontWeight: '600',
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 15,
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     marginBottom: 15,
   },
   pickerContainer: {
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     padding: 5,
     marginBottom: 15,
@@ -954,14 +957,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderWidth: 1,
     borderColor: 'transparent',
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
   },
   pickerItemActive: {
-    backgroundColor: '#1f6feb',
-    borderColor: '#58a6ff',
+    backgroundColor: themeColors.primary,
+    borderColor: themeColors.accent,
   },
   pickerItemText: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontSize: 12,
   },
   pickerItemTextActive: {
@@ -969,7 +972,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   saveBtn: {
-    backgroundColor: '#238636',
+    backgroundColor: '#10b981',
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
@@ -986,19 +989,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#21262d',
-    backgroundColor: '#161b22',
+    borderBottomColor: themeColors.card,
+    backgroundColor: themeColors.card,
   },
   deptBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     paddingVertical: 8,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     alignItems: 'center',
   },
   deptBtnText: {
-    color: '#58a6ff',
+    color: themeColors.accent,
     fontWeight: '600',
     fontSize: 13,
   },
@@ -1006,9 +1009,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
@@ -1016,30 +1019,30 @@ const styles = StyleSheet.create({
   deptNameText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   deptCountText: {
     fontSize: 11,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     marginTop: 2,
   },
   deptDeleteBtn: {
     backgroundColor: 'rgba(248, 81, 73, 0.1)',
     borderWidth: 1,
-    borderColor: '#f85149',
+    borderColor: '#ef4444',
     borderRadius: 6,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
   deptDeleteBtnText: {
-    color: '#f85149',
+    color: '#ef4444',
     fontSize: 11,
     fontWeight: '600',
   },
   exportBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1048,12 +1051,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   exportBtnText: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontSize: 13,
     fontWeight: 'bold',
   },
   importBtn: {
-    backgroundColor: '#238636',
+    backgroundColor: '#10b981',
     borderWidth: 1,
     borderColor: '#2ea44f',
     borderRadius: 8,
@@ -1064,16 +1067,16 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   importBtnText: {
-    color: '#ffffff',
+    color: themeColors.card,
     fontSize: 13,
     fontWeight: 'bold',
   },
   textArea: {
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     padding: 12,
     fontSize: 13,
     height: 120,
@@ -1081,69 +1084,69 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   parseBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
     marginBottom: 10,
   },
   parseBtnText: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontWeight: 'bold',
     fontSize: 13,
   },
   infoCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     padding: 12,
     marginBottom: 15,
   },
   infoText: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontSize: 12,
     lineHeight: 16,
   },
   previewContainer: {
     maxHeight: 180,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     marginBottom: 15,
     padding: 8,
   },
   previewRow: {
     borderBottomWidth: 1,
-    borderBottomColor: '#21262d',
+    borderBottomColor: themeColors.card,
     paddingVertical: 6,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   previewText: {
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     fontSize: 12,
   },
   selectFileBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingVertical: 15,
     alignItems: 'center',
     marginBottom: 10,
   },
   selectFileBtnText: {
-    color: '#58a6ff',
+    color: themeColors.accent,
     fontWeight: 'bold',
     fontSize: 14,
   },
   fileSelectedText: {
-    color: '#3fb950',
+    color: '#10b981',
     fontSize: 12,
     textAlign: 'center',
     marginBottom: 15,
@@ -1159,7 +1162,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   pausedBadgeText: {
-    color: '#f85149',
+    color: '#ef4444',
     fontSize: 10,
     fontWeight: 'bold',
   },
@@ -1181,9 +1184,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   deptSysCard: {
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
@@ -1197,23 +1200,23 @@ const styles = StyleSheet.create({
   deptSysLink: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
     textDecorationLine: 'underline',
   },
   deptSysModel: {
     fontSize: 13,
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontWeight: '600',
     marginBottom: 4,
   },
   deptSysSpecs: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     marginBottom: 4,
   },
   deptSysAssignee: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
   },
   specRow: {
     flexDirection: 'row',
@@ -1221,34 +1224,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#21262d',
+    borderBottomColor: themeColors.card,
   },
   specLabel: {
     fontSize: 13,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontWeight: '600',
   },
   specValue: {
     fontSize: 13,
-    color: '#c9d1d9',
+    color: themeColors.text,
   },
   historySectionTitle: {
     fontSize: 14,
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     fontWeight: 'bold',
     marginVertical: 12,
   },
   emptyHistoryText: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontStyle: 'italic',
     textAlign: 'center',
     marginVertical: 10,
   },
   historyMiniCard: {
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 6,
     padding: 8,
     marginBottom: 8,
@@ -1262,23 +1265,23 @@ const styles = StyleSheet.create({
   },
   badgeAssigned: {
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#58a6ff',
+    color: themeColors.accent,
     borderWidth: 0.5,
-    borderColor: '#58a6ff',
+    borderColor: themeColors.accent,
   },
   badgeUnassigned: {
     backgroundColor: 'rgba(248, 81, 73, 0.15)',
-    color: '#f85149',
+    color: '#ef4444',
     borderWidth: 0.5,
-    borderColor: '#f85149',
+    borderColor: '#ef4444',
   },
   miniDate: {
     fontSize: 10,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
   },
   miniText: {
     fontSize: 11,
-    color: '#c9d1d9',
+    color: themeColors.text,
     marginTop: 2,
   },
   statusBadge: {
@@ -1289,16 +1292,16 @@ const styles = StyleSheet.create({
   badgeSuccess: {
     backgroundColor: 'rgba(63, 185, 80, 0.15)',
     borderWidth: 0.5,
-    borderColor: '#3fb950',
+    borderColor: '#10b981',
   },
   badgeProgress: {
     backgroundColor: 'rgba(210, 153, 34, 0.15)',
     borderWidth: 0.5,
-    borderColor: '#d29922',
+    borderColor: '#f59e0b',
   },
   statusText: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
 });

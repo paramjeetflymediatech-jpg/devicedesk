@@ -35,6 +35,26 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
 
   const [showPassword, setShowPassword] = useState(false);
 
+  // OTP States
+  const [requiresOtp, setRequiresOtp] = useState(false);
+  const [otpUserId, setOtpUserId] = useState(null);
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
+
+  // Timer effect for OTP resend
+  useEffect(() => {
+    let interval = null;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer(prev => prev - 1);
+      }, 1000);
+    } else if (interval) {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
   useEffect(() => {
     initApiUrl().then(url => {
       setApiUrlState(url);
@@ -94,6 +114,56 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
     }
   };
 
+  const requestOtp = async (uid, uemail) => {
+    const baseUrl = getApiUrl();
+    try {
+      await fetch(`${baseUrl}/api/login/request-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, email: uemail })
+      });
+      setResendTimer(60);
+    } catch (err) {
+      console.log('Failed to request OTP:', err);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp.trim()) {
+      sweetAlert({ title: 'Error', text: 'Please enter the OTP.', type: 'error' });
+      return;
+    }
+    setLoading(true);
+    const baseUrl = getApiUrl();
+    try {
+      const res = await fetch(`${baseUrl}/api/login/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: otpUserId, otp })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        syncWithServer().catch(() => { });
+        setLoading(false);
+        sweetAlert({
+          title: 'Success',
+          text: `Welcome back, ${data.user.name}!`,
+          type: 'success',
+          onConfirm: () => {
+            onLoginSuccess(data.user);
+          }
+        });
+      } else {
+        setLoading(false);
+        sweetAlert({ title: 'Error', text: data.message || 'Invalid or expired OTP.', type: 'error' });
+      }
+    } catch (err) {
+      setLoading(false);
+      sweetAlert({ title: 'Connection Error', text: 'Failed to reach server: ' + err.message, type: 'error' });
+    }
+  };
+
   const handleLogin = async () => {
     setErrorMsg('');
     setSuccessMsg('');
@@ -129,6 +199,15 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        if (data.requiresOtp) {
+          setRequiresOtp(true);
+          setOtpUserId(data.userId);
+          setOtpEmail(data.email);
+          setLoading(false);
+          requestOtp(data.userId, data.email);
+          return;
+        }
+
         syncWithServer().catch(() => { });
         setLoading(false);
 
@@ -254,7 +333,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
 
           {/* Clean White Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Sign In to Account</Text>
+            <Text style={styles.cardTitle}>{requiresOtp ? 'OTP Verification' : 'Sign In to Account'}</Text>
 
             {errorMsg ? (
               <View style={styles.errorAlert}>
@@ -268,56 +347,107 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
               </View>
             ) : null}
 
-            {/* Email Field */}
-            <Text style={styles.label}>Username or Email</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                placeholder="Please enter your company email"
-                placeholderTextColor="#94a3b8"
-                value={identifier}
-                onChangeText={setIdentifier}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+            {requiresOtp ? (
+              <View>
+                <Text style={styles.label}>OTP Verification Code</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter 6-digit OTP"
+                    placeholderTextColor="#94a3b8"
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    editable={!loading}
+                  />
+                </View>
 
-            {/* Password Field */}
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>Password</Text>
-              <TouchableOpacity onPress={onNavigateToForgot} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Text style={styles.forgotBtnText}>Forgot Password?</Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity 
+                  style={[styles.loginButton, loading && { opacity: 0.7 }]} 
+                  onPress={handleVerifyOtp}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Text style={styles.loginButtonText}>Verify OTP</Text>
+                  )}
+                </TouchableOpacity>
 
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.input, { paddingRight: 45 }]}
-                placeholder="••••••••"
-                placeholderTextColor="#94a3b8"
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={setPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={styles.eyeBtn}
-                onPress={() => setShowPassword(!showPassword)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <AppIcon name={showPassword ? 'eye-off' : 'eye'} size={20} color="#64748b" />
-              </TouchableOpacity>
-            </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      if (resendTimer === 0) {
+                        requestOtp(otpUserId, otpEmail);
+                      }
+                    }}
+                    disabled={resendTimer > 0}
+                  >
+                    <Text style={{ color: resendTimer > 0 ? '#94a3b8' : '#06b6d4', fontSize: 14 }}>
+                      {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP'}
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity onPress={() => setRequiresOtp(false)}>
+                    <Text style={{ color: '#64748b', fontSize: 14 }}>Back to Login</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View>
+                {/* Email Field */}
+                <Text style={styles.label}>Username or Email</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Please enter your company email"
+                    placeholderTextColor="#94a3b8"
+                    value={identifier}
+                    onChangeText={setIdentifier}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
 
-            {/* Solid Black Login Button */}
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading} activeOpacity={0.88}>
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.loginButtonText}>Sign In →</Text>
-              )}
-            </TouchableOpacity>
+                {/* Password Field */}
+                <View style={styles.labelRow}>
+                  <Text style={styles.label}>Password</Text>
+                  <TouchableOpacity onPress={onNavigateToForgot} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Text style={styles.forgotBtnText}>Forgot Password?</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[styles.input, { paddingRight: 45 }]}
+                    placeholder="••••••••"
+                    placeholderTextColor="#94a3b8"
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeBtn}
+                    onPress={() => setShowPassword(!showPassword)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <AppIcon name={showPassword ? 'eye-off' : 'eye'} size={20} color="#64748b" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Solid Black Login Button */}
+                <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading} activeOpacity={0.88}>
+                  {loading ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={styles.loginButtonText}>Sign In →</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
 

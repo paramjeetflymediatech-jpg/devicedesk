@@ -133,11 +133,19 @@ export async function POST(request) {
   }
 
   const ipAddressRaw = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
-  const clientIp = ipAddressRaw.split(',')[0].trim();
+  let clientIp = ipAddressRaw.split(',')[0].trim();
+  
+  // Normalize IPv4-mapped IPv6 addresses
+  if (clientIp.startsWith('::ffff:')) {
+    clientIp = clientIp.replace('::ffff:', '');
+  }
   
   const officeIpsEnv = process.env.OFFICE_IPS || '127.0.0.1,::1';
   const officeIps = officeIpsEnv.split(',').map(ip => ip.trim());
-  const isOfficeIp = officeIps.includes(clientIp) || clientIp.startsWith('192.168.');
+  
+  // Also check common private network prefixes in case LAN uses a different subnet
+  const isPrivateSubnet = clientIp.startsWith('192.168.') || clientIp.startsWith('10.') || clientIp.startsWith('172.');
+  const isOfficeIp = officeIps.includes(clientIp) || isPrivateSubnet;
 
   // Location validation for punch in
   if (action === 'PUNCH_IN') {
@@ -157,7 +165,7 @@ export async function POST(request) {
         if (distance > OFFICE_RADIUS) {
           return NextResponse.json({
             success: false,
-            message: `Punch-in rejected. You must be within the office area (100 meters) or connected to the office WiFi. You are currently ${Math.round(distance)} meters away.`
+            message: `Punch-in rejected. You must be within the office area (100 meters) or connected to the office network. You are currently ${Math.round(distance)} meters away. (Your IP: ${clientIp})`
           }, { status: 400 });
         }
       }

@@ -1,3 +1,4 @@
+import { useTheme } from '../../utils/ThemeContext';
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -19,6 +20,8 @@ import {
 } from '../../store/store';
 
 export default function ManageDepartments({ currentUser }) {
+  const { themeColors, isDark } = useTheme();
+  const styles = getStyles(themeColors, isDark);
   const [departments, setDepartments] = useState(() => getDepartments());
   const [employees, setEmployees] = useState(() => getEmployees());
   const [systems, setSystems] = useState(() => getSystems());
@@ -96,7 +99,7 @@ export default function ManageDepartments({ currentUser }) {
           <TextInput
             style={[styles.searchInput, { width: '100%', marginRight: 0, paddingRight: 35 }]}
             placeholder="Search departments..."
-            placeholderTextColor="#8b949e"
+            placeholderTextColor="#64748b"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -111,7 +114,7 @@ export default function ManageDepartments({ currentUser }) {
               }}
               onPress={() => setSearchQuery('')}
             >
-              <Text style={{ color: '#8b949e', fontSize: 16 }}>✕</Text>
+              <Text style={{ color: themeColors.textSecondary, fontSize: 16 }}>✕</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -169,7 +172,7 @@ export default function ManageDepartments({ currentUser }) {
             <TextInput
               style={styles.input}
               placeholder="e.g. Sales, Marketing, IT Support"
-              placeholderTextColor="#8b949e"
+              placeholderTextColor="#64748b"
               value={newDeptName}
               onChangeText={setNewDeptName}
             />
@@ -220,7 +223,7 @@ export default function ManageDepartments({ currentUser }) {
                         setDeptDetailsModalVisible(false);
                       }}
                     >
-                      <Text style={{ color: '#8b949e', fontSize: 18, fontWeight: 'bold', padding: 5 }}>✕</Text>
+                      <Text style={{ color: themeColors.textSecondary, fontSize: 18, fontWeight: 'bold', padding: 5 }}>✕</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -262,7 +265,7 @@ export default function ManageDepartments({ currentUser }) {
                               <Text style={styles.detailItemSub}>{emp.role} • {emp.email}</Text>
                               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                                 {empSystems.length === 0 ? (
-                                  <Text style={{ color: '#8b949e', fontSize: 11, fontStyle: 'italic' }}>No hardware assigned</Text>
+                                  <Text style={{ color: themeColors.textSecondary, fontSize: 11, fontStyle: 'italic' }}>No hardware assigned</Text>
                                 ) : (
                                   empSystems.map(sys => (
                                     <View key={sys.id} style={styles.sysTag}>
@@ -285,10 +288,10 @@ export default function ManageDepartments({ currentUser }) {
                             <View key={sys.id} style={styles.detailItemCard}>
                               <Text style={styles.detailItemName}>🖥️ {sys.systemNo}</Text>
                               <Text style={styles.detailItemSub}>{sys.model} ({sys.os || 'N/A'})</Text>
-                              <Text style={{ color: '#8b949e', fontSize: 12, marginTop: 4 }}>
+                              <Text style={{ color: themeColors.textSecondary, fontSize: 12, marginTop: 4 }}>
                                 CPU: {sys.cpu || '—'} | RAM: {sys.ram || '—'} | GPU: {sys.gpu || '—'}
                               </Text>
-                              <Text style={{ color: '#58a6ff', fontSize: 12, fontWeight: '600', marginTop: 6 }}>
+                              <Text style={{ color: themeColors.accent, fontSize: 12, fontWeight: '600', marginTop: 6 }}>
                                 User: {assignee ? assignee.name : 'Unknown'}
                               </Text>
                             </View>
@@ -307,37 +310,37 @@ export default function ManageDepartments({ currentUser }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (themeColors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
   },
   actionHeader: {
     flexDirection: 'row',
     padding: 15,
     borderBottomWidth: 1,
-    borderColor: '#30363d',
-    backgroundColor: '#161b22',
+    borderColor: themeColors.border,
+    backgroundColor: themeColors.card,
   },
   searchInput: {
     flex: 1,
     height: 40,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    color: '#c9d1d9',
+    color: themeColors.text,
     marginRight: 10,
   },
   addBtn: {
-    backgroundColor: '#238636',
+    backgroundColor: '#10b981',
     borderRadius: 8,
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
   addBtnText: {
-    color: '#ffffff',
+    color: themeColors.card,
     fontWeight: 'bold',
     fontSize: 13,
   },
@@ -345,7 +348,7 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   emptyText: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     textAlign: 'center',
     marginTop: 40,
   },
@@ -353,9 +356,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -366,23 +369,23 @@ const styles = StyleSheet.create({
   deptName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   deptMeta: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     marginTop: 4,
   },
   deleteBtn: {
     backgroundColor: 'rgba(248, 81, 73, 0.1)',
     borderWidth: 1,
-    borderColor: '#f85149',
+    borderColor: '#ef4444',
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
   deleteBtnText: {
-    color: '#f85149',
+    color: '#ef4444',
     fontSize: 13,
     fontWeight: 'bold',
   },
@@ -394,9 +397,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 16,
     padding: 20,
     width: '100%',
@@ -405,23 +408,23 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
     marginBottom: 15,
   },
   label: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
   },
   input: {
     height: 40,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    color: '#c9d1d9',
+    color: themeColors.text,
     marginBottom: 15,
   },
   modalButtons: {
@@ -435,27 +438,27 @@ const styles = StyleSheet.create({
     marginRight: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#30363d',
-    backgroundColor: '#21262d',
+    borderColor: themeColors.border,
+    backgroundColor: themeColors.card,
   },
   cancelBtnText: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontWeight: '600',
   },
   saveBtn: {
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#238636',
+    backgroundColor: '#10b981',
   },
   saveBtnText: {
-    color: '#ffffff',
+    color: themeColors.card,
     fontWeight: 'bold',
   },
   tabContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     marginBottom: 10,
   },
   tabButton: {
@@ -465,27 +468,27 @@ const styles = StyleSheet.create({
   },
   tabButtonActive: {
     borderBottomWidth: 2,
-    borderColor: '#58a6ff',
+    borderColor: themeColors.accent,
   },
   tabButtonText: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontSize: 13,
     fontWeight: 'bold',
   },
   tabButtonTextActive: {
-    color: '#58a6ff',
+    color: themeColors.accent,
   },
   modalEmptyText: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     textAlign: 'center',
     marginVertical: 20,
     fontStyle: 'italic',
     fontSize: 13,
   },
   detailItemCard: {
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
@@ -493,11 +496,11 @@ const styles = StyleSheet.create({
   detailItemName: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   detailItemSub: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     marginTop: 2,
   },
   statusMiniBadge: {
@@ -508,27 +511,27 @@ const styles = StyleSheet.create({
   },
   badgeActive: {
     backgroundColor: 'rgba(56, 139, 60, 0.15)',
-    borderColor: '#3fb950',
+    borderColor: '#10b981',
   },
   badgePaused: {
     backgroundColor: 'rgba(248, 81, 73, 0.15)',
-    borderColor: '#f85149',
+    borderColor: '#ef4444',
   },
   statusMiniText: {
     fontSize: 9,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   sysTag: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   sysTagText: {
-    color: '#58a6ff',
+    color: themeColors.accent,
     fontSize: 11,
     fontWeight: '600',
   },

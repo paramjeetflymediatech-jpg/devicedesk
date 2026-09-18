@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import { io } from "socket.io-client";
+import { FiPaperclip, FiCamera, FiMic, FiSend, FiMessageSquare, FiUsers, FiBriefcase, FiDownload, FiFile, FiCornerUpRight, FiX, FiMoreVertical, FiPlay, FiPause , FiMapPin , FiTrash2 , FiInfo, FiFolder, FiImage, FiLink, FiArrowLeft, FiEdit2 } from "react-icons/fi";
 
 export default function ChatView({ user }) {
   const [employees, setEmployees] = useState([]);
@@ -44,6 +45,7 @@ export default function ChatView({ user }) {
 
   // Responsive Mobile Toggle
   const [showMobileSidebar, setShowMobileSidebar] = useState(true);
+  const [showMobileHeaderMenu, setShowMobileHeaderMenu] = useState(false);
 
   // All Members Modal State
   const [showAllMembersModal, setShowAllMembersModal] = useState(false);
@@ -376,7 +378,7 @@ export default function ChatView({ user }) {
 
   // Returns a human-readable "Last seen X ago" string from an ISO timestamp
   const formatLastSeen = (isoTimestamp) => {
-    if (!isoTimestamp) return "Last seen: unknown";
+    if (!isoTimestamp) return "Offline";
     const diff = Math.floor((Date.now() - new Date(isoTimestamp).getTime()) / 1000);
     if (diff < 60) return "Last seen: just now";
     if (diff < 3600) {
@@ -1586,11 +1588,11 @@ export default function ChatView({ user }) {
       timeFormatted: lastMsg ? new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "",
       content: lastMsg ? (
         lastMsg.deletedForEveryone ? "🚫 Message deleted" :
-        lastMsg.messageType === "image" ? "📷 Photo" :
+        lastMsg.messageType === "image" ? (<> <FiCamera /> Photo </>) :
         lastMsg.messageType === "video" ? "🎥 Video" :
-        lastMsg.messageType === "audio" ? "🎙️ Voice Note" :
-        lastMsg.messageType === "file" ? `📎 ${lastMsg.fileName || "File"}` :
-        lastMsg.content?.replace(/^↪️ Forwarded\n?/, "↪️ ") || ""
+        lastMsg.messageType === "audio" ? (<> <FiMic /> Voice Note </>) :
+        lastMsg.messageType === "file" ? (<> <FiPaperclip /> {lastMsg.fileName || "File"} </>) :
+        lastMsg.content?.replace(/^<FiCornerUpRight \/> Forwarded\n?/, "<FiCornerUpRight /> ") || ""
       ) : ""
     };
   };
@@ -1829,7 +1831,7 @@ export default function ChatView({ user }) {
       const payload = {
         receiverId: forwardTargetId,
         messageType: forwardingMessage.messageType || "text",
-        content: forwardingMessage.content ? `↪️ Forwarded\n${forwardingMessage.content}` : "↪️ Forwarded",
+        content: forwardingMessage.content ? `<FiCornerUpRight /> Forwarded\n${forwardingMessage.content}` : "<FiCornerUpRight /> Forwarded",
         fileUrl: forwardingMessage.fileUrl || null,
         fileName: forwardingMessage.fileName || null,
         fileSize: forwardingMessage.fileSize || null
@@ -1877,7 +1879,7 @@ export default function ChatView({ user }) {
     const canEdit = isOwn && msgAgeMins <= 15 && msg.messageType === "text" && !msg.deletedForEveryone;
 
     const inputOptions = {
-      forward: "↪️ Forward Message",
+      forward: "<FiCornerUpRight /> Forward Message",
       ...(canEdit ? { edit: "✏️ Edit Message" } : {}),
       delete: "🗑️ Delete Message"
     };
@@ -1982,20 +1984,17 @@ export default function ChatView({ user }) {
     }}>
       {/* LEFT SIDEBAR: List DMs, Groups and Channels */}
       <div 
-        className="chat-sidebar"
-        style={{
-          width: "320px",
+        className={`chat-sidebar ${showMobileSidebar ? "flex w-full" : "hidden"} md:!flex md:!w-[320px] flex-col h-full shrink-0 border-r border-[var(--glass-border)] bg-[var(--bg-secondary)]`}
+        style={{ 
           borderRight: "1px solid var(--glass-border)",
           background: "var(--bg-secondary)",
-          display: showMobileSidebar ? "flex" : "none",
-        flexDirection: "column",
-        height: "100%",
-        flexShrink: 0
+          flexDirection: "column",
+          flexShrink: 0
       }}>
         {/* Search Header */}
         <div style={{ padding: "1.25rem", borderBottom: "1px solid var(--glass-border)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--accent-cyan)", margin: 0 }}>💬 Teams Chat</h3>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--accent-cyan)", margin: 0 }}><FiMessageSquare /> Teams Chat</h3>
             <div 
               onClick={handleUpdateProfilePictureClick}
               style={{ position: "relative", cursor: "pointer" }}
@@ -2020,7 +2019,7 @@ export default function ChatView({ user }) {
                 color: "#000",
                 border: "1px solid var(--bg-secondary)"
               }}>
-                📷
+                <FiCamera />
               </div>
             </div>
           </div>
@@ -2064,7 +2063,7 @@ export default function ChatView({ user }) {
                 transition: "background 0.2s"
               }}
             >
-              <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "linear-gradient(135deg, #4f46e5, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", marginRight: "10px" }}>🏢</div>
+              <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "linear-gradient(135deg, #4f46e5, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", marginRight: "10px" }}><FiBriefcase /></div>
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "180px" }}>
                   <div style={{ fontSize: "0.85rem", fontWeight: "600" }}>General Office Chat</div>
@@ -2157,7 +2156,7 @@ export default function ChatView({ user }) {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div style={{ fontSize: "0.85rem", fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexGrow: 1, display: "flex", alignItems: "center", gap: "4px" }}>
                           {group.name}
-                          {isPinned(group.id) && <span style={{ fontSize: "0.75rem" }} title="Pinned group">📌</span>}
+                          {isPinned(group.id) && <span style={{ fontSize: "0.75rem" }} title="Pinned group"><FiMapPin /></span>}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                           {lastMsgInfo.timeFormatted && (
@@ -2168,7 +2167,7 @@ export default function ChatView({ user }) {
                             style={{ fontSize: "0.75rem", cursor: "pointer", opacity: isPinned(group.id) ? 1 : 0.4, padding: "2px" }}
                             title={isPinned(group.id) ? "Unpin group" : "Pin group"}
                           >
-                            {isPinned(group.id) ? "📍" : "📌"}
+                            {isPinned(group.id) ? "📍" : "<FiMapPin />"}
                           </span>
                           {unreadCounts[group.id.toLowerCase()] > 0 && (
                             <span style={{ background: "var(--status-critical)", color: "#fff", borderRadius: "50%", padding: "2px 6px", fontSize: "0.7rem", fontWeight: "700" }}>
@@ -2218,7 +2217,7 @@ export default function ChatView({ user }) {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div style={{ fontSize: "0.85rem", fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexGrow: 1, display: "flex", alignItems: "center", gap: "6px" }}>
                           {emp.name}
-                          {isPinned(emp.id) && <span style={{ fontSize: "0.75rem" }} title="Pinned conversation">📌</span>}
+                          {isPinned(emp.id) && <span style={{ fontSize: "0.75rem" }} title="Pinned conversation"><FiMapPin /></span>}
                           <span 
                             style={{
                               width: "8px",
@@ -2239,7 +2238,7 @@ export default function ChatView({ user }) {
                             style={{ fontSize: "0.75rem", cursor: "pointer", opacity: isPinned(emp.id) ? 1 : 0.4, padding: "2px" }}
                             title={isPinned(emp.id) ? "Unpin member" : "Pin member"}
                           >
-                            {isPinned(emp.id) ? "📍" : "📌"}
+                            {/* {isPinned(emp.id) ? "📍" : "<FiMapPin />"} */}
                           </span>
                           {emp.status === "Paused" && <span style={{ fontSize: "0.6rem", background: "var(--status-critical)", padding: "1px 4px", borderRadius: "4px" }}>Paused</span>}
                           {unreadCounts[emp.id.toLowerCase()] > 0 && (
@@ -2351,12 +2350,9 @@ export default function ChatView({ user }) {
         </div>
       </div>
 
-      {/* RIGHT PANEL: Messaging Area */}
-      <div style={{
+      {/* RIGHT PANEL: Chat Feed + Sidebar Details */}
+      <div className={`chat-main-panel ${!showMobileSidebar ? "flex" : "hidden"} md:!flex flex-grow h-full overflow-hidden`} style={{
         flexGrow: 1,
-        display: !showMobileSidebar || window.innerWidth > 768 ? "flex" : "none",
-        flexDirection: "row",
-        height: "100%",
         background: "var(--bg-primary)",
         position: "relative"
       }}>
@@ -2396,14 +2392,14 @@ export default function ChatView({ user }) {
                 }}
                 title="Back to Chat List"
               >
-                ⬅️
+                <FiArrowLeft />
               </button>
             )}
 
             {/* Conversation Avatar / Profile Picture */}
             <div style={{ marginRight: "12px", display: "flex", alignItems: "center" }}>
               {activeChatId === "general" ? (
-                <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "linear-gradient(135deg, #4f46e5, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>🏢</div>
+                <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "linear-gradient(135deg, #4f46e5, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}><FiBriefcase /></div>
               ) : activeChatId.startsWith("dept_") ? (
                 <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: "linear-gradient(135deg, #7c3aed, #ec4899)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>💻</div>
               ) : activeChatId.startsWith("group_") ? (() => {
@@ -2434,8 +2430,8 @@ export default function ChatView({ user }) {
             </div>
           </div>
 
-          {/* Top Actions Bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* Top Actions Bar (Desktop) */}
+          <div className="hidden lg:flex items-center gap-[8px]">
             <button 
               onClick={(e) => togglePinChat(activeChatId, e)}
               style={{
@@ -2454,7 +2450,7 @@ export default function ChatView({ user }) {
               }}
               title={isPinned(activeChatId) ? "Unpin chat" : "Pin chat to top"}
             >
-              {isPinned(activeChatId) ? "📍 Pinned" : "📌 Pin"}
+              {isPinned(activeChatId) ? "📍" : <FiMapPin />} Pinned
             </button>
             <button 
               onClick={handleClearChatDisplay}
@@ -2474,7 +2470,7 @@ export default function ChatView({ user }) {
               }}
               title="Clear chat display for me"
             >
-              🧹 Clear Chat
+              <FiTrash2 /> Clear Chat
             </button>
             <button 
               onClick={() => setShowDetailsPanel(!showDetailsPanel)}
@@ -2494,8 +2490,109 @@ export default function ChatView({ user }) {
               }}
               title="Conversation details & shared files"
             >
-              ℹ️ Info
+              <FiInfo /> Info
             </button>
+          </div>
+
+          {/* Top Actions Bar (Mobile Dropdown) */}
+          <div className="flex lg:hidden relative items-center">
+            <button 
+              onClick={() => setShowMobileHeaderMenu(!showMobileHeaderMenu)}
+              style={{
+                background: "none",
+                border: "1px solid var(--glass-border)",
+                color: "var(--text-main)",
+                cursor: "pointer",
+                padding: "6px",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "1.2rem",
+              }}
+            >
+              <FiMoreVertical />
+            </button>
+
+            {showMobileHeaderMenu && (
+              <div style={{
+                position: "absolute",
+                top: "100%",
+                right: 0,
+                marginTop: "10px",
+                background: "var(--bg-secondary)",
+                border: "1px solid var(--glass-border)",
+                borderRadius: "12px",
+                padding: "8px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                zIndex: 50,
+                boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
+                width: "200px"
+              }}>
+                <button 
+                  onClick={(e) => { setShowMobileHeaderMenu(false); togglePinChat(activeChatId, e); }}
+                  style={{
+                    background: isPinned(activeChatId) ? "rgba(255, 215, 0, 0.15)" : "none",
+                    border: "none",
+                    color: isPinned(activeChatId) ? "#ffd700" : "var(--text-secondary)",
+                    cursor: "pointer",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "0.9rem",
+                    fontWeight: "600",
+                    width: "100%",
+                    textAlign: "left"
+                  }}
+                >
+                  {isPinned(activeChatId) ? "📍" : <FiMapPin />} Pinned
+                </button>
+                <button 
+                  onClick={() => { setShowMobileHeaderMenu(false); handleClearChatDisplay(); }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    cursor: "pointer",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "0.9rem",
+                    fontWeight: "600",
+                    width: "100%",
+                    textAlign: "left"
+                  }}
+                >
+                  <FiTrash2 /> Clear Chat
+                </button>
+                <button 
+                  onClick={() => { setShowMobileHeaderMenu(false); setShowDetailsPanel(!showDetailsPanel); }}
+                  style={{
+                    background: showDetailsPanel ? "rgba(255, 255, 255, 0.1)" : "none",
+                    border: "none",
+                    color: "var(--text-main)",
+                    cursor: "pointer",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "0.9rem",
+                    fontWeight: "600",
+                    width: "100%",
+                    textAlign: "left"
+                  }}
+                >
+                  <FiInfo /> Info
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2510,7 +2607,7 @@ export default function ChatView({ user }) {
         }}>
           {Object.keys(groupedMessages).length === 0 ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyStyle: "center", flexGrow: 1, marginTop: "20%" }}>
-              <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>💬</div>
+              <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}><FiMessageSquare /></div>
               <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>No messages here yet. Break the ice!</p>
             </div>
           ) : (
@@ -2604,12 +2701,12 @@ export default function ChatView({ user }) {
                               {/* Render based on message type */}
                               {msg.messageType === "text" && (
                                 <div>
-                                  {msg.content?.startsWith("↪️ Forwarded") ? (
+                                  {msg.content?.startsWith("<FiCornerUpRight /> Forwarded") ? (
                                     <div>
                                       <span style={{ fontSize: "0.7rem", color: "var(--accent-cyan)", fontWeight: "600", display: "block", marginBottom: "2px" }}>
-                                        ↪️ Forwarded
+                                        <FiCornerUpRight /> Forwarded
                                       </span>
-                                      <div>{msg.content.replace(/^↪️ Forwarded\n?/, "")}</div>
+                                      <div>{msg.content.replace(/^<FiCornerUpRight \/> Forwarded\n?/, "")}</div>
                                     </div>
                                   ) : (
                                     <div>{msg.content}</div>
@@ -2619,12 +2716,12 @@ export default function ChatView({ user }) {
 
                               {msg.messageType === "image" && (
                                 <div>
-                                  {msg.content?.startsWith("↪️ Forwarded") && (
+                                  {msg.content?.startsWith("<FiCornerUpRight /> Forwarded") && (
                                     <span style={{ fontSize: "0.7rem", color: "var(--accent-cyan)", fontWeight: "600", display: "block", marginBottom: "4px" }}>
-                                      ↪️ Forwarded
+                                      <FiCornerUpRight /> Forwarded
                                     </span>
                                   )}
-                                  {msg.content && !msg.content.startsWith("↪️ Forwarded") && <div style={{ marginBottom: "8px" }}>{msg.content}</div>}
+                                  {msg.content && !msg.content.startsWith("<FiCornerUpRight /> Forwarded") && <div style={{ marginBottom: "8px" }}>{msg.content}</div>}
                                   <img 
                                     src={msg.fileUrl} 
                                     alt={msg.fileName || "Shared media"}
@@ -2636,23 +2733,23 @@ export default function ChatView({ user }) {
 
                               {msg.messageType === "audio" && (
                                 <div>
-                                  {msg.content?.startsWith("↪️ Forwarded") && (
+                                  {msg.content?.startsWith("<FiCornerUpRight /> Forwarded") && (
                                     <span style={{ fontSize: "0.7rem", color: "var(--accent-cyan)", fontWeight: "600", display: "block", marginBottom: "4px" }}>
-                                      ↪️ Forwarded
+                                      <FiCornerUpRight /> Forwarded
                                     </span>
                                   )}
                                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                                     <audio controls src={msg.fileUrl} style={{ width: "240px", height: "40px" }} />
-                                    <span style={{ fontSize: "0.65rem", opacity: 0.8 }}>🎙️ Voice Note ({msg.fileSize || "Size Unknown"})</span>
+                                    <span style={{ fontSize: "0.65rem", opacity: 0.8 }}><FiMic /> Voice Note ({msg.fileSize || "Size Unknown"})</span>
                                   </div>
                                 </div>
                               )}
 
                               {msg.messageType === "file" && (
                                 <div>
-                                  {msg.content?.startsWith("↪️ Forwarded") && (
+                                  {msg.content?.startsWith("<FiCornerUpRight /> Forwarded") && (
                                     <span style={{ fontSize: "0.7rem", color: "var(--accent-cyan)", fontWeight: "600", display: "block", marginBottom: "4px" }}>
-                                      ↪️ Forwarded
+                                      <FiCornerUpRight /> Forwarded
                                     </span>
                                   )}
                                   <a 
@@ -2668,7 +2765,7 @@ export default function ChatView({ user }) {
                                       padding: "4px"
                                     }}
                                   >
-                                    <span style={{ fontSize: "1.5rem" }}>📎</span>
+                                    <span style={{ fontSize: "1.5rem" }}><FiPaperclip /></span>
                                     <div style={{ minWidth: 0 }}>
                                       <div style={{ fontWeight: "600", fontSize: "0.8rem", textDecoration: "underline", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                         {msg.fileName || "Attachment File"}
@@ -2716,7 +2813,7 @@ export default function ChatView({ user }) {
                                     top: "100%",
                                     [isOwn ? "right" : "left"]: 0,
                                     marginTop: "4px",
-                                    background: "#161b22",
+                                    background: "var(--bg-secondary)",
                                     border: "1px solid var(--glass-border)",
                                     borderRadius: "10px",
                                                                         zIndex: 999,
@@ -2750,10 +2847,10 @@ export default function ChatView({ user }) {
                                       width: "100%",
                                       transition: "background 0.15s"
                                     }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--glass-border)"}
                                     onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                                   >
-                                    <span style={{ fontSize: "1rem" }}>↪️</span> Forward
+                                    <span style={{ fontSize: "1rem" }}><FiCornerUpRight /></span> Forward
                                   </button>
 
                                   {/* Edit Option (if allowed) */}
@@ -2778,10 +2875,10 @@ export default function ChatView({ user }) {
                                         width: "100%",
                                         transition: "background 0.15s"
                                       }}
-                                      onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+                                      onMouseEnter={(e) => e.currentTarget.style.background = "var(--glass-border)"}
                                       onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                                     >
-                                      <span style={{ fontSize: "1rem" }}>✏️</span> Edit
+                                      <span style={{ fontSize: "1rem" }}><FiEdit2 /></span> Edit
                                     </button>
                                   )}
 
@@ -2808,7 +2905,7 @@ export default function ChatView({ user }) {
                                     onMouseEnter={(e) => e.currentTarget.style.background = "rgba(218, 54, 55, 0.15)"}
                                     onMouseLeave={(e) => e.currentTarget.style.background = "none"}
                                   >
-                                    <span style={{ fontSize: "1rem" }}>🗑️</span> Delete
+                                    <span style={{ fontSize: "1rem" }}><FiTrash2 /></span> Delete
                                   </button>
                                 </div>
                               )}
@@ -2845,7 +2942,7 @@ export default function ChatView({ user }) {
             gap: "10px"
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontSize: "1.2rem" }}>🎙️</span>
+              <span style={{ fontSize: "1.2rem" }}><FiMic /></span>
               <span style={{ fontSize: "0.8rem", fontWeight: "600" }}>Voice Note Preview:</span>
               <audio src={recordedUrl} controls style={{ height: "36px" }} />
             </div>
@@ -2995,7 +3092,7 @@ export default function ChatView({ user }) {
                 onMouseEnter={(e) => e.currentTarget.style.background = "rgba(218, 54, 55, 0.22)"}
                 onMouseLeave={(e) => e.currentTarget.style.background = "rgba(218, 54, 55, 0.12)"}
               >
-                🧹 Clear Chat Display
+                <FiTrash2 /> Clear Chat Display
               </button>
             </div>
           ) : (
@@ -3028,10 +3125,11 @@ export default function ChatView({ user }) {
                     justifyContent: "center",
                     fontSize: "1.1rem",
                     cursor: "pointer",
-                    transition: "background 0.2s"
+                    transition: "background 0.2s",
+                    flexShrink: 0
                   }}
                 >
-                  📎
+                  <FiPaperclip />
                 </button>
 
                 {/* Camera snap */}
@@ -3052,10 +3150,11 @@ export default function ChatView({ user }) {
                     justifyContent: "center",
                     fontSize: "1.1rem",
                     cursor: "pointer",
-                    transition: "background 0.2s"
+                    transition: "background 0.2s",
+                    flexShrink: 0
                   }}
                 >
-                  📷
+                  <FiCamera />
                 </button>
 
                 {/* Audio Note recorder */}
@@ -3076,10 +3175,11 @@ export default function ChatView({ user }) {
                     justifyContent: "center",
                     fontSize: "1.1rem",
                     cursor: "pointer",
-                    transition: "background 0.2s"
+                    transition: "background 0.2s",
+                    flexShrink: 0
                   }}
                 >
-                  🎙️
+                  <FiMic />
                 </button>
               </div>
 
@@ -3099,7 +3199,8 @@ export default function ChatView({ user }) {
                   color: "var(--text-primary)",
                   outline: "none",
                   fontSize: "0.85rem",
-                  fontFamily: "var(--font-main)"
+                  fontFamily: "var(--font-main)",
+                  minWidth: 0
                 }}
               />
 
@@ -3121,10 +3222,11 @@ export default function ChatView({ user }) {
                   justifyContent: "center",
                   fontSize: "1.1rem",
                   cursor: messageText.trim() ? "pointer" : "not-allowed",
-                  transition: "all 0.2s"
+                  transition: "all 0.2s",
+                  flexShrink: 0
                 }}
               >
-                🚀
+                <FiSend />
               </button>
             </form>
           )}
@@ -3133,16 +3235,14 @@ export default function ChatView({ user }) {
 
         {/* Right Column: Conversation Details & Media */}
         {showDetailsPanel && (
-          <div style={{
-            width: "320px",
-            height: "100%",
-            background: "var(--bg-secondary)",
-            borderLeft: "1px solid var(--glass-border)",
-            display: "flex",
-            flexDirection: "column",
-            animation: "fade-in 0.3s ease",
-            overflow: "hidden"
-          }}>
+          <div 
+            className="absolute lg:relative right-0 z-20 w-full sm:w-[320px] h-full flex flex-col overflow-hidden shadow-xl lg:shadow-none"
+            style={{
+              background: "var(--bg-secondary)",
+              borderLeft: "1px solid var(--glass-border)",
+              animation: "fade-in 0.3s ease",
+            }}
+          >
             {/* Panel Header */}
             <div style={{
               padding: "1rem",
@@ -3153,7 +3253,7 @@ export default function ChatView({ user }) {
               background: "var(--bg-secondary)"
             }}>
               <h4 style={{ margin: 0, fontSize: "0.9rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
-                ℹ️ Chat Details
+                <FiInfo /> Chat Details
               </h4>
               <button 
                 onClick={() => setShowDetailsPanel(false)}
@@ -3217,7 +3317,7 @@ export default function ChatView({ user }) {
                             color: "#000",
                                                         border: "2px solid var(--bg-tertiary)"
                           }}>
-                            📷
+                            <FiCamera />
                           </div>
                         </div>
                         <h5 style={{ margin: "0 0 4px 0", fontSize: "0.95rem", fontWeight: "700" }}>{group?.name || "Group"}</h5>
@@ -3305,7 +3405,7 @@ export default function ChatView({ user }) {
                 ) : activeChatId.startsWith("dept_") || activeChatId === "general" ? (
                   <>
                     <div style={{ width: "60px", height: "60px", borderRadius: "12px", background: activeChatId === "general" ? "linear-gradient(135deg, #4f46e5, #06b6d4)" : "linear-gradient(135deg, #7c3aed, #ec4899)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", marginBottom: "0.75rem" }}>
-                      {activeChatId === "general" ? "🏢" : "💻"}
+                      {activeChatId === "general" ? <FiBriefcase /> : "💻"}
                     </div>
                     <h5 style={{ margin: "0 0 4px 0", fontSize: "0.95rem", fontWeight: "700" }}>{selectedChatName}</h5>
                     <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.75rem" }}>
@@ -3379,7 +3479,7 @@ export default function ChatView({ user }) {
                               color: "#000",
                                                             border: "2px solid var(--bg-tertiary)"
                             }}>
-                              📷
+                              <FiCamera />
                             </div>
                           </div>
                         ) : (
@@ -3427,7 +3527,7 @@ export default function ChatView({ user }) {
                     marginBottom: "8px"
                   }}
                 >
-                  {isPinned(activeChatId) ? "📍 Unpin Conversation" : "📌 Pin Conversation"}
+                  {isPinned(activeChatId) ? "📍 Unpin Conversation" : (<> <FiMapPin /> Pin Conversation </>)}
                 </button>
 
                 <button 
@@ -3449,7 +3549,7 @@ export default function ChatView({ user }) {
                     marginTop: "14px"
                   }}
                 >
-                  🧹 Clear Chat Display
+                  <FiTrash2 /> Clear Chat Display
                 </button>
 
                 {/* Block / Unblock User Button */}
@@ -3485,16 +3585,16 @@ export default function ChatView({ user }) {
                 {/* Media Filters tabs */}
                 <div style={{ display: "flex", gap: "4px", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "10px" }}>
                   {[
-                    { id: "all", label: "📁 All" },
-                    { id: "media", label: "🖼️ Media" },
-                    { id: "docs", label: "📄 Docs" },
-                    { id: "links", label: "🔗 Links" }
+                    { id: "all", label: <><span style={{marginRight: "4px"}}><FiFolder /></span> All</> },
+                    { id: "media", label: <><span style={{marginRight: "4px"}}><FiImage /></span> Media</> },
+                    { id: "docs", label: <><span style={{marginRight: "4px"}}><FiFile /></span> Docs</> },
+                    { id: "links", label: <><span style={{marginRight: "4px"}}><FiLink /></span> Links</> }
                   ].map(tab => (
                     <button
                       key={tab.id}
                       onClick={() => setMediaFilter(tab.id)}
                       style={{
-                        background: mediaFilter === tab.id ? "rgba(255, 255, 255, 0.1)" : "none",
+                        background: mediaFilter === tab.id ? "var(--glass-border)" : "none",
                         border: "none",
                         color: mediaFilter === tab.id ? "var(--accent-cyan)" : "var(--text-secondary)",
                         cursor: "pointer",
@@ -3567,12 +3667,12 @@ export default function ChatView({ user }) {
                                 gap: "8px"
                               }}
                             >
-                              <span style={{ fontSize: "1.2rem" }}>{d.type === "audio" ? "🎵" : "📄"}</span>
+                              <span style={{ fontSize: "1.2rem" }}>{d.type === "audio" ? "🎵" : "<FiFile />"}</span>
                               <div style={{ flexGrow: 1, minWidth: 0 }}>
                                 <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600" }}>{d.fileName}</div>
                                 <div style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}>{d.fileSize || "Unknown size"} • {d.senderName}</div>
                               </div>
-                              <span style={{ fontSize: "0.9rem" }}>📥</span>
+                              <span style={{ fontSize: "0.9rem" }}><FiDownload /></span>
                             </a>
                           ))}
                         </div>
@@ -3668,12 +3768,12 @@ export default function ChatView({ user }) {
                                   gap: "8px"
                                 }}
                               >
-                                <span style={{ fontSize: "1.2rem" }}>{item.type === "audio" ? "🎵" : "📄"}</span>
+                                <span style={{ fontSize: "1.2rem" }}>{item.type === "audio" ? "🎵" : "<FiFile />"}</span>
                                 <div style={{ flexGrow: 1, minWidth: 0 }}>
                                   <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600" }}>{item.fileName}</div>
                                   <div style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}>{item.fileSize || "Audio"} • {item.senderName}</div>
                                 </div>
-                                <span style={{ fontSize: "0.9rem" }}>📥</span>
+                                <span style={{ fontSize: "0.9rem" }}><FiDownload /></span>
                               </a>
                             );
                           }
@@ -3739,7 +3839,7 @@ export default function ChatView({ user }) {
           }}>
             {/* Header */}
             <div style={{ padding: "1.25rem", borderBottom: "1px solid var(--glass-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "700", color: "#fff" }}>Conversation Members</h3>
+              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: "700", color: "var(--text-primary)" }}>Conversation Members</h3>
               <button 
                 onClick={() => setShowAllMembersModal(false)}
                 style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: "1.25rem" }}
@@ -3759,9 +3859,9 @@ export default function ChatView({ user }) {
                   width: "100%",
                   padding: "10px 14px",
                   borderRadius: "10px",
-                  background: "rgba(0,0,0,0.2)",
+                  background: "var(--bg-primary)",
                   border: "1px solid var(--glass-border)",
-                  color: "#fff",
+                  color: "var(--text-primary)",
                   fontSize: "0.85rem",
                   outline: "none"
                 }}
@@ -3804,7 +3904,7 @@ export default function ChatView({ user }) {
                         alignItems: "center", 
                         gap: "12px", 
                         padding: "10px", 
-                        background: "rgba(255,255,255,0.02)", 
+                        background: "var(--bg-primary)", 
                         border: "1px solid var(--glass-border)", 
                         borderRadius: "10px" 
                       }}
@@ -3812,7 +3912,7 @@ export default function ChatView({ user }) {
                       {renderAvatar("employee", emp, "32px")}
                       <div style={{ flexGrow: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {emp.name} {isSelf && "(You)"}
                           </span>
                           <span style={{ fontSize: "0.7rem", color: emp.status === "Paused" ? "var(--status-critical)" : "var(--status-success)" }}>
@@ -3887,7 +3987,7 @@ export default function ChatView({ user }) {
                     width: "100%",
                     padding: "10px 14px",
                     borderRadius: "10px",
-                    background: "rgba(0,0,0,0.2)",
+                    background: "var(--bg-primary)",
                     border: "1px solid var(--glass-border)",
                     color: "#fff",
                     fontSize: "0.85rem",
@@ -3956,7 +4056,7 @@ export default function ChatView({ user }) {
                 <button
                   type="button"
                   onClick={() => setShowAddMembersModal(false)}
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--glass-border)", color: "#fff", padding: "8px 16px", borderRadius: "10px", cursor: "pointer", fontSize: "0.85rem" }}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--glass-border)", color: "var(--text-primary)", padding: "8px 16px", borderRadius: "10px", cursor: "pointer", fontSize: "0.85rem" }}
                 >
                   Cancel
                 </button>
@@ -4009,10 +4109,10 @@ export default function ChatView({ user }) {
           }}>
             {/* Modal Header */}
             <div style={{ padding: "1.25rem", borderBottom: "1px solid var(--glass-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h4 style={{ fontWeight: "700", color: "var(--accent-cyan)", margin: 0 }}>👥 Create Custom Group Chat</h4>
+              <h4 style={{ fontWeight: "700", color: "var(--accent-cyan)", margin: 0 }}><FiUsers /> Create Custom Group Chat</h4>
               <button 
                 onClick={() => { setShowCreateGroupModal(false); setSelectedMembers([]); setNewGroupName(""); }}
-                style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "1.2rem" }}
+                style={{ background: "none", border: "none", color: "var(--text-primary)", cursor: "pointer", fontSize: "1.2rem" }}
               >
                 ✕
               </button>
@@ -4034,7 +4134,7 @@ export default function ChatView({ user }) {
                       width: "100%",
                       padding: "10px 14px",
                       borderRadius: "10px",
-                      background: "rgba(255,255,255,0.02)",
+                      background: "var(--bg-primary)",
                       border: "1px solid var(--glass-border)",
                       color: "#fff",
                       outline: "none",
@@ -4055,7 +4155,7 @@ export default function ChatView({ user }) {
                       width: "100%",
                       padding: "8px 12px",
                       borderRadius: "8px",
-                      background: "rgba(255,255,255,0.02)",
+                      background: "var(--bg-primary)",
                       border: "1px solid var(--glass-border)",
                       color: "#fff",
                       outline: "none",
@@ -4067,12 +4167,12 @@ export default function ChatView({ user }) {
 
                 {/* Member List Checklist */}
                 <div style={{
-                  maxHeight: "180px",
+                  maxHeight: "350px", flexGrow: 1,
                   overflowY: "auto",
                   border: "1px solid var(--glass-border)",
                   borderRadius: "10px",
                   padding: "6px",
-                  background: "rgba(0,0,0,0.2)"
+                  background: "var(--bg-primary)"
                 }}>
                   {filteredEmployeesForGroup.length === 0 ? (
                     <div style={{ padding: "10px", fontStyle: "italic", fontSize: "0.8rem", color: "var(--text-muted)" }}>No members found</div>
@@ -4127,7 +4227,7 @@ export default function ChatView({ user }) {
                 <button 
                   type="button"
                   onClick={() => { setShowCreateGroupModal(false); setSelectedMembers([]); setNewGroupName(""); }}
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--glass-border)", color: "#fff", padding: "8px 16px", borderRadius: "10px", cursor: "pointer", fontSize: "0.85rem" }}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--glass-border)", color: "var(--text-primary)", padding: "8px 16px", borderRadius: "10px", cursor: "pointer", fontSize: "0.85rem" }}
                 >
                   Cancel
                 </button>
@@ -4137,7 +4237,7 @@ export default function ChatView({ user }) {
                   style={{
                     background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))",
                     border: "none",
-                    color: "#000",
+                    color: "white",
                     padding: "8px 24px",
                     borderRadius: "10px",
                     cursor: (!newGroupName.trim() || selectedMembers.length === 0) ? "not-allowed" : "pointer",
@@ -4180,10 +4280,10 @@ export default function ChatView({ user }) {
           }}>
             {/* Modal Header */}
             <div style={{ padding: "1.25rem", borderBottom: "1px solid var(--glass-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h4 style={{ fontWeight: "700", color: "var(--accent-cyan)" }}>📷 Capture Live Photo</h4>
+              <h4 style={{ fontWeight: "700", color: "var(--accent-cyan)" }}><FiCamera /> Capture Live Photo</h4>
               <button 
                 onClick={closeCameraModal}
-                style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "1.2rem" }}
+                style={{ background: "none", border: "none", color: "var(--text-primary)", cursor: "pointer", fontSize: "1.2rem" }}
               >
                 ✕
               </button>
@@ -4302,7 +4402,7 @@ export default function ChatView({ user }) {
                 border: "1px solid rgba(255,255,255,0.2)"
               }}
             >
-              📥 Download File
+              <FiDownload /> Download File
             </a>
             <button
               onClick={() => setPreviewMediaUrl(null)}
@@ -4375,13 +4475,13 @@ export default function ChatView({ user }) {
               />
             ) : (
               <div style={{ background: "#161b22", padding: "2.5rem", borderRadius: "16px", textAlign: "center", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <span style={{ fontSize: "3.5rem" }}>📄</span>
+                <span style={{ fontSize: "3.5rem" }}><FiFile /></span>
                 <h4 style={{ margin: "1rem 0 0.5rem 0" }}>File Preview</h4>
                 <p style={{ margin: "0 0 1.5rem 0", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
                   {previewMediaUrl.split('/').pop()}
                 </p>
                 <a href={previewMediaUrl} download className="btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                  📥 Download Attachment
+                  <FiDownload /> Download Attachment
                 </a>
               </div>
             )}
@@ -4395,7 +4495,7 @@ export default function ChatView({ user }) {
           <div className="modal-card" style={{ maxWidth: "480px", width: "92%" }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ fontSize: "1.1rem", display: "flex", alignItems: "center", gap: "8px" }}>
-                ↪️ Forward Message To...
+                <FiCornerUpRight /> Forward Message To...
               </h3>
               <button className="modal-close" onClick={() => { setShowForwardModal(false); setForwardingMessage(null); }}>&times;</button>
             </div>
@@ -4407,7 +4507,7 @@ export default function ChatView({ user }) {
                   Preview message:
                 </span>
                 <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {forwardingMessage.content?.replace(/^↪️ Forwarded\n?/, "") || forwardingMessage.fileName || "Media Attachment"}
+                  {forwardingMessage.content?.replace(/^<FiCornerUpRight \/> Forwarded\n?/, "") || forwardingMessage.fileName || "Media Attachment"}
                 </div>
               </div>
             )}
@@ -4438,7 +4538,7 @@ export default function ChatView({ user }) {
                   gap: "10px"
                 }}
               >
-                <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "linear-gradient(135deg, #4f46e5, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center" }}>🏢</div>
+                <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "linear-gradient(135deg, #4f46e5, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center" }}><FiBriefcase /></div>
                 <div style={{ flexGrow: 1 }}>
                   <div style={{ fontSize: "0.85rem", fontWeight: "600" }}>General Channel</div>
                   <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>Company-wide</div>
@@ -4508,7 +4608,7 @@ export default function ChatView({ user }) {
                 onClick={handleConfirmForward}
                 style={{ opacity: forwardTargetId ? 1 : 0.5, cursor: forwardTargetId ? "pointer" : "not-allowed" }}
               >
-                ↪️ Send Forward
+                <FiCornerUpRight /> Send Forward
               </button>
             </div>
           </div>

@@ -43,13 +43,21 @@ export async function checkAuth(req) {
 
     // 1. Try reading cookie (Web App)
     try {
-      const cookieStore = await cookies();
-      const authCookie = cookieStore.get('devicedesk_auth_user');
+      let authCookie = null;
+      if (req && req.cookies && typeof req.cookies.get === 'function') {
+        authCookie = req.cookies.get('devicedesk_auth_user');
+      } else {
+        const cookieStore = await cookies();
+        authCookie = cookieStore.get('devicedesk_auth_user');
+      }
+
       if (authCookie && authCookie.value) {
         const parsed = JSON.parse(decodeURIComponent(authCookie.value));
         userId = parsed?.id || null;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Failed to read auth cookie:", e);
+    }
 
     // 2. Try reading x-user-id header (Mobile App)
     if (!userId && req) {
@@ -61,6 +69,7 @@ export async function checkAuth(req) {
     }
 
     if (!userId) {
+      console.log('checkAuth failed: no userId found from cookies or headers');
       return null;
     }
 
@@ -69,7 +78,12 @@ export async function checkAuth(req) {
       'SELECT id, name, email, role, department, status FROM employees WHERE id = ? LIMIT 1',
       [userId]
     );
-    if (rows.length === 0 || rows[0].status !== 'Active') {
+    if (rows.length === 0) {
+      console.log('checkAuth failed: User not found in DB for ID:', userId);
+      return null;
+    }
+    if (rows[0].status !== 'Active') {
+      console.log('checkAuth failed: User status is not Active. Status:', rows[0].status);
       return null;
     }
     return rows[0];

@@ -1,3 +1,4 @@
+import { useTheme } from '../../utils/ThemeContext';
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -24,6 +25,8 @@ import {
 } from '../../store/store';
 
 export default function ManageTickets() {
+  const { themeColors, isDark } = useTheme();
+  const styles = getStyles(themeColors, isDark);
   const [tickets, setTickets] = useState(() => getTickets());
   const [employees, setEmployees] = useState(() => getEmployees());
   const [systems, setSystems] = useState(() => getSystems());
@@ -108,7 +111,7 @@ export default function ManageTickets() {
           <TextInput
             style={[styles.searchInput, { width: '100%', marginRight: 0, paddingRight: 35 }]}
             placeholder="Search by Employee, SN, Category or Severity..."
-            placeholderTextColor="#8b949e"
+            placeholderTextColor="#64748b"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -123,7 +126,7 @@ export default function ManageTickets() {
               }}
               onPress={() => setSearchQuery('')}
             >
-              <Text style={{ color: '#8b949e', fontSize: 16 }}>✕</Text>
+              <Text style={{ color: themeColors.textSecondary, fontSize: 16 }}>✕</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -260,7 +263,7 @@ export default function ManageTickets() {
                 {(selectedTicket.updatedAt || selectedTicket.resolvedAt || selectedTicket.startedAt) && (
                   <View style={styles.metaRow}>
                     <Text style={styles.metaLabel}>Updated at:</Text>
-                    <Text style={[styles.metaValue, { color: '#58a6ff', fontWeight: 'bold' }]}>
+                    <Text style={[styles.metaValue, { color: themeColors.accent, fontWeight: 'bold' }]}>
                       {new Date(selectedTicket.updatedAt || selectedTicket.resolvedAt || selectedTicket.startedAt || selectedTicket.createdAt).toLocaleString()}
                     </Text>
                   </View>
@@ -339,32 +342,32 @@ export default function ManageTickets() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (themeColors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
   },
   headerBar: {
     flexDirection: 'row',
     padding: 15,
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     alignItems: 'center',
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     marginRight: 10,
   },
   exportBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -372,15 +375,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   exportBtnText: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontSize: 13,
     fontWeight: 'bold',
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderBottomWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     paddingHorizontal: 10,
     paddingBottom: 10,
   },
@@ -390,35 +393,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 6,
     marginHorizontal: 3,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
   },
   tabActive: {
-    backgroundColor: '#1f6feb',
-    borderColor: '#58a6ff',
+    backgroundColor: themeColors.primary,
+    borderColor: themeColors.accent,
   },
   tabText: {
     fontSize: 11,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontWeight: '600',
   },
   tabTextActive: {
-    color: '#ffffff',
+    color: themeColors.card,
   },
   listContainer: {
     padding: 15,
   },
   emptyText: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     textAlign: 'center',
     marginTop: 30,
     fontSize: 15,
   },
   ticketCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
@@ -431,11 +434,11 @@ const styles = StyleSheet.create({
   ticketCategory: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
   },
   empInfo: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     marginTop: 2,
   },
   statusBadge: {
@@ -446,29 +449,29 @@ const styles = StyleSheet.create({
   },
   badgeOpen: {
     backgroundColor: 'rgba(248, 81, 73, 0.15)',
-    borderColor: '#f85149',
+    borderColor: '#ef4444',
   },
   badgeProgress: {
     backgroundColor: 'rgba(210, 153, 34, 0.15)',
-    borderColor: '#d29922',
+    borderColor: '#f59e0b',
   },
   badgeResolved: {
     backgroundColor: 'rgba(56, 139, 60, 0.15)',
-    borderColor: '#3fb950',
+    borderColor: '#10b981',
   },
   statusText: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   divider: {
     height: 1,
-    backgroundColor: '#30363d',
+    backgroundColor: themeColors.border,
     marginVertical: 10,
   },
   description: {
     fontSize: 14,
-    color: '#c9d1d9',
+    color: themeColors.text,
     lineHeight: 18,
   },
   cardFooter: {
@@ -478,27 +481,27 @@ const styles = StyleSheet.create({
   },
   footerInfo: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
   },
   severityText: {
     fontSize: 12,
     fontWeight: 'bold',
   },
   sevCritical: {
-    color: '#ff7b72',
+    color: '#ef4444',
   },
   sevHigh: {
     color: '#f0883e',
   },
   sevMedium: {
-    color: '#d29922',
+    color: '#f59e0b',
   },
   sevLow: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
   },
   resolveTimeText: {
     fontSize: 11,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontStyle: 'italic',
     marginTop: 8,
   },
@@ -508,11 +511,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     padding: 20,
     maxHeight: '85%',
   },
@@ -522,17 +525,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     borderBottomWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     paddingBottom: 10,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   closeBtnText: {
     fontSize: 20,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
   },
   metaRow: {
     flexDirection: 'row',
@@ -541,28 +544,28 @@ const styles = StyleSheet.create({
   metaLabel: {
     width: 100,
     fontSize: 14,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontWeight: '600',
   },
   metaValue: {
     flex: 1,
     fontSize: 14,
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   modalSectionTitle: {
     fontSize: 15,
-    color: '#58a6ff',
+    color: themeColors.accent,
     fontWeight: 'bold',
     marginBottom: 8,
   },
   modalDesc: {
     fontSize: 14,
-    color: '#c9d1d9',
+    color: themeColors.text,
     lineHeight: 20,
     marginBottom: 10,
   },
   actionBtn: {
-    backgroundColor: '#1f6feb',
+    backgroundColor: themeColors.primary,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
@@ -578,31 +581,31 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   remarksInput: {
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     height: 70,
     textAlignVertical: 'top',
     marginBottom: 15,
   },
   resolveBtnColor: {
-    backgroundColor: '#238636',
+    backgroundColor: '#10b981',
   },
   resolvedInfoBox: {
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     padding: 15,
     borderRadius: 8,
     marginVertical: 10,
   },
   resolutionNotes: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontSize: 13,
     lineHeight: 18,
     fontStyle: 'italic',

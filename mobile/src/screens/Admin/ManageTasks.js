@@ -1,3 +1,4 @@
+import { useTheme } from '../../utils/ThemeContext';
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -16,6 +17,8 @@ import { sweetAlert } from '../../utils/sweetAlert';
 import { getApiUrl } from '../../utils/api';
 
 export default function ManageTasks({ currentUser }) {
+  const { themeColors, isDark } = useTheme();
+  const styles = getStyles(themeColors, isDark);
   const [tasks, setTasks] = useState(() => getTasks());
   const [employees, setEmployees] = useState(() => getEmployees());
   const [searchQuery, setSearchQuery] = useState("");
@@ -146,7 +149,7 @@ export default function ManageTasks({ currentUser }) {
         <TextInput
           style={styles.searchInput}
           placeholder="Search tasks..."
-          placeholderTextColor="#8b949e"
+          placeholderTextColor="#64748b"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -183,12 +186,12 @@ export default function ManageTasks({ currentUser }) {
               </View>
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Time Spent:</Text>
-                <Text style={[styles.metaValue, { color: '#58a6ff', fontWeight: 'bold' }]}>
+                <Text style={[styles.metaValue, { color: themeColors.accent, fontWeight: 'bold' }]}>
                   {formatDuration(t.totalDuration || 0)}
                 </Text>
               </View>
               {t.fileUrl && (
-                <Text style={{ color: '#58a6ff', fontSize: 12, marginTop: 4, fontWeight: 'bold' }}>
+                <Text style={{ color: themeColors.accent, fontSize: 12, marginTop: 4, fontWeight: 'bold' }}>
                   📎 Attachment Uploaded (Tap to View)
                 </Text>
               )}
@@ -214,7 +217,7 @@ export default function ManageTasks({ currentUser }) {
               value={title}
               onChangeText={setTitle}
               placeholder="e.g. Test software setup"
-              placeholderTextColor="#8b949e"
+              placeholderTextColor="#64748b"
             />
 
             <Text style={styles.inputLabel}>Task Description</Text>
@@ -223,7 +226,7 @@ export default function ManageTasks({ currentUser }) {
               value={description}
               onChangeText={setDescription}
               placeholder="e.g. Ensure all dependencies are updated..."
-              placeholderTextColor="#8b949e"
+              placeholderTextColor="#64748b"
               multiline={true}
             />
 
@@ -246,7 +249,7 @@ export default function ManageTasks({ currentUser }) {
 
             <View style={styles.modalFooter}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
-                <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Cancel</Text>
+                <Text style={{ color: themeColors.text, fontWeight: 'bold' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.submitBtn} onPress={handleAssignTask}>
                 <Text style={{ color: '#fff', fontWeight: 'bold' }}>Assign</Text>
@@ -269,10 +272,10 @@ export default function ManageTasks({ currentUser }) {
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.modalTitle}>Task Details</Text>
                 
-                <Text style={{ color: '#58a6ff', fontSize: 16, fontWeight: 'bold', marginBottom: 6 }}>
+                <Text style={{ color: themeColors.accent, fontSize: 16, fontWeight: 'bold', marginBottom: 6 }}>
                   {selectedTask.title}
                 </Text>
-                <Text style={{ color: '#8b949e', fontSize: 13, lineHeight: 18, marginBottom: 15 }}>
+                <Text style={{ color: themeColors.textSecondary, fontSize: 13, lineHeight: 18, marginBottom: 15 }}>
                   {selectedTask.description || 'No description provided.'}
                 </Text>
 
@@ -280,14 +283,14 @@ export default function ManageTasks({ currentUser }) {
 
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Status:</Text>
-                  <Text style={[styles.metaValue, { fontWeight: 'bold', color: selectedTask.status === 'Completed' ? '#3fb950' : (selectedTask.status === 'In Progress' ? '#58a6ff' : '#d29922') }]}>
+                  <Text style={[styles.metaValue, { fontWeight: 'bold', color: selectedTask.status === 'Completed' ? '#10b981' : (selectedTask.status === 'In Progress' ? '#3b82f6' : '#f59e0b') }]}>
                     {selectedTask.status}
                   </Text>
                 </View>
 
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Time Spent:</Text>
-                  <Text style={[styles.metaValue, { color: '#58a6ff', fontWeight: 'bold' }]}>
+                  <Text style={[styles.metaValue, { color: themeColors.accent, fontWeight: 'bold' }]}>
                     {formatDuration(selectedTask.totalDuration || 0)}
                   </Text>
                 </View>
@@ -318,7 +321,7 @@ export default function ManageTasks({ currentUser }) {
 
                 <View style={styles.divider} />
 
-                <Text style={{ color: '#f0f6fc', fontWeight: 'bold', fontSize: 14, marginBottom: 10 }}>
+                <Text style={{ color: themeColors.textPrimary, fontWeight: 'bold', fontSize: 14, marginBottom: 10 }}>
                   Attachments & Uploads
                 </Text>
 
@@ -342,9 +345,9 @@ export default function ManageTasks({ currentUser }) {
                         return (
                           <View key={idx} style={styles.attachmentCard}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                              <Text style={{ color: '#8b949e', fontSize: 12 }}>File #{idx + 1}</Text>
+                              <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}>File #{idx + 1}</Text>
                               <TouchableOpacity onPress={() => Linking.openURL(fileAddress)}>
-                                <Text style={{ color: '#58a6ff', fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline' }}>
+                                <Text style={{ color: themeColors.accent, fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline' }}>
                                   Open
                                 </Text>
                               </TouchableOpacity>
@@ -356,9 +359,9 @@ export default function ManageTasks({ currentUser }) {
                                 alt="Proof"
                               />
                             ) : (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, backgroundColor: '#0d1117', borderRadius: 4 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, backgroundColor: themeColors.background, borderRadius: 4 }}>
                                 <Text style={{ fontSize: 18 }}>📄</Text>
-                                <Text style={{ color: '#8b949e', fontSize: 11, flex: 1 }} numberOfLines={1}>
+                                <Text style={{ color: themeColors.textSecondary, fontSize: 11, flex: 1 }} numberOfLines={1}>
                                   {url.split('/').pop()}
                                 </Text>
                               </View>
@@ -369,7 +372,7 @@ export default function ManageTasks({ currentUser }) {
                     </View>
                   );
                 })() : (
-                  <Text style={{ color: '#8b949e', fontSize: 12, fontStyle: 'italic' }}>
+                  <Text style={{ color: themeColors.textSecondary, fontSize: 12, fontStyle: 'italic' }}>
                     No attachments uploaded for this task.
                   </Text>
                 )}
@@ -379,7 +382,7 @@ export default function ManageTasks({ currentUser }) {
                     style={[styles.cancelBtn, { flex: 1, alignItems: 'center' }]} 
                     onPress={() => { setDetailModalVisible(false); setSelectedTask(null); }}
                   >
-                    <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Close</Text>
+                    <Text style={{ color: themeColors.text, fontWeight: 'bold' }}>Close</Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
@@ -394,14 +397,14 @@ export default function ManageTasks({ currentUser }) {
                       setEditModalVisible(true);
                     }}
                   >
-                    <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Edit</Text>
+                    <Text style={{ color: themeColors.card, fontWeight: 'bold' }}>Edit</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
                     style={[styles.submitBtn, { flex: 1, alignItems: 'center', backgroundColor: '#da3637' }]} 
                     onPress={() => handleDeleteTask(selectedTask)}
                   >
-                    <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Delete</Text>
+                    <Text style={{ color: themeColors.card, fontWeight: 'bold' }}>Delete</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -426,7 +429,7 @@ export default function ManageTasks({ currentUser }) {
               value={editTitle}
               onChangeText={setEditTitle}
               placeholder="Task title"
-              placeholderTextColor="#8b949e"
+              placeholderTextColor="#64748b"
             />
 
             <Text style={styles.inputLabel}>Task Description</Text>
@@ -435,7 +438,7 @@ export default function ManageTasks({ currentUser }) {
               value={editDescription}
               onChangeText={setEditDescription}
               placeholder="Task description"
-              placeholderTextColor="#8b949e"
+              placeholderTextColor="#64748b"
               multiline={true}
             />
 
@@ -483,7 +486,7 @@ export default function ManageTasks({ currentUser }) {
 
             <View style={styles.modalFooter}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModalVisible(false)}>
-                <Text style={{ color: '#c9d1d9', fontWeight: 'bold' }}>Cancel</Text>
+                <Text style={{ color: themeColors.text, fontWeight: 'bold' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.submitBtn} onPress={handleEditTask}>
                 <Text style={{ color: '#fff', fontWeight: 'bold' }}>Save</Text>
@@ -496,33 +499,33 @@ export default function ManageTasks({ currentUser }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (themeColors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
   },
   headerBar: {
     flexDirection: 'row',
     padding: 15,
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderBottomWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     alignItems: 'center',
     gap: 10,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   addBtn: {
-    backgroundColor: '#1f6feb',
+    backgroundColor: themeColors.primary,
     borderRadius: 8,
     paddingHorizontal: 15,
     paddingVertical: 10,
@@ -538,18 +541,18 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#c9d1d9',
+    color: themeColors.text,
     marginBottom: 15,
   },
   emptyText: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     textAlign: 'center',
     marginTop: 20,
   },
   taskCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
@@ -563,19 +566,19 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     flex: 1,
     marginRight: 10,
   },
   taskDesc: {
     fontSize: 13,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     lineHeight: 18,
     marginBottom: 10,
   },
   divider: {
     height: 1,
-    backgroundColor: '#30363d',
+    backgroundColor: themeColors.border,
     marginVertical: 10,
   },
   metaRow: {
@@ -584,12 +587,12 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     width: 100,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontSize: 13,
   },
   metaValue: {
     flex: 1,
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontSize: 13,
   },
   statusBadge: {
@@ -600,20 +603,20 @@ const styles = StyleSheet.create({
   },
   badgePending: {
     backgroundColor: 'rgba(210, 153, 34, 0.15)',
-    borderColor: '#d29922',
+    borderColor: '#f59e0b',
   },
   badgeProgress: {
     backgroundColor: 'rgba(88, 166, 255, 0.15)',
-    borderColor: '#58a6ff',
+    borderColor: themeColors.accent,
   },
   badgeSuccess: {
     backgroundColor: 'rgba(56, 139, 60, 0.15)',
-    borderColor: '#3fb950',
+    borderColor: '#10b981',
   },
   statusText: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   modalOverlay: {
     flex: 1,
@@ -622,42 +625,42 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     padding: 20,
     maxHeight: '90%',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
     marginBottom: 15,
     textAlign: 'center',
   },
   inputLabel: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
     marginTop: 10,
   },
   textInput: {
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     padding: 10,
     fontSize: 14,
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   pickerContainer: {
     height: 120,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     padding: 5,
   },
   pickerItem: {
@@ -666,10 +669,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   pickerItemActive: {
-    backgroundColor: '#1f6feb',
+    backgroundColor: themeColors.primary,
   },
   pickerItemText: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontSize: 13,
   },
   pickerItemTextActive: {
@@ -686,21 +689,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
   },
   submitBtn: {
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#238636',
+    backgroundColor: '#10b981',
   },
   attachmentCard: {
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     padding: 10,
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
   },
 });

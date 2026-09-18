@@ -28,6 +28,7 @@ import {
   stopBackgroundTracking,
 } from '../../utils/backgroundLocation';
 import AppIcon from '../../components/AppIcon';
+import AttendanceWidget from '../../components/AttendanceWidget';
 
 // Haversine distance in KM
 function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
@@ -61,6 +62,8 @@ const PURPOSE_PRESETS = [
 export default function MarketingFieldScreen({ user, onBack }) {
   const { themeColors, isDark } = useTheme();
   const employeeId = user?.id || '';
+
+  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance', 'route', 'recent'
 
   // Start Location (Auto-fetched from GPS)
   const [currentGps, setCurrentGps] = useState(null);
@@ -566,11 +569,41 @@ export default function MarketingFieldScreen({ user, onBack }) {
         </TouchableOpacity>
       </View>
 
+      {/* Internal Top Tabs */}
+      <View style={[styles.tabContainer, { backgroundColor: themeColors.card, borderBottomColor: themeColors.border }]}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'attendance' && [styles.tabButtonActive, { borderBottomColor: themeColors.primary }]]}
+          onPress={() => setActiveTab('attendance')}
+        >
+          <Text style={[styles.tabButtonText, { color: themeColors.textSecondary }, activeTab === 'attendance' && [styles.tabButtonTextActive, { color: themeColors.primary }]]}>Attendance</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'route' && [styles.tabButtonActive, { borderBottomColor: themeColors.primary }]]}
+          onPress={() => setActiveTab('route')}
+        >
+          <Text style={[styles.tabButtonText, { color: themeColors.textSecondary }, activeTab === 'route' && [styles.tabButtonTextActive, { color: themeColors.primary }]]}>Route Planner</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'recent' && [styles.tabButtonActive, { borderBottomColor: themeColors.primary }]]}
+          onPress={() => setActiveTab('recent')}
+        >
+          <Text style={[styles.tabButtonText, { color: themeColors.textSecondary }, activeTab === 'recent' && [styles.tabButtonTextActive, { color: themeColors.primary }]]}>Recent Visits</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primary]} />}
       >
+        {activeTab === 'attendance' && (
+          <View style={{ marginBottom: 20 }}>
+            <AttendanceWidget user={user} />
+          </View>
+        )}
+
+        {activeTab === 'route' && (
+          <>
         {/* Active Trip Banner */}
         {activeTrip ? (
           <View style={[styles.activeBanner, { backgroundColor: isDark ? '#064e3b' : '#ecfdf5', borderColor: '#10b981' }]}>
@@ -890,9 +923,12 @@ export default function MarketingFieldScreen({ user, onBack }) {
             )}
           </TouchableOpacity>
         </View>
+          </>
+        )}
 
-        {/* Trip History Section */}
+        {activeTab === 'recent' && (
         <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          {/* Trip History Section */}
           <Text style={[styles.sectionTitle, { color: themeColors.text }]}>My Recent Field Trips</Text>
 
           {loading && !refreshing ? (
@@ -992,6 +1028,7 @@ export default function MarketingFieldScreen({ user, onBack }) {
             ))
           )}
         </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -1000,6 +1037,26 @@ export default function MarketingFieldScreen({ user, onBack }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabButtonActive: {
+  },
+  tabButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabButtonTextActive: {
+    fontWeight: '800',
   },
   header: {
     flexDirection: 'row',

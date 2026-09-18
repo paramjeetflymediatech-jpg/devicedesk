@@ -16,7 +16,7 @@ import {
   getAssignmentHistory,
   isSoundEnabled
 } from "../../store";
-import { FiCalendar, FiBarChart2, FiPlus, FiPlay, FiPause, FiCheckCircle, FiEye, FiEdit2, FiTrash2, FiPaperclip, FiSearch, FiFilter } from "react-icons/fi";
+import { FiCalendar, FiBarChart2, FiPlus, FiPlay, FiPause, FiCheckCircle, FiEye, FiEdit2, FiTrash2, FiPaperclip, FiSearch, FiFilter, FiMonitor, FiList, FiAlertCircle, FiCheckSquare, FiUser, FiDownload } from "react-icons/fi";
 import Pagination from "../../components/Pagination";
 
 export default function TaskBoardPage() {
@@ -817,293 +817,252 @@ export default function TaskBoardPage() {
 
           return (
             <div className="modal-overlay active">
-              <div className="modal-card" style={{ maxWidth: "800px", width: "95%" }}>
-                <div className="modal-header" style={{ paddingBottom: "10px" }}>
-                  <h3 className="modal-title">📊 My Activity & Performance Report</h3>
-                  <button className="modal-close" onClick={() => setShowReportModal(false)}>
+              <div className="modal-card" style={{ maxWidth: "1000px", width: "95%", background: "var(--bg-primary)", padding: "0", overflow: "hidden" }}>
+                {/* Header Area with Gradient and Profile Card */}
+                <div style={{
+                  padding: "24px 32px 32px",
+                  background: "linear-gradient(135deg, rgba(0, 240, 255, 0.1), rgba(59, 130, 246, 0.1))",
+                  borderBottom: "1px solid var(--glass-border)",
+                  position: "relative"
+                }}>
+                  <button 
+                    className="modal-close" 
+                    onClick={() => setShowReportModal(false)}
+                    style={{ position: "absolute", top: "16px", right: "16px", background: "rgba(0,0,0,0.2)", borderRadius: "50%", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--glass-border)", color: "#fff" }}
+                  >
                     &times;
                   </button>
-                </div>
+                  <h3 style={{ margin: "0 0 20px", fontSize: "1.5rem", fontWeight: "800", background: "linear-gradient(to right, var(--accent-cyan), var(--accent-blue))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                    My Activity & Performance Report
+                  </h3>
 
-                {/* Employee Overview Info Banner */}
-                <div
-                  style={{
+                  {/* Glassmorphic Profile Card */}
+                  <div style={{
                     display: "flex",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    gap: "10px",
-                    fontSize: "0.85rem",
-                    color: "var(--text-secondary)",
-                    marginBottom: "15px",
-                    padding: "10px",
-                    background: "rgba(255,255,255,0.03)",
-                    borderRadius: "8px"
-                  }}
-                >
-                  <div>
-                    <strong>Name:</strong> {user.name}
-                  </div>
-                  <div>
-                    <strong>Role:</strong> {user.role || "Team Member"}
-                  </div>
-                  <div>
-                    <strong>Email:</strong> {user.email || "N/A"}
-                  </div>
-                </div>
-
-                {/* Date Filters & Download Button */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "12px",
-                    alignItems: "flex-end",
-                    marginBottom: "20px",
-                    background: "rgba(255,255,255,0.01)",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    border: "1px solid var(--glass-border)"
-                  }}
-                >
-                  <div style={{ flex: "1 1 180px" }}>
-                    <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>
-                      From Date
-                    </label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={reportFrom}
-                      onChange={(e) => setReportFrom(e.target.value)}
-                      style={{ width: "100%", padding: "6px 10px" }}
-                    />
-                  </div>
-                  <div style={{ flex: "1 1 180px" }}>
-                    <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "4px" }}>
-                      To Date
-                    </label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={reportTo}
-                      onChange={(e) => setReportTo(e.target.value)}
-                      style={{ width: "100%", padding: "6px 10px" }}
-                    />
-                  </div>
-                  <div>
-                    <button
-                      onClick={() => handleDownloadReport(reportFrom, reportTo)}
-                      className="btn-action start"
-                      style={{ padding: "8px 14px", background: "var(--accent-cyan)", color: "#000", fontWeight: "600", whiteSpace: "nowrap" }}
-                    >
-                      📥 Download CSV Report
-                    </button>
+                    alignItems: "center",
+                    gap: "20px",
+                    background: "rgba(255, 255, 255, 0.05)",
+                    backdropFilter: "blur(10px)",
+                    border: "1px solid var(--glass-border)",
+                    borderRadius: "16px",
+                    padding: "20px",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.2)"
+                  }}>
+                    <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", color: "#fff", fontWeight: "bold", flexShrink: 0 }}>
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flexGrow: 1 }}>
+                      <h4 style={{ margin: "0 0 6px", fontSize: "1.2rem", fontWeight: "700" }}>{user.name}</h4>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <span className="status-tag" style={{ background: "rgba(59, 130, 246, 0.15)", color: "var(--accent-blue)", border: "1px solid rgba(59, 130, 246, 0.3)" }}><FiUser style={{ marginRight: "4px" }}/> {user.role || "Team Member"}</span>
+                        <span className="status-tag" style={{ background: "rgba(255, 255, 255, 0.05)", color: "var(--text-secondary)", border: "1px solid var(--glass-border)" }}>✉️ {user.email || "N/A"}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Modal scrollable body containing content tabs */}
-                <div className="modal-body" style={{ maxHeight: "55vh", overflowY: "auto", paddingRight: "6px" }}>
+                <div style={{ padding: "24px 32px", maxHeight: "65vh", overflowY: "auto" }}>
+                  {/* KPI Cards Row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "32px" }}>
+                    <div style={{ background: "var(--bg-secondary)", padding: "20px", borderRadius: "12px", border: "1px solid var(--glass-border)", borderLeft: "4px solid var(--accent-cyan)", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
+                      <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "rgba(0, 240, 255, 0.1)", color: "var(--accent-cyan)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem" }}><FiMonitor /></div>
+                      <div>
+                        <div style={{ fontSize: "2rem", fontWeight: "800", lineHeight: "1" }}>{currentDevices.length}</div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600", marginTop: "4px", textTransform: "uppercase" }}>Assigned Devices</div>
+                      </div>
+                    </div>
+                    <div style={{ background: "var(--bg-secondary)", padding: "20px", borderRadius: "12px", border: "1px solid var(--glass-border)", borderLeft: "4px solid var(--accent-purple)", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
+                      <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "rgba(168, 85, 247, 0.1)", color: "var(--accent-purple)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem" }}><FiAlertCircle /></div>
+                      <div>
+                        <div style={{ fontSize: "2rem", fontWeight: "800", lineHeight: "1" }}>{empTickets.length}</div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600", marginTop: "4px", textTransform: "uppercase" }}>Issues Raised</div>
+                      </div>
+                    </div>
+                    <div style={{ background: "var(--bg-secondary)", padding: "20px", borderRadius: "12px", border: "1px solid var(--glass-border)", borderLeft: "4px solid var(--accent-blue)", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
+                      <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "rgba(59, 130, 246, 0.1)", color: "var(--accent-blue)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem" }}><FiCheckSquare /></div>
+                      <div>
+                        <div style={{ fontSize: "2rem", fontWeight: "800", lineHeight: "1" }}>{empTasks.length}</div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600", marginTop: "4px", textTransform: "uppercase" }}>Tasks Assigned</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Date Filters & Download Bar */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "flex-end", marginBottom: "32px", background: "var(--bg-secondary)", padding: "16px 20px", borderRadius: "16px", border: "1px solid var(--glass-border)" }}>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "600", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Filter From</label>
+                      <input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", background: "var(--bg-tertiary)", border: "1px solid var(--glass-border)", color: "var(--text-primary)", outline: "none", fontFamily: "var(--font-main)" }} />
+                    </div>
+                    <div style={{ flex: "1 1 200px" }}>
+                      <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "600", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Filter To</label>
+                      <input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", background: "var(--bg-tertiary)", border: "1px solid var(--glass-border)", color: "var(--text-primary)", outline: "none", fontFamily: "var(--font-main)" }} />
+                    </div>
+                    <div>
+                      <button onClick={() => handleDownloadReport(reportFrom, reportTo)} style={{ padding: "10px 20px", background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))", color: "#000", fontWeight: "700", border: "none", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", whiteSpace: "nowrap", transition: "transform 0.2s", boxShadow: "0 4px 15px rgba(0, 240, 255, 0.2)" }} onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"} onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}>
+                        <FiDownload style={{ fontSize: "1.1rem" }} /> Download Report
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Section 1: Assigned Devices */}
-                  <div style={{ marginBottom: "24px" }}>
-                    <h4
-                      style={{
-                        color: "var(--accent-cyan)",
-                        borderBottom: "1px solid var(--glass-border)",
-                        paddingBottom: "6px",
-                        marginBottom: "12px",
-                        fontSize: "1rem"
-                      }}
-                    >
-                      <span>🖥️ Current Assigned Devices ({currentDevices.length})</span>
-                    </h4>
-                    {currentDevices.length === 0 ? (
-                      <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>
-                        No devices currently assigned.
-                      </p>
-                    ) : (
-                      <div className="table-wrapper">
-                        <table className="custom-table" style={{ fontSize: "0.85rem" }}>
-                          <thead>
-                            <tr>
-                              <th>System Number</th>
-                              <th>Model</th>
-                              <th>OS</th>
-                              <th>Specs</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {currentDevices.map((s) => (
-                              <tr key={s.id}>
-                                <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{s.systemNumber}</td>
-                                <td>{s.model || "Generic PC"}</td>
-                                <td>{s.os || "Windows 11"}</td>
-                                <td>
-                                  {s.cpu} / {s.ram} / {s.storage}
-                                </td>
-                                <td>
-                                  <span className={`status-tag ${s.status?.toLowerCase() === "active" ? "resolved" : "open"}`}>
-                                    {s.status}
-                                  </span>
-                                </td>
+                  <div style={{ marginBottom: "32px", background: "var(--bg-secondary)", borderRadius: "16px", border: "1px solid var(--glass-border)", overflow: "hidden" }}>
+                    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--glass-border)", background: "rgba(0, 240, 255, 0.05)", display: "flex", alignItems: "center", gap: "10px" }}>
+                      <FiMonitor style={{ color: "var(--accent-cyan)", fontSize: "1.2rem" }} />
+                      <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--text-main)" }}>Current Assigned Devices</h4>
+                    </div>
+                    <div style={{ padding: currentDevices.length === 0 ? "20px" : "0" }}>
+                      {currentDevices.length === 0 ? (
+                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic", textAlign: "center" }}>No devices currently assigned.</p>
+                      ) : (
+                        <div className="table-wrapper" style={{ margin: 0, borderRadius: 0, border: "none" }}>
+                          <table className="custom-table" style={{ fontSize: "0.85rem", margin: 0 }}>
+                            <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-secondary)" }}>
+                              <tr>
+                                <th>System Number</th>
+                                <th>Model</th>
+                                <th>OS</th>
+                                <th>Specs</th>
+                                <th>Status</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                            </thead>
+                            <tbody>
+                              {currentDevices.map((s) => (
+                                <tr key={s.id} style={{ transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
+                                  <td style={{ color: "var(--accent-cyan)", fontWeight: "700" }}>{s.systemNumber}</td>
+                                  <td>{s.model || "Generic PC"}</td>
+                                  <td>{s.os || "Windows 11"}</td>
+                                  <td>{s.cpu} / {s.ram} / {s.storage}</td>
+                                  <td>
+                                    <span className={`status-tag ${s.status?.toLowerCase() === "active" ? "resolved" : "open"}`}>{s.status}</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-                    {/* Device Assignment History Logs */}
-                    <h5 style={{ marginTop: "12px", marginBottom: "8px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                      Device Transfer Logs In Range ({empLogs.length})
-                    </h5>
-                    {empLogs.length === 0 ? (
-                      <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>
-                        No device assignment or transfer logs recorded for this period.
-                      </p>
-                    ) : (
-                      <div className="table-wrapper" style={{ maxHeight: "150px", overflowY: "auto" }}>
-                        <table className="custom-table" style={{ fontSize: "0.8rem" }}>
-                          <thead>
-                            <tr>
-                              <th>Action</th>
-                              <th>System Number</th>
-                              <th>Timestamp</th>
-                              <th>Assigned By</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {empLogs.map((log) => (
-                              <tr key={log.id}>
-                                <td>
-                                  <span className={`status-tag ${log.action.toLowerCase().includes("assign") ? "resolved" : "open"}`}>
-                                    {log.action}
-                                  </span>
-                                </td>
-                                <td>
-                                  <strong>{log.systemNumber}</strong>
-                                </td>
-                                <td>{new Date(log.timestamp).toLocaleString()}</td>
-                                <td>{log.assignedBy || "System"}</td>
+                  {/* Section 1a: Logs */}
+                  <div style={{ marginBottom: "32px", background: "var(--bg-secondary)", borderRadius: "16px", border: "1px solid var(--glass-border)", overflow: "hidden" }}>
+                    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--glass-border)", background: "rgba(255, 255, 255, 0.02)", display: "flex", alignItems: "center", gap: "10px" }}>
+                      <FiList style={{ color: "var(--text-secondary)", fontSize: "1.2rem" }} />
+                      <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--text-main)" }}>Device Transfer Logs</h4>
+                    </div>
+                    <div style={{ padding: empLogs.length === 0 ? "20px" : "0" }}>
+                      {empLogs.length === 0 ? (
+                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic", textAlign: "center" }}>No device assignment or transfer logs recorded for this period.</p>
+                      ) : (
+                        <div className="table-wrapper" style={{ maxHeight: "250px", overflowY: "auto", margin: 0, borderRadius: 0, border: "none" }}>
+                          <table className="custom-table" style={{ fontSize: "0.85rem", margin: 0 }}>
+                            <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-secondary)" }}>
+                              <tr>
+                                <th>Action</th>
+                                <th>System Number</th>
+                                <th>Timestamp</th>
+                                <th>Assigned By</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                            </thead>
+                            <tbody>
+                              {empLogs.map((log) => (
+                                <tr key={log.id} style={{ transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
+                                  <td>
+                                    <span className={`status-tag ${log.action.toLowerCase().includes("assign") ? "resolved" : "open"}`}>{log.action}</span>
+                                  </td>
+                                  <td><strong>{log.systemNumber}</strong></td>
+                                  <td>{new Date(log.timestamp).toLocaleString()}</td>
+                                  <td>{log.assignedBy || "System"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Section 2: Complaints & Tickets */}
-                  <div style={{ marginBottom: "24px" }}>
-                    <h4
-                      style={{
-                        color: "var(--accent-purple)",
-                        borderBottom: "1px solid var(--glass-border)",
-                        paddingBottom: "6px",
-                        marginBottom: "12px",
-                        fontSize: "1rem"
-                      }}
-                    >
-                      📋 Issues & Complaints Raised In Range ({empTickets.length})
-                    </h4>
-                    {empTickets.length === 0 ? (
-                      <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>
-                        No issues or complaints registered by you during this period.
-                      </p>
-                    ) : (
-                      <div className="table-wrapper" style={{ maxHeight: "200px", overflowY: "auto" }}>
-                        <table className="custom-table" style={{ fontSize: "0.85rem" }}>
-                          <thead>
-                            <tr>
-                              <th>ID</th>
-                              <th>Category</th>
-                              <th>Description</th>
-                              <th>Severity</th>
-                              <th>Status</th>
-                              <th>Date Raised</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {empTickets.map((t) => (
-                              <tr key={t.id}>
-                                <td style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>{t.id}</td>
-                                <td>{t.category}</td>
-                                <td
-                                  style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                                  title={t.description}
-                                >
-                                  {t.description}
-                                </td>
-                                <td>
-                                  <span className={`status-tag ${t.severity.toLowerCase()}`}>{t.severity}</span>
-                                </td>
-                                <td>
-                                  <span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span>
-                                </td>
-                                <td>{new Date(t.createdAt).toLocaleDateString()}</td>
+                  <div style={{ marginBottom: "32px", background: "var(--bg-secondary)", borderRadius: "16px", border: "1px solid var(--glass-border)", overflow: "hidden" }}>
+                    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--glass-border)", background: "rgba(168, 85, 247, 0.05)", display: "flex", alignItems: "center", gap: "10px" }}>
+                      <FiAlertCircle style={{ color: "var(--accent-purple)", fontSize: "1.2rem" }} />
+                      <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--text-main)" }}>Issues & Complaints Raised</h4>
+                    </div>
+                    <div style={{ padding: empTickets.length === 0 ? "20px" : "0" }}>
+                      {empTickets.length === 0 ? (
+                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic", textAlign: "center" }}>No issues or complaints registered by you during this period.</p>
+                      ) : (
+                        <div className="table-wrapper" style={{ maxHeight: "300px", overflowY: "auto", margin: 0, borderRadius: 0, border: "none" }}>
+                          <table className="custom-table" style={{ fontSize: "0.85rem", margin: 0 }}>
+                            <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-secondary)" }}>
+                              <tr>
+                                <th>ID</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Severity</th>
+                                <th>Status</th>
+                                <th>Date Raised</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                            </thead>
+                            <tbody>
+                              {empTickets.map((t) => (
+                                <tr key={t.id} style={{ transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
+                                  <td style={{ color: "var(--accent-cyan)", fontWeight: "700" }}>{t.id}</td>
+                                  <td>{t.category}</td>
+                                  <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description}</td>
+                                  <td><span className={`status-tag ${t.severity.toLowerCase()}`}>{t.severity}</span></td>
+                                  <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
+                                  <td>{new Date(t.createdAt).toLocaleDateString()}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Section 3: Tasks Assigned */}
-                  <div style={{ marginBottom: "12px" }}>
-                    <h4
-                      style={{
-                        color: "var(--accent-blue)",
-                        borderBottom: "1px solid var(--glass-border)",
-                        paddingBottom: "6px",
-                        marginBottom: "12px",
-                        fontSize: "1rem"
-                      }}
-                    >
-                      📅 Assigned Tasks In Range ({empTasks.length})
-                    </h4>
-                    {empTasks.length === 0 ? (
-                      <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", fontStyle: "italic" }}>
-                        No tasks assigned to you during this period.
-                      </p>
-                    ) : (
-                      <div className="table-wrapper" style={{ maxHeight: "200px", overflowY: "auto" }}>
-                        <table className="custom-table" style={{ fontSize: "0.85rem" }}>
-                          <thead>
-                            <tr>
-                              <th>Task Title</th>
-                              <th>Description</th>
-                              <th>Status</th>
-                              <th>Duration (mins)</th>
-                              <th>Date Assigned</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {empTasks.map((t) => {
-                              const durationMins = t.totalDuration ? Math.round(t.totalDuration / 60) : 0;
-                              return (
-                                <tr key={t.id}>
-                                  <td>
-                                    <strong>{t.title}</strong>
-                                  </td>
-                                  <td
-                                    style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                                    title={t.description}
-                                  >
-                                    {t.description || "—"}
-                                  </td>
-                                  <td>
-                                    <span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span>
-                                  </td>
-                                  <td>{durationMins > 0 ? `${durationMins} mins` : "—"}</td>
-                                  <td>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                  <div style={{ marginBottom: "16px", background: "var(--bg-secondary)", borderRadius: "16px", border: "1px solid var(--glass-border)", overflow: "hidden" }}>
+                    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--glass-border)", background: "rgba(59, 130, 246, 0.05)", display: "flex", alignItems: "center", gap: "10px" }}>
+                      <FiCheckSquare style={{ color: "var(--accent-blue)", fontSize: "1.2rem" }} />
+                      <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--text-main)" }}>Assigned Tasks</h4>
+                    </div>
+                    <div style={{ padding: empTasks.length === 0 ? "20px" : "0" }}>
+                      {empTasks.length === 0 ? (
+                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic", textAlign: "center" }}>No tasks assigned to you during this period.</p>
+                      ) : (
+                        <div className="table-wrapper" style={{ maxHeight: "300px", overflowY: "auto", margin: 0, borderRadius: 0, border: "none" }}>
+                          <table className="custom-table" style={{ fontSize: "0.85rem", margin: 0 }}>
+                            <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-secondary)" }}>
+                              <tr>
+                                <th>Task Title</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Duration (mins)</th>
+                                <th>Date Assigned</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {empTasks.map((t) => {
+                                const durationMins = t.totalDuration ? Math.round(t.totalDuration / 60) : 0;
+                                return (
+                                  <tr key={t.id} style={{ transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
+                                    <td><strong>{t.title}</strong></td>
+                                    <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description || "—"}</td>
+                                    <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
+                                    <td>{durationMins > 0 ? `${durationMins} mins` : "—"}</td>
+                                    <td>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
                 </div>
               </div>
             </div>

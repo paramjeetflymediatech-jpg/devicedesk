@@ -1,3 +1,4 @@
+import { useTheme } from '../../utils/ThemeContext';
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -18,6 +19,8 @@ import {
 } from '../../store/store';
 
 export default function ManageHistory() {
+  const { themeColors, isDark } = useTheme();
+  const styles = getStyles(themeColors, isDark);
   const [history, setHistory] = useState(() => getAssignmentHistory());
   const [employees, setEmployees] = useState(() => getEmployees());
   const [searchQuery, setSearchQuery] = useState('');
@@ -106,7 +109,7 @@ export default function ManageHistory() {
         <TextInput
           style={[styles.searchBar, { marginBottom: 0, paddingRight: 40 }]}
           placeholder="Search employee, system, action, department..."
-          placeholderTextColor="#8b949e"
+          placeholderTextColor="#64748b"
           value={searchQuery}
           onChangeText={(text) => {
             setSearchQuery(text);
@@ -127,7 +130,7 @@ export default function ManageHistory() {
               setCurrentPage(1);
             }}
           >
-            <Text style={{ color: '#8b949e', fontSize: 16 }}>✕</Text>
+            <Text style={{ color: themeColors.textSecondary, fontSize: 16 }}>✕</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -198,7 +201,7 @@ export default function ManageHistory() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (themeColors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
     padding: 15,
@@ -214,26 +217,26 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
     flexShrink: 1,
   },
   exportBtn: {
-    backgroundColor: '#238636',
+    backgroundColor: '#10b981',
     borderRadius: 6,
     paddingVertical: 6,
     paddingHorizontal: 12,
   },
   exportBtnText: {
-    color: '#ffffff',
+    color: themeColors.card,
     fontSize: 12,
     fontWeight: 'bold',
   },
   searchBar: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
-    color: '#c9d1d9',
+    color: themeColors.text,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
@@ -246,13 +249,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontSize: 14,
   },
   logCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
@@ -262,7 +265,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#21262d',
+    borderBottomColor: themeColors.card,
     paddingBottom: 8,
     marginBottom: 8,
     flexWrap: 'wrap',
@@ -271,7 +274,7 @@ const styles = StyleSheet.create({
   sysNum: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
     flexShrink: 1,
   },
   badge: {
@@ -294,7 +297,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#c9d1d9',
+    color: themeColors.text,
   },
   badgeTextAssigned: {
     fontSize: 11,
@@ -324,11 +327,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   label: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontSize: 12,
   },
   value: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontSize: 12,
     fontWeight: '500',
     flexShrink: 1,
@@ -339,26 +342,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#30363d',
-    backgroundColor: '#0d1117',
+    borderTopColor: themeColors.border,
+    backgroundColor: themeColors.background,
   },
   pageBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
   },
   pageBtnDisabled: {
     opacity: 0.5,
   },
   pageBtnText: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontSize: 13,
   },
   pageInfo: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontSize: 13,
   },
 });

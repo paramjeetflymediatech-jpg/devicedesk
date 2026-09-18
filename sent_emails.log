@@ -160,11 +160,9 @@ Your OTP is: 700673
 Text:
 Your OTP is: 235980
 --------------------------------------------------
-<<<<<<< HEAD
 [2026-09-16T07:05:18.822Z] To: hr@flymediatech.com | Subject: DeviceDesk Test Notification | MessageID: <680bf0e0-c773-a427-ab3a-0601c055715f@devicedeskflymeditech.com>
 Text:
 This is a test notification to verify delivery to hr@flymediatech.com
-=======
 [2026-09-15T11:18:45.816Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <f886f9a9-69d5-82d1-2fe1-2b2ed280b640@devicedeskflymeditech.com>
 Text:
 Your OTP is: 376756
@@ -221,7 +219,6 @@ Reviewed At: 16/9/2026, 12:39:20 pm
 Rejection Reason: test
 
 Please log in to DeviceDesk to view details.
->>>>>>> bf70729b24e497a47fdc990124ddfdb15e17d658
 --------------------------------------------------
 [2026-09-16T08:43:45.633Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <02b82e3f-f8dc-5221-c30a-a9b3cbd11a1e@devicedeskflymeditech.com>
 Text:
@@ -250,4 +247,23 @@ Your OTP is: 272338
 [2026-09-17T07:45:33.215Z] To: test@yopmail.com | Subject: Application Approved - Test Assigned: Technical Assessment | MessageID: <fd2f14a4-1099-ceec-7b9d-6a5b06faf5eb@devicedeskflymeditech.com>
 Text:
 undefined
+--------------------------------------------------
+[2026-09-17T11:11:08.737Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <e2ca0147-5375-3dcb-1a08-c755d87d4ee9@devicedeskflymeditech.com>
+Text:
+Your OTP is: 651278
+--------------------------------------------------
+[2026-09-17T11:18:40.893Z] To: amandeepkumar.flymediatech@gmail.com | Subject: DeviceDesk HR Login Verification | MessageID: <f4ed7010-cce0-4831-b963-8647ae53bee8@devicedeskflymeditech.com>
+Text:
+Your OTP is: 350978
+-------------------------------------------------- 
+[2026-09-18T09:32:09.232Z] To: admin@yopmail.com, amandeepkumar.flymediatech@gmail.com, developer@devicedesk.com, paramjeet.flymediatech@gmail.com, t9876221102@gmail.com | Subject: 📅 Afternoon Attendance Summary: 0 Present, 24 Absent (2026-09-18) | MessageID: <b3a1c58b-7aae-f101-988d-8a3ab91d3d74@devicedeskflymeditech.com>
+Text:
+📅 Afternoon Attendance Summary for 2026-09-18
+
+Total Team Size: 24
+Present: 0
+Half Day: 0
+Absent: 24
+
+Log in to DeviceDesk Admin Panel for full details.
 --------------------------------------------------

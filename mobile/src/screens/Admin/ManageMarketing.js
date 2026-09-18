@@ -19,6 +19,7 @@ import AppIcon from '../../components/AppIcon';
 
 export default function ManageMarketing({ currentUser, onBack }) {
   const { themeColors, isDark } = useTheme();
+  const styles = getStyles(themeColors, isDark);
 
   const [activeTab, setActiveTab] = useState('live'); // 'live' | 'history' | 'team'
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -1028,7 +1029,7 @@ export default function ManageMarketing({ currentUser, onBack }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (themeColors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -1308,7 +1309,7 @@ const styles = StyleSheet.create({
   routeLabel: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     letterSpacing: 0.5,
   },
   routePlace: {

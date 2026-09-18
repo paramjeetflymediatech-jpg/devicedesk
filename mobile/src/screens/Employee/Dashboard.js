@@ -1121,6 +1121,17 @@ export default function EmployeeDashboard({ user, onLogout }) {
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
+                  activeTab === 'attendance' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('attendance'); setIsDrawerOpen(false); }}
+              >
+                <AppIcon name="attendance" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Punch In / Out</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
                   activeTab === 'file-complaint' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
                 ]}
                 onPress={() => { setActiveTab('file-complaint'); setIsDrawerOpen(false); }}

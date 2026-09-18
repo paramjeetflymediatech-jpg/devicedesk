@@ -26,19 +26,21 @@ import ManageHistory from './ManageHistory';
 import ManageDepartments from './ManageDepartments';
 import ManageTasks from './ManageTasks';
 import ManageMarketing from './ManageMarketing';
+import ManageAttendance from './ManageAttendance';
+import ManageLeaves from './ManageLeaves';
 import ChatScreen from '../ChatScreen';
 
 const SEVERITY_COLOR = {
-  Critical: '#f85149',
-  High: '#d29922',
-  Medium: '#58a6ff',
-  Low: '#3fb950',
+  Critical: '#ef4444',
+  High: '#f59e0b',
+  Medium: '#3b82f6',
+  Low: '#10b981',
 };
 
 const STATUS_COLOR = {
-  Open: '#f85149',
-  'In Progress': '#d29922',
-  Resolved: '#3fb950',
+  Open: '#ef4444',
+  'In Progress': '#f59e0b',
+  Resolved: '#10b981',
 };
 
 function getRelativeTime(isoString) {
@@ -54,6 +56,7 @@ function getRelativeTime(isoString) {
 
 export default function AdminDashboard({ user, onLogout }) {
   const { theme, isDark, toggleTheme, themeColors } = useTheme();
+  const styles = getStyles(themeColors, isDark);
   const [activeTab, setActiveTab] = useState('overview'); // overview, systems, employees, tickets, profile
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -126,7 +129,7 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const renderOverview = () => (
-    <ScrollView 
+    <ScrollView
       contentContainerStyle={styles.scrollContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#3b82f6']} />}
     >
@@ -182,7 +185,7 @@ export default function AdminDashboard({ user, onLogout }) {
           recentTickets.map(ticket => (
             <View key={ticket.id} style={styles.ticketRow}>
               <View style={styles.ticketLeft}>
-                <View style={[styles.severityDot, { backgroundColor: SEVERITY_COLOR[ticket.severity] || '#8b949e' }]} />
+                <View style={[styles.severityDot, { backgroundColor: SEVERITY_COLOR[ticket.severity] || '#64748b' }]} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.ticketTitle} numberOfLines={1}>{ticket.title}</Text>
                   <Text style={styles.ticketMeta}>
@@ -190,8 +193,8 @@ export default function AdminDashboard({ user, onLogout }) {
                   </Text>
                 </View>
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLOR[ticket.status] || '#8b949e'}22`, borderColor: STATUS_COLOR[ticket.status] || '#8b949e' }]}>
-                <Text style={[styles.statusBadgeText, { color: STATUS_COLOR[ticket.status] || '#8b949e' }]}>
+              <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLOR[ticket.status] || '#64748b'}22`, borderColor: STATUS_COLOR[ticket.status] || '#64748b' }]}>
+                <Text style={[styles.statusBadgeText, { color: STATUS_COLOR[ticket.status] || '#64748b' }]}>
                   {ticket.status}
                 </Text>
               </View>
@@ -622,10 +625,10 @@ export default function AdminDashboard({ user, onLogout }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (themeColors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
   },
   header: {
     flexDirection: 'row',
@@ -634,30 +637,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderColor: '#30363d',
-    backgroundColor: '#161b22',
+    borderColor: themeColors.border,
+    backgroundColor: themeColors.card,
     zIndex: 10,
     elevation: 10,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
   },
   headerSub: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
   },
   logoutBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   logoutBtnText: {
-    color: '#f85149',
+    color: '#ef4444',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -670,14 +673,14 @@ const styles = StyleSheet.create({
   alertBanner: {
     backgroundColor: 'rgba(248, 81, 73, 0.15)',
     borderWidth: 1,
-    borderColor: '#f85149',
+    borderColor: '#ef4444',
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: 14,
   },
   alertBannerText: {
-    color: '#f85149',
+    color: '#ef4444',
     fontWeight: '700',
     fontSize: 13,
     textAlign: 'center',
@@ -691,18 +694,18 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   syncBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
   },
   syncBtnText: {
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontSize: 13,
   },
   statsGrid: {
@@ -713,16 +716,16 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
     alignItems: 'center',
   },
   statCardWarning: {
-    borderColor: '#d29922',
+    borderColor: '#f59e0b',
   },
   statIcon: {
     fontSize: 24,
@@ -731,18 +734,18 @@ const styles = StyleSheet.create({
   statVal: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     textAlign: 'center',
   },
   sectionCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 12,
     padding: 15,
     marginBottom: 20,
@@ -756,15 +759,15 @@ const styles = StyleSheet.create({
   sectionCardTitle: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   viewAllLink: {
     fontSize: 12,
-    color: '#58a6ff',
+    color: themeColors.accent,
     fontWeight: '600',
   },
   emptyText: {
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     textAlign: 'center',
     paddingVertical: 12,
     fontSize: 13,
@@ -775,7 +778,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: '#21262d',
+    borderBottomColor: themeColors.card,
   },
   ticketLeft: {
     flexDirection: 'row',
@@ -792,11 +795,11 @@ const styles = StyleSheet.create({
   ticketTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   ticketMeta: {
     fontSize: 11,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     marginTop: 2,
   },
   statusBadge: {
@@ -816,9 +819,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   welcomeCard: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
@@ -826,19 +829,19 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
     marginBottom: 8,
   },
   welcomeDesc: {
     fontSize: 14,
-    color: '#c9d1d9',
+    color: themeColors.text,
     lineHeight: 20,
   },
   tabBar: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderColor: '#30363d',
-    backgroundColor: '#161b22',
+    borderColor: themeColors.border,
+    backgroundColor: themeColors.card,
     paddingVertical: 8,
   },
   tabItem: {
@@ -848,7 +851,7 @@ const styles = StyleSheet.create({
   },
   tabItemActive: {
     borderTopWidth: 2,
-    borderTopColor: '#58a6ff',
+    borderTopColor: themeColors.accent,
     marginTop: -8,
     paddingTop: 8,
   },
@@ -858,10 +861,10 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 11,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
   },
   tabLabelActive: {
-    color: '#58a6ff',
+    color: themeColors.accent,
     fontWeight: '600',
   },
   modalOverlay: {
@@ -872,9 +875,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 16,
     padding: 20,
     width: '100%',
@@ -883,7 +886,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -893,44 +896,44 @@ const styles = StyleSheet.create({
   legalHeader: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     marginTop: 15,
     marginBottom: 6,
   },
   legalText: {
     fontSize: 13,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     lineHeight: 18,
     textAlign: 'justify',
   },
   closeBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
   },
   closeBtnText: {
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     fontSize: 15,
     fontWeight: 'bold',
   },
   settingsProfileSection: {
-    backgroundColor: '#0d1117',
+    backgroundColor: themeColors.background,
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     marginBottom: 15,
   },
   settingsProfileTitle: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
     marginBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#21262d',
+    borderBottomColor: themeColors.card,
     paddingBottom: 6,
   },
   profileDetailRow: {
@@ -940,12 +943,12 @@ const styles = StyleSheet.create({
   },
   profileDetailLabel: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     fontWeight: '600',
   },
   profileDetailValue: {
     fontSize: 12,
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     fontWeight: 'bold',
   },
   // Hamburger menu styles
@@ -954,7 +957,7 @@ const styles = StyleSheet.create({
   },
   hamburgerIcon: {
     fontSize: 26,
-    color: '#58a6ff',
+    color: themeColors.accent,
     fontWeight: 'bold',
   },
   drawerOverlay: {
@@ -977,9 +980,9 @@ const styles = StyleSheet.create({
   drawerContent: {
     width: 280,
     height: '100%',
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderRightWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     padding: 20,
     paddingTop: 45,
     justifyContent: 'space-between',
@@ -987,7 +990,7 @@ const styles = StyleSheet.create({
   drawerHeader: {
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#30363d',
+    borderBottomColor: themeColors.border,
     paddingBottom: 20,
     marginBottom: 20,
   },
@@ -995,7 +998,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#58a6ff',
+    backgroundColor: themeColors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -1003,17 +1006,17 @@ const styles = StyleSheet.create({
   drawerAvatarText: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#0d1117',
+    color: themeColors.background,
   },
   drawerName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
     textAlign: 'center',
   },
   drawerEmail: {
     fontSize: 12,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
     marginTop: 4,
     textAlign: 'center',
   },
@@ -1029,9 +1032,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   drawerItemActive: {
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
   },
   drawerItemIcon: {
     fontSize: 18,
@@ -1039,27 +1042,27 @@ const styles = StyleSheet.create({
   },
   drawerItemLabel: {
     fontSize: 14,
-    color: '#c9d1d9',
+    color: themeColors.text,
     fontWeight: '600',
   },
   drawerLogoutBtn: {
-    backgroundColor: '#21262d',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
   },
   drawerLogoutText: {
-    color: '#f85149',
+    color: '#ef4444',
     fontSize: 14,
     fontWeight: 'bold',
   },
   // Profile screen styles
   profileCardFull: {
-    backgroundColor: '#161b22',
+    backgroundColor: themeColors.card,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: themeColors.border,
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
@@ -1069,7 +1072,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#58a6ff',
+    backgroundColor: themeColors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -1077,17 +1080,17 @@ const styles = StyleSheet.create({
   profileAvatarTextLarge: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#0d1117',
+    color: themeColors.background,
   },
   profileNameLarge: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   profileRoleLabel: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#58a6ff',
+    color: themeColors.accent,
     backgroundColor: 'rgba(88, 166, 255, 0.1)',
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -1098,7 +1101,7 @@ const styles = StyleSheet.create({
   profileInfoList: {
     width: '100%',
     borderTopWidth: 1,
-    borderTopColor: '#30363d',
+    borderTopColor: themeColors.border,
     paddingTop: 15,
   },
   profileInfoItem: {
@@ -1106,21 +1109,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#21262d',
+    borderBottomColor: themeColors.card,
   },
   profileInfoLabel: {
     fontSize: 13,
-    color: '#8b949e',
+    color: themeColors.textSecondary,
   },
   profileInfoVal: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#f0f6fc',
+    color: themeColors.textPrimary,
   },
   deleteBtn: {
     backgroundColor: 'rgba(248, 81, 73, 0.1)',
     borderWidth: 1,
-    borderColor: '#f85149',
+    borderColor: '#ef4444',
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
@@ -1128,7 +1131,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   deleteBtnText: {
-    color: '#f85149',
+    color: '#ef4444',
     fontSize: 14,
     fontWeight: 'bold',
   },
