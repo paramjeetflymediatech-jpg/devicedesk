@@ -247,7 +247,8 @@ export default function ChatView({ user }) {
   useEffect(() => {
     if (!user || !user.id) return;
 
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || `${window.location.protocol}//${window.location.hostname}:3001`;
+    // Fall back to undefined so socket.io defaults to the current host/port, routing through Next.js rewrites
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || undefined;
     console.log("Connecting to Socket.io server at:", socketUrl);
 
     const socket = io(socketUrl);
