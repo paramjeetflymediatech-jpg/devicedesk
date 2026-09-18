@@ -41,7 +41,8 @@ async function postToServer(action, data) {
 export async function syncWithServer() {
   if (typeof window === 'undefined') return;
   try {
-    // const res = await fetch('/api/db');
+    const res = await fetch('/api/db');
+    if (!res.ok) return;
     const serverDb = await res.json();
     
     dbCache.systems = serverDb.systems || [];
