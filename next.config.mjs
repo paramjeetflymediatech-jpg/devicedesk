@@ -2,14 +2,15 @@
 const nextConfig = {
   serverExternalPackages: ['ssh2', 'ssh2-sftp-client'],
   async rewrites() {
+    const socketPort = process.env.SOCKET_PORT || 3001;
     return [
       {
         source: '/socket.io',
-        destination: 'http://127.0.0.1:3001/socket.io',
+        destination: `http://127.0.0.1:${socketPort}/socket.io`,
       },
       {
         source: '/socket.io/:path*',
-        destination: 'http://127.0.0.1:3001/socket.io/:path*',
+        destination: `http://127.0.0.1:${socketPort}/socket.io/:path*`,
       }
     ];
   },
