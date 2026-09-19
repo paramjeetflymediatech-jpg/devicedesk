@@ -3,7 +3,7 @@ const nextConfig = {
   serverExternalPackages: ['ssh2', 'ssh2-sftp-client'],
   async rewrites() {
     const socketPort = process.env.SOCKET_PORT || 3018;
-    console.log(`[Next.js Config] Configuring socket.io proxy to port: ${socketPort}`);
+    // console.log(`[Next.js Config] Configuring socket.io proxy to port: ${socketPort}`);
     return [
       {
         source: '/socket.io',

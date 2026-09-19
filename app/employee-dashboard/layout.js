@@ -232,14 +232,21 @@ export default function EmployeeLayout({ children }) {
               );
             })}
             {showITSupportDesk && (
-              <li className="nav-item" style={{ marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}>
-                <button
-                  onClick={() => { window.location.href = "/"; }}
-                  style={{ color: "var(--accent-cyan)", fontWeight: "600", background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', padding: '10px 14px' }}
-                >
-                  <span className="nav-icon"><FiShield /></span> IT Support Desk
-                </button>
-              </li>
+              <div style={{ padding: '0 16px', marginBottom: '8px', marginTop: '16px' }}>
+                <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FiShield /> IT Support Desk
+                  </span>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={false} onChange={() => window.location.href = "/"} />
+                      <div style={{ width: '36px', height: '20px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '20px', border: '1px solid var(--glass-border)', position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: '2px', left: '3px', width: '14px', height: '14px', borderRadius: '50%', background: 'var(--text-secondary)', transition: 'all 0.3s' }}></div>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
             )}
             {isTeamLeader && (
               <li className="nav-item" style={{ marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px" }}>
@@ -349,13 +356,21 @@ export default function EmployeeLayout({ children }) {
             );
           })}
           {showITSupportDesk && (
-            <button
-              className="mobile-drawer-item"
-              onClick={() => { window.location.href = "/"; setMobileMenuOpen(false); }}
-              style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", color: "var(--accent-cyan)", fontWeight: "600", marginTop: "12px", borderTop: "1px solid var(--glass-border)", paddingTop: "8px", background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              <span style={{ display: "inline-flex" }}><FiShield /></span> IT Support Desk
-            </button>
+            <div style={{ padding: '0 14px', marginBottom: '8px', marginTop: '12px' }}>
+              <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FiShield /> IT Support Desk
+                </span>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={false} onChange={() => { window.location.href = "/"; setMobileMenuOpen(false); }} />
+                    <div style={{ width: '36px', height: '20px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '20px', border: '1px solid var(--glass-border)', position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: '2px', left: '3px', width: '14px', height: '14px', borderRadius: '50%', background: 'var(--text-secondary)', transition: 'all 0.3s' }}></div>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
           )}
           {isTeamLeader && (
             <button

@@ -158,7 +158,7 @@ export async function GET(request) {
 
     // Sanitize records to prevent data exposure
     const safeRecords = records.map(r => {
-      const { ipAddress, deviceInfo, punchInLatitude, punchInLongitude, punchOutLatitude, punchOutLongitude, modifiedBy, modifiedReason, ...safeData } = r;
+      const { ipAddress, deviceInfo, modifiedReason, ...safeData } = r;
       return safeData;
     });
 
