@@ -112,6 +112,8 @@ export default function AdminLayout({ children }) {
     user?.email === 'admin@yopmail.com' ||
     user?.email === 'pravi@yopmail.com';
 
+  const isITSupport = !isAdminUser && (dbRoleStr === 'it support' || dbRoleStr === 'it_support' || dbRoleStr === 'it' || deptStr.includes('it'));
+
   const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 
   const renderProfileAvatar = (emp, size = "24px") => {
@@ -226,11 +228,26 @@ export default function AdminLayout({ children }) {
   ];
 
   const navGroups = allNavGroups
-    .filter(group => !isHRUser || !group.adminOnly)
-    .map(group => ({
-      ...group,
-      items: group.items.filter(item => !isHRUser || !item.adminOnly)
-    }))
+    .filter(group => {
+      if (isHRUser && group.adminOnly) return false;
+      if (isITSupport) {
+        if (["Client Management", "Marketing", "Operations & Projects", "HR Portal"].includes(group.title)) return false;
+      }
+      return true;
+    })
+    .map(group => {
+      let filteredItems = group.items;
+      if (isHRUser) {
+        filteredItems = filteredItems.filter(item => !item.adminOnly);
+      }
+      if (isITSupport) {
+        filteredItems = filteredItems.filter(item => {
+          if (["Dashboard", "Chat Workspace", "Screenshots", "Attendance", "Leave Requests", "Activity & Screenshots"].includes(item.name)) return false;
+          return true;
+        });
+      }
+      return { ...group, items: filteredItems };
+    })
     .filter(group => group.items.length > 0);
 
   const isNavActive = (item) => {
@@ -254,10 +271,10 @@ export default function AdminLayout({ children }) {
         </div>
 
         <nav style={{ flex: 1, overflowY: "auto", padding: '16px 0', overflowX: 'hidden' }}>
-          {isHRUser && (
+          {(isHRUser || isITSupport) && (
             <div style={{ padding: '0 16px', marginBottom: '16px', marginTop: '4px' }}>
               <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', width: '100%', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
-                {!isCollapsed && <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>HR Mode</span>}
+                {!isCollapsed && <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>{isITSupport ? 'Employee Portal' : 'HR Mode'}</span>}
                 <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                   <div style={{ position: 'relative' }}>
                     <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={true} onChange={() => window.location.href = "/employee-dashboard"} />
@@ -271,8 +288,8 @@ export default function AdminLayout({ children }) {
           )}
           {navGroups.map((group, idx) => (
             <div key={idx} style={{ marginBottom: '20px' }}>
-              {!isCollapsed && <div style={{ padding: '0 24px', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px', marginBottom: '8px' }}>{group.title}</div>}
-              {isCollapsed && <div style={{ width: '100%', height: '1px', background: 'var(--glass-border)', margin: '8px 0', opacity: 0.5 }} />}
+              {!isCollapsed && !isITSupport && <div style={{ padding: '0 24px', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px', marginBottom: '8px' }}>{group.title}</div>}
+              {isCollapsed && !isITSupport && <div style={{ width: '100%', height: '1px', background: 'var(--glass-border)', margin: '8px 0', opacity: 0.5 }} />}
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {group.items.map((item) => {
                   const active = isNavActive(item);
@@ -338,10 +355,10 @@ export default function AdminLayout({ children }) {
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{empDetails.role || "Administrator"}</p>
         </div>
         <nav className="mobile-drawer-nav">
-          {isHRUser && (
+          {(isHRUser || isITSupport) && (
             <div style={{ marginTop: "12px", borderBottom: "1px solid var(--glass-border)", paddingBottom: "12px", marginBottom: "12px" }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 12px' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>HR Mode</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-cyan)' }}>{isITSupport ? 'Employee Portal' : 'HR Mode'}</span>
                 <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                   <div style={{ position: 'relative' }}>
                     <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={true} onChange={() => window.location.href = "/employee-dashboard"} />

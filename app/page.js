@@ -163,8 +163,8 @@ export default function Home() {
 
   // Auto-redirect IT Support away from restricted admin views
   useEffect(() => {
-    if (isITSupport && ["tasks", "attendance", "screenshots", "leave-requests", "danger-zone", "chat"].includes(currentView)) {
-      setCurrentView("dashboard");
+    if (isITSupport && ["dashboard", "tasks", "attendance", "screenshots", "leave-requests", "danger-zone", "chat"].includes(currentView)) {
+      setCurrentView("systems");
     }
   }, [isITSupport, currentView]);
 
@@ -2278,7 +2278,29 @@ export default function Home() {
         
         <nav style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <ul className="nav-links">
-            {['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin', 'team leader'].includes((userRole || '').toLowerCase()) && (
+            {isITSupport && (
+              <>
+                <li className="nav-item">
+                  <button onClick={() => window.location.href = "/admin/tasks"}><span className="nav-icon"><FiCheckSquare /></span> Task Board</button>
+                </li>
+                <li className="nav-item">
+                  <button onClick={() => window.location.href = "/admin/users"}><span className="nav-icon"><FiUser /></span> Team Directory</button>
+                </li>
+                <li className="nav-item">
+                  <button onClick={() => window.location.href = "/admin/departments"}><span className="nav-icon"><FiBriefcase /></span> Departments</button>
+                </li>
+                <li className="nav-item">
+                  <button onClick={() => window.location.href = "/admin/systems"}><span className="nav-icon"><FiServer /></span> Systems Inventory</button>
+                </li>
+                <li className="nav-item">
+                  <button onClick={() => window.location.href = "/admin/tickets"}><span className="nav-icon"><FiTag /></span> Raise Records</button>
+                </li>
+                <li className="nav-item">
+                  <button onClick={() => window.location.href = "/admin/audit-logs"}><span className="nav-icon"><FiFileText /></span> System Logs & Audit</button>
+                </li>
+              </>
+            )}
+            {!isITSupport && ['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin', 'team leader'].includes((userRole || '').toLowerCase()) && (
                             <>
                 {/* 1. Core Workspace */}
                 <div style={{ marginBottom: "12px" }}>
@@ -2288,9 +2310,11 @@ export default function Home() {
                   </button>
                   {openMenu === "Core Workspace" && (
                     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                      <li className={`nav-item ${currentView === "dashboard" ? "active" : ""}`}>
-                        <button onClick={() => setCurrentView("dashboard")}><span className="nav-icon"><FiGrid /></span> Dashboard</button>
-                      </li>
+                      {!isITSupport && (
+                        <li className={`nav-item ${currentView === "dashboard" ? "active" : ""}`}>
+                          <button onClick={() => setCurrentView("dashboard")}><span className="nav-icon"><FiGrid /></span> Dashboard</button>
+                        </li>
+                      )}
                       {!isITSupport && (
                         <li className={`nav-item ${currentView === "chat" ? "active" : ""}`}>
                           <button onClick={() => setCurrentView("chat")}>
@@ -2316,24 +2340,24 @@ export default function Home() {
                 </div>
 
                 {/* 2. Client Management */}
-                <div style={{ marginBottom: "12px" }}>
-                  <button onClick={() => toggleMenu("Client Management")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer" }}>
-                    Client Management
-                    {openMenu === "Client Management" ? <FiChevronDown /> : <FiChevronRight />}
-                  </button>
-                  {openMenu === "Client Management" && (
-                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                      <li className="nav-item">
-                        <button onClick={() => window.location.href = "/admin/client"}><span className="nav-icon"><FiUsers /></span> Client Records</button>
-                      </li>
-                      {!isITSupport && (
+                {!isITSupport && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <button onClick={() => toggleMenu("Client Management")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", cursor: "pointer" }}>
+                      Client Management
+                      {openMenu === "Client Management" ? <FiChevronDown /> : <FiChevronRight />}
+                    </button>
+                    {openMenu === "Client Management" && (
+                      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                        <li className="nav-item">
+                          <button onClick={() => window.location.href = "/admin/client"}><span className="nav-icon"><FiUsers /></span> Client Records</button>
+                        </li>
                         <li className="nav-item">
                           <button onClick={() => window.location.href = "/admin/domains"}><span className="nav-icon"><FiGlobe /></span> Domain Portfolio</button>
                         </li>
-                      )}
-                    </ul>
-                  )}
-                </div>
+                      </ul>
+                    )}
+                  </div>
+                )}
 
                 {/* 3. Marketing */}
                 {!isITSupport && (
@@ -2483,7 +2507,17 @@ export default function Home() {
         </div>
 
         <nav className="mobile-drawer-nav">
-          {['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin', 'team leader'].includes((userRole || '').toLowerCase()) && (
+          {isITSupport && (
+            <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
+              <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/tasks"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiCheckSquare /></span> Task Board</button>
+              <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/users"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUser /></span> Team Directory</button>
+              <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/departments"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments</button>
+              <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/systems"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiServer /></span> Systems Inventory</button>
+              <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/tickets"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiTag /></span> Raise Records</button>
+              <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/audit-logs"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiActivity /></span> System Logs & Audit</button>
+            </div>
+          )}
+          {!isITSupport && ['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin', 'team leader'].includes((userRole || '').toLowerCase()) && (
                           <>
                 {/* 1. Core Workspace */}
                 <div style={{ marginBottom: "12px" }}>
@@ -2493,7 +2527,9 @@ export default function Home() {
                   </button>
                   {openMenu === "Core Workspace" && (
                     <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
-                      <button className={`mobile-drawer-item ${currentView === "dashboard" ? "active" : ""}`} onClick={() => { setCurrentView("dashboard"); setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiGrid /></span> Dashboard</button>
+                      {!isITSupport && (
+                        <button className={`mobile-drawer-item ${currentView === "dashboard" ? "active" : ""}`} onClick={() => { setCurrentView("dashboard"); setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiGrid /></span> Dashboard</button>
+                      )}
                       {!isITSupport && (
                         <button className={`mobile-drawer-item ${currentView === "chat" ? "active" : ""}`} onClick={() => { setCurrentView("chat"); setMobileMenuOpen(false); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
                           <span style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ display: "inline-flex" }}><FiMessageSquare /></span> Chat Workspace</span>
@@ -2511,20 +2547,20 @@ export default function Home() {
                 </div>
 
                 {/* 2. Client Management */}
-                <div style={{ marginBottom: "12px" }}>
-                  <button onClick={() => toggleMenu("Client Management")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    Client Management
-                    {openMenu === "Client Management" ? <FiChevronDown /> : <FiChevronRight />}
-                  </button>
-                  {openMenu === "Client Management" && (
-                    <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
-                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/client"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUsers /></span> Client Records</button>
-                      {!isITSupport && (
+                {!isITSupport && (
+                  <div style={{ marginBottom: "12px" }}>
+                    <button onClick={() => toggleMenu("Client Management")} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "10px 14px", background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Client Management
+                      {openMenu === "Client Management" ? <FiChevronDown /> : <FiChevronRight />}
+                    </button>
+                    {openMenu === "Client Management" && (
+                      <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
+                        <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/client"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUsers /></span> Client Records</button>
                         <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/domains"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiGlobe /></span> Domain Portfolio</button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* 3. Marketing */}
                 {!isITSupport && (
