@@ -7,6 +7,7 @@ export default function DashboardTab({
   handleFastTestToggle,
   stats,
   activeTickets,
+  resolvedTickets,
   systems,
   employees,
   getTicketTimings,
@@ -131,6 +132,54 @@ export default function DashboardTab({
           </div>
         </div>
 
+        {/* Recently Resolved Tickets */}
+        {resolvedTickets && resolvedTickets.length > 0 && (
+          <div className="panel-card" style={{ marginTop: "1rem" }}>
+            <div className="panel-header">
+              <span className="panel-title">Recently Resolved</span>
+            </div>
+            <div className="ticket-list">
+              {resolvedTickets.slice(0, 5).map(ticket => {
+                const sys = systems.find(s => s.id === ticket.systemId);
+                const emp = employees.find(e => e.id === ticket.employeeId);
+                const timings = getTicketTimings(ticket);
+
+                return (
+                  <div className="ticket-item" key={ticket.id} style={{ opacity: 0.85 }}>
+                    <div className="ticket-details" style={{ width: "100%" }}>
+                      <div className="ticket-meta">
+                        <span className={`status-tag resolved`}>
+                          Resolved
+                        </span>
+                        <span className={`status-tag ${ticket.severity.toLowerCase()}`}>
+                          {ticket.severity}
+                        </span>
+                        <span>
+                          <strong>{sys ? sys.systemNumber : "N/A"}</strong> - {emp ? emp.name : "Unknown"}
+                        </span>
+                      </div>
+                      <div className="ticket-desc" style={{ marginBottom: "4px" }}>
+                        <strong>Issue:</strong> {ticket.description}
+                      </div>
+                      <div className="ticket-desc" style={{ color: "var(--accent-green)", fontStyle: "italic", padding: "4px 8px", background: "rgba(16, 185, 129, 0.1)", borderRadius: "4px" }}>
+                        <strong>Resolution Notes:</strong> {ticket.notes || "No notes provided."}
+                      </div>
+                      <div style={{ marginTop: "6px", display: "flex", gap: "10px" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--accent-green)", fontWeight: "600" }}>
+                          Time to Resolve: {timings.resolutionTimeStr}
+                        </span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                          Resolved At: {ticket.resolvedAt ? new Date(ticket.resolvedAt).toLocaleTimeString() : "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* RAM Capacity distribution charts */}
         <div className="panel-card">
           <div className="panel-header">
@@ -153,7 +202,8 @@ export default function DashboardTab({
                       height: "8px",
                       background: "rgba(255,255,255,0.05)",
                       borderRadius: "4px",
-                      overflow: "hidden"
+                      overflow: "hidden",
+                      marginBottom: "6px"
                     }}
                   >
                     <div
@@ -165,11 +215,26 @@ export default function DashboardTab({
                       }}
                     ></div>
                   </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                    {systems.filter(s => (s.ram || "Unknown") === ram).map(s => (
+                      <span key={s.id} style={{ 
+                        fontSize: "0.7rem", 
+                        background: "rgba(6, 182, 212, 0.1)", 
+                        color: "var(--accent-cyan)", 
+                        padding: "2px 6px", 
+                        borderRadius: "4px",
+                        border: "1px solid rgba(6, 182, 212, 0.2)"
+                      }}>
+                        {s.systemNumber}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
+        
       </div>
     </div>
   );

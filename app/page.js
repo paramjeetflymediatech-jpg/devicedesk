@@ -2906,6 +2906,7 @@ export default function Home() {
               handleFastTestToggle={handleFastTestToggle}
               stats={stats}
               activeTickets={activeTickets}
+              resolvedTickets={tickets.filter(t => t.status === "Resolved")}
               systems={systems}
               employees={employees}
               getTicketTimings={getTicketTimings}
