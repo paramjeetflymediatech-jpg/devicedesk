@@ -32,6 +32,7 @@ const ROLES = [
   'Admin',
   'Client',
   'Marketing',
+  'DNS Manager'
 ];
 
 const DEFAULT_DEPARTMENTS = [
@@ -42,7 +43,8 @@ const DEFAULT_DEPARTMENTS = [
   'HR',
   'IT Support',
   'Operations',
-  'Management'
+  'Management',
+  'DNS Manager'
 ];
 
 export default function UsersManagementPage() {

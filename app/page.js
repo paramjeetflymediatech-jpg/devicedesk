@@ -161,6 +161,11 @@ export default function Home() {
     deptLower.includes('it')
   );
 
+  const isDnsManager = isMounted && (
+    dbRoleLower === 'dns manager' ||
+    deptLower === 'dns manager'
+  );
+
   // Auto-redirect IT Support away from restricted admin views
   useEffect(() => {
     if (isITSupport && ["dashboard", "tasks", "attendance", "screenshots", "leave-requests", "danger-zone", "chat"].includes(currentView)) {
@@ -2351,9 +2356,11 @@ export default function Home() {
                         <li className="nav-item">
                           <button onClick={() => window.location.href = "/admin/client"}><span className="nav-icon"><FiUsers /></span> Client Records</button>
                         </li>
-                        <li className="nav-item">
-                          <button onClick={() => window.location.href = "/admin/domains"}><span className="nav-icon"><FiGlobe /></span> Domain Portfolio</button>
-                        </li>
+                        {(isRootAdmin || isDnsManager) && (
+                          <li className="nav-item">
+                            <button onClick={() => window.location.href = "/admin/domains"}><span className="nav-icon"><FiGlobe /></span> Domain Portfolio</button>
+                          </li>
+                        )}
                       </ul>
                     )}
                   </div>
@@ -2411,7 +2418,7 @@ export default function Home() {
                         <button onClick={() => window.location.href = "/admin/departments"}><span className="nav-icon"><FiBriefcase /></span> Departments</button>
                       </li>
                       <li className="nav-item">
-                        {/* <button onClick={() => window.location.href = "/employee-dashboard/hr-recruitment"}><span className="nav-icon"><FiUserPlus /></span> HR Portal</button> */}
+                        <button onClick={() => window.location.href = "/admin/recruitment"}><span className="nav-icon"><FiUserPlus /></span> Recruitment</button>
                       </li>
                       {!isITSupport && (
                         <li className="nav-item">
@@ -2556,7 +2563,9 @@ export default function Home() {
                     {openMenu === "Client Management" && (
                       <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
                         <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/client"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUsers /></span> Client Records</button>
-                        <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/domains"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiGlobe /></span> Domain Portfolio</button>
+                        {(isRootAdmin || isDnsManager) && (
+                          <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/domains"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiGlobe /></span> Domain Portfolio</button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2603,7 +2612,7 @@ export default function Home() {
                     <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
                       <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/users"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUser /></span> Team Directory</button>
                       <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/departments"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments</button>
-                      {/* <button className="mobile-drawer-item" onClick={() => { window.location.href = "/employee-dashboard/hr-recruitment"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUserPlus /></span> HR Portal</button> */}
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/recruitment"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUserPlus /></span> Recruitment</button>
                       {!isITSupport && (
                         <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/attendance"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiClock /></span> Attendance</button>
                       )}

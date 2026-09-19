@@ -135,7 +135,11 @@ export default function LoginPage() {
       if (data.success) {
         login(data.user);
         const dbRoleLower = (data.user?.dbRole || '').toLowerCase();
-        if (dbRoleLower === 'candidate') {
+        const deptLower = (data.user?.department || '').toLowerCase();
+        
+        if (dbRoleLower === 'dns manager' || deptLower === 'dns manager') {
+          router.push('/admin/domains');
+        } else if (dbRoleLower === 'candidate') {
           router.push('/candidate-dashboard');
         } else {
           router.push('/employee-dashboard');

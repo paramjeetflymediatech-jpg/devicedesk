@@ -116,6 +116,8 @@ export default function AdminLayout({ children }) {
 
   const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 
+  const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
+
   const renderProfileAvatar = (emp, size = "24px") => {
     const getInitials = (name) => {
       if (!name) return "AD";
@@ -233,10 +235,22 @@ export default function AdminLayout({ children }) {
       if (isITSupport) {
         if (["Client Management", "Marketing", "Operations & Projects", "HR Portal"].includes(group.title)) return false;
       }
+      if (isDnsManager && !isAdminUser) {
+        if (group.title !== "Client Management") return false;
+      }
       return true;
     })
     .map(group => {
       let filteredItems = group.items;
+      
+      if (!isAdminUser && !isDnsManager) {
+        filteredItems = filteredItems.filter(item => item.name !== "Domain Portfolio");
+      }
+      
+      if (isDnsManager && !isAdminUser) {
+        filteredItems = filteredItems.filter(item => item.name === "Domain Portfolio");
+      }
+
       if (isHRUser) {
         filteredItems = filteredItems.filter(item => !item.adminOnly);
       }

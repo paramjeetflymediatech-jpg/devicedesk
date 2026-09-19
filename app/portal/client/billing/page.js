@@ -1,9 +1,61 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Swal from 'sweetalert2';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3 , FiUser} from 'react-icons/fi';
 
 export default function BillingPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState(100);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Handle URL query parameters for payment status
+  useEffect(() => {
+    const paymentStatus = searchParams?.get('status');
+    const tx = searchParams?.get('tx');
+    if (paymentStatus === 'SUCCESS') {
+      Swal.fire('Payment Successful!', `Transaction ID: ${tx}`, 'success');
+      router.replace(`/portal/client/billing`);
+    } else if (paymentStatus === 'FAILED' || paymentStatus === 'error') {
+      Swal.fire('Payment Failed', 'Your payment could not be processed.', 'error');
+      router.replace(`/portal/client/billing`);
+    }
+  }, [searchParams, router]);
+
+  const handlePayment = async (e) => {
+    e.preventDefault();
+    if (!paymentAmount || paymentAmount <= 0) {
+      Swal.fire('Invalid Amount', 'Please enter a valid amount.', 'warning');
+      return;
+    }
+    
+    setPaymentLoading(true);
+    try {
+      const res = await fetch('/api/payment/phonepe/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: paymentAmount,
+          clientSlug: 'client', // Dummy slug for this static page
+          clientId: 'EMP-UNKNOWN', // Dummy ID for this static page
+          description: `Custom payment from Client Portal`
+        })
+      });
+      const data = await res.json();
+      
+      if (data.success && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else {
+        Swal.fire('Error', data.error || 'Failed to initiate payment', 'error');
+        setPaymentLoading(false);
+      }
+    } catch (err) {
+      Swal.fire('Error', 'Network error occurred.', 'error');
+      setPaymentLoading(false);
+    }
+  };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
@@ -103,10 +155,49 @@ export default function BillingPage() {
 
         <main className="flex-1 p-4 md:p-8 w-full max-w-7xl mx-auto">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500 mt-6">
-            <div className="p-6 text-center py-20 text-gray-500">
-              <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4"><FiCreditCard size={28} /></div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">Billing Coming Soon</h2>
-              <p>We are currently working on this feature. Stay tuned!</p>
+            <div className="p-8">
+              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
+                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                  <FiCreditCard size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Make a Payment</h2>
+                  <p className="text-gray-500 text-sm">Secure online payment powered by PhonePe</p>
+                </div>
+              </div>
+
+              <div className="max-w-md mx-auto">
+                <form onSubmit={handlePayment} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Amount (INR)</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span className="text-gray-500 font-medium">₹</span>
+                      </div>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        className="block w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-medium text-gray-900"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={paymentLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-[#5f259f] hover:bg-[#4b1d7d] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#5f259f] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {paymentLoading ? (
+                      <>Processing...</>
+                    ) : (
+                      <>Pay with PhonePe</>
+                    )}
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
         </main>

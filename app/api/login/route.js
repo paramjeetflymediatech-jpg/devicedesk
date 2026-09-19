@@ -138,7 +138,7 @@ export async function POST(request) {
 
     const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader';
 
-    // HR OTP Check
+    // HR / DNS Manager OTP Check
     const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
     const deptStr = `${emp.department || ''}`.toLowerCase().trim();
     const isAdminUser =
@@ -148,8 +148,9 @@ export async function POST(request) {
       emp.email === 'admin@yopmail.com' ||
       emp.email === 'pravi@yopmail.com';
     const isHRUser = !isAdminUser && dbRoleStr !== 'candidate' && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+    const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
 
-    if (isHRUser) {
+    if (isHRUser || isDnsManager) {
       return NextResponse.json({
         success: true,
         requiresOtp: true,

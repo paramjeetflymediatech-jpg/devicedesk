@@ -23,6 +23,14 @@ export default function CandidateRegistration() {
     notice_period: '',
     position_applied: ''
   });
+  const [experiences, setExperiences] = useState([{
+    company_name: '',
+    company_location: '',
+    years_worked: '',
+    current_salary: '',
+    expected_salary: '',
+    why_left: ''
+  }]);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
@@ -85,12 +93,19 @@ export default function CandidateRegistration() {
 
     // 5. Experience Validation
     if (form.experience_level === 'Experienced') {
-      if (!form.company_name || !form.company_location || !form.years_worked || !form.why_left || !form.notice_period) {
-        Swal.fire({ icon: 'warning', title: 'Missing Experience Details', text: 'Please fill in all required experience details, including Notice Period.' });
-        return;
+      for (let i = 0; i < experiences.length; i++) {
+        const exp = experiences[i];
+        if (!exp.company_name || !exp.company_location || !exp.years_worked || !exp.why_left) {
+          Swal.fire({ icon: 'warning', title: 'Missing Experience Details', text: `Please fill in all required fields for experience #${i + 1}.` });
+          return;
+        }
+        if (isNaN(parseFloat(exp.years_worked))) {
+          Swal.fire({ icon: 'warning', title: 'Invalid Years Worked', text: `Please enter a valid number for years worked in experience #${i + 1}.` });
+          return;
+        }
       }
-      if (isNaN(parseFloat(form.years_worked))) {
-        Swal.fire({ icon: 'warning', title: 'Invalid Years Worked', text: 'Please enter a valid number for years worked (e.g., 2.5).' });
+      if (!form.notice_period) {
+        Swal.fire({ icon: 'warning', title: 'Missing Notice Period', text: 'Please select your notice period.' });
         return;
       }
     }
@@ -99,12 +114,13 @@ export default function CandidateRegistration() {
     try {
       let experience_details = '';
       if (form.experience_level === 'Experienced') {
-        experience_details = `Company: ${form.company_name}
-Location: ${form.company_location}
-Years Worked: ${form.years_worked}
-Current Salary: ${form.current_salary}
-Expected Salary: ${form.expected_salary}
-Reason for Leaving: ${form.why_left}`;
+        experience_details = experiences.map((exp, idx) => `Experience ${idx + 1}:
+Company: ${exp.company_name}
+Location: ${exp.company_location}
+Years Worked: ${exp.years_worked}
+Current Salary: ${exp.current_salary}
+Expected Salary: ${exp.expected_salary}
+Reason for Leaving: ${exp.why_left}`).join('\n\n');
       }
 
       const payload = {
@@ -329,49 +345,89 @@ Reason for Leaving: ${form.why_left}`;
 
             {/* Experience Details (Conditional) */}
             {form.experience_level === 'Experienced' && (
-              <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a' }}>Experience Details</h3>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Company Name <span style={{ color: '#ef4444' }}>*</span></label>
-                    <input type="text" required value={form.company_name} onChange={e => setForm({...form, company_name: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. Google" />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Company Location <span style={{ color: '#ef4444' }}>*</span></label>
-                    <input type="text" required value={form.company_location} onChange={e => setForm({...form, company_location: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. New York, NY" />
-                  </div>
-                </div>
+                {experiences.map((exp, idx) => (
+                  <div key={idx} style={{ padding: '15px', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#fff', position: 'relative' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                      <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#334155' }}>Company #{idx + 1}</h4>
+                      {experiences.length > 1 && (
+                        <button type="button" onClick={() => setExperiences(experiences.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '600' }}>Remove</button>
+                      )}
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Company Name <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input type="text" required value={exp.company_name} onChange={e => {
+                          const newExp = [...experiences];
+                          newExp[idx].company_name = e.target.value;
+                          setExperiences(newExp);
+                        }} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. Google" />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Company Location <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input type="text" required value={exp.company_location} onChange={e => {
+                          const newExp = [...experiences];
+                          newExp[idx].company_location = e.target.value;
+                          setExperiences(newExp);
+                        }} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. New York, NY" />
+                      </div>
+                    </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '15px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Years Worked <span style={{ color: '#ef4444' }}>*</span></label>
-                    <input type="text" required value={form.years_worked} onChange={e => setForm({...form, years_worked: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. 2.5" />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Current Salary</label>
-                    <input type="text" value={form.current_salary} onChange={e => setForm({...form, current_salary: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. 50k" />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Expected Salary</label>
-                    <input type="text" value={form.expected_salary} onChange={e => setForm({...form, expected_salary: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. 70k" />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Notice Period</label>
-                    <select value={form.notice_period} onChange={e => setForm({...form, notice_period: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}>
-                      <option value="">Select...</option>
-                      <option value="Immediate">Immediate</option>
-                      <option value="15 Days">15 Days</option>
-                      <option value="30 Days">30 Days</option>
-                      <option value="45 Days">45 Days</option>
-                      <option value="60+ Days">60+ Days</option>
-                    </select>
-                  </div>
-                </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Years Worked <span style={{ color: '#ef4444' }}>*</span></label>
+                        <input type="text" required value={exp.years_worked} onChange={e => {
+                          const newExp = [...experiences];
+                          newExp[idx].years_worked = e.target.value;
+                          setExperiences(newExp);
+                        }} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. 2.5" />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Current Salary</label>
+                        <input type="text" value={exp.current_salary} onChange={e => {
+                          const newExp = [...experiences];
+                          newExp[idx].current_salary = e.target.value;
+                          setExperiences(newExp);
+                        }} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. 50k" />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Expected Salary</label>
+                        <input type="text" value={exp.expected_salary} onChange={e => {
+                          const newExp = [...experiences];
+                          newExp[idx].expected_salary = e.target.value;
+                          setExperiences(newExp);
+                        }} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="e.g. 70k" />
+                      </div>
+                    </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Reason for Leaving <span style={{ color: '#ef4444' }}>*</span></label>
-                  <textarea rows="2" required value={form.why_left} onChange={e => setForm({...form, why_left: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', resize: 'vertical' }} placeholder="Please explain..."></textarea>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Reason for Leaving <span style={{ color: '#ef4444' }}>*</span></label>
+                      <textarea rows="2" required value={exp.why_left} onChange={e => {
+                        const newExp = [...experiences];
+                        newExp[idx].why_left = e.target.value;
+                        setExperiences(newExp);
+                      }} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', resize: 'vertical' }} placeholder="Please explain..."></textarea>
+                    </div>
+                  </div>
+                ))}
+                
+                <button type="button" onClick={() => setExperiences([...experiences, { company_name: '', company_location: '', years_worked: '', current_salary: '', expected_salary: '', why_left: '' }])} style={{ background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', padding: '10px', borderRadius: '8px', border: '1px dashed #06b6d4', fontWeight: '600', cursor: 'pointer', textAlign: 'center' }}>
+                  + Add Another Experience
+                </button>
+
+                <div style={{ marginTop: '10px' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>Notice Period <span style={{ color: '#ef4444' }}>*</span></label>
+                  <select value={form.notice_period} required onChange={e => setForm({...form, notice_period: e.target.value})} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', maxWidth: '300px' }}>
+                    <option value="">Select...</option>
+                    <option value="Immediate">Immediate</option>
+                    <option value="15 Days">15 Days</option>
+                    <option value="30 Days">30 Days</option>
+                    <option value="45 Days">45 Days</option>
+                    <option value="60+ Days">60+ Days</option>
+                  </select>
                 </div>
               </div>
             )}

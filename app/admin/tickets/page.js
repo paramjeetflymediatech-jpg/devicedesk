@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { FiAlertCircle, FiLink, FiArrowLeft, FiPlus, FiCheckCircle, FiSearch } from "react-icons/fi";
-import { getTickets, getEmployees } from "../../store.js";
+import Swal from "sweetalert2";
+import { getTickets, getEmployees, resolveTicket } from "../../store.js";
 import { getEmployeeSlug } from "../../utils/slugUtils.js";
 import Pagination from "../../components/Pagination.js";
 
@@ -19,6 +20,23 @@ export default function AdminTicketsPage() {
     setTickets(getTickets());
     setEmployees(getEmployees());
   }, []);
+
+  const handleResolve = (ticketId) => {
+    Swal.fire({
+      title: 'Resolve Ticket',
+      text: "Are you sure you want to resolve this ticket?",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Resolve it',
+      confirmButtonColor: '#10b981'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        resolveTicket(ticketId, "Resolved by Admin via Tickets Dashboard");
+        setTickets(getTickets());
+        Swal.fire('Resolved!', 'Ticket has been marked as resolved.', 'success');
+      }
+    });
+  };
 
   const filteredTickets = tickets.filter((t) => {
     const ticketSlug = `ticket-${t.id}`.toLowerCase();
@@ -170,9 +188,16 @@ export default function AdminTicketsPage() {
                       </span>
                     </td>
                     <td style={{ padding: "14px 16px", textAlign: "right" }}>
-                      <Link href={`/admin/tickets/${ticketSlug}`} className="btn-action start" style={{ padding: "4px 10px", fontSize: "0.75rem", textDecoration: "none" }}>
-                        View &rarr;
-                      </Link>
+                      <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                        <Link href={`/admin/tickets/${ticketSlug}`} className="btn-action start" style={{ padding: "4px 10px", fontSize: "0.75rem", textDecoration: "none" }}>
+                          View &rarr;
+                        </Link>
+                        {t.status !== "Resolved" && (
+                          <button onClick={() => handleResolve(t.id)} className="btn-action" style={{ padding: "4px 10px", fontSize: "0.75rem", background: "rgba(16, 185, 129, 0.1)", color: "var(--accent-green, #10b981)", border: "1px solid rgba(16, 185, 129, 0.2)", cursor: "pointer" }}>
+                            <FiCheckCircle style={{ marginRight: "4px", display: "inline" }}/> Resolve
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

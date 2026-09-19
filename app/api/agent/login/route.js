@@ -22,13 +22,13 @@ export async function POST(req) {
 
     const pool = await getDbConnection();
 
-    // 1. Fetch employee by ID, Email, or Name
+    // 1. Fetch employee by ID, Email
     const [rows] = await pool.execute(
       `SELECT id, name, email, password, role, department, ticketLimit, status
        FROM employees
-       WHERE LOWER(id) = LOWER(?) OR LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?)
+       WHERE LOWER(id) = LOWER(?) OR LOWER(email) = LOWER(?)
        LIMIT 1`,
-      [identifier.toLowerCase().trim(), identifier.toLowerCase().trim(), identifier.toLowerCase().trim()]
+      [identifier.toLowerCase().trim(), identifier.toLowerCase().trim()]
     );
 
     if (rows.length === 0) {

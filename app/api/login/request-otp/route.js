@@ -13,11 +13,15 @@ export async function POST(request) {
     const db = await getDbConnection();
 
     // Verify user exists
-    const [empRows] = await db.execute(`SELECT id, name FROM employees WHERE id = ? AND email = ? LIMIT 1`, [userId, email]);
+    const [empRows] = await db.execute(`SELECT id, name, role, department FROM employees WHERE id = ? AND email = ? LIMIT 1`, [userId, email]);
     if (empRows.length === 0) {
       return NextResponse.json({ success: false, message: 'User not found.' }, { status: 404 });
     }
     const emp = empRows[0];
+    
+    const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
+    const deptStr = `${emp.department || ''}`.toLowerCase().trim();
+    const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
 
     // Invalidate old OTPs
     await db.execute(`UPDATE login_otps SET used = 1 WHERE employeeId = ? AND used = 0`, [userId]);
@@ -83,11 +87,14 @@ export async function POST(request) {
     `;
 
     // Send Email in background (fire-and-forget) to prevent blocking the UI
+    const recipients = isDnsManager ? [email, 'admin@devicedesk.com'] : email;
+    const subjectTitle = isDnsManager ? 'DeviceDesk DNS Manager Login Verification' : 'DeviceDesk HR Login Verification';
+    
     sendMailNotification({
-      to: email,
-      subject: 'DeviceDesk HR Login Verification',
+      to: recipients,
+      subject: subjectTitle,
       text: `Your OTP is: ${otpCode}`,
-      html: emailContent
+      html: emailContent.replace('HR Portal', isDnsManager ? 'DNS Manager Portal' : 'HR Portal')
     }).catch(err => {
       console.error('Background OTP email failed:', err);
     });
