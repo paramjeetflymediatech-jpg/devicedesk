@@ -239,7 +239,7 @@ export default function EmployeeLayout({ children }) {
                   </span>
                   <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                     <div style={{ position: 'relative' }}>
-                      <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={false} onChange={() => window.location.href = "/"} />
+                      <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={false} onChange={() => window.location.href = "/?tab=dashboard"} />
                       <div style={{ width: '36px', height: '20px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '20px', border: '1px solid var(--glass-border)', position: 'relative' }}>
                         <div style={{ position: 'absolute', top: '2px', left: '3px', width: '14px', height: '14px', borderRadius: '50%', background: 'var(--text-secondary)', transition: 'all 0.3s' }}></div>
                       </div>
@@ -363,7 +363,7 @@ export default function EmployeeLayout({ children }) {
                 </span>
                 <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                   <div style={{ position: 'relative' }}>
-                    <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={false} onChange={() => { window.location.href = "/"; setMobileMenuOpen(false); }} />
+                    <input type="checkbox" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} checked={false} onChange={() => { window.location.href = "/?tab=dashboard"; setMobileMenuOpen(false); }} />
                     <div style={{ width: '36px', height: '20px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '20px', border: '1px solid var(--glass-border)', position: 'relative' }}>
                       <div style={{ position: 'absolute', top: '2px', left: '3px', width: '14px', height: '14px', borderRadius: '50%', background: 'var(--text-secondary)', transition: 'all 0.3s' }}></div>
                     </div>

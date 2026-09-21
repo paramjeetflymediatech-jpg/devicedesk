@@ -3,7 +3,8 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { FiAlertCircle, FiLink, FiArrowLeft, FiPlus, FiCheckCircle, FiSearch } from "react-icons/fi";
 import Swal from "sweetalert2";
-import { getTickets, getEmployees, resolveTicket } from "../../store.js";
+import { getTickets, getEmployees, resolveTicket, getSystems, updateSystem } from "../../store.js";
+import ResolveTicketModal from "../../components/modals/ResolveTicketModal.js";
 import { getEmployeeSlug } from "../../utils/slugUtils.js";
 import Pagination from "../../components/Pagination.js";
 
@@ -15,27 +16,59 @@ export default function AdminTicketsPage() {
   const [severityFilter, setSeverityFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [systems, setSystems] = useState([]);
+
+  // Resolve Modal State
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [resolvingTicketId, setResolvingTicketId] = useState("");
+  const [resolveNotes, setResolveNotes] = useState("");
+  const [resolveSystemStatus, setResolveSystemStatus] = useState("Active");
 
   useEffect(() => {
     setTickets(getTickets());
     setEmployees(getEmployees());
+    setSystems(getSystems());
   }, []);
 
   const handleResolve = (ticketId) => {
-    Swal.fire({
-      title: 'Resolve Ticket',
-      text: "Are you sure you want to resolve this ticket?",
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, Resolve it',
-      confirmButtonColor: '#10b981'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        resolveTicket(ticketId, "Resolved by Admin via Tickets Dashboard");
-        setTickets(getTickets());
-        Swal.fire('Resolved!', 'Ticket has been marked as resolved.', 'success');
+    setResolvingTicketId(ticketId);
+    setResolveNotes("");
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (ticket) {
+      const sys = systems.find(s => s.id === ticket.systemId);
+      setResolveSystemStatus(sys?.status || "Active");
+    } else {
+      setResolveSystemStatus("Active");
+    }
+    setShowResolveModal(true);
+  };
+
+  const handleResolveTicketSubmit = (e) => {
+    e.preventDefault();
+    const ticket = resolveTicket(resolvingTicketId, resolveNotes);
+    
+    if (ticket) {
+      const sys = getSystems().find(s => s.id === ticket.systemId);
+      if (sys) {
+        let changed = false;
+        if (resolveNotes.toLowerCase().includes("ram")) {
+          sys.remarks = `Upgrade details: ${resolveNotes} (ticket ${ticket.id}). ` + (sys.remarks || "");
+          changed = true;
+        }
+        if (resolveSystemStatus && sys.status !== resolveSystemStatus) {
+          sys.status = resolveSystemStatus;
+          changed = true;
+        }
+        if (changed) {
+          updateSystem(sys, "Admin");
+        }
       }
-    });
+    }
+    
+    setTickets(getTickets());
+    setSystems(getSystems());
+    setShowResolveModal(false);
+    Swal.fire('Resolved!', 'Ticket has been marked as resolved.', 'success');
   };
 
   const filteredTickets = tickets.filter((t) => {
@@ -224,6 +257,16 @@ export default function AdminTicketsPage() {
           itemName="tickets"
         />
       </div>
+      
+      <ResolveTicketModal
+        showResolveModal={showResolveModal}
+        setShowResolveModal={setShowResolveModal}
+        handleResolveTicketSubmit={handleResolveTicketSubmit}
+        resolveNotes={resolveNotes}
+        setResolveNotes={setResolveNotes}
+        resolveSystemStatus={resolveSystemStatus}
+        setResolveSystemStatus={setResolveSystemStatus}
+      />
     </div>
   );
 }

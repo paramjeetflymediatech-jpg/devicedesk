@@ -102,6 +102,8 @@ export default function LoginPage() {
           router.push('/portal/marketing');
         } else if (isRootAdmin) {
           router.push('/');
+        } else if (dbRoleLower.includes('it') || deptLower.includes('it')) {
+          router.push('/?tab=dashboard');
         } else {
           router.push('/employee-dashboard');
         }
@@ -141,6 +143,10 @@ export default function LoginPage() {
           router.push('/admin/domains');
         } else if (dbRoleLower === 'candidate') {
           router.push('/candidate-dashboard');
+        } else if (dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || data.user?.email === 'admin@yopmail.com' || data.user?.email === 'pravi@yopmail.com') {
+          router.push('/');
+        } else if (dbRoleLower.includes('it') || deptLower.includes('it')) {
+          router.push('/?tab=dashboard');
         } else {
           router.push('/employee-dashboard');
         }

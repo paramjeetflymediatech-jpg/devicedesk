@@ -7,7 +7,9 @@ export default function ResolveTicketModal({
   setShowResolveModal,
   handleResolveTicketSubmit,
   resolveNotes,
-  setResolveNotes
+  setResolveNotes,
+  resolveSystemStatus,
+  setResolveSystemStatus
 }) {
   if (!showResolveModal) return null;
 
@@ -33,6 +35,23 @@ export default function ResolveTicketModal({
             />
             <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "5px" }}>
               💡 Typing &quot;RAM&quot; in the notes will automatically update the system specs in the Hardware Directory.
+            </p>
+          </div>
+
+          <div className="form-group">
+            <label>Update System Status</label>
+            <select
+              className="form-control"
+              value={resolveSystemStatus}
+              onChange={(e) => setResolveSystemStatus(e.target.value)}
+            >
+              <option value="Active">Active</option>
+              <option value="Idle">Idle</option>
+              <option value="In Repair">In Repair</option>
+              <option value="Retired">Retired</option>
+            </select>
+            <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "5px" }}>
+              Select the new status for the system after applying the fix.
             </p>
           </div>
 

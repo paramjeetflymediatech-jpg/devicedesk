@@ -72,6 +72,17 @@ export default function AdminSingleTicketPage() {
           <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "0.75rem" }}>Description</h3>
           <p style={{ color: "var(--text-secondary, #94a3b8)", lineHeight: 1.6 }}>{ticket.description || "No description provided."}</p>
 
+          {ticket.status === "Resolved" && ticket.notes && (
+            <div style={{ marginTop: "1.5rem", padding: "1rem", background: "rgba(16, 185, 129, 0.05)", borderLeft: "4px solid var(--status-resolved, #10b981)", borderRadius: "0 8px 8px 0" }}>
+              <h4 style={{ color: "var(--status-resolved, #10b981)", fontSize: "0.95rem", margin: "0 0 0.5rem 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                <FiCheckCircle /> IT Resolution Notes
+              </h4>
+              <p style={{ color: "var(--text-primary, #f8fafc)", fontSize: "0.9rem", lineHeight: 1.5, margin: 0 }}>
+                {ticket.notes}
+              </p>
+            </div>
+          )}
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem", marginTop: "1.5rem" }}>
             <div style={{ background: "rgba(255,255,255,0.03)", padding: "1rem", borderRadius: "10px" }}>
               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary, #94a3b8)" }}>System Number</span>
