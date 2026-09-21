@@ -80,7 +80,7 @@ export async function GET(request) {
         }
       } else {
         const [empRows] = await pool.query(
-          `SELECT id, name FROM employees WHERE (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive')) AND LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client')`
+          `SELECT id, name FROM employees WHERE (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive')) AND LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client', 'candidate')`
         );
         const existingEmpIds = new Set(records.map(r => r.employeeId));
 
