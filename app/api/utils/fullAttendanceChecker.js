@@ -20,6 +20,14 @@ export async function checkAndSendSummaryReport(connectionOverride = null, perio
 
     try {
       const now = new Date();
+      const istDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      
+      // Stop automatic emails on Sundays
+      if (istDate.getDay() === 0 && !force) {
+        if (shouldRelease) db.release();
+        return { success: true, message: 'Skipped: Automatic emails are disabled on Sundays.' };
+      }
+
       const todayStr = formatLocalDate(now);
 
       // Create tracking table if not exists
@@ -48,7 +56,7 @@ export async function checkAndSendSummaryReport(connectionOverride = null, perio
       // 2. Fetch all active non-admin team members and team leaders
       const [activeEmps] = await db.execute(
         `SELECT id, name, role, department, email FROM employees 
-         WHERE LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client', 'candidate') 
+         WHERE LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client', 'candidate', 'dns manager') 
            AND (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive'))`
       );
 
