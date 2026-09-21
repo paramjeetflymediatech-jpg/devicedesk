@@ -123,7 +123,7 @@ export default function UsersManagementPage() {
 
         if (isMounted) {
           if (usersData.success) {
-            setUsers(usersData.data);
+            setUsers(usersData.data.filter(u => u.role?.toLowerCase() !== 'candidate'));
           }
           if (deptsData.success && deptsData.data && deptsData.data.length > 0) {
             setDepartments(deptsData.data.map(d => d.name));

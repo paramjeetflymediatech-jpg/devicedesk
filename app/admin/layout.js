@@ -224,7 +224,8 @@ export default function AdminLayout({ children }) {
     {
       title: "HR Portal",
       items: [
-        { name: "Recruitment", path: "/admin/recruitment", icon: <FiUserPlus /> }
+        { name: "Recruitment", path: "/admin/recruitment", icon: <FiUserPlus /> },
+        { name: "Candidate Pool", path: "/admin/candidates", icon: <FiUsers /> }
       ]
     }
   ];

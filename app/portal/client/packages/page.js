@@ -1,5 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Swal from 'sweetalert2';
 import { FiCheck , FiUser} from 'react-icons/fi';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3 } from 'react-icons/fi';
 
@@ -8,13 +10,25 @@ export default function PackagesPage() {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const router = useRouter();
+
   useEffect(() => {
     fetchPackages();
   }, []);
 
+  const getClientId = () => {
+    let clientId = 'EMP-UNKNOWN';
+    if (typeof window !== 'undefined') {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user && user.id) clientId = user.id;
+    }
+    return clientId;
+  };
+
   const fetchPackages = async () => {
     try {
-      const res = await fetch('/api/packages');
+      const clientId = getClientId();
+      const res = await fetch(`/api/packages?client_id=${clientId}`);
       const data = await res.json();
       if (data.success) {
         setPackages(data.packages || []);
@@ -23,6 +37,34 @@ export default function PackagesPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBuyNow = async (pkg) => {
+    try {
+      setLoading(true);
+      const clientId = getClientId();
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: clientId,
+          package_id: pkg.id,
+          amount: pkg.price
+        })
+      });
+      const data = await res.json();
+      setLoading(false);
+      
+      if (data.success) {
+        Swal.fire('Invoice Created', 'Redirecting to payment...', 'success');
+        router.push('/portal/client/billing');
+      } else {
+        Swal.fire('Error', data.error || 'Failed to process purchase', 'error');
+      }
+    } catch (err) {
+      setLoading(false);
+      Swal.fire('Error', 'Network error occurred', 'error');
     }
   };
 
@@ -157,10 +199,10 @@ export default function PackagesPage() {
                       ))}
                     </ul>
                     <button
-                      onClick={() => window.location.href = '/portal/client/book-service'}
+                      onClick={() => handleBuyNow(pkg)}
                       className="w-full py-4 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-200"
                     >
-                      Enquire Now
+                      Buy Now
                     </button>
                   </div>
                 </div>

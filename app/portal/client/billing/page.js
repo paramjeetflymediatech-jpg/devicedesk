@@ -10,6 +10,35 @@ export default function BillingPage() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [invoices, setInvoices] = useState([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(true);
+
+  const getClientId = () => {
+    let clientId = 'EMP-UNKNOWN';
+    if (typeof window !== 'undefined') {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user && user.id) clientId = user.id;
+    }
+    return clientId;
+  };
+
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      try {
+        const clientId = getClientId();
+        const res = await fetch(`/api/invoices?client_id=${clientId}`);
+        const data = await res.json();
+        if (data.success) {
+          setInvoices(data.invoices || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingInvoices(false);
+      }
+    };
+    fetchInvoices();
+  }, []);
 
   // Handle URL query parameters for payment status
   useEffect(() => {
@@ -33,13 +62,14 @@ export default function BillingPage() {
     
     setPaymentLoading(true);
     try {
+      const clientId = getClientId();
       const res = await fetch('/api/payment/phonepe/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: paymentAmount,
-          clientSlug: 'client', // Dummy slug for this static page
-          clientId: 'EMP-UNKNOWN', // Dummy ID for this static page
+          clientSlug: 'client', 
+          clientId: clientId,
           description: `Custom payment from Client Portal`
         })
       });
@@ -198,6 +228,77 @@ export default function BillingPage() {
                   </button>
                 </form>
               </div>
+            </div>
+          </div>
+
+          {/* Invoices Section */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500 mt-8">
+            <div className="p-8">
+              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
+                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                  <FiFileText size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Billing History & Invoices</h2>
+                  <p className="text-gray-500 text-sm">View your past purchases and pending invoices</p>
+                </div>
+              </div>
+
+              {loadingInvoices ? (
+                <div className="flex justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+              ) : invoices.length === 0 ? (
+                <div className="text-center p-8 text-gray-500">
+                  <p>No billing history found.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
+                        <th className="p-4 font-bold border-b border-gray-200">Date</th>
+                        <th className="p-4 font-bold border-b border-gray-200">Invoice ID</th>
+                        <th className="p-4 font-bold border-b border-gray-200">Package</th>
+                        <th className="p-4 font-bold border-b border-gray-200">Amount</th>
+                        <th className="p-4 font-bold border-b border-gray-200">Status</th>
+                        <th className="p-4 font-bold border-b border-gray-200 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {invoices.map((inv) => (
+                        <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="p-4 text-gray-600">
+                            {new Date(inv.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="p-4 text-gray-800 font-medium">{inv.id}</td>
+                          <td className="p-4 text-gray-600">{inv.package_name || 'Custom Plan'}</td>
+                          <td className="p-4 text-gray-900 font-bold">₹{parseFloat(inv.amount).toFixed(2)}</td>
+                          <td className="p-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              inv.status === 'Paid' 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {inv.status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            {inv.status === 'Pending' && (
+                              <button
+                                onClick={() => { setPaymentAmount(inv.amount); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                                className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-lg transition-colors text-sm"
+                              >
+                                Pay Now
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </main>

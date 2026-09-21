@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
-import { FiUsers, FiUserPlus, FiArrowLeft, FiCheck, FiX, FiFileText, FiRefreshCw, FiEye } from 'react-icons/fi';
+import { FiUsers, FiUserPlus, FiArrowLeft, FiCheck, FiX, FiFileText, FiRefreshCw, FiEye, FiMessageSquare } from 'react-icons/fi';
 
 export default function HrRecruitmentPage() {
   const [activeTab, setActiveTab] = useState('applications'); // 'applications' | 'candidates'
@@ -20,6 +20,13 @@ export default function HrRecruitmentPage() {
     testInstructions: '',
     fileUrl: '',
     mcqData: []
+  });
+
+  const [showEvaluateModal, setShowEvaluateModal] = useState(false);
+  const [selectedTest, setSelectedTest] = useState(null);
+  const [evaluateForm, setEvaluateForm] = useState({
+    status: 'Selected',
+    feedback: ''
   });
 
   const predefinedTemplates = {
@@ -123,6 +130,66 @@ export default function HrRecruitmentPage() {
     setSelectedReg(reg);
     setApproveForm({ testType: 'text', testTitle: 'Technical Assessment', testInstructions: '', fileUrl: '', mcqData: [] });
     setShowApproveModal(true);
+  };
+
+  const handleEvaluateClick = (test) => {
+    setSelectedTest(test);
+    setEvaluateForm({ status: 'Selected', feedback: '' });
+    setShowEvaluateModal(true);
+  };
+
+  const submitEvaluate = async (e) => {
+    e.preventDefault();
+    try {
+      setSubmitting(true);
+      
+      // 1. Send the candidate to candidates-pool
+      const poolRes = await fetch('/api/candidates-pool', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: selectedTest.candidate_name,
+          email: selectedTest.candidate_email,
+          phone: '', 
+          role_applied: selectedTest.test_title || 'Candidate',
+          resume_url: ''
+        })
+      });
+      const poolData = await poolRes.json();
+      
+      if (poolData.success) {
+        // Update feedback
+        await fetch('/api/candidates-pool', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: poolData.data.id,
+            status: evaluateForm.status,
+            feedback: evaluateForm.feedback
+          })
+        });
+
+        // 2. Mark the test as Evaluated
+        await fetch('/api/candidates/evaluate-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            test_id: selectedTest.id,
+            status: 'Evaluated'
+          })
+        });
+
+        Swal.fire('Success', 'Candidate evaluated and moved to Candidate Pool!', 'success');
+        setShowEvaluateModal(false);
+        fetchData();
+      } else {
+        Swal.fire('Error', poolData.error || 'Failed to move candidate to pool', 'error');
+      }
+    } catch (err) {
+      Swal.fire('Error', 'Network error occurred.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const submitApprove = async (e) => {
@@ -289,6 +356,12 @@ export default function HrRecruitmentPage() {
                         Score: <span style={{ color: 'var(--accent-cyan)' }}>{scoreDisplay}</span>
                       </div>
                     )}
+                    <button 
+                      onClick={() => handleEvaluateClick(test)}
+                      style={{ marginTop: '10px', background: 'var(--accent-cyan)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <FiMessageSquare /> Evaluate & Move to Pool
+                    </button>
                   </div>
                 ) : (
                   <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '15px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', fontSize: '0.8rem', fontWeight: 'bold' }}>{test.status || 'Assigned'}</span>
@@ -496,7 +569,7 @@ export default function HrRecruitmentPage() {
 
       {/* Experience Details Modal */}
       {showDetailsModal && selectedReg && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+        <div className="modal-overlay active" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div className="modal-content" style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '600px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
             <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
               <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Candidate Profile: {selectedReg.name}</h3>
@@ -547,6 +620,50 @@ export default function HrRecruitmentPage() {
             
             <div style={{ padding: '15px 25px', borderTop: '1px solid var(--glass-border)', textAlign: 'right', background: 'var(--bg-secondary)' }}>
               <button onClick={() => setShowDetailsModal(false)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', cursor: 'pointer', fontWeight: '500' }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Evaluate Test Modal */}
+      {showEvaluateModal && selectedTest && (
+        <div className="modal-overlay active" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="modal-content" style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '500px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+            <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
+              <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Evaluate: {selectedTest.candidate_name}</h3>
+              <button onClick={() => setShowEvaluateModal(false)} style={{ background: 'var(--bg-tertiary)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FiX /></button>
+            </div>
+            <div style={{ padding: '25px' }}>
+              <form onSubmit={submitEvaluate} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-primary)' }}>Final Decision</label>
+                  <select 
+                    value={evaluateForm.status}
+                    onChange={(e) => setEvaluateForm({...evaluateForm, status: e.target.value})}
+                    style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none' }}
+                  >
+                    <option value="Selected">Selected</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-primary)' }}>Feedback / Notes</label>
+                  <textarea 
+                    required
+                    value={evaluateForm.feedback}
+                    onChange={(e) => setEvaluateForm({...evaluateForm, feedback: e.target.value})}
+                    placeholder="Enter test assessment feedback and reasons for selection/rejection..."
+                    rows="5"
+                    style={{ padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none', resize: 'vertical' }}
+                  />
+                </div>
+                <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                  <button type="button" onClick={() => setShowEvaluateModal(false)} style={{ flex: 1, padding: '12px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>Cancel</button>
+                  <button type="submit" disabled={submitting} style={{ flex: 1, padding: '12px', background: 'var(--accent-cyan)', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', opacity: submitting ? 0.7 : 1 }}>
+                    {submitting ? 'Saving...' : 'Save & Move to Pool'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

@@ -48,7 +48,7 @@ export async function checkAndSendSummaryReport(connectionOverride = null, perio
       // 2. Fetch all active non-admin team members and team leaders
       const [activeEmps] = await db.execute(
         `SELECT id, name, role, department, email FROM employees 
-         WHERE LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client') 
+         WHERE LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client', 'candidate') 
            AND (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive'))`
       );
 

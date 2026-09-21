@@ -625,6 +625,47 @@ export async function getDbConnection() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS client_package_overrides (
+      id VARCHAR(50) PRIMARY KEY,
+      client_id VARCHAR(50) NOT NULL,
+      package_id VARCHAR(50) NOT NULL,
+      custom_price DECIMAL(10, 2) NOT NULL,
+      status VARCHAR(50) DEFAULT 'Active',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_client_package (client_id, package_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS invoices (
+      id VARCHAR(100) PRIMARY KEY,
+      client_id VARCHAR(50) NOT NULL,
+      package_id VARCHAR(50) NOT NULL,
+      amount DECIMAL(10, 2) NOT NULL,
+      status VARCHAR(50) DEFAULT 'Pending',
+      transaction_id VARCHAR(100),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS candidates_pool (
+      id VARCHAR(100) PRIMARY KEY,
+      name VARCHAR(150) NOT NULL,
+      email VARCHAR(150),
+      phone VARCHAR(50),
+      role_applied VARCHAR(100),
+      status VARCHAR(50) DEFAULT 'Pending',
+      feedback TEXT,
+      resume_url TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   try {
     await db.execute(`ALTER TABLE domains ADD COLUMN card_details VARCHAR(255) DEFAULT NULL`);
   } catch (err) {}

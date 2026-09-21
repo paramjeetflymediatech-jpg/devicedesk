@@ -1,13 +1,27 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const clientId = searchParams.get('client_id');
     const db = await getDbConnection();
     const [rows] = await db.query('SELECT * FROM packages ORDER BY created_at DESC');
     
+    let processedRows = rows;
+    if (clientId) {
+      const [overrides] = await db.query('SELECT package_id, custom_price FROM client_package_overrides WHERE client_id = ? AND status = "Active"', [clientId]);
+      const overrideMap = {};
+      overrides.forEach(o => { overrideMap[o.package_id] = o.custom_price; });
+      
+      processedRows = rows.map(row => ({
+        ...row,
+        price: overrideMap[row.id] !== undefined ? overrideMap[row.id] : row.price
+      }));
+    }
+
     // Parse features from JSON if possible, otherwise keep as string
-    const packages = rows.map(pkg => {
+    const packages = processedRows.map(pkg => {
       let parsedFeatures = [];
       try {
         parsedFeatures = JSON.parse(pkg.features);
