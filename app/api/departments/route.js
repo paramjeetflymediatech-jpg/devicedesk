@@ -63,3 +63,51 @@ export async function POST(request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function PUT(request) {
+  try {
+    const { id, name, description } = await request.json();
+
+    if (!id || !name || !name.trim()) {
+      return NextResponse.json({ error: 'Department ID and name are required.' }, { status: 400 });
+    }
+
+    const db = await getDbConnection();
+    const deptName = name.trim();
+    const deptDesc = description ? description.trim() : null;
+
+    // Check if another department with the same name exists
+    const [existing] = await db.query('SELECT id FROM departments WHERE name = ? AND id != ?', [deptName, id]);
+    if (existing.length > 0) {
+      return NextResponse.json({ error: 'Another department with this name already exists.' }, { status: 400 });
+    }
+
+    await db.execute(
+      `UPDATE departments SET name = ?, description = ? WHERE id = ?`,
+      [deptName, deptDesc, id]
+    );
+
+    return NextResponse.json({ success: true, message: 'Department updated successfully.' });
+  } catch (err) {
+    console.error('Update Department API Error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const { id } = await request.json();
+
+    if (!id) {
+      return NextResponse.json({ error: 'Department ID is required.' }, { status: 400 });
+    }
+
+    const db = await getDbConnection();
+    await db.execute(`DELETE FROM departments WHERE id = ?`, [id]);
+
+    return NextResponse.json({ success: true, message: 'Department deleted successfully.' });
+  } catch (err) {
+    console.error('Delete Department API Error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
