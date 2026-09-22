@@ -487,11 +487,19 @@ export default function AdminDomainsPage() {
             className="form-control"
             style={{ fontSize: "0.8rem", padding: "6px 12px", width: "auto" }}
           >
-            <option value="ALL">Exp. Months (Any)</option>
-            <option value="1">{"<= 1 Month"}</option>
-            <option value="3">{"<= 3 Months"}</option>
-            <option value="6">{"<= 6 Months"}</option>
-            <option value="12">{"<= 12 Months"}</option>
+            <option value="ALL">Exp. Month (Any)</option>
+            <option value="0">January</option>
+            <option value="1">February</option>
+            <option value="2">March</option>
+            <option value="3">April</option>
+            <option value="4">May</option>
+            <option value="5">June</option>
+            <option value="6">July</option>
+            <option value="7">August</option>
+            <option value="8">September</option>
+            <option value="9">October</option>
+            <option value="10">November</option>
+            <option value="11">December</option>
           </select>
           <select 
             value={expireYearFilter}
@@ -502,10 +510,10 @@ export default function AdminDomainsPage() {
             className="form-control"
             style={{ fontSize: "0.8rem", padding: "6px 12px", width: "auto" }}
           >
-            <option value="ALL">Exp. Years (Any)</option>
-            <option value="1">{"<= 1 Year"}</option>
-            <option value="2">{"<= 2 Years"}</option>
-            <option value="5">{"<= 5 Years"}</option>
+            <option value="ALL">Exp. Year (Any)</option>
+            {Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
           </select>
           {["ALL", "Active", "Expiring Soon", "Expired"].map((st) => (
             <button
@@ -545,13 +553,19 @@ export default function AdminDomainsPage() {
                 let filteredDomains = domains;
 
                 if (expireMonthFilter !== "ALL") {
-                  const months = parseInt(expireMonthFilter);
-                  filteredDomains = filteredDomains.filter(d => d.days_left !== null && d.days_left > 0 && d.days_left <= months * 30);
+                  const targetMonth = parseInt(expireMonthFilter);
+                  filteredDomains = filteredDomains.filter(d => {
+                    if (!d.expiry_date) return false;
+                    return new Date(d.expiry_date).getMonth() === targetMonth;
+                  });
                 }
 
                 if (expireYearFilter !== "ALL") {
-                  const years = parseInt(expireYearFilter);
-                  filteredDomains = filteredDomains.filter(d => d.days_left !== null && d.days_left > 0 && d.days_left <= years * 365);
+                  const targetYear = parseInt(expireYearFilter);
+                  filteredDomains = filteredDomains.filter(d => {
+                    if (!d.expiry_date) return false;
+                    return new Date(d.expiry_date).getFullYear() === targetYear;
+                  });
                 }
 
                 const totalPages = Math.ceil(filteredDomains.length / pageSize) || 1;
