@@ -40,14 +40,8 @@ export default function BookServicePage() {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
-      <div className="p-6 border-b border-gray-100 flex items-center space-x-3">
-        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md shadow-indigo-200">
-          C
-        </div>
-        <div>
-          <h2 className="font-bold text-lg text-gray-800 leading-tight">Client Portal</h2>
-          <p className="text-xs text-gray-500">Demo Client</p>
-        </div>
+      <div className="p-6 border-b border-gray-100 flex flex-col items-center justify-center space-y-3">
+        <img src="/flymedia-logo.png" alt="Fly Media Technology" className="h-16 object-contain" />
       </div>
       
       <nav className="flex-1 p-4 flex flex-col space-y-2 overflow-y-auto">
@@ -61,7 +55,7 @@ export default function BookServicePage() {
         <button onClick={() => window.location.href = '/portal/client/chat'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiMessageSquare size={20} /><span>Project Chat</span>
         </button>
-        <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-indigo-50 text-indigo-700">
+        <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-pink-50 text-pink-700">
           <FiEdit3 size={20} /><span>Book Service</span>
         </button>
 
@@ -84,8 +78,6 @@ export default function BookServicePage() {
           <FiCreditCard size={20} /><span>Billing</span>
         </button>
       
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
-
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
                 <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiUser size={20} /><span>Profile Settings</span>
@@ -123,14 +115,14 @@ export default function BookServicePage() {
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
             <h1 className="text-xl font-bold text-gray-800">Book a Service</h1>
           </div>
-          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">DC</div>
+          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm">DC</div>
         </header>
 
         <header className="hidden md:flex bg-white/80 border-b px-8 py-6 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Book a Service</h1>
           <div className="flex items-center space-x-4">
              <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-sm shadow-indigo-100">DC</div>
+             <div className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold shadow-sm shadow-pink-100">DC</div>
           </div>
         </header>
 
@@ -144,7 +136,7 @@ export default function BookServicePage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Required Service</label>
                   <select 
-                    className="w-full md:w-1/3 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-gray-50"
+                    className="w-full md:w-1/3 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all bg-gray-50"
                     value={form.service_type}
                     onChange={(e) => setForm({ ...form, service_type: e.target.value })}
                   >
@@ -159,7 +151,7 @@ export default function BookServicePage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Detailed Requirements</label>
                   <textarea 
-                    className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-none min-h-[120px]"
+                    className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all resize-none min-h-[120px]"
                     placeholder="E.g. We want to start a new Google Ads campaign for our summer collection. Budget is $500/month."
                     value={form.requirements}
                     onChange={(e) => setForm({ ...form, requirements: e.target.value })}
@@ -167,7 +159,7 @@ export default function BookServicePage() {
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <button type="submit" className="flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-sm transition-colors">
+                  <button type="submit" className="flex items-center px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-lg shadow-sm transition-colors">
                     <FiSend className="mr-2" /> Book Requirement
                   </button>
                 </div>

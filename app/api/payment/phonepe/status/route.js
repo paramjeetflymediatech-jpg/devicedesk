@@ -58,10 +58,26 @@ export async function GET(req) {
     const finalState = statusData.state || 'FAILED';
 
     const pool = await getDbConnection();
-    await pool.query(
-      `UPDATE client_payments SET status = ? WHERE id = ?`,
-      [finalState, tx]
-    );
+    const [existing] = await pool.query(`SELECT * FROM client_payments WHERE id = ?`, [tx]);
+    
+    if (existing && existing.length > 0) {
+      const payment = existing[0];
+      
+      // Update status if it's different
+      if (payment.status !== finalState) {
+        await pool.query(`UPDATE client_payments SET status = ? WHERE id = ?`, [finalState, tx]);
+        
+        // If it transitioned to COMPLETED and it's a package purchase, generate Paid invoice
+        if (finalState === 'COMPLETED' && payment.description && payment.description.startsWith('PACKAGE_PURCHASE:')) {
+          const packageId = payment.description.split(':')[1];
+          const invoiceId = 'inv_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+          await pool.query(
+            `INSERT INTO invoices (id, client_id, package_id, amount, status) VALUES (?, ?, ?, ?, 'Paid')`,
+            [invoiceId, payment.client_id, packageId, payment.amount]
+          );
+        }
+      }
+    }
 
     let redirectStatus = 'error';
     if (finalState === 'COMPLETED') redirectStatus = 'SUCCESS';

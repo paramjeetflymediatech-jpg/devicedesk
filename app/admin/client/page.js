@@ -1,9 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiUsers, FiArrowLeft, FiEdit2, FiTrash2, FiPlus, FiDownload, FiSearch, FiKey, FiCheck, FiX, FiLayout, FiDollarSign } from 'react-icons/fi';
+import { FiUsers, FiArrowLeft, FiEdit2, FiTrash2, FiPlus, FiDownload, FiSearch, FiKey, FiCheck, FiX, FiLayout, FiDollarSign, FiBox } from 'react-icons/fi';
 import Pagination from '../../components/Pagination.js';
 import Swal from 'sweetalert2';
+import dynamic from 'next/dynamic';
+
+const Editor = dynamic(() => import('../../components/Editor'), {
+  ssr: false,
+  loading: () => <p>Loading editor...</p>,
+});
 
 export default function ClientManagementPage() {
   const [clients, setClients] = useState([]);
@@ -16,6 +22,40 @@ export default function ClientManagementPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showViewPackagesModal, setShowViewPackagesModal] = useState(false);
+  
+  const [viewingClientPackages, setViewingClientPackages] = useState([]);
+  const [viewingClientName, setViewingClientName] = useState('');
+  const [clientSpecificPackages, setClientSpecificPackages] = useState([]);
+
+  const openPricingModal = async (client) => {
+    setPricingForm({ client_id: client.id, client_name: client.name, package_id: '', custom_price: '', custom_name: '', custom_description: '', custom_billing_cycle: '', custom_features: '' });
+    setShowPricingModal(true);
+    try {
+      const res = await fetch(`/api/packages?client_id=${client.id}`);
+      const data = await res.json();
+      if (data.success) {
+        setClientSpecificPackages(data.packages || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleViewPackages = async (client) => {
+    try {
+      const res = await fetch(`/api/packages?client_id=${client.id}`);
+      const data = await res.json();
+      if (data.success) {
+        setViewingClientPackages(data.packages || []);
+        setViewingClientName(client.name);
+        setShowViewPackagesModal(true);
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', 'Failed to fetch packages', 'error');
+    }
+  };
   
   // Forms
   const [addForm, setAddForm] = useState({ 
@@ -73,7 +113,11 @@ export default function ClientManagementPage() {
         body: JSON.stringify({
           client_id: pricingForm.client_id,
           package_id: pricingForm.package_id,
-          custom_price: parseFloat(pricingForm.custom_price)
+          custom_price: parseFloat(pricingForm.custom_price),
+          custom_name: pricingForm.custom_name,
+          custom_description: pricingForm.custom_description,
+          custom_billing_cycle: pricingForm.custom_billing_cycle,
+          custom_features: pricingForm.custom_features
         })
       });
       const data = await res.json();
@@ -357,11 +401,18 @@ export default function ClientManagementPage() {
                           <FiKey />
                         </button>
                         <button 
-                          onClick={() => { setPricingForm({ ...pricingForm, client_id: client.id, client_name: client.name }); setShowPricingModal(true); }}
+                          onClick={() => openPricingModal(client)}
                           style={{ padding: '6px', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '6px', cursor: 'pointer' }}
                           title="Custom Package Pricing"
                         >
                           <FiDollarSign />
+                        </button>
+                        <button 
+                          onClick={() => handleViewPackages(client)}
+                          style={{ padding: '6px', background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.3)', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="View Active Packages"
+                        >
+                          <FiBox />
                         </button>
                         <Link 
                           href={`/admin/client/${client.id}`}
@@ -627,7 +678,53 @@ export default function ClientManagementPage() {
                   className="form-control"
                   required
                   value={pricingForm.package_id}
-                  onChange={(e) => setPricingForm({...pricingForm, package_id: e.target.value})}
+                  onChange={(e) => {
+                    try {
+                      const selectedId = e.target.value;
+                      if (!selectedId) {
+                        setPricingForm({
+                          ...pricingForm,
+                          package_id: '',
+                          custom_price: '',
+                          custom_name: '',
+                          custom_description: '',
+                          custom_billing_cycle: 'Monthly',
+                          custom_features: ''
+                        });
+                        return;
+                      }
+
+                      const clientPkg = clientSpecificPackages ? clientSpecificPackages.find(p => String(p.id) === String(selectedId)) : null;
+                      const basePkg = packages ? packages.find(p => String(p.id) === String(selectedId)) : null;
+                      const selectedPkg = clientPkg || basePkg;
+
+                      let newFeatures = '';
+                      if (selectedPkg && selectedPkg.features) {
+                        if (Array.isArray(selectedPkg.features)) {
+                          // Check if it's already HTML (from DB fallback)
+                          if (selectedPkg.features.length === 1 && selectedPkg.features[0] && selectedPkg.features[0].includes('<')) {
+                            newFeatures = selectedPkg.features[0];
+                          } else {
+                            newFeatures = selectedPkg.features.map(f => `<p>${f}</p>`).join('');
+                          }
+                        } else {
+                          newFeatures = selectedPkg.features;
+                        }
+                      }
+
+                      setPricingForm({
+                        ...pricingForm, 
+                        package_id: selectedId,
+                        custom_price: selectedPkg ? selectedPkg.price : '',
+                        custom_name: selectedPkg ? selectedPkg.name : '',
+                        custom_description: selectedPkg ? (selectedPkg.description || '') : '',
+                        custom_billing_cycle: selectedPkg ? (selectedPkg.billing_cycle || 'Monthly') : '',
+                        custom_features: newFeatures
+                      });
+                    } catch (err) {
+                      console.error("Error in package selection:", err);
+                    }
+                  }}
                 >
                   <option value="">-- Select Package --</option>
                   {packages.map(p => (
@@ -635,15 +732,56 @@ export default function ClientManagementPage() {
                   ))}
                 </select>
               </div>
-              <div className="form-group">
-                <label>Custom Price for this Client ($)</label>
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  required 
-                  className="form-control"
-                  value={pricingForm.custom_price}
-                  onChange={(e) => setPricingForm({...pricingForm, custom_price: e.target.value})}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Custom Name</label>
+                  <input 
+                    type="text" 
+                    className="form-control"
+                    value={pricingForm.custom_name || ''}
+                    onChange={(e) => setPricingForm({...pricingForm, custom_name: e.target.value})}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Custom Price ($)</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    required 
+                    className="form-control"
+                    value={pricingForm.custom_price || ''}
+                    onChange={(e) => setPricingForm({...pricingForm, custom_price: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Billing Cycle</label>
+                  <select 
+                    className="form-control"
+                    value={pricingForm.custom_billing_cycle || 'Monthly'}
+                    onChange={(e) => setPricingForm({...pricingForm, custom_billing_cycle: e.target.value})}
+                  >
+                    <option value="Monthly">Monthly</option>
+                    <option value="Yearly">Yearly</option>
+                    <option value="One-Time">One-Time</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Custom Description</label>
+                  <input 
+                    type="text" 
+                    className="form-control"
+                    value={pricingForm.custom_description || ''}
+                    onChange={(e) => setPricingForm({...pricingForm, custom_description: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="form-group" style={{ marginBottom: '100px' }}>
+                <label>Custom Features (Rich Text)</label>
+                <Editor 
+                  value={pricingForm.custom_features || ''}
+                  onChange={(data) => setPricingForm({...pricingForm, custom_features: data})}
                 />
               </div>
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
@@ -651,6 +789,44 @@ export default function ClientManagementPage() {
                 <button type="submit" className="btn-primary" style={{ flex: 1, padding: '10px', justifyContent: 'center' }}>Save Custom Price</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* View Packages Modal */}
+      {showViewPackagesModal && (
+        <div className="modal-overlay active" style={{ zIndex: 1000 }}>
+          <div className="modal-card" style={{ maxWidth: "800px", margin: "auto", maxHeight: "90vh", overflowY: "auto" }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Active Packages for {viewingClientName}</h3>
+              <button type="button" className="modal-close" onClick={() => setShowViewPackagesModal(false)}>&times;</button>
+            </div>
+            <div style={{ padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+              {viewingClientPackages.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)' }}>No packages assigned.</p>
+              ) : (
+                viewingClientPackages.map(pkg => (
+                  <div key={pkg.id} style={{ padding: '1.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.2rem' }}>{pkg.name}</h4>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>{pkg.description}</p>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '1rem' }}>
+                      ${pkg.price} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>/ {pkg.billing_cycle}</span>
+                    </div>
+                    <div className="ck-content">
+                      {Array.isArray(pkg.features) ? (
+                        <ul style={{ margin: 0, paddingLeft: '1.2rem', color: 'var(--text-secondary)' }}>
+                          {pkg.features.map((f, i) => <li key={i} style={{ marginBottom: '0.25rem' }}>{f}</li>)}
+                        </ul>
+                      ) : (
+                        <div dangerouslySetInnerHTML={{ __html: pkg.features }} />
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '1rem', borderTop: '1px solid var(--glass-border)' }}>
+              <button onClick={() => setShowViewPackagesModal(false)} className="btn-secondary" style={{ padding: '10px 20px' }}>Close</button>
+            </div>
           </div>
         </div>
       )}

@@ -54,19 +54,13 @@ export default function DashboardPage() {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
-      <div className="p-6 border-b border-gray-100 flex items-center space-x-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-200">
-          C
-        </div>
-        <div>
-          <h2 className="font-bold text-lg text-gray-800 leading-tight">Client Portal</h2>
-          <p className="text-xs text-gray-500 font-medium">Demo Client</p>
-        </div>
+      <div className="p-6 border-b border-gray-100 flex flex-col items-center justify-center space-y-3">
+        <img src="/flymedia-logo.png" alt="Fly Media Technology" className="h-16 object-contain" />
       </div>
       
       <nav className="flex-1 p-4 flex flex-col space-y-2 overflow-y-auto">
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2 px-3">Main</div>
-<button onClick={() => window.location.href = '/portal/client/dashboard'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-indigo-50 text-indigo-700">
+<button onClick={() => window.location.href = '/portal/client/dashboard'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-pink-50 text-pink-700">
           <FiGrid size={20} /><span>Dashboard</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -98,8 +92,6 @@ export default function DashboardPage() {
           <FiCreditCard size={20} /><span>Billing</span>
         </button>
       
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
-
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
         <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiUser size={20} /><span>Profile Settings</span>
@@ -138,7 +130,7 @@ export default function DashboardPage() {
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
             <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
           </div>
-          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm shadow-sm">DC</div>
+          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm">DC</div>
         </header>
 
         {/* Desktop Header */}
@@ -146,7 +138,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Dashboard Overview</h1>
           <div className="flex items-center space-x-4">
              <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-bold shadow-sm cursor-pointer">DC</div>
+             <div className="w-10 h-10 rounded-full bg-pink-50 text-pink-600 border border-pink-100 flex items-center justify-center font-bold shadow-sm cursor-pointer">DC</div>
           </div>
         </header>
 
@@ -154,14 +146,14 @@ export default function DashboardPage() {
           
           {/* Welcome Banner */}
           <div className="relative overflow-hidden rounded-2xl bg-white border border-gray-200 shadow-sm">
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-50 to-cyan-50 opacity-50"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-pink-50 to-cyan-50 opacity-50"></div>
             
             <div className="relative z-10 p-8 md:p-10 flex flex-col md:flex-row justify-between items-center gap-6">
               <div>
                 <h2 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800">Ready to grow your business?</h2>
                 <p className="text-gray-500 text-base max-w-xl">Here's what's happening with your projects, ad campaigns, and SEO performance today.</p>
               </div>
-              <button onClick={() => window.location.href = '/portal/client/book-service'} className="shrink-0 flex items-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 px-6 py-3 rounded-lg font-semibold transition-colors shadow-sm">
+              <button onClick={() => window.location.href = '/portal/client/book-service'} className="shrink-0 flex items-center gap-2 bg-pink-600 text-white hover:bg-pink-700 px-6 py-3 rounded-lg font-semibold transition-colors shadow-sm">
                 <FiEdit3 size={18} /> Book a New Service
               </button>
             </div>
@@ -169,7 +161,7 @@ export default function DashboardPage() {
 
           {loading ? (
             <div className="flex justify-center items-center py-20 text-gray-400">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mr-3"></div> Loading your data...
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600 mr-3"></div> Loading your data...
             </div>
           ) : (
             <>
@@ -177,7 +169,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 
                 <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm flex items-center gap-4">
-                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-xl shrink-0"><FiLayout /></div>
+                  <div className="w-12 h-12 bg-pink-50 text-pink-600 rounded-lg flex items-center justify-center text-xl shrink-0"><FiLayout /></div>
                   <div>
                     <p className="text-sm text-gray-500 font-medium mb-0.5">Active Projects</p>
                     <h3 className="text-2xl font-bold text-gray-900">{projects.length}</h3>
@@ -222,7 +214,7 @@ export default function DashboardPage() {
                     <div>
                       <h3 className="text-lg font-bold text-gray-800">Recent Requests</h3>
                     </div>
-                    <Link href="/portal/client/book-service" className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center">
+                    <Link href="/portal/client/book-service" className="text-pink-600 hover:text-pink-800 text-sm font-medium flex items-center">
                       View All <FiArrowRight className="ml-1" />
                     </Link>
                   </div>
@@ -256,7 +248,7 @@ export default function DashboardPage() {
                     <div>
                       <h3 className="text-lg font-bold text-gray-800">Campaign Spend</h3>
                     </div>
-                    <Link href="/portal/client/ads" className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center">
+                    <Link href="/portal/client/ads" className="text-pink-600 hover:text-pink-800 text-sm font-medium flex items-center">
                       View All <FiArrowRight className="ml-1" />
                     </Link>
                   </div>
@@ -277,7 +269,7 @@ export default function DashboardPage() {
                               </div>
                               <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                                 <div 
-                                  className={`h-full rounded-full transition-all duration-1000 ease-out ${spentPercent > 90 ? 'bg-red-500' : 'bg-indigo-500'}`} 
+                                  className={`h-full rounded-full transition-all duration-1000 ease-out ${spentPercent > 90 ? 'bg-red-500' : 'bg-pink-500'}`} 
                                   style={{ width: `${Math.min(spentPercent, 100)}%` }}
                                 ></div>
                               </div>

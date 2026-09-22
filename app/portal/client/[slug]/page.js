@@ -171,41 +171,35 @@ export default function ClientSlugPortal() {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
-      <div className="p-6 border-b border-gray-100 flex items-center space-x-3">
-        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md shadow-indigo-200">
-          {client.name.charAt(0).toUpperCase()}
-        </div>
-        <div>
-          <h2 className="font-bold text-lg text-gray-800 leading-tight">Client Portal</h2>
-          <p className="text-xs text-gray-500">@{getEmployeeSlug(client)}</p>
-        </div>
+      <div className="p-6 border-b border-gray-100 flex flex-col items-center justify-center space-y-3">
+        <img src="/flymedia-logo.png" alt="Fly Media Technology" className="h-16 object-contain" />
       </div>
       
       <nav className="flex-1 p-4 flex flex-col space-y-2 overflow-y-auto">
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2 px-3">Dashboard</div>
-        <button onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'overview' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+        <button onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'overview' ? 'bg-pink-50 text-pink-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
           <FiLayout size={18} /><span>Project Overview</span>
         </button>
-        <button onClick={() => { setActiveTab('chat'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'chat' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+        <button onClick={() => { setActiveTab('chat'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'chat' ? 'bg-pink-50 text-pink-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
           <FiMessageSquare size={18} /><span>Project Chat</span>
         </button>
 
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Services & Reporting</div>
-        <button onClick={() => { setActiveTab('seo'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'seo' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+        <button onClick={() => { setActiveTab('seo'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'seo' ? 'bg-pink-50 text-pink-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
           <FiFileText size={18} /><span>SEO Reports</span>
         </button>
-        <button onClick={() => { setActiveTab('smo'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'smo' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+        <button onClick={() => { setActiveTab('smo'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'smo' ? 'bg-pink-50 text-pink-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
           <FiImage size={18} /><span>SMO Graphics</span>
         </button>
-        <button onClick={() => { setActiveTab('ads'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'ads' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+        <button onClick={() => { setActiveTab('ads'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'ads' ? 'bg-pink-50 text-pink-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
           <FiDollarSign size={18} /><span>PAID Ads</span>
         </button>
 
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Billing & Packages</div>
-        <button onClick={() => { setActiveTab('packages'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'packages' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+        <button onClick={() => { setActiveTab('packages'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'packages' ? 'bg-pink-50 text-pink-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
           <FiBox size={18} /><span>Packages</span>
         </button>
-        <button onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'billing' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+        <button onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'billing' ? 'bg-pink-50 text-pink-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
           <FiCreditCard size={18} /><span>Billing</span>
         </button>
       </nav>
@@ -258,7 +252,7 @@ export default function ClientSlugPortal() {
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">{tabTitles[activeTab]}</h1>
           <div className="flex items-center space-x-4">
              <span className="text-sm text-gray-500 font-medium">Welcome back, {client.name}</span>
-             <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-sm shadow-indigo-100">{client.name.charAt(0)}</div>
+             <div className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold shadow-sm shadow-pink-100">{client.name.charAt(0)}</div>
           </div>
         </header>
 
@@ -282,7 +276,7 @@ export default function ClientSlugPortal() {
                   <div className="grid gap-4 p-6">
                     {projects.map(proj => (
                       <div key={proj.id} className="border border-gray-100 rounded-lg p-4 hover:shadow-sm transition-shadow">
-                        <h4 className="font-bold text-lg text-indigo-700">{proj.name}</h4>
+                        <h4 className="font-bold text-lg text-pink-700">{proj.name}</h4>
                         <p className="text-sm text-gray-500 mb-2">{proj.description}</p>
                         <span className="inline-flex px-2 py-1 bg-amber-100 text-amber-800 rounded-md text-xs font-semibold">{proj.status}</span>
                       </div>
@@ -313,17 +307,17 @@ export default function ClientSlugPortal() {
                 {seoReports.length === 0 ? <div className="text-center py-10 text-gray-400">No SEO reports available yet.</div> : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {seoReports.map(report => (
-                      <div key={report.id} className="border border-gray-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group flex flex-col justify-between h-full bg-white relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 rounded-l-xl"></div>
+                      <div key={report.id} className="border border-gray-200 rounded-xl p-5 hover:border-pink-300 hover:shadow-md transition-all group flex flex-col justify-between h-full bg-white relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-pink-500 rounded-l-xl"></div>
                         <div>
                           <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg"><FiFileText /></div>
+                            <div className="w-10 h-10 rounded-full bg-pink-50 text-pink-600 flex items-center justify-center text-lg"><FiFileText /></div>
                             <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-md">New</span>
                           </div>
                           <h4 className="font-bold text-gray-900 text-lg mb-1">{report.month} {report.year}</h4>
                           <p className="text-sm text-gray-500 mb-6">Complete SEO performance report</p>
                         </div>
-                        <a href={report.file_url} target="_blank" rel="noreferrer" className="flex items-center justify-center w-full py-2.5 bg-gray-50 hover:bg-indigo-50 text-indigo-700 text-sm font-semibold rounded-lg transition-colors border border-gray-200 group-hover:border-indigo-200">
+                        <a href={report.file_url} target="_blank" rel="noreferrer" className="flex items-center justify-center w-full py-2.5 bg-gray-50 hover:bg-pink-50 text-pink-700 text-sm font-semibold rounded-lg transition-colors border border-gray-200 group-hover:border-pink-200">
                           <FiDownload className="mr-2" /> Download PDF
                         </a>
                       </div>
@@ -342,13 +336,13 @@ export default function ClientSlugPortal() {
                 <p className="text-sm text-gray-500 mb-4">Describe the social media graphic you need, including text, preferred colors, and platform.</p>
                 <form onSubmit={handleSMOSubmit}>
                   <textarea 
-                    className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-none mb-4 min-h-[120px]"
+                    className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all resize-none mb-4 min-h-[120px]"
                     placeholder="E.g. We need a promotional banner for our upcoming Summer Sale for Facebook. Text: '50% Off Summer Sale'. Colors: Bright orange and yellow."
                     value={smoForm.requirements}
                     onChange={(e) => setSmoForm({ requirements: e.target.value })}
                   />
                   <div className="flex justify-end">
-                    <button type="submit" className="flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-sm transition-colors">
+                    <button type="submit" className="flex items-center px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-lg shadow-sm transition-colors">
                       <FiSend className="mr-2" /> Send Request
                     </button>
                   </div>
@@ -415,7 +409,7 @@ export default function ClientSlugPortal() {
                                 <span className="font-bold text-gray-800">{Math.min(spentPercent, 100).toFixed(1)}%</span>
                               </div>
                               <div className="w-full bg-gray-100 rounded-full h-2">
-                                <div className={`h-2 rounded-full ${spentPercent > 90 ? 'bg-red-500' : 'bg-indigo-600'}`} style={{ width: `${Math.min(spentPercent, 100)}%` }}></div>
+                                <div className={`h-2 rounded-full ${spentPercent > 90 ? 'bg-red-500' : 'bg-pink-600'}`} style={{ width: `${Math.min(spentPercent, 100)}%` }}></div>
                               </div>
                             </div>
 
@@ -447,7 +441,7 @@ export default function ClientSlugPortal() {
           {activeTab === 'packages' && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500 mt-6">
               <div className="p-6 text-center py-20 text-gray-500">
-                <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4"><FiBox size={28} /></div>
+                <div className="w-16 h-16 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-4"><FiBox size={28} /></div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">Packages Coming Soon</h2>
                 <p>We are currently working on this feature. Stay tuned!</p>
               </div>
@@ -459,7 +453,7 @@ export default function ClientSlugPortal() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500 mt-6">
               <div className="p-8">
                 <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-                  <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                  <div className="w-12 h-12 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center">
                     <FiCreditCard size={24} />
                   </div>
                   <div>
@@ -482,7 +476,7 @@ export default function ClientSlugPortal() {
                           required
                           value={paymentAmount}
                           onChange={(e) => setPaymentAmount(e.target.value)}
-                          className="block w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-medium text-gray-900"
+                          className="block w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all font-medium text-gray-900"
                           placeholder="0.00"
                         />
                       </div>

@@ -12,6 +12,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-build-classic": "^41.4.2",
+    "@ckeditor/ckeditor5-react": "^11.2.0",
     "autoprefixer": "^10.5.4",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.4.0",

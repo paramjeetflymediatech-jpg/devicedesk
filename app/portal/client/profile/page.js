@@ -75,14 +75,8 @@ export default function ProfilePage() {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
-      <div className="p-6 border-b border-gray-100 flex items-center space-x-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-200">
-          C
-        </div>
-        <div>
-          <h2 className="font-bold text-lg text-gray-800 leading-tight">Client Portal</h2>
-          <p className="text-xs text-gray-500 font-medium">Demo Client</p>
-        </div>
+      <div className="p-6 border-b border-gray-100 flex flex-col items-center justify-center space-y-3">
+        <img src="/flymedia-logo.png" alt="Fly Media Technology" className="h-16 object-contain" />
       </div>
       
       <nav className="flex-1 p-4 flex flex-col space-y-2 overflow-y-auto">
@@ -120,9 +114,7 @@ export default function ProfilePage() {
         </button>
       
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
-
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
-        <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-indigo-50 text-indigo-700">
+        <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-pink-50 text-pink-700">
           <FiUser size={20} /><span>Profile Settings</span>
         </button>
                     </nav>
@@ -158,14 +150,14 @@ export default function ProfilePage() {
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
             <h1 className="text-xl font-bold text-gray-800">Profile</h1>
           </div>
-          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm shadow-sm">DC</div>
+          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm">DC</div>
         </header>
 
         <header className="hidden md:flex bg-white border-b border-gray-100 px-8 py-5 justify-between items-center sticky top-0 z-10">
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Profile Settings</h1>
           <div className="flex items-center space-x-4">
              <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center font-bold shadow-sm cursor-pointer">DC</div>
+             <div className="w-10 h-10 rounded-full bg-pink-50 text-pink-600 border border-pink-100 flex items-center justify-center font-bold shadow-sm cursor-pointer">DC</div>
           </div>
         </header>
 
@@ -173,14 +165,14 @@ export default function ProfilePage() {
           
           {loading ? (
             <div className="flex justify-center items-center py-20 text-gray-400">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mr-3"></div> Loading profile...
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600 mr-3"></div> Loading profile...
             </div>
           ) : (
             <>
               {/* Profile Overview Card */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden relative">
                 <div className="p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-6">
-                  <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 rounded-full flex items-center justify-center text-3xl font-bold border-4 border-white shadow-md">
+                  <div className="w-20 h-20 bg-gradient-to-br from-pink-100 to-purple-100 text-pink-700 rounded-full flex items-center justify-center text-3xl font-bold border-4 border-white shadow-md">
                     {clientDetails?.company_name ? clientDetails.company_name.charAt(0).toUpperCase() : 'C'}
                   </div>
                   <div>
@@ -193,7 +185,7 @@ export default function ProfilePage() {
               {/* Profile Settings Form */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
-                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FiUser className="text-indigo-600" /> Edit Details</h3>
+                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FiUser className="text-pink-600" /> Edit Details</h3>
                 </div>
                 
                 <div className="p-8">
@@ -208,36 +200,36 @@ export default function ProfilePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Company Name</label>
-                        <input type="text" value={profileForm.company_name} onChange={e => setProfileForm({...profileForm, company_name: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 border transition-shadow" placeholder="e.g. Acme Corp" />
+                        <input type="text" value={profileForm.company_name} onChange={e => setProfileForm({...profileForm, company_name: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 border transition-shadow" placeholder="e.g. Acme Corp" />
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Primary Service</label>
-                        <input type="text" value={profileForm.primary_service} onChange={e => setProfileForm({...profileForm, primary_service: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 border transition-shadow" placeholder="e.g. SEO & Web Dev" />
+                        <input type="text" value={profileForm.primary_service} onChange={e => setProfileForm({...profileForm, primary_service: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 border transition-shadow" placeholder="e.g. SEO & Web Dev" />
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number</label>
-                        <input type="text" value={profileForm.phone} onChange={e => setProfileForm({...profileForm, phone: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 border transition-shadow" placeholder="e.g. +1 234 567 890" />
+                        <input type="text" value={profileForm.phone} onChange={e => setProfileForm({...profileForm, phone: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 border transition-shadow" placeholder="e.g. +1 234 567 890" />
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">WhatsApp</label>
-                        <input type="text" value={profileForm.whatsapp} onChange={e => setProfileForm({...profileForm, whatsapp: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 border transition-shadow" placeholder="e.g. +1 234 567 890" />
+                        <input type="text" value={profileForm.whatsapp} onChange={e => setProfileForm({...profileForm, whatsapp: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 border transition-shadow" placeholder="e.g. +1 234 567 890" />
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
-                        <textarea value={profileForm.address} onChange={e => setProfileForm({...profileForm, address: e.target.value})} rows="3" className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 border transition-shadow" placeholder="e.g. 123 Business Rd, City, Country"></textarea>
+                        <textarea value={profileForm.address} onChange={e => setProfileForm({...profileForm, address: e.target.value})} rows="3" className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 border transition-shadow" placeholder="e.g. 123 Business Rd, City, Country"></textarea>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Website URL</label>
-                        <input type="text" value={profileForm.website_url} onChange={e => setProfileForm({...profileForm, website_url: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 border transition-shadow" placeholder="e.g. https://example.com" />
+                        <input type="text" value={profileForm.website_url} onChange={e => setProfileForm({...profileForm, website_url: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 border transition-shadow" placeholder="e.g. https://example.com" />
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">GST / Tax Number</label>
-                        <input type="text" value={profileForm.gst_number} onChange={e => setProfileForm({...profileForm, gst_number: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 border transition-shadow" placeholder="e.g. GSTIN1234567" />
+                        <input type="text" value={profileForm.gst_number} onChange={e => setProfileForm({...profileForm, gst_number: e.target.value})} className="w-full border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 border transition-shadow" placeholder="e.g. GSTIN1234567" />
                       </div>
                     </div>
 
                     <div className="pt-6 border-t border-gray-100 flex justify-end">
-                      <button type="submit" form="profileForm" disabled={savingProfile} className="flex items-center gap-2 px-8 py-3 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed shadow-md shadow-indigo-200 transition-all active:scale-95">
+                      <button type="submit" form="profileForm" disabled={savingProfile} className="flex items-center gap-2 px-8 py-3 text-sm font-bold text-white bg-pink-600 rounded-xl hover:bg-pink-700 disabled:opacity-70 disabled:cursor-not-allowed shadow-md shadow-pink-200 transition-all active:scale-95">
                         {savingProfile ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <FiSave size={18} />}
                         {savingProfile ? 'Saving...' : 'Save Changes'}
                       </button>

@@ -16,7 +16,7 @@ export default function BillingPage() {
   const getClientId = () => {
     let clientId = 'EMP-UNKNOWN';
     if (typeof window !== 'undefined') {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
       if (user && user.id) clientId = user.id;
     }
     return clientId;
@@ -89,14 +89,8 @@ export default function BillingPage() {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
-      <div className="p-6 border-b border-gray-100 flex items-center space-x-3">
-        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md shadow-indigo-200">
-          C
-        </div>
-        <div>
-          <h2 className="font-bold text-lg text-gray-800 leading-tight">Client Portal</h2>
-          <p className="text-xs text-gray-500">Demo Client</p>
-        </div>
+      <div className="p-6 border-b border-gray-100 flex flex-col items-center justify-center space-y-3">
+        <img src="/flymedia-logo.png" alt="Fly Media Technology" className="h-16 object-contain" />
       </div>
       
       <nav className="flex-1 p-4 flex flex-col space-y-2 overflow-y-auto">
@@ -129,12 +123,10 @@ export default function BillingPage() {
         <button onClick={() => window.location.href = '/portal/client/packages'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiBox size={20} /><span>Packages</span>
         </button>
-        <button onClick={() => window.location.href = '/portal/client/billing'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-indigo-50 text-indigo-700">
+        <button onClick={() => window.location.href = '/portal/client/billing'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-pink-50 text-pink-700">
           <FiCreditCard size={20} /><span>Billing</span>
         </button>
       
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
-
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
                 <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiUser size={20} /><span>Profile Settings</span>
@@ -172,22 +164,22 @@ export default function BillingPage() {
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
             <h1 className="text-xl font-bold text-gray-800">Billing & Invoices</h1>
           </div>
-          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">DC</div>
+          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm">DC</div>
         </header>
 
         <header className="hidden md:flex bg-white/80 border-b px-8 py-6 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Billing & Invoices</h1>
           <div className="flex items-center space-x-4">
              <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-sm shadow-indigo-100">DC</div>
+             <div className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold shadow-sm shadow-pink-100">DC</div>
           </div>
         </header>
 
         <main className="flex-1 p-4 md:p-8 w-full max-w-7xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500 mt-6">
+          {/* <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500 mt-6">
             <div className="p-8">
               <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center">
                   <FiCreditCard size={24} />
                 </div>
                 <div>
@@ -210,7 +202,7 @@ export default function BillingPage() {
                         required
                         value={paymentAmount}
                         onChange={(e) => setPaymentAmount(e.target.value)}
-                        className="block w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-medium text-gray-900"
+                        className="block w-full pl-8 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all font-medium text-gray-900"
                         placeholder="0.00"
                       />
                     </div>
@@ -229,13 +221,13 @@ export default function BillingPage() {
                 </form>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Invoices Section */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500 mt-8">
             <div className="p-8">
               <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center">
                   <FiFileText size={24} />
                 </div>
                 <div>
@@ -246,7 +238,7 @@ export default function BillingPage() {
 
               {loadingInvoices ? (
                 <div className="flex justify-center p-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
                 </div>
               ) : invoices.length === 0 ? (
                 <div className="text-center p-8 text-gray-500">
@@ -287,7 +279,7 @@ export default function BillingPage() {
                             {inv.status === 'Pending' && (
                               <button
                                 onClick={() => { setPaymentAmount(inv.amount); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-lg transition-colors text-sm"
+                                className="px-4 py-2 bg-pink-50 text-pink-700 hover:bg-pink-100 font-bold rounded-lg transition-colors text-sm"
                               >
                                 Pay Now
                               </button>

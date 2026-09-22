@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -10,14 +12,24 @@ export async function GET(request) {
     
     let processedRows = rows;
     if (clientId) {
-      const [overrides] = await db.query('SELECT package_id, custom_price FROM client_package_overrides WHERE client_id = ? AND status = "Active"', [clientId]);
+      const [overrides] = await db.query('SELECT package_id, custom_price, custom_name, custom_description, custom_billing_cycle, custom_features FROM client_package_overrides WHERE client_id = ? AND status = "Active"', [clientId]);
       const overrideMap = {};
-      overrides.forEach(o => { overrideMap[o.package_id] = o.custom_price; });
+      overrides.forEach(o => { overrideMap[o.package_id] = o; });
       
-      processedRows = rows.map(row => ({
-        ...row,
-        price: overrideMap[row.id] !== undefined ? overrideMap[row.id] : row.price
-      }));
+      processedRows = rows.map(row => {
+        const o = overrideMap[row.id];
+        if (o) {
+          return {
+            ...row,
+            price: o.custom_price !== undefined && o.custom_price !== null ? o.custom_price : row.price,
+            name: o.custom_name || row.name,
+            description: o.custom_description || row.description,
+            billing_cycle: o.custom_billing_cycle || row.billing_cycle,
+            features: o.custom_features || row.features
+          };
+        }
+        return row;
+      });
     }
 
     // Parse features from JSON if possible, otherwise keep as string

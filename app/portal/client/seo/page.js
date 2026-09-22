@@ -20,14 +20,8 @@ export default function SEOReportsPage() {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
-      <div className="p-6 border-b border-gray-100 flex items-center space-x-3">
-        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md shadow-indigo-200">
-          C
-        </div>
-        <div>
-          <h2 className="font-bold text-lg text-gray-800 leading-tight">Client Portal</h2>
-          <p className="text-xs text-gray-500">Demo Client</p>
-        </div>
+      <div className="p-6 border-b border-gray-100 flex flex-col items-center justify-center space-y-3">
+        <img src="/flymedia-logo.png" alt="Fly Media Technology" className="h-16 object-contain" />
       </div>
       
       <nav className="flex-1 p-4 flex flex-col space-y-2 overflow-y-auto">
@@ -46,7 +40,7 @@ export default function SEOReportsPage() {
         </button>
 
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Projects</div>
-        <button onClick={() => window.location.href = '/portal/client/seo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-indigo-50 text-indigo-700">
+        <button onClick={() => window.location.href = '/portal/client/seo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-pink-50 text-pink-700">
           <FiFileText size={20} /><span>SEO Reports</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -64,8 +58,6 @@ export default function SEOReportsPage() {
           <FiCreditCard size={20} /><span>Billing</span>
         </button>
       
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
-
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
                 <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiUser size={20} /><span>Profile Settings</span>
@@ -103,14 +95,14 @@ export default function SEOReportsPage() {
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
             <h1 className="text-xl font-bold text-gray-800">SEO Reports</h1>
           </div>
-          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">DC</div>
+          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm">DC</div>
         </header>
 
         <header className="hidden md:flex bg-white/80 border-b px-8 py-6 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">SEO Reports</h1>
           <div className="flex items-center space-x-4">
              <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-sm shadow-indigo-100">DC</div>
+             <div className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold shadow-sm shadow-pink-100">DC</div>
           </div>
         </header>
 
@@ -126,17 +118,17 @@ export default function SEOReportsPage() {
               {seoReports.length === 0 ? <div className="text-center py-10 text-gray-400">No SEO reports available yet.</div> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {seoReports.map(report => (
-                    <div key={report.id} className="border border-gray-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group flex flex-col justify-between h-full bg-white relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 rounded-l-xl"></div>
+                    <div key={report.id} className="border border-gray-200 rounded-xl p-5 hover:border-pink-300 hover:shadow-md transition-all group flex flex-col justify-between h-full bg-white relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-pink-500 rounded-l-xl"></div>
                       <div>
                         <div className="flex justify-between items-start mb-4">
-                          <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg"><FiFileText /></div>
+                          <div className="w-10 h-10 rounded-full bg-pink-50 text-pink-600 flex items-center justify-center text-lg"><FiFileText /></div>
                           <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-md">New</span>
                         </div>
                         <h4 className="font-bold text-gray-900 text-lg mb-1">{report.month} {report.year}</h4>
                         <p className="text-sm text-gray-500 mb-6">Complete SEO performance report</p>
                       </div>
-                      <a href={report.file_url} target="_blank" rel="noreferrer" className="flex items-center justify-center w-full py-2.5 bg-gray-50 hover:bg-indigo-50 text-indigo-700 text-sm font-semibold rounded-lg transition-colors border border-gray-200 group-hover:border-indigo-200">
+                      <a href={report.file_url} target="_blank" rel="noreferrer" className="flex items-center justify-center w-full py-2.5 bg-gray-50 hover:bg-pink-50 text-pink-700 text-sm font-semibold rounded-lg transition-colors border border-gray-200 group-hover:border-pink-200">
                         <FiDownload className="mr-2" /> Download PDF
                       </a>
                     </div>

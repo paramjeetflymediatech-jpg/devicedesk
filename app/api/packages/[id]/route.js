@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
 
-export async function PUT(request, { params }) {
+export async function PUT(request, props) {
   try {
+    const params = await props.params;
     const { id } = params;
     const body = await request.json();
     const { name, description, price, billing_cycle, features } = body;
@@ -26,8 +27,9 @@ export async function PUT(request, { params }) {
   }
 }
 
-export async function DELETE(request, { params }) {
+export async function DELETE(request, props) {
   try {
+    const params = await props.params;
     const { id } = params;
     
     if (!id) {

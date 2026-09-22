@@ -411,10 +411,10 @@ export default function ChatView({ user }) {
 
   const fetchEmployees = async () => {
     try {
-      const res = await fetch("/api/db");
-      if (res.ok) {
-        const data = await res.json();
-        setEmployees(data.employees || []);
+      const res = await fetch("/api/chat/contacts");
+      const data = await res.json();
+      if (data.success) {
+        setEmployees(data.data.filter((e) => e.id !== user.id));
       }
     } catch (err) {
       console.error("Error fetching employees for chat list:", err);

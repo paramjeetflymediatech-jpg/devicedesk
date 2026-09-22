@@ -37,10 +37,24 @@ export async function POST(req) {
 
     if (txId && finalState) {
       const pool = await getDbConnection();
-      await pool.query(
-        `UPDATE client_payments SET status = ? WHERE id = ? AND status = 'PENDING'`,
-        [finalState, txId]
-      );
+      const [existing] = await pool.query(`SELECT * FROM client_payments WHERE id = ?`, [txId]);
+      
+      if (existing && existing.length > 0) {
+        const payment = existing[0];
+        
+        if (payment.status === 'PENDING') {
+          await pool.query(`UPDATE client_payments SET status = ? WHERE id = ?`, [finalState, txId]);
+          
+          if (finalState === 'COMPLETED' && payment.description && payment.description.startsWith('PACKAGE_PURCHASE:')) {
+            const packageId = payment.description.split(':')[1];
+            const invoiceId = 'inv_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            await pool.query(
+              `INSERT INTO invoices (id, client_id, package_id, amount, status) VALUES (?, ?, ?, ?, 'Paid')`,
+              [invoiceId, payment.client_id, packageId, payment.amount]
+            );
+          }
+        }
+      }
     }
 
     // Always acknowledge PhonePe webhooks
