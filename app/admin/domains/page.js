@@ -19,6 +19,8 @@ export default function AdminDomainsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [expireMonthFilter, setExpireMonthFilter] = useState("ALL");
+  const [expireYearFilter, setExpireYearFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   
@@ -475,11 +477,43 @@ export default function AdminDomainsPage() {
           </button>
         </form>
 
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+          <select 
+            value={expireMonthFilter}
+            onChange={(e) => {
+              setExpireMonthFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="form-control"
+            style={{ fontSize: "0.8rem", padding: "6px 12px", width: "auto" }}
+          >
+            <option value="ALL">Exp. Months (Any)</option>
+            <option value="1">{"<= 1 Month"}</option>
+            <option value="3">{"<= 3 Months"}</option>
+            <option value="6">{"<= 6 Months"}</option>
+            <option value="12">{"<= 12 Months"}</option>
+          </select>
+          <select 
+            value={expireYearFilter}
+            onChange={(e) => {
+              setExpireYearFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="form-control"
+            style={{ fontSize: "0.8rem", padding: "6px 12px", width: "auto" }}
+          >
+            <option value="ALL">Exp. Years (Any)</option>
+            <option value="1">{"<= 1 Year"}</option>
+            <option value="2">{"<= 2 Years"}</option>
+            <option value="5">{"<= 5 Years"}</option>
+          </select>
           {["ALL", "Active", "Expiring Soon", "Expired"].map((st) => (
             <button
               key={st}
-              onClick={() => setStatusFilter(st)}
+              onClick={() => {
+                setStatusFilter(st);
+                setCurrentPage(1);
+              }}
               className={statusFilter === st ? "btn-primary" : "btn-secondary"}
               style={{ fontSize: "0.8rem", padding: "6px 12px" }}
             >
@@ -508,9 +542,21 @@ export default function AdminDomainsPage() {
             </thead>
             <tbody>
               {(() => {
-                const totalPages = Math.ceil(domains.length / pageSize) || 1;
+                let filteredDomains = domains;
+
+                if (expireMonthFilter !== "ALL") {
+                  const months = parseInt(expireMonthFilter);
+                  filteredDomains = filteredDomains.filter(d => d.days_left !== null && d.days_left > 0 && d.days_left <= months * 30);
+                }
+
+                if (expireYearFilter !== "ALL") {
+                  const years = parseInt(expireYearFilter);
+                  filteredDomains = filteredDomains.filter(d => d.days_left !== null && d.days_left > 0 && d.days_left <= years * 365);
+                }
+
+                const totalPages = Math.ceil(filteredDomains.length / pageSize) || 1;
                 const safeCurrentPage = Math.min(currentPage, totalPages);
-                const paginatedDomains = domains.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
+                const paginatedDomains = filteredDomains.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
                 return (
                   <>
