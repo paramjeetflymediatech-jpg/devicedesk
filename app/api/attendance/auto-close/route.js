@@ -131,7 +131,7 @@ export async function POST(req) {
         // Skip Sundays
         if (dayOfWeek !== 0) {
           const [employees] = await connection.execute(
-            `SELECT id, name FROM employees WHERE (status IS NULL OR status != 'Paused') AND LOWER(role) NOT IN ('admin', 'superadmin', 'management')`
+            `SELECT id, name FROM employees WHERE (status IS NULL OR status != 'Paused') AND LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client', 'candidate', 'dns manager') AND LOWER(COALESCE(department, '')) NOT IN ('dns manager')`
           );
           
           const [todayRecords] = await connection.execute(

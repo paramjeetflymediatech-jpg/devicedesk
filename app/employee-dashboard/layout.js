@@ -108,6 +108,7 @@ export default function EmployeeLayout({ children }) {
   const showITSupportDesk = isITDepartment;
   const isTeamLeader = dbRoleStr === 'Team Leader';
   const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
+  const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
 
   // Auth check
   useEffect(() => {
@@ -176,7 +177,7 @@ export default function EmployeeLayout({ children }) {
     );
   };
 
-  const navItems = [
+  const allNavItems = [
     { name: "Overview", path: "/employee-dashboard", icon: <FiGrid /> },
     { name: "Attendance", path: "/employee-dashboard/attendance", icon: <FiClock /> },
     { name: "File Complaint", path: "/employee-dashboard/complaint", icon: <FiAlertCircle /> },
@@ -191,6 +192,10 @@ export default function EmployeeLayout({ children }) {
     { name: "Apply Leave", path: "/employee-dashboard/leave", icon: <FiCalendar /> },
     { name: "My Profile", path: "/employee-dashboard/profile", icon: <FiUser /> }
   ];
+
+  const navItems = isDnsManager
+    ? allNavItems.filter((item) => item.name !== "Attendance")
+    : allNavItems;
 
   return (
     <div style={{ display: "contents" }}>

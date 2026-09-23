@@ -166,12 +166,14 @@ export default function Home() {
     deptLower === 'dns manager'
   );
 
-  // Auto-redirect IT Support away from restricted admin views
+  // Auto-redirect IT Support / DNS Manager away from restricted admin views
   useEffect(() => {
     if (isITSupport && ["tasks", "attendance", "screenshots", "leave-requests", "danger-zone", "chat"].includes(currentView)) {
       setCurrentView("systems");
+    } else if (isDnsManager && ["attendance", "screenshots", "leave-requests", "danger-zone"].includes(currentView)) {
+      setCurrentView("dashboard");
     }
-  }, [isITSupport, currentView]);
+  }, [isITSupport, isDnsManager, currentView]);
 
   // Team Leader scope — only sees their own department
   const isTeamLeader = user?.dbRole === "Team Leader";
@@ -2427,7 +2429,7 @@ export default function Home() {
                     <li className="nav-item">
                       <button onClick={() => window.location.href = "/admin/recruitment"}><span className="nav-icon"><FiUserPlus /></span> Recruitment</button>
                     </li>
-                    {!isITSupport && (
+                    {!isITSupport && !isDnsManager && (
                       <li className="nav-item">
                         <button onClick={() => window.location.href = "/admin/attendance"}><span className="nav-icon"><FiClock /></span> Attendance</button>
                       </li>
@@ -2600,7 +2602,7 @@ export default function Home() {
                     <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/users"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUser /></span> Team Directory</button>
                     <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/departments"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments</button>
                     <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/recruitment"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUserPlus /></span> Recruitment</button>
-                    {!isITSupport && (
+                    {!isITSupport && !isDnsManager && (
                       <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/attendance"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiClock /></span> Attendance</button>
                     )}
                     {!isITSupport && (
@@ -2839,7 +2841,7 @@ export default function Home() {
         <main className="page-container" style={{ overflowY: currentView === "chat" ? "hidden" : "auto" }}>
 
           {/* ================= VIEW: ATTENDANCE ================= */}
-          {currentView === "attendance" && !isITSupport && (
+          {currentView === "attendance" && !isITSupport && !isDnsManager && (
             <div className="page-section active">
               <AttendanceTab user={user} />
             </div>
