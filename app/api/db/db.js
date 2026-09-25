@@ -638,6 +638,12 @@ export async function getDbConnection() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // Migrate client_package_overrides: add columns added after initial schema
+  try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN custom_name VARCHAR(255) DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN custom_description TEXT DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN custom_billing_cycle VARCHAR(100) DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN custom_features TEXT DEFAULT NULL`); } catch (e) {}
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS invoices (
       id VARCHAR(100) PRIMARY KEY,
