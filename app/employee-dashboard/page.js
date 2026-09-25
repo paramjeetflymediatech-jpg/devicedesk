@@ -66,12 +66,15 @@ export default function OverviewPage() {
   const remainingTickets = Math.max(0, ticketLimit - totalRaised);
   const isLimitReached = totalRaised >= ticketLimit;
   const empHistory = assignmentHistory.filter((h) => h.employeeId === user.id);
+  const dbRoleStr = (user?.dbRole || '').toLowerCase().trim();
+  const deptStr = (user?.department || '').toLowerCase().trim();
+  const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
 
   return (
     <div className="page-container emp-container" style={{ overflowY: "auto" }}>
       <div className="page-section active space-y-6">
         {/* Quick Attendance Widget */}
-        <AttendanceWidget user={user} />
+        {!isDnsManager && <AttendanceWidget user={user} />}
 
         {/* Option A: Employee ALREADY Has Desktop Agent Installed & Active */}
         {agentStatus.installed && !showRedownload ? (

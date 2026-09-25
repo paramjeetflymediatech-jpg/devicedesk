@@ -40,6 +40,13 @@ export async function GET(request) {
 
 
 
+    // Exclude users with DNS Manager role or department
+    query += ` AND employeeId NOT IN (
+      SELECT id FROM employees 
+      WHERE LOWER(role) = 'dns manager' 
+         OR LOWER(COALESCE(department, '')) = 'dns manager'
+    )`;
+
     if (search) {
       query += ` AND (LOWER(employeeName) LIKE ? OR LOWER(employeeId) LIKE ? OR LOWER(remarks) LIKE ?)`;
       const term = `%${search.toLowerCase().trim()}%`;
@@ -55,7 +62,7 @@ export async function GET(request) {
       if (employeeId) {
         if (records.length === 0) {
           const [empRows] = await pool.query(
-            `SELECT id, name FROM employees WHERE id = ? AND (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive'))`,
+            `SELECT id, name FROM employees WHERE id = ? AND (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive')) AND LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client', 'candidate', 'dns manager') AND LOWER(COALESCE(department, '')) NOT IN ('dns manager')`,
             [employeeId]
           );
           if (empRows.length > 0) {
@@ -80,7 +87,7 @@ export async function GET(request) {
         }
       } else {
         const [empRows] = await pool.query(
-          `SELECT id, name FROM employees WHERE (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive')) AND LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client', 'candidate')`
+          `SELECT id, name FROM employees WHERE (status IS NULL OR LOWER(TRIM(status)) NOT IN ('paused', 'inactive')) AND LOWER(role) NOT IN ('admin', 'superadmin', 'management', 'client', 'candidate', 'dns manager') AND LOWER(COALESCE(department, '')) NOT IN ('dns manager')`
         );
         const existingEmpIds = new Set(records.map(r => r.employeeId));
 

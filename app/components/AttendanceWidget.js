@@ -5,6 +5,10 @@ import Swal from "sweetalert2";
 import { FiClock, FiCoffee, FiLogIn, FiPlayCircle, FiStopCircle, FiPlay, FiX, FiAlertCircle } from "react-icons/fi";
 
 export default function AttendanceWidget({ user, onStatusChange }) {
+  const dbRoleStr = (user?.dbRole || '').toLowerCase().trim();
+  const deptStr = (user?.department || '').toLowerCase().trim();
+  const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
+
   const [statusData, setStatusData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -18,7 +22,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
   const timerRef = useRef(null);
 
   const fetchStatus = async () => {
-    if (!user?.id) return;
+    if (!user?.id || isDnsManager) return;
     try {
       const res = await fetch(`/api/attendance/status?employeeId=${encodeURIComponent(user.id)}`);
       const data = await res.json();
@@ -248,6 +252,10 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     const secs = totalSecs % 60;
     return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
+
+  if (isDnsManager) {
+    return null;
+  }
 
   if (loading) {
     return (
