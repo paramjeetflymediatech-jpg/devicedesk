@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { FiX, FiCheckCircle } from "react-icons/fi";
 
 export default function EmailToast() {
   const [toast, setToast] = useState(null);
@@ -29,7 +30,7 @@ export default function EmailToast() {
     };
   }, []);
 
-  // Auto-dismiss after 10 seconds if active (extended to give time to click URL)
+  // Auto-dismiss after 10 seconds if active
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => {
@@ -47,48 +48,73 @@ export default function EmailToast() {
         position: "fixed",
         bottom: "24px",
         right: "24px",
-        background: "rgba(23, 23, 37, 0.95)",
-        backdropFilter: "blur(20px)",
-        border: "1px solid var(--accent-cyan)",
-        borderRadius: "16px",
-        padding: "1.25rem",
-                zIndex: 99999,
-        maxWidth: "360px",
-        color: "var(--text-primary)",
-        fontFamily: "var(--font-main)"
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        padding: "1rem",
+        zIndex: 99999,
+        maxWidth: "380px",
+        width: "100%",
+        color: "#1e293b",
+        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+        fontFamily: "'Inter', sans-serif"
       }}
+      className="animate-in slide-in-from-bottom-5 fade-in duration-300"
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-        <span style={{ fontSize: "0.9rem", fontWeight: "700", color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: "6px" }}>
-          ✉️ Email Dispatched (Nodemailer)
-        </span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div style={{ background: "#dcfce7", color: "#16a34a", padding: "6px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <FiCheckCircle size={18} />
+          </div>
+          <div>
+            <span style={{ fontSize: "0.95rem", fontWeight: "600", color: "#0f172a", display: "block" }}>
+              Email Dispatched
+            </span>
+            <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Automated System Notification</span>
+          </div>
+        </div>
         <button
           onClick={() => setToast(null)}
           style={{
             background: "none",
             border: "none",
-            color: "var(--text-muted)",
-            fontSize: "1.25rem",
+            color: "#94a3b8",
             cursor: "pointer",
-            padding: 0,
-            lineHeight: 1
+            padding: "4px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "6px",
+            transition: "background 0.2s"
           }}
+          onMouseOver={(e) => e.currentTarget.style.background = "#f1f5f9"}
+          onMouseOut={(e) => e.currentTarget.style.background = "none"}
         >
-          &times;
+          <FiX size={18} />
         </button>
       </div>
-      <div style={{ fontSize: "0.85rem", lineHeight: "1.4" }}>
-        <p style={{ margin: "2px 0" }}><strong>To:</strong> {toast.to}</p>
-        <p style={{ margin: "2px 0" }}><strong>Subject:</strong> {toast.subject}</p>
+      
+      <div style={{ fontSize: "0.85rem", lineHeight: "1.5" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginBottom: "12px" }}>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <span style={{ color: "#64748b", minWidth: "50px" }}>To:</span>
+            <span style={{ fontWeight: "500", color: "#0f172a" }}>{toast.to}</span>
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <span style={{ color: "#64748b", minWidth: "50px" }}>Subject:</span>
+            <span style={{ fontWeight: "500", color: "#0f172a" }}>{toast.subject}</span>
+          </div>
+        </div>
+        
         <div 
           style={{ 
-            marginTop: "8px", 
-            padding: "8px", 
-            background: "rgba(255,255,255,0.03)", 
+            padding: "10px", 
+            background: "#f8fafc", 
+            border: "1px solid #f1f5f9",
             borderRadius: "8px", 
             fontSize: "0.8rem", 
             whiteSpace: "pre-line", 
-            color: "var(--text-secondary)",
+            color: "#475569",
             maxHeight: "120px",
             overflowY: "auto"
           }}
@@ -97,22 +123,28 @@ export default function EmailToast() {
         </div>
 
         {toast.url && (
-          <div style={{ marginTop: "12px", textAlign: "right" }}>
-            <a
-              href={toast.url}
-              target="_blank"
-              rel="noopener noreferrer"
+          <div style={{ marginTop: "12px" }}>
+            <a 
+              href={toast.url} 
+              target="_blank" 
+              rel="noreferrer"
               style={{
-                fontSize: "0.8rem",
-                color: "var(--accent-cyan)",
-                fontWeight: "700",
-                textDecoration: "underline",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px"
+                display: "block",
+                textAlign: "center",
+                padding: "8px 12px",
+                background: "#fdf2f8",
+                color: "#db2777",
+                textDecoration: "none",
+                fontWeight: "600",
+                fontSize: "0.85rem",
+                borderRadius: "6px",
+                border: "1px solid #fbcfe8",
+                transition: "background 0.2s"
               }}
+              onMouseOver={(e) => e.currentTarget.style.background = "#fce7f3"}
+              onMouseOut={(e) => e.currentTarget.style.background = "#fdf2f8"}
             >
-              🔗 Open in Ethereal Mailbox →
+              Open Attached File
             </a>
           </div>
         )}

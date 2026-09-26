@@ -15,7 +15,7 @@ export class Task {
       await conn.execute('DELETE FROM tasks');
       for (const t of tasks) {
         await conn.execute(
-          `INSERT INTO tasks (id, title, description, assignedTo, assignedToName, assignedBy, assignedByName, status, createdAt, startedAt, completedAt, totalDuration, fileUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO tasks (id, title, description, assignedTo, assignedToName, assignedBy, assignedByName, status, createdAt, startedAt, completedAt, totalDuration, fileUrl, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             t.id || null,
             t.title || '',
@@ -29,7 +29,8 @@ export class Task {
             t.startedAt || null,
             t.completedAt || null,
             t.totalDuration || 0,
-            t.fileUrl || null
+            t.fileUrl || null,
+            t.project_id || null
           ]
         );
       }

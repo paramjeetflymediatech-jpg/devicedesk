@@ -50,3 +50,20 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
+export async function PUT(request) {
+  try {
+    const { id, status } = await request.json();
+    if (!id || !status) {
+      return NextResponse.json({ success: false, error: 'Missing id or status' }, { status: 400 });
+    }
+
+    const db = await getDbConnection();
+    await db.query('UPDATE service_requests SET status = ? WHERE id = ?', [status, id]);
+
+    return NextResponse.json({ success: true, message: 'Status updated to ' + status });
+  } catch (err) {
+    console.error('Update Service Request Error:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}

@@ -1,10 +1,20 @@
 'use client';
+import Swal from 'sweetalert2';
 import { useState, useEffect } from 'react';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiEdit3, FiDownload , FiUser} from 'react-icons/fi';
 
 export default function BookServicePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const myClientId = 'emp_1789113315702'; // Mock ID
+  const [myClientId, setMyClientId] = useState('');
+  
+  useEffect(() => {
+    let clientId = 'emp_1789113315702'; // Fallback
+    if (typeof window !== 'undefined') {
+      const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
+      if (user && user.id) clientId = user.id;
+    }
+    setMyClientId(clientId);
+  }, []);
   const [requests, setRequests] = useState([]);
   const [form, setForm] = useState({ service_type: 'SEO', requirements: '' });
 
@@ -16,9 +26,54 @@ export default function BookServicePage() {
     } catch (err) {}
   };
 
-  useEffect(() => {
-    fetchRequests();
-  }, []);
+  const handleViewDelivery = async (req) => {
+    let extraHtml = '';
+    try {
+      const res = await fetch('/api/tasks');
+      const data = await res.json();
+      if(data.success) {
+        const matchingTask = data.data.find(t => t.project_id === req.id && t.status === 'Completed');
+        if(matchingTask) {
+          let proofsHtml = '<p style="margin-bottom: 5px; color: #64748b;"><em>No proof files uploaded by the team.</em></p>';
+          if(matchingTask.fileUrl) {
+            try {
+              const parsedUrls = JSON.parse(matchingTask.fileUrl);
+              if(Array.isArray(parsedUrls) && parsedUrls.length > 0) {
+                proofsHtml = '<p style="margin-bottom: 5px;"><strong>Delivered Files:</strong><br/>' + parsedUrls.map((u, i) => `<a href="${u}" target="_blank" style="color: #db2777; text-decoration: underline; margin-right: 10px;">View File ${i+1}</a>`).join('') + '</p>';
+              } else if(typeof parsedUrls === 'string') {
+                proofsHtml = `<p style="margin-bottom: 5px;"><strong>Delivered File:</strong> <a href="${parsedUrls}" target="_blank" style="color: #db2777; text-decoration: underline;">View File</a></p>`;
+              }
+            } catch(err) {
+              proofsHtml = `<p style="margin-bottom: 5px;"><strong>Delivered File:</strong> <a href="${matchingTask.fileUrl}" target="_blank" style="color: #db2777; text-decoration: underline;">View File</a></p>`;
+            }
+          }
+
+          extraHtml = `
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #f3f4f6;">
+              <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; color: #1f2937;">Delivery Details</h4>
+              ${proofsHtml}
+            </div>
+          `;
+        }
+      }
+    } catch(e) {}
+
+    Swal.fire({
+      title: `Service: ${req.service_type}`,
+      html: `
+        <div style="text-align: left; font-size: 0.9rem;">
+          <p style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: #16a34a; font-weight: bold;">${req.status}</span></p>
+          <p style="margin-bottom: 8px;"><strong>Your Original Requirement:</strong></p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin-top: 5px;">${req.requirements}</div>
+          ${extraHtml}
+        </div>
+      `,
+      confirmButtonText: 'Close',
+      confirmButtonColor: '#db2777'
+    });
+  };
+
+  useEffect(() => { if (myClientId) fetchRequests(); }, [myClientId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,7 +88,7 @@ export default function BookServicePage() {
       if (data.success) {
         setForm({ ...form, requirements: "" });
         fetchRequests();
-        alert('Requirement submitted successfully!');
+        Swal.fire('Success', 'Requirement submitted successfully!', 'success');
       }
     } catch (err) {}
   };
@@ -52,8 +107,8 @@ export default function BookServicePage() {
 <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
         </button>
-        <button onClick={() => window.location.href = '/portal/client/chat'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiMessageSquare size={20} /><span>Project Chat</span>
+        <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiMessageSquare size={20} /><span>Project Notes</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-pink-50 text-pink-700">
           <FiEdit3 size={20} /><span>Book Service</span>
@@ -177,8 +232,9 @@ export default function BookServicePage() {
                       <tr>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Service</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/2">Requirement</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/3">Requirement</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Status</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -188,9 +244,16 @@ export default function BookServicePage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">{req.service_type}</td>
                           <td className="px-6 py-4 text-sm text-gray-600 line-clamp-2">{req.requirements}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${req.status === 'Pending' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
+                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${req.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
                               {req.status}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            {req.status === 'Completed' ? (
+                              <button onClick={() => handleViewDelivery(req)} className="text-pink-600 hover:text-pink-800 text-sm font-medium transition-colors bg-pink-50 hover:bg-pink-100 px-3 py-1.5 rounded-lg">View Delivery</button>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            )}
                           </td>
                         </tr>
                       ))}

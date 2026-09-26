@@ -644,6 +644,18 @@ export async function getDbConnection() {
   try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN custom_billing_cycle VARCHAR(100) DEFAULT NULL`); } catch (e) {}
   try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN custom_features TEXT DEFAULT NULL`); } catch (e) {}
 
+  
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS client_notes (
+      id VARCHAR(100) PRIMARY KEY,
+      client_id VARCHAR(50) NOT NULL,
+      note TEXT NOT NULL,
+      status VARCHAR(50) DEFAULT 'Unread',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS invoices (
       id VARCHAR(100) PRIMARY KEY,
@@ -745,6 +757,18 @@ export async function getDbConnection() {
   try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN file_url TEXT DEFAULT NULL`); } catch (e) {}
   try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN test_instructions TEXT DEFAULT NULL`); } catch (e) {}
   try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN status VARCHAR(50) DEFAULT 'Pending'`); } catch (e) {}
+
+  
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS eod_reports (
+      id VARCHAR(100) PRIMARY KEY,
+      employee_id VARCHAR(50) NOT NULL,
+      report_text TEXT NOT NULL,
+      status VARCHAR(50) DEFAULT 'Pending',
+      submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
   // Check if DB was already seeded
   const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");

@@ -6,6 +6,7 @@ import Pagination from '../../components/Pagination.js';
 
 export default function PackagesPage() {
   const [packages, setPackages] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -15,6 +16,7 @@ export default function PackagesPage() {
   const [editingId, setEditingId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [expandedDescs, setExpandedDescs] = useState({});
 
   useEffect(() => {
     fetchPackages();
@@ -85,7 +87,7 @@ export default function PackagesPage() {
   };
 
   const handleEdit = (pkg) => {
-    setEditingId(pkg.id);
+    setEditingId(pkg.id); setShowCreateForm(true);
     setName(pkg.name);
     setDescription(pkg.description || '');
     setPrice(pkg.price);
@@ -135,9 +137,29 @@ export default function PackagesPage() {
               Create and manage subscription packages for clients.
             </p>
           </div>
+          <div>
+            <button 
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              style={{ 
+                background: 'var(--accent-cyan, #06b6d4)', 
+                color: '#fff', 
+                border: 'none', 
+                padding: '10px 20px', 
+                borderRadius: '8px', 
+                fontWeight: 'bold', 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <FiPlus /> {showCreateForm || editingId ? 'Cancel' : 'Create New Package'}
+            </button>
+          </div>
         </div>
 
         {/* Add/Edit Package Form */}
+        {(showCreateForm || editingId) && (
         <form onSubmit={handleSubmit} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border, rgba(255,255,255,0.1))', borderRadius: '16px', padding: '1.5rem', marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h2 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -222,6 +244,8 @@ export default function PackagesPage() {
           </button>
         </form>
 
+        )}
+
         {/* Packages Table */}
         <div className="table-wrapper" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border, rgba(255,255,255,0.1))', borderRadius: '16px', overflow: 'hidden' }}>
           <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -238,10 +262,24 @@ export default function PackagesPage() {
                 <tr key={pkg.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <td style={{ padding: '14px 16px' }}>
                     <div style={{ fontWeight: 600, color: 'var(--text-primary, #f8fafc)' }}>{pkg.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #94a3b8)' }}>{pkg.description || '—'}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                      {pkg.description && pkg.description.length > 50 ? (
+                        <>
+                          {expandedDescs[pkg.id] ? pkg.description : `${pkg.description.substring(0, 50)}...`}
+                          <button 
+                            onClick={() => setExpandedDescs(prev => ({ ...prev, [pkg.id]: !prev[pkg.id] }))}
+                            style={{ background: 'transparent', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', marginLeft: '5px', fontSize: '0.75rem', fontWeight: 'bold' }}
+                          >
+                            {expandedDescs[pkg.id] ? 'Read Less' : 'Read More'}
+                          </button>
+                        </>
+                      ) : (
+                        pkg.description || '—'
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding: '14px 16px' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--accent-green, #10b981)' }}>${pkg.price}</div>
+                    <div style={{ fontWeight: 600, color: 'var(--accent-green, #10b981)' }}>₹{pkg.price}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #94a3b8)' }}>{pkg.billing_cycle}</div>
                   </td>
                   <td style={{ padding: '14px 16px', color: 'var(--text-secondary, #94a3b8)', fontSize: '0.85rem' }}>

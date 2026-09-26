@@ -181,7 +181,7 @@ export default function ClientSlugPortal() {
           <FiLayout size={18} /><span>Project Overview</span>
         </button>
         <button onClick={() => { setActiveTab('chat'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${activeTab === 'chat' ? 'bg-pink-50 text-pink-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-          <FiMessageSquare size={18} /><span>Project Chat</span>
+          <FiMessageSquare size={18} /><span>Project Notes</span>
         </button>
 
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Services & Reporting</div>

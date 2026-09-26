@@ -53,39 +53,7 @@ export default function BillingPage() {
     }
   }, [searchParams, router]);
 
-  const handlePayment = async (e) => {
-    e.preventDefault();
-    if (!paymentAmount || paymentAmount <= 0) {
-      Swal.fire('Invalid Amount', 'Please enter a valid amount.', 'warning');
-      return;
-    }
-    
-    setPaymentLoading(true);
-    try {
-      const clientId = getClientId();
-      const res = await fetch('/api/payment/phonepe/initiate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: paymentAmount,
-          clientSlug: 'client', 
-          clientId: clientId,
-          description: `Custom payment from Client Portal`
-        })
-      });
-      const data = await res.json();
-      
-      if (data.success && data.redirectUrl) {
-        window.location.href = data.redirectUrl;
-      } else {
-        Swal.fire('Error', data.error || 'Failed to initiate payment', 'error');
-        setPaymentLoading(false);
-      }
-    } catch (err) {
-      Swal.fire('Error', 'Network error occurred.', 'error');
-      setPaymentLoading(false);
-    }
-  };
+  const handlePayment = async (e) => { e.preventDefault(); Swal.fire('Notice', 'Payments are processed offline via cash.', 'info'); };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
@@ -101,8 +69,8 @@ export default function BillingPage() {
 <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
         </button>
-        <button onClick={() => window.location.href = '/portal/client/chat'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiMessageSquare size={20} /><span>Project Chat</span>
+        <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiMessageSquare size={20} /><span>Project Notes</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiEdit3 size={20} /><span>Book Service</span>
@@ -277,12 +245,7 @@ export default function BillingPage() {
                           </td>
                           <td className="p-4 text-right">
                             {inv.status === 'Pending' && (
-                              <button
-                                onClick={() => { setPaymentAmount(inv.amount); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                className="px-4 py-2 bg-pink-50 text-pink-700 hover:bg-pink-100 font-bold rounded-lg transition-colors text-sm"
-                              >
-                                Pay Now
-                              </button>
+                              <span className="px-4 py-2 bg-gray-50 text-gray-600 font-bold rounded-lg text-sm italic">Offline Cash Payment</span>
                             )}
                           </td>
                         </tr>

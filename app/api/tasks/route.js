@@ -67,12 +67,56 @@ export async function POST(request) {
       [taskId, taskTitle, taskDesc, assignedTo || null, assignedToName || null, assignedBy || null, assignedByName || null, taskStatus, createdAt, project_id || null]
     );
 
+    if (project_id) {
+      try {
+        await db.execute(`UPDATE service_requests SET status = 'Assigned' WHERE id = ?`, [project_id]);
+      } catch (e) {
+        console.error('Failed to update service_requests status:', e);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       task: { id: taskId, title: taskTitle, description: taskDesc, status: taskStatus, project_id }
     });
   } catch (err) {
     console.error('Add Task API Error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+export async function PUT(request) {
+  try {
+    const { id, status } = await request.json();
+    if (!id || !status) {
+      return NextResponse.json({ error: 'Missing id or status.' }, { status: 400 });
+    }
+
+    const db = await getDbConnection();
+    await db.execute(`UPDATE tasks SET status = ? WHERE id = ?`, [status, id]);
+
+    // If task has a project_id (service request), update that too if completed
+    if (status === 'Completed') {
+      try {
+        const [rows] = await db.query('SELECT project_id FROM tasks WHERE id = ?', [id]);
+        if (rows.length > 0 && rows[0].project_id) {
+          await db.execute(`UPDATE service_requests SET status = 'For TL Review' WHERE id = ?`, [rows[0].project_id]);
+        }
+      } catch (e) {
+        console.error('Failed to update service request status:', e);
+      }
+    } else if (status === 'In Progress') {
+      try {
+        const [rows] = await db.query('SELECT project_id FROM tasks WHERE id = ?', [id]);
+        if (rows.length > 0 && rows[0].project_id) {
+          await db.execute(`UPDATE service_requests SET status = 'In Progress' WHERE id = ?`, [rows[0].project_id]);
+        }
+      } catch (e) {}
+    }
+
+    return NextResponse.json({ success: true, message: 'Status updated' });
+  } catch (err) {
+    console.error('Update Task API Error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

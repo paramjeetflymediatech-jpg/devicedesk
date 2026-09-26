@@ -10,12 +10,15 @@ export default function PackagesPage() {
   const [packages, setPackages] = useState([]);
   const [activePackages, setActivePackages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedPkgs, setExpandedPkgs] = useState({});
+  const [expandedFeatures, setExpandedFeatures] = useState({});
 
   const router = useRouter();
 
-  useEffect(() => {
-    fetchPackages();
-  }, []);
+  const toggleExpand = (id) => setExpandedPkgs(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleExpandFeatures = (id) => setExpandedFeatures(prev => ({ ...prev, [id]: !prev[id] }));
+
+  useEffect(() => { fetchPackages(); }, []);
 
   const getClientId = () => {
     let clientId = 'EMP-UNKNOWN';
@@ -55,24 +58,22 @@ export default function PackagesPage() {
       setLoading(true);
       const clientId = getClientId();
       
-      const res = await fetch('/api/payment/phonepe/initiate', {
+      const res = await fetch('/api/packages/purchase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: pkg.price,
-          clientSlug: 'client',
-          clientId: clientId,
-          description: `PACKAGE_PURCHASE:${pkg.id}`
+          client_id: clientId,
+          package_id: pkg.id
         })
       });
       const data = await res.json();
       setLoading(false);
       
-      if (data.success && data.redirectUrl) {
-        Swal.fire('Processing', 'Redirecting to payment gateway...', 'info');
-        window.location.href = data.redirectUrl;
+      if (data.success) {
+        Swal.fire('Success', 'Package activated successfully!', 'success');
+        fetchPackages(); // Refresh packages
       } else {
-        Swal.fire('Error', data.error || 'Failed to initiate payment', 'error');
+        Swal.fire('Error', data.error || 'Failed to activate package', 'error');
       }
     } catch (err) {
       setLoading(false);
@@ -94,8 +95,8 @@ export default function PackagesPage() {
         <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
         </button>
-        <button onClick={() => window.location.href = '/portal/client/chat'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiMessageSquare size={20} /><span>Project Chat</span>
+        <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiMessageSquare size={20} /><span>Project Notes</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiEdit3 size={20} /><span>Book Service</span>
@@ -224,35 +225,79 @@ export default function PackagesPage() {
                       <div key={pkg.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col">
                         <div className="p-8 border-b border-gray-100 bg-gradient-to-br from-pink-50 to-white">
                           <h3 className="text-xl font-bold text-gray-800 mb-2">{pkg.name}</h3>
-                          <p className="text-gray-500 text-sm h-10">{pkg.description}</p>
+                          <div className="text-gray-500 text-sm mb-4">
+                            {pkg.description && pkg.description.length > 80 ? (
+                              <>
+                                {expandedPkgs[pkg.id] ? pkg.description : `${pkg.description.substring(0, 80)}...`}
+                                <button 
+                                  onClick={() => toggleExpand(pkg.id)} 
+                                  className="text-pink-600 hover:text-pink-800 font-semibold ml-2 inline-block"
+                                >
+                                  {expandedPkgs[pkg.id] ? 'Read Less' : 'Read More'}
+                                </button>
+                              </>
+                            ) : (
+                              pkg.description
+                            )}
+                          </div>
                           <div className="mt-6 flex items-baseline">
-                            <span className="text-4xl font-extrabold text-gray-900">${pkg.price}</span>
+                            <span className="text-4xl font-extrabold text-gray-900">₹{pkg.price}</span>
                             <span className="text-gray-500 ml-2 font-medium">/ {pkg.billing_cycle}</span>
                           </div>
                         </div>
                         <div className="p-8 flex-1 flex flex-col bg-white">
                           {Array.isArray(pkg.features) ? (
                             pkg.features.length === 1 && typeof pkg.features[0] === 'string' && pkg.features[0].includes('<') ? (
-                              <div className="space-y-4 mb-8 flex-1 ck-content" dangerouslySetInnerHTML={{ __html: pkg.features[0] }} />
+                              <div className="flex-1 mb-8">
+                                <div className={`ck-content space-y-4 relative overflow-hidden transition-all duration-300 ${!expandedFeatures[pkg.id] ? 'max-h-48' : ''}`} dangerouslySetInnerHTML={{ __html: pkg.features[0] }} />
+                                {!expandedFeatures[pkg.id] && pkg.features[0].length > 200 && (
+                                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                                )}
+                                {pkg.features[0].length > 200 && (
+                                  <div className="text-center mt-3">
+                                    <button onClick={() => toggleExpandFeatures(pkg.id)} className="text-pink-600 hover:text-pink-800 text-sm font-semibold">
+                                      {expandedFeatures[pkg.id] ? 'View Less Features' : 'View All Features'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             ) : (
-                              <ul className="space-y-4 mb-8 flex-1">
-                                {pkg.features.map((feature, i) => (
-                                  <li key={i} className="flex items-start">
-                                    <FiCheck className="text-green-500 mt-1 mr-3 flex-shrink-0" size={18} />
-                                    <span className="text-gray-600 font-medium">{feature}</span>
-                                  </li>
-                                ))}
-                              </ul>
+                              <div className="flex-1 mb-8">
+                                <ul className="space-y-4">
+                                  {(expandedFeatures[pkg.id] ? pkg.features : pkg.features.slice(0, 5)).map((feature, i) => (
+                                    <li key={i} className="flex items-start">
+                                      <FiCheck className="text-green-500 mt-1 mr-3 flex-shrink-0" size={18} />
+                                      <span className="text-gray-600 font-medium">{feature}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                                {pkg.features.length > 5 && (
+                                  <div className="text-center mt-4">
+                                    <button onClick={() => toggleExpandFeatures(pkg.id)} className="text-pink-600 hover:text-pink-800 text-sm font-semibold">
+                                      {expandedFeatures[pkg.id] ? 'View Less Features' : `+ ${pkg.features.length - 5} More Features`}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             )
                           ) : (
                             <div className="text-gray-500 text-sm italic mb-8 flex-1">No specific features listed</div>
                           )}
-                          <button
-                            onClick={() => handleBuyNow(pkg)}
-                            className="w-full py-4 px-6 bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-pink-200"
-                          >
-                            Buy Now
-                          </button>
+                          {activePackages.some(ap => ap.package_id === pkg.id && !ap.is_expired) ? (
+                            <button
+                              disabled
+                              className="w-full py-4 px-6 bg-gray-100 text-gray-500 font-bold rounded-xl cursor-not-allowed border border-gray-200"
+                            >
+                              Subscribed
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleBuyNow(pkg)}
+                              className="w-full py-4 px-6 bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-pink-200"
+                            >
+                              Buy Now
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}

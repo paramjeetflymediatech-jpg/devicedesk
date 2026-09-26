@@ -4,7 +4,16 @@ import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, Fi
 
 export default function SMOPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const myClientId = 'emp_1789113315702'; // Mock ID
+  const [myClientId, setMyClientId] = useState('');
+  
+  useEffect(() => {
+    let clientId = 'emp_1789113315702'; // Fallback
+    if (typeof window !== 'undefined') {
+      const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
+      if (user && user.id) clientId = user.id;
+    }
+    setMyClientId(clientId);
+  }, []);
   const [smoRequests, setSmoRequests] = useState([]);
   const [smoForm, setSmoForm] = useState({ requirements: "" });
 
@@ -16,9 +25,7 @@ export default function SMOPage() {
     } catch (err) {}
   };
 
-  useEffect(() => {
-    fetchSMO();
-  }, []);
+  useEffect(() => { if (myClientId) fetchSMO(); }, [myClientId]);
 
   const handleSMOSubmit = async (e) => {
     e.preventDefault();
@@ -52,8 +59,8 @@ export default function SMOPage() {
 <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
         </button>
-        <button onClick={() => window.location.href = '/portal/client/chat'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiMessageSquare size={20} /><span>Project Chat</span>
+        <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiMessageSquare size={20} /><span>Project Notes</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiEdit3 size={20} /><span>Book Service</span>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 export default function ProfilePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const myClientId = 'emp_1789113315702'; // Mock ID
+  const [myClientId, setMyClientId] = useState('');
   
   const [clientDetails, setClientDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -16,10 +16,18 @@ export default function ProfilePage() {
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    fetchProfile();
+    let clientId = 'emp_1789113315702'; // Fallback
+    if (typeof window !== 'undefined') {
+      const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
+      if (user && user.id) clientId = user.id;
+    }
+    setMyClientId(clientId);
   }, []);
+
+  useEffect(() => { if (myClientId) fetchProfile(); }, [myClientId]);
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -62,6 +70,7 @@ export default function ProfilePage() {
         setSaveSuccess(true);
         fetchProfile(); // refresh data
         setTimeout(() => setSaveSuccess(false), 3000);
+        setIsEditing(false);
       } else {
         alert(data.error || 'Failed to update profile');
       }
@@ -87,8 +96,8 @@ export default function ProfilePage() {
         <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
         </button>
-        <button onClick={() => window.location.href = '/portal/client/chat'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiMessageSquare size={20} /><span>Project Chat</span>
+        <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiMessageSquare size={20} /><span>Project Notes</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiEdit3 size={20} /><span>Book Service</span>
@@ -185,7 +194,14 @@ export default function ProfilePage() {
               {/* Profile Settings Form */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
-                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FiUser className="text-pink-600" /> Edit Details</h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FiUser className="text-pink-600" /> {isEditing ? 'Edit Details' : 'Profile Details'}</h3>
+                    {!isEditing && (
+                      <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-pink-600 bg-pink-50 rounded-lg hover:bg-pink-100 transition-colors">
+                        <FiEdit3 size={16} /> Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="p-8">
@@ -196,7 +212,9 @@ export default function ProfilePage() {
                     </div>
                   )}
 
+                  {isEditing ? (
                   <form id="profileForm" onSubmit={handleProfileSave} className="space-y-6">
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Company Name</label>
@@ -229,12 +247,60 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="pt-6 border-t border-gray-100 flex justify-end">
+                      <button type="button" onClick={() => setIsEditing(false)} className="flex items-center gap-2 px-6 py-3 text-sm font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all mr-3">Cancel</button>
                       <button type="submit" form="profileForm" disabled={savingProfile} className="flex items-center gap-2 px-8 py-3 text-sm font-bold text-white bg-pink-600 rounded-xl hover:bg-pink-700 disabled:opacity-70 disabled:cursor-not-allowed shadow-md shadow-pink-200 transition-all active:scale-95">
                         {savingProfile ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <FiSave size={18} />}
                         {savingProfile ? 'Saving...' : 'Save Changes'}
                       </button>
                     </div>
+                  
                   </form>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-1">
+                        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Company Name</span>
+                        <p className="text-gray-800 font-medium text-lg">{clientDetails?.company_name || '-'}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Primary Service</span>
+                        <p className="text-gray-800 font-medium text-lg">{clientDetails?.primary_service || '-'}</p>
+                      </div>
+                      <div className="space-y-1 flex items-center gap-2">
+                        <FiPhone className="text-gray-400 mt-1" />
+                        <div>
+                          <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider block">Phone Number</span>
+                          <p className="text-gray-800 font-medium text-lg">{clientDetails?.phone || '-'}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1 flex items-center gap-2">
+                        <FiMessageSquare className="text-green-500 mt-1" />
+                        <div>
+                          <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider block">WhatsApp</span>
+                          <p className="text-gray-800 font-medium text-lg">{clientDetails?.whatsapp || '-'}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1 md:col-span-2 flex items-start gap-2">
+                        <FiMapPin className="text-gray-400 mt-1" />
+                        <div>
+                          <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider block">Address</span>
+                          <p className="text-gray-800 font-medium">{clientDetails?.address || '-'}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1 flex items-center gap-2">
+                        <FiLink className="text-gray-400 mt-1" />
+                        <div>
+                          <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider block">Website URL</span>
+                          <p className="text-gray-800 font-medium truncate">
+                            {clientDetails?.website_url ? <a href={clientDetails.website_url} target="_blank" className="text-pink-600 hover:underline">{clientDetails.website_url}</a> : '-'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider block">GST / Tax Number</span>
+                        <p className="text-gray-800 font-medium">{clientDetails?.gst_number || '-'}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </>

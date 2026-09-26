@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiUsers, FiArrowLeft, FiEdit2, FiTrash2, FiPlus, FiDownload, FiSearch, FiKey, FiCheck, FiX, FiLayout, FiDollarSign, FiBox } from 'react-icons/fi';
+import { FiUsers, FiArrowLeft, FiEdit2, FiTrash2, FiPlus, FiDownload, FiSearch, FiKey, FiCheck, FiX, FiLayout, FiDollarSign, FiBox, FiEye, FiEyeOff } from 'react-icons/fi';
 import Pagination from '../../components/Pagination.js';
 import Swal from 'sweetalert2';
 import dynamic from 'next/dynamic';
@@ -13,6 +13,7 @@ const Editor = dynamic(() => import('../../components/Editor'), {
 
 export default function ClientManagementPage() {
   const [clients, setClients] = useState([]);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -378,7 +379,7 @@ export default function ClientManagementPage() {
                 paginatedClients.map((client) => (
                   <tr key={client.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                     <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                      {new Date(client.created_at).toLocaleDateString()}
+                      {client.createdAt || client.created_at ? new Date(client.createdAt || client.created_at).toLocaleDateString() : 'N/A'}
                     </td>
                     <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>
                       {client.name}
@@ -482,7 +483,12 @@ export default function ClientManagementPage() {
                   </div>
                   <div className="form-group">
                     <label>Temporary Password *</label>
-                    <input type="password" placeholder="Secure Password" required value={addForm.password} onChange={e => setAddForm({...addForm, password: e.target.value})} className="form-control" />
+                    <div style={{ position: 'relative' }}>
+                      <input type={showPassword ? 'text' : 'password'} placeholder="Secure Password" required value={addForm.password} onChange={e => setAddForm({...addForm, password: e.target.value})} className="form-control" style={{ width: '100%', paddingRight: '40px' }} />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#666' }}>
+                        {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                      </button>
+                    </div>
                   </div>
                   <div className="form-group">
                     <label>Phone Number</label>

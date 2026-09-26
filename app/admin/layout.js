@@ -17,7 +17,7 @@ import {
   FiCheckSquare,
   FiClock,
   FiMessageSquare,
-  FiUser,
+  FiUser, FiList,
   FiUserPlus,
   FiAlertTriangle,
   FiLogOut,
@@ -179,7 +179,8 @@ export default function AdminLayout({ children }) {
       items: [
         { name: "Client Records", path: "/admin/client", icon: <FiUsers /> },
         { name: "Domain Portfolio", path: "/admin/domains", icon: <FiGlobe /> },
-        { name: "Packages", path: "/admin/packages", icon: <FiBox /> }
+        { name: "Packages", path: "/admin/packages", icon: <FiBox /> },
+        { name: "Subscriptions", path: "/admin/subscriptions", icon: <FiList /> }
       ]
     },
     {

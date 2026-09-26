@@ -850,6 +850,7 @@ export function deleteTask(taskId, operatorName = 'Admin') {
 }
 
 export function startTask(taskId, operatorName = 'System') {
+  if(typeof window !== 'undefined') { fetch('/api/tasks', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: taskId, status: 'In Progress'}) }).catch(e => console.error(e)); }
   const tasks = getTasks();
   const index = tasks.findIndex(t => t.id === taskId);
   if (index !== -1 && tasks[index].status !== 'Completed') {
@@ -895,6 +896,7 @@ export function stopTask(taskId, operatorName = 'System') {
 }
 
 export function completeTask(taskId, operatorName = 'System', fileUrl = null) {
+  if(typeof window !== 'undefined') { fetch('/api/tasks', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: taskId, status: 'Completed'}) }).catch(e => console.error(e)); }
   const tasks = getTasks();
   const index = tasks.findIndex(t => t.id === taskId);
   if (index !== -1 && tasks[index].status !== 'Completed') {

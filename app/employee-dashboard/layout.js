@@ -106,8 +106,8 @@ export default function EmployeeLayout({ children }) {
     user?.email === 'pravi@yopmail.com';
 
   const showITSupportDesk = isITDepartment;
-  const isTeamLeader = dbRoleStr === 'Team Leader';
-  const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
+  const isTeamLeader = dbRoleStr === 'team leader';
+  const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
   const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
 
   // Auth check
@@ -259,7 +259,7 @@ export default function EmployeeLayout({ children }) {
                   onClick={() => { window.location.href = "/portal/leader"; }}
                   style={{ color: "var(--accent-cyan)", fontWeight: "600", background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', padding: '10px 14px' }}
                 >
-                  <span className="nav-icon"><FiGrid /></span> Management
+                  <span className="nav-icon"><FiActivity /></span> Team Leader Portal
                 </button>
               </li>
             )}

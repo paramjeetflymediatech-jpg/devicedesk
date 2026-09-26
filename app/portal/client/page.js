@@ -6,6 +6,7 @@ export default function ClientDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activePackages, setActivePackages] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   
   const getClientId = () => {
@@ -19,7 +20,21 @@ export default function ClientDashboard() {
 
   useEffect(() => {
     fetchActivePackages();
+    fetchRequests();
   }, []);
+
+  const fetchRequests = async () => {
+    try {
+      const clientId = getClientId();
+      const res = await fetch(`/api/client-services/requests?clientId=${clientId}`);
+      const data = await res.json();
+      if (data.success) {
+        setRequests(data.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchActivePackages = async () => {
     try {
@@ -59,8 +74,8 @@ export default function ClientDashboard() {
         <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-pink-50 text-pink-700">
           <FiLayout size={20} /><span>Project Overview</span>
         </button>
-        <button onClick={() => window.location.href = '/portal/client/chat'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiMessageSquare size={20} /><span>Project Chat</span>
+        <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiMessageSquare size={20} /><span>Project Notes</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiEdit3 size={20} /><span>Book Service</span>
@@ -158,7 +173,7 @@ export default function ClientDashboard() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 font-medium mb-1">Pending Approvals</p>
-                    <p className="text-3xl font-bold text-gray-900">1</p>
+                    <p className="text-3xl font-bold text-gray-900">{loading ? '-' : requests.filter(r => r.status === 'Pending').length}</p>
                   </div>
                 </div>
               </div>
@@ -201,23 +216,33 @@ export default function ClientDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      <tr className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4">
-                           <p className="text-sm font-medium text-gray-800">Website Redesign (Draft)</p>
-                           <p className="text-xs text-gray-500 mt-1">Submitted 2 hours ago</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-                             <span className="w-2 h-2 rounded-full bg-amber-500 mr-2"></span>
-                             Client Review
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button className="text-pink-600 hover:text-pink-800 text-sm font-semibold transition-colors">
-                             Review Submission &rarr;
-                          </button>
-                        </td>
-                      </tr>
+                      {requests.length === 0 ? (
+                        <tr>
+                          <td colSpan="3" className="px-6 py-8 text-center text-gray-500">
+                            No recent submissions found.
+                          </td>
+                        </tr>
+                      ) : (
+                        requests.map(req => (
+                          <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-6 py-4">
+                               <p className="text-sm font-medium text-gray-800">{req.service_type || 'Service Request'}</p>
+                               <p className="text-xs text-gray-500 mt-1">{new Date(req.created_at).toLocaleString()}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${req.status === 'Pending' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                                 <span className={`w-2 h-2 rounded-full mr-2 ${req.status === 'Pending' ? 'bg-amber-500' : 'bg-blue-500'}`}></span>
+                                 {req.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <button onClick={() => window.location.href = '/portal/client/book-service'} className="text-pink-600 hover:text-pink-800 text-sm font-semibold transition-colors">
+                                 View Request &rarr;
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
