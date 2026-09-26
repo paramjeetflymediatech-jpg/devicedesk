@@ -87,6 +87,10 @@ export async function getDbConnection() {
 
   // Alter tables if columns do not exist
   try {
+    await db.execute(`ALTER TABLE client_notes ADD COLUMN tl_reply TEXT DEFAULT NULL`);
+  } catch (err) {}
+
+  try {
     await db.execute(`ALTER TABLE assignment_history ADD COLUMN assignedBy VARCHAR(100) DEFAULT 'System'`);
   } catch (err) {
     // Column already exists, ignore error
@@ -650,6 +654,7 @@ export async function getDbConnection() {
       id VARCHAR(100) PRIMARY KEY,
       client_id VARCHAR(50) NOT NULL,
       note TEXT NOT NULL,
+      tl_reply TEXT DEFAULT NULL,
       status VARCHAR(50) DEFAULT 'Unread',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
