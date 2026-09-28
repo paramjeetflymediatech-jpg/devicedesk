@@ -790,6 +790,19 @@ export async function getDbConnection() {
   try { await db.execute(`ALTER TABLE eod_reports ADD COLUMN submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (e) {}
   try { await db.execute(`ALTER TABLE eod_reports ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (e) {}
 
+  // Ensure standard test/operational accounts (emp_tl, admin) exist and are Active
+  try {
+    const pepper = process.env.PASSWORD_PEPPER || 'devicedesk_secure_pepper_key_2026';
+    const defaultPassHash = await bcrypt.hash('password123' + pepper, 10);
+    await db.execute(`
+      INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status)
+      VALUES 
+        ('emp_tl', 'Team Leader', 'leader@devicedesk.com', ?, 'Team Leader', 'Development', 20, 'Active'),
+        ('admin', 'Administrator', 'admin@devicedesk.com', ?, 'Admin', 'Management', 20, 'Active')
+      ON DUPLICATE KEY UPDATE status='Active'
+    `, [defaultPassHash, defaultPassHash]);
+  } catch (err) {}
+
   // Check if DB was already seeded
   const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");
   const alreadySeeded = metaRows.length > 0 && metaRows[0].meta_value === 'true';

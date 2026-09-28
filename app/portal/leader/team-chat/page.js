@@ -1,14 +1,15 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useAuth } from '../../../auth/AuthContext.js';
 import { FiMessageSquare } from 'react-icons/fi';
 import ProjectChat from '../../../components/ProjectChat';
 
 export default function TeamChatPage() {
+  const { user } = useAuth();
   const [departments, setDepartments] = useState([]);
   const [selectedDeptId, setSelectedDeptId] = useState(null);
 
-  const currentUserId = "emp_tl_1";
-  const currentUserName = "Team Leader";
+  const currentUserId = user?.id || '';
+  const currentUserName = user?.name || 'Team Leader';
 
   useEffect(() => {
     async function fetchDepartments() {
