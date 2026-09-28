@@ -16,10 +16,56 @@ export async function OPTIONS() {
   });
 }
 
+let schemaInitialized = false;
+
+async function ensureScreenshotSchema(pool) {
+  if (schemaInitialized) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS screenshots (
+        id VARCHAR(100) PRIMARY KEY,
+        employeeId VARCHAR(50) NOT NULL,
+        employeeName VARCHAR(100) NOT NULL,
+        department VARCHAR(100),
+        imageUrl TEXT NOT NULL,
+        capturedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        shiftId VARCHAR(100),
+        ipAddress VARCHAR(50),
+        systemNumber VARCHAR(50),
+        captureType VARCHAR(50) DEFAULT 'FULL_DESKTOP',
+        activityScore INT DEFAULT 100,
+        INDEX idx_emp (employeeId),
+        INDEX idx_capturedAt (capturedAt)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS agent_registrations (
+        id VARCHAR(100) PRIMARY KEY,
+        employeeId VARCHAR(100) NOT NULL,
+        employeeName VARCHAR(150) NOT NULL,
+        department VARCHAR(100),
+        systemNumber VARCHAR(100),
+        ipAddress VARCHAR(50),
+        osPlatform VARCHAR(50),
+        serverUrl VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'ACTIVE',
+        installedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        lastSeenAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_emp_sys (employeeId, systemNumber)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    schemaInitialized = true;
+  } catch (e) {
+    console.warn('Schema init notice:', e.message);
+  }
+}
+
 export async function POST(req) {
   try {
-    console.log(`[API /screenshots/upload] Incoming screenshot upload request at ${new Date().toISOString()}`);
     const pool = await getDbConnection();
+    await ensureScreenshotSchema(pool);
     const contentType = req.headers.get('content-type') || '';
     let employeeId = '';
     let employeeName = '';
@@ -123,39 +169,7 @@ export async function POST(req) {
       }
     }
 
-    // 4. Ensure screenshots table exists dynamically
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS screenshots (
-        id VARCHAR(100) PRIMARY KEY,
-        employeeId VARCHAR(50) NOT NULL,
-        employeeName VARCHAR(100) NOT NULL,
-        department VARCHAR(100),
-        imageUrl TEXT NOT NULL,
-        capturedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        shiftId VARCHAR(100),
-        ipAddress VARCHAR(50),
-        systemNumber VARCHAR(50),
-        captureType VARCHAR(50) DEFAULT 'FULL_DESKTOP',
-        activityScore INT DEFAULT 100,
-        INDEX idx_emp (employeeId),
-        INDEX idx_capturedAt (capturedAt)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `);
-
-    // Dynamically ensure all optional columns exist for legacy MySQL schema safety
-    const autoCols = [
-      `ALTER TABLE screenshots ADD COLUMN department VARCHAR(100)`,
-      `ALTER TABLE screenshots ADD COLUMN shiftId VARCHAR(100)`,
-      `ALTER TABLE screenshots ADD COLUMN ipAddress VARCHAR(50)`,
-      `ALTER TABLE screenshots ADD COLUMN systemNumber VARCHAR(50)`,
-      `ALTER TABLE screenshots ADD COLUMN captureType VARCHAR(50) DEFAULT 'FULL_DESKTOP'`,
-      `ALTER TABLE screenshots ADD COLUMN activityScore INT DEFAULT 100`
-    ];
-    for (const colSql of autoCols) {
-      try { await pool.query(colSql); } catch (e) {}
-    }
-
-    // 5. Save screenshot record with /uploads/screenshots/... route
+    // 4. Save screenshot record
     await pool.query(
       `INSERT INTO screenshots (id, employeeId, employeeName, department, imageUrl, shiftId, ipAddress, systemNumber, captureType, activityScore)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -179,23 +193,6 @@ export async function POST(req) {
 
     // Upsert into dedicated agent_registrations table
     try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS agent_registrations (
-          id VARCHAR(100) PRIMARY KEY,
-          employeeId VARCHAR(100) NOT NULL,
-          employeeName VARCHAR(150) NOT NULL,
-          department VARCHAR(100),
-          systemNumber VARCHAR(100),
-          ipAddress VARCHAR(50),
-          osPlatform VARCHAR(50),
-          serverUrl VARCHAR(255),
-          status VARCHAR(50) DEFAULT 'ACTIVE',
-          installedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          lastSeenAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-          UNIQUE KEY uk_emp_sys (employeeId, systemNumber)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-      `);
-
       await pool.query(`
         INSERT INTO agent_registrations (id, employeeId, employeeName, department, systemNumber, ipAddress, osPlatform, status, installedAt, lastSeenAt)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE', NOW(), NOW())
