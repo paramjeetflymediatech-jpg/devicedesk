@@ -12,6 +12,7 @@ const { sourceExts } = defaultConfig.resolver;
 const config = {
   resolver: {
     sourceExts: [...sourceExts, 'mjs'],
+    unstable_enablePackageExports: false,
   },
 };
 
