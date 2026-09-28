@@ -80,7 +80,8 @@ export const Employee = sequelize.define('Employee', {
   ticketLimit: { type: DataTypes.INTEGER, defaultValue: 5 },
   status: { type: DataTypes.STRING(20), defaultValue: 'Active' },
   avatarUrl: { type: DataTypes.STRING(512), allowNull: true },
-  lastSeen: { type: DataTypes.DATE, allowNull: true }
+  lastSeen: { type: DataTypes.DATE, allowNull: true },
+  tl_id: { type: DataTypes.STRING(50), allowNull: true }
 }, { tableName: 'employees', timestamps: false });
 
 export const System = sequelize.define('System', {

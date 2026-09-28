@@ -127,6 +127,18 @@ export async function getDbConnection() {
   }
 
   try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN tl_id VARCHAR(50) DEFAULT NULL`);
+  } catch (err) {}
+
+  try {
+    await db.execute(`ALTER TABLE service_requests ADD COLUMN assigned_tl_id VARCHAR(50) DEFAULT NULL`);
+  } catch (err) {}
+
+  try {
+    await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN assigned_tl_id VARCHAR(50) DEFAULT NULL`);
+  } catch (err) {}
+
+  try {
     await db.execute(`ALTER TABLE attendance_records ADD COLUMN punchInLatitude DECIMAL(10, 8) DEFAULT NULL`);
   } catch (err) {}
   try {

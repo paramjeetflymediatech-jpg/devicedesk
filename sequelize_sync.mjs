@@ -80,7 +80,8 @@ export const Employee = sequelize.define('Employee', {
   ticketLimit: { type: DataTypes.INTEGER, defaultValue: 5 },
   status: { type: DataTypes.STRING(20), defaultValue: 'Active' },
   avatarUrl: { type: DataTypes.STRING(512), allowNull: true },
-  lastSeen: { type: DataTypes.DATE, allowNull: true }
+  lastSeen: { type: DataTypes.DATE, allowNull: true },
+  tl_id: { type: DataTypes.STRING(50), allowNull: true }
 }, { tableName: 'employees', timestamps: false });
 
 export const System = sequelize.define('System', {
@@ -371,6 +372,34 @@ export const Invoice = sequelize.define('Invoice', {
   status: { type: DataTypes.STRING(50), defaultValue: 'Pending' },
   transaction_id: { type: DataTypes.STRING(100), allowNull: true }
 }, { tableName: 'invoices', timestamps: false });
+
+export const ClientSEOReport = sequelize.define('ClientSEOReport', {
+  id: { type: DataTypes.STRING(100), primaryKey: true },
+  client_id: { type: DataTypes.STRING(50), allowNull: false },
+  month: { type: DataTypes.STRING(20), allowNull: false },
+  year: { type: DataTypes.STRING(10), allowNull: false },
+  file_url: { type: DataTypes.TEXT, allowNull: false },
+  status: { type: DataTypes.STRING(50), defaultValue: 'Uploaded' },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, { tableName: 'client_seo_reports', timestamps: false });
+
+export const ClientSMORequest = sequelize.define('ClientSMORequest', {
+  id: { type: DataTypes.STRING(100), primaryKey: true },
+  client_id: { type: DataTypes.STRING(50), allowNull: false },
+  requirements: { type: DataTypes.TEXT, allowNull: false },
+  status: { type: DataTypes.STRING(50), defaultValue: 'Pending' },
+  assigned_tl_id: { type: DataTypes.STRING(50), allowNull: true },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, { tableName: 'client_smo_requests', timestamps: false });
+
+export const ClientPaidAd = sequelize.define('ClientPaidAd', {
+  id: { type: DataTypes.STRING(100), primaryKey: true },
+  client_id: { type: DataTypes.STRING(50), allowNull: false },
+  platform: { type: DataTypes.STRING(100), allowNull: false },
+  total_budget: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
+  spent_amount: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
+  pending_balance: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 }
+}, { tableName: 'client_paid_ads', timestamps: true });
 
 export const ServiceRequest = sequelize.define('ServiceRequest', {
   id: { type: DataTypes.STRING(100), primaryKey: true },
