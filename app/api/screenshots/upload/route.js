@@ -157,16 +157,13 @@ export async function POST(req) {
     const filePath = path.join(uploadDir, fileName);
     await fs.promises.writeFile(filePath, fileBuffer);
 
-    // 3. Sync to remote SFTP only if explicitly configured as 'sftp'
+    // 3. Sync to remote SFTP storage (or local fallback)
     let imageUrl = `/uploads/devicedesk/screenshots/${fileName}`;
-    const storageProvider = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim();
-    if (storageProvider === 'sftp') {
-      try {
-        const sftpUrl = await uploadFile(fileBuffer, fileName, 'devicedesk/screenshots');
-        if (sftpUrl) imageUrl = sftpUrl;
-      } catch (sftpErr) {
-        console.warn('SFTP sync notice:', sftpErr.message);
-      }
+    try {
+      const sftpUrl = await uploadFile(fileBuffer, fileName, 'devicedesk/screenshots');
+      if (sftpUrl) imageUrl = sftpUrl;
+    } catch (sftpErr) {
+      console.warn('SFTP sync notice:', sftpErr.message);
     }
 
     // 4. Save screenshot record

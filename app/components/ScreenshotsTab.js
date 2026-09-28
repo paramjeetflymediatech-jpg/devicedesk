@@ -20,14 +20,14 @@ function handleImageError(e, rawUrl) {
   e.currentTarget.setAttribute('data-retry-count', (count + 1).toString());
 
   const fallbacks = [
+    `https://storage.flymediatech.com/uploads/devicedesk/screenshots/${fileName}`,
     `/uploads/devicedesk/screenshots/${fileName}`,
     `/api/uploads/${fileName}`,
-    `/uploads/${fileName}`,
-    `https://storage.flymediatech.com/uploads/devicedesk/screenshots/${fileName}`
+    `https://storage.flymediatech.com/uploads/screenshots/${fileName}`
   ];
 
   const nextSrc = fallbacks[count];
-  if (nextSrc) {
+  if (nextSrc && e.currentTarget.src !== nextSrc) {
     e.currentTarget.src = nextSrc;
   }
 }

@@ -137,24 +137,11 @@ export async function GET(req) {
       lastSeenAt: formatIso(r.lastSeenAt)
     }));
 
-    const isSftp = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim() === 'sftp';
-
-    const formattedRows = rows.map(r => {
-      let img = r.imageUrl || '';
-      if (!isSftp && img.startsWith('http')) {
-        try {
-          const urlObj = new URL(img);
-          if (urlObj.pathname.startsWith('/uploads/')) {
-            img = urlObj.pathname;
-          }
-        } catch (e) {}
-      }
-      return {
-        ...r,
-        imageUrl: img,
-        capturedAt: formatIso(r.capturedAt)
-      };
-    });
+    const formattedRows = rows.map(r => ({
+      ...r,
+      imageUrl: r.imageUrl || '',
+      capturedAt: formatIso(r.capturedAt)
+    }));
 
     return NextResponse.json({
       success: true,
