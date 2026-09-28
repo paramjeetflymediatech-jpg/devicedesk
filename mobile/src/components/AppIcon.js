@@ -388,6 +388,16 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
         </Svg>
       );
 
+    case 'arrow-right':
+    case 'arrowright':
+    case 'forward':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Line x1="5" y1="12" x2="19" y2="12" />
+          <Polyline points="12 5 19 12 12 19" />
+        </Svg>
+      );
+
     case 'refresh-cw':
     case 'refresh':
       return (
@@ -404,6 +414,57 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
           <Polyline points="22 4 12 14.01 9 11.01" />
+        </Svg>
+      );
+
+    case 'zap':
+    case 'bolt':
+    case 'flash':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </Svg>
+      );
+
+    case 'award':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Circle cx="12" cy="8" r="7" />
+          <Polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+        </Svg>
+      );
+
+    case 'book-open':
+    case 'book':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+          <Path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+        </Svg>
+      );
+
+    case 'inbox':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+          <Path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+        </Svg>
+      );
+
+    case 'user-check':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <Circle cx="8.5" cy="7" r="4" />
+          <Polyline points="17 11 19 13 23 9" />
+        </Svg>
+      );
+
+    case 'check-square':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="9 11 12 14 22 4" />
+          <Path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
         </Svg>
       );
 

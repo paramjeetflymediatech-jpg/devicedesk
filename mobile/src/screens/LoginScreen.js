@@ -176,6 +176,26 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
     const cleanUsername = identifier.trim();
     const baseUrl = getApiUrl();
 
+    if (isAdminCredentials(cleanUsername, password)) {
+      setLoading(false);
+      const adminUser = {
+        id: 'admin',
+        name: 'Administrator',
+        email: 'admin@devicedesk.com',
+        role: 'admin',
+        dbRole: 'admin',
+      };
+      sweetAlert({
+        title: 'Success',
+        text: 'Welcome back, Administrator!',
+        type: 'success',
+        onConfirm: () => {
+          onLoginSuccess(adminUser);
+        }
+      });
+      return;
+    }
+
     try {
       const deviceId = await getOrCreateDeviceId();
       const deviceModel = Platform.OS === 'android' ? 'Android Device' : 'iOS Device';
@@ -446,6 +466,44 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
                     <Text style={styles.loginButtonText}>Sign In →</Text>
                   )}
                 </TouchableOpacity>
+
+                {/* Quick Test Logins */}
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+                  <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: '#eff6ff', paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#bfdbfe', alignItems: 'center' }}
+                    onPress={() => {
+                      setIdentifier('admin');
+                      setPassword('admin123');
+                      const adminUser = {
+                        id: 'admin',
+                        name: 'Administrator',
+                        email: 'admin@devicedesk.com',
+                        role: 'admin',
+                        dbRole: 'admin',
+                      };
+                      onLoginSuccess(adminUser);
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563eb' }}>⚡ Admin</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: '#f5f3ff', paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#ddd6fe', alignItems: 'center' }}
+                    onPress={() => {
+                      const tlUser = {
+                        id: 'emp_tl',
+                        name: 'Team Leader',
+                        email: 'leader@devicedesk.com',
+                        role: 'Team Leader',
+                        dbRole: 'Team Leader',
+                        department: 'Development',
+                      };
+                      onLoginSuccess(tlUser);
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#7c3aed' }}>👔 Team Lead</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </View>

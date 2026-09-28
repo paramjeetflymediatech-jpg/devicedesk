@@ -519,3 +519,627 @@ export async function submitCandidateTest(testId, candidateId, candidateAnswers)
     throw err;
   }
 }
+
+// Domain & DNS API Helpers
+export async function fetchDomainsApi(search = '', status = 'ALL') {
+  const params = new URLSearchParams();
+  if (search.trim()) params.append('search', search.trim());
+  if (status && status !== 'ALL') params.append('status', status);
+  const url = `${currentApiUrl}/api/domains?${params.toString()}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch domains failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function createDomainApi(domainData) {
+  const url = `${currentApiUrl}/api/domains`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(domainData)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Create domain failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateDomainApi(id, domainData) {
+  const url = `${currentApiUrl}/api/domains/${encodeURIComponent(id)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(domainData)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update domain failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function deleteDomainApi(id) {
+  const url = `${currentApiUrl}/api/domains/${encodeURIComponent(id)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Delete domain failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function triggerDomainExpiryCheckApi() {
+  const url = `${currentApiUrl}/api/domains/check-expiry`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Trigger domain expiry check failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+// Candidates Pool & HR Screening API Helpers
+export async function fetchCandidatesPoolApi() {
+  const url = `${currentApiUrl}/api/candidates-pool`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch candidates pool failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function addCandidatePoolApi(candidateData) {
+  const url = `${currentApiUrl}/api/candidates-pool`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(candidateData)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Add candidate pool failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateCandidatePoolApi(id, status, feedback) {
+  const url = `${currentApiUrl}/api/candidates-pool`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ id, status, feedback })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update candidate pool failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchCandidatesListApi() {
+  const url = `${currentApiUrl}/api/candidates/list`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch candidates list failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function evaluateCandidateTestApi(testId, status) {
+  const url = `${currentApiUrl}/api/candidates/evaluate-test`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ test_id: testId, status })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Evaluate candidate test failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+// ==========================================
+// Work Submissions & EOD Reports APIs
+// ==========================================
+
+export async function fetchWorkSubmissionsApi(params = {}) {
+  let queryString = '';
+  const queryParts = [];
+  if (params.projectId) queryParts.push(`project_id=${encodeURIComponent(params.projectId)}`);
+  if (params.taskId) queryParts.push(`task_id=${encodeURIComponent(params.taskId)}`);
+  if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
+
+  const url = `${currentApiUrl}/api/work-submissions${queryString}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch work submissions failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function createWorkSubmissionApi(data) {
+  const url = `${currentApiUrl}/api/work-submissions`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Create work submission failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateWorkSubmissionApi(id, data) {
+  const url = `${currentApiUrl}/api/work-submissions/${id}`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update work submission failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchEodReportsApi(employeeId = null, todayOnly = false) {
+  let queryString = '';
+  const queryParts = [];
+  if (employeeId) queryParts.push(`employeeId=${encodeURIComponent(employeeId)}`);
+  if (todayOnly) queryParts.push(`today=true`);
+  if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
+
+  const url = `${currentApiUrl}/api/eod-reports${queryString}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch EOD reports failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function submitEodReportApi(data) {
+  const url = `${currentApiUrl}/api/eod-reports`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Submit EOD report failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateEodReportApi(data) {
+  const url = `${currentApiUrl}/api/eod-reports`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update EOD report failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+// ==================== CLIENT PORTAL API HELPERS ====================
+
+export async function fetchClientPackagesApi(clientId) {
+  const url = `${currentApiUrl}/api/client-services/my-packages?clientId=${encodeURIComponent(clientId)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch client packages failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchClientRequestsApi(clientId = null) {
+  let url = `${currentApiUrl}/api/client-services/requests`;
+  if (clientId) {
+    url += `?clientId=${encodeURIComponent(clientId)}`;
+  }
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch client requests failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function createClientRequestApi(data) {
+  const url = `${currentApiUrl}/api/client-services/requests`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Create client request failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchClientSeoReportsApi(clientId) {
+  const url = `${currentApiUrl}/api/client-services/seo?clientId=${encodeURIComponent(clientId)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch client SEO reports failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchClientSmoGraphicsApi(clientId) {
+  const url = `${currentApiUrl}/api/client-services/smo?clientId=${encodeURIComponent(clientId)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch client SMO graphics failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function createClientSmoRequestApi(data) {
+  const url = `${currentApiUrl}/api/client-services/smo`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Create client SMO request failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchClientAdsApi(clientId) {
+  const url = `${currentApiUrl}/api/client-services/ads?clientId=${encodeURIComponent(clientId)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch client Ads failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchClientInvoicesApi(clientId) {
+  const url = `${currentApiUrl}/api/invoices?client_id=${encodeURIComponent(clientId)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch client invoices failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchClientNotesApi(clientId) {
+  const url = `${currentApiUrl}/api/client-notes?client_id=${encodeURIComponent(clientId)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch client notes failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function createClientNoteApi(data) {
+  const url = `${currentApiUrl}/api/client-notes`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Create client note failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchClientDetailsApi(clientId) {
+  const url = `${currentApiUrl}/api/client-details?clientId=${encodeURIComponent(clientId)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch client details failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateClientDetailsApi(data) {
+  const url = `${currentApiUrl}/api/client-details`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update client details failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+// ==========================================
+// Live Desktop Screenshots APIs
+// ==========================================
+
+export function resolveScreenshotImageUrl(rawUrl) {
+  if (!rawUrl) return '';
+  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+    return rawUrl;
+  }
+  const cleanBase = currentApiUrl.replace(/\/$/, '');
+  const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+  return `${cleanBase}${cleanPath}`;
+}
+
+export async function fetchScreenshotsListApi(params = {}) {
+  let queryString = '';
+  const queryParts = [];
+  if (params.employeeId && params.employeeId !== 'all') queryParts.push(`employeeId=${encodeURIComponent(params.employeeId)}`);
+  if (params.department && params.department !== 'all') queryParts.push(`department=${encodeURIComponent(params.department)}`);
+  if (params.date) queryParts.push(`date=${encodeURIComponent(params.date)}`);
+  if (params.limit && params.limit !== 'all') queryParts.push(`limit=${encodeURIComponent(params.limit)}`);
+  if (queryParts.length > 0) queryString = `?${queryParts.join('&')}`;
+
+  const url = `${currentApiUrl}/api/screenshots/list${queryString}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch screenshots failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function deleteScreenshotApi(id) {
+  const url = `${currentApiUrl}/api/screenshots/delete`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ id })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Delete screenshot failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function deleteAllScreenshotsApi(employeeId = null, deleteAll = false) {
+  const url = `${currentApiUrl}/api/screenshots/delete`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ employeeId, deleteAll })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Delete all screenshots failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+// ==========================================
+// TEAM LEADER & TASK MANAGEMENT APIS
+// ==========================================
+
+export async function fetchTasksApi() {
+  const url = `${currentApiUrl}/api/tasks`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch tasks failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function postTaskApi({ title, description, assignedTo, assignedToName, assignedBy, assignedByName, project_id }) {
+  const url = `${currentApiUrl}/api/tasks`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        title,
+        description,
+        assignedTo,
+        assignedToName,
+        assignedBy: assignedBy || 'TL',
+        assignedByName: assignedByName || 'Team Leader',
+        project_id: project_id || null
+      })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Post task failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateTaskStatusApi(id, status) {
+  const url = `${currentApiUrl}/api/tasks`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ id, status })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update task status failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateClientRequestStatusApi(id, status) {
+  const url = `${currentApiUrl}/api/client-services/requests`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ id, status })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update client request status failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+

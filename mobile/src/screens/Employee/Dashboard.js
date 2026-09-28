@@ -34,10 +34,11 @@ import ChatScreen from '../ChatScreen';
 import AttendanceWidget from '../../components/AttendanceWidget';
 import AttendanceLogs from './AttendanceLogs';
 import MarketingFieldScreen from '../Marketing/MarketingFieldScreen';
+import EODSubmission from './EODSubmission';
 import AppIcon from '../../components/AppIcon';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
 
-export default function EmployeeDashboard({ user, onLogout }) {
+export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) {
   const { theme, isDark, toggleTheme, themeColors } = useTheme();
   const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records, profile, tasks, attendance, chat
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -315,6 +316,8 @@ export default function EmployeeDashboard({ user, onLogout }) {
     switch (activeTab) {
       case 'marketing-trips':
         return <MarketingFieldScreen user={user} onBack={() => setActiveTab('overview')} />;
+      case 'eod':
+        return <EODSubmission currentUser={user} onBack={() => setActiveTab('overview')} />;
       case 'tasks':
         return <EmployeeTasks currentUser={user} />;
       case 'attendance':
@@ -743,6 +746,34 @@ export default function EmployeeDashboard({ user, onLogout }) {
               </View>
             </View>
 
+            {/* Quick Action: Daily EOD & Work Submissions Banner */}
+            <TouchableOpacity
+              style={[
+                styles.card,
+                {
+                  backgroundColor: isDark ? '#1e1b4b22' : '#f5f3ff',
+                  borderColor: isDark ? '#4338ca' : '#c7d2fe',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 14,
+                  marginBottom: 16,
+                }
+              ]}
+              onPress={() => setActiveTab('eod')}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Text style={{ fontSize: 24, marginRight: 12 }}>📋</Text>
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>Daily EOD & Deliverables</Text>
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>Submit daily work bullets & project deliverables</Text>
+                </View>
+              </View>
+              <View style={{ backgroundColor: '#6366f1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+                <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Submit EOD ➔</Text>
+              </View>
+            </TouchableOpacity>
+
             {/* Quick Action: Apply Leave Banner */}
             <TouchableOpacity
               style={[
@@ -995,6 +1026,37 @@ export default function EmployeeDashboard({ user, onLogout }) {
         </TouchableOpacity>
       </View>
 
+      {/* Team Leader Return Switcher Banner */}
+      {onSwitchToLeader && (
+        <TouchableOpacity
+          style={[
+            styles.leaderSwitchBanner,
+            {
+              backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+              borderBottomColor: isDark ? '#334155' : '#bfdbfe',
+            },
+          ]}
+          onPress={onSwitchToLeader}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+            <Text style={{ fontSize: 16 }}>👔</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#93c5fd' : '#1d4ed8' }}>
+                Team Leader Mode
+              </Text>
+              <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }} numberOfLines={1}>
+                You are currently viewing your Employee Portal
+              </Text>
+            </View>
+          </View>
+          <View style={styles.leaderSwitchBtnPill}>
+            <Text style={styles.leaderSwitchBtnPillText}>Leader Portal</Text>
+            <AppIcon name="arrow-right" size={12} color="#ffffff" />
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* Content wrapper */}
       <View style={styles.content}>{renderContent()}</View>
 
@@ -1094,6 +1156,29 @@ export default function EmployeeDashboard({ user, onLogout }) {
             </View>
 
             <View style={styles.drawerItemsContainer}>
+              {onSwitchToLeader && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    {
+                      backgroundColor: isDark ? '#1e3a8a' : '#dbeafe',
+                      borderColor: '#2563eb',
+                      borderWidth: 1,
+                      marginBottom: 8,
+                    },
+                  ]}
+                  onPress={() => {
+                    setIsDrawerOpen(false);
+                    onSwitchToLeader();
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 16, marginRight: 12 }}>👔</Text>
+                  <Text style={[styles.drawerItemLabel, { color: '#2563eb', fontWeight: '800' }]}>
+                    Switch to Leader Portal
+                  </Text>
+                </TouchableOpacity>
+              )}
               {isMarketingUser && (
                 <TouchableOpacity
                   style={[
@@ -1106,6 +1191,17 @@ export default function EmployeeDashboard({ user, onLogout }) {
                   <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Marketing Field Trips</Text>
                 </TouchableOpacity>
               )}
+
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'eod' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('eod'); setIsDrawerOpen(false); }}
+              >
+                <AppIcon name="calendar" size={18} color="#6366f1" style={{ marginRight: 12 }} />
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Daily EOD & Deliverables</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
@@ -2177,5 +2273,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0f172a',
+  },
+  leaderSwitchBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  leaderSwitchBtnPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  leaderSwitchBtnPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
   },
 });

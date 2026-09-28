@@ -10,6 +10,8 @@ import AdminDashboard from './src/screens/Admin/Dashboard';
 import EmployeeDashboard from './src/screens/Employee/Dashboard';
 import CandidateRegistrationScreen from './src/screens/CandidateRegistrationScreen';
 import CandidateDashboardScreen from './src/screens/CandidateDashboardScreen';
+import ClientDashboard from './src/screens/Client/ClientDashboard';
+import LeaderDashboard from './src/screens/Leader/LeaderDashboard';
 
 import { setupPushNotifications, getFcmToken } from './src/utils/notifications';
 import { getOrCreateDeviceId, registerDeviceToken, deregisterDeviceToken, fetchMarketingAttendance } from './src/utils/api';
@@ -21,7 +23,7 @@ import { sweetAlertRef } from './src/utils/sweetAlert';
 import { ThemeProvider, useTheme } from './src/utils/ThemeContext';
 
 function MainAppContent() {
-  const [currentScreen, setCurrentScreen] = useState('welcome'); // welcome, login, forgot, admin, employee
+  const [currentScreen, setCurrentScreen] = useState('welcome'); // welcome, login, forgot, admin, employee, client, leader
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -58,10 +60,21 @@ function MainAppContent() {
           if (storedUser) {
             const userObj = JSON.parse(storedUser);
             setCurrentUser(userObj);
-            if (userObj.role === 'admin') {
+            const roleLower = (userObj.role || '').toLowerCase();
+            const dbRoleLower = (userObj.dbRole || '').toLowerCase();
+            const deptLower = (userObj.department || '').toLowerCase();
+            const isDnsAdmin = roleLower === 'dns manager' || deptLower === 'dns manager' || roleLower.includes('dns');
+            const isAdmin = userObj.role === 'admin' || roleLower.includes('admin') || roleLower.includes('superadmin') || isDnsAdmin;
+            const isLeader = roleLower.includes('leader') || roleLower === 'tl' || roleLower.includes('team lead') || dbRoleLower.includes('leader');
+
+            if (isAdmin) {
               setCurrentScreen('admin');
-            } else if ((userObj.role || '').toLowerCase() === 'candidate') {
+            } else if (isLeader) {
+              setCurrentScreen('leader');
+            } else if (roleLower === 'candidate' || dbRoleLower === 'candidate') {
               setCurrentScreen('candidateDashboard');
+            } else if (roleLower === 'client' || dbRoleLower === 'client') {
+              setCurrentScreen('client');
             } else {
               setCurrentScreen('employee');
             }
@@ -143,10 +156,21 @@ function MainAppContent() {
       console.warn('Device token registration failed on login (non-fatal):', tokenErr);
     }
 
-    if (userObj.role === 'admin') {
+    const roleLower = (userObj.role || '').toLowerCase();
+    const dbRoleLower = (userObj.dbRole || '').toLowerCase();
+    const deptLower = (userObj.department || '').toLowerCase();
+    const isDnsAdmin = roleLower === 'dns manager' || deptLower === 'dns manager' || roleLower.includes('dns');
+    const isAdmin = userObj.role === 'admin' || roleLower.includes('admin') || roleLower.includes('superadmin') || isDnsAdmin;
+    const isLeader = roleLower.includes('leader') || roleLower === 'tl' || roleLower.includes('team lead') || dbRoleLower.includes('leader');
+
+    if (isAdmin) {
       setCurrentScreen('admin');
-    } else if ((userObj.role || '').toLowerCase() === 'candidate') {
+    } else if (isLeader) {
+      setCurrentScreen('leader');
+    } else if (roleLower === 'candidate' || dbRoleLower === 'candidate') {
       setCurrentScreen('candidateDashboard');
+    } else if (roleLower === 'client' || dbRoleLower === 'client') {
+      setCurrentScreen('client');
     } else {
       setCurrentScreen('employee');
     }
@@ -213,13 +237,26 @@ function MainAppContent() {
             onLogout={handleLogout}
           />
         );
-      case 'employee':
+      case 'leader':
+        return (
+          <LeaderDashboard
+            user={currentUser}
+            onLogout={handleLogout}
+            onSwitchToEmployee={() => setCurrentScreen('employee')}
+          />
+        );
+      case 'employee': {
+        const roleLower = (currentUser?.role || '').toLowerCase();
+        const dbRoleLower = (currentUser?.dbRole || '').toLowerCase();
+        const isLeader = roleLower.includes('leader') || roleLower === 'tl' || roleLower.includes('team lead') || dbRoleLower.includes('leader');
         return (
           <EmployeeDashboard
             user={currentUser}
             onLogout={handleLogout}
+            onSwitchToLeader={isLeader ? () => setCurrentScreen('leader') : undefined}
           />
         );
+      }
       case 'candidateRegistration':
         return (
           <CandidateRegistrationScreen
@@ -229,6 +266,13 @@ function MainAppContent() {
       case 'candidateDashboard':
         return (
           <CandidateDashboardScreen
+            user={currentUser}
+            onLogout={handleLogout}
+          />
+        );
+      case 'client':
+        return (
+          <ClientDashboard
             user={currentUser}
             onLogout={handleLogout}
           />

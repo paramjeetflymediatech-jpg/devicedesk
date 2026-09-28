@@ -37,7 +37,7 @@ export const ThemeProvider = ({ children }) => {
   const themeColors = isDark
     ? {
         mode: 'dark',
-        primary: '#06b6d4',
+        primary: '#3b82f6',
         accent: '#3b82f6',
         background: '#0f172a',
         card: '#1e293b',
@@ -63,7 +63,7 @@ export const ThemeProvider = ({ children }) => {
       }
     : {
         mode: 'light',
-        primary: '#0284c7',
+        primary: '#2563eb',
         accent: '#2563eb',
         background: '#f8fafc',
         card: '#ffffff',
@@ -89,7 +89,7 @@ export const ThemeProvider = ({ children }) => {
       };
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, toggleTheme, themeColors }}>
+    <ThemeContext.Provider value={{ theme, isDark, toggleTheme, themeColors, colors: themeColors }}>
       {children}
     </ThemeContext.Provider>
   );
