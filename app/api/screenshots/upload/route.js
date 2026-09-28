@@ -39,6 +39,20 @@ async function ensureScreenshotSchema(pool) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    // Ensure capturedAt column has default timestamp and missing columns exist
+    try {
+      await pool.query(`ALTER TABLE screenshots MODIFY capturedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL`);
+    } catch (e) {}
+    try {
+      await pool.query(`ALTER TABLE screenshots ADD COLUMN captureType VARCHAR(50) DEFAULT 'FULL_DESKTOP'`);
+    } catch (e) {}
+    try {
+      await pool.query(`ALTER TABLE screenshots ADD COLUMN activityScore INT DEFAULT 100`);
+    } catch (e) {}
+    try {
+      await pool.query(`UPDATE screenshots SET capturedAt = NOW() WHERE capturedAt IS NULL`);
+    } catch (e) {}
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS agent_registrations (
         id VARCHAR(100) PRIMARY KEY,
@@ -166,10 +180,10 @@ export async function POST(req) {
       console.warn('SFTP sync notice:', sftpErr.message);
     }
 
-    // 4. Save screenshot record
+    // 4. Save screenshot record with explicit timestamp
     await pool.query(
-      `INSERT INTO screenshots (id, employeeId, employeeName, department, imageUrl, shiftId, ipAddress, systemNumber, captureType, activityScore)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO screenshots (id, employeeId, employeeName, department, imageUrl, capturedAt, shiftId, ipAddress, systemNumber, captureType, activityScore)
+       VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)`,
       [screenshotId, employeeId, employeeName, department, imageUrl, shiftId, ipAddress, systemNumber, captureType, activityScore]
     );
 

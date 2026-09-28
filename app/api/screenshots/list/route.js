@@ -19,7 +19,7 @@ export async function GET(req) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const offset = Math.max(0, (page - 1) * limit);
 
-    // Ensure table exists
+    // Ensure table exists & has correct timestamp defaults
     await pool.query(`
       CREATE TABLE IF NOT EXISTS screenshots (
         id VARCHAR(100) PRIMARY KEY,
@@ -32,10 +32,24 @@ export async function GET(req) {
         ipAddress VARCHAR(50),
         systemNumber VARCHAR(50),
         activityScore INT DEFAULT 100,
+        captureType VARCHAR(50) DEFAULT 'FULL_DESKTOP',
         INDEX idx_emp (employeeId),
         INDEX idx_capturedAt (capturedAt)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+
+    try {
+      await pool.query(`ALTER TABLE screenshots MODIFY capturedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL`);
+    } catch (e) {}
+    try {
+      await pool.query(`ALTER TABLE screenshots ADD COLUMN captureType VARCHAR(50) DEFAULT 'FULL_DESKTOP'`);
+    } catch (e) {}
+    try {
+      await pool.query(`ALTER TABLE screenshots ADD COLUMN activityScore INT DEFAULT 100`);
+    } catch (e) {}
+    try {
+      await pool.query(`UPDATE screenshots SET capturedAt = NOW() WHERE capturedAt IS NULL`);
+    } catch (e) {}
 
     // 1. Ensure tables exist
     await pool.query(`
