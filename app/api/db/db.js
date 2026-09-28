@@ -787,6 +787,9 @@ export async function getDbConnection() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  try { await db.execute(`ALTER TABLE eod_reports ADD COLUMN submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE eod_reports ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (e) {}
+
   // Check if DB was already seeded
   const [metaRows] = await db.execute("SELECT meta_value FROM db_meta WHERE meta_key = 'seeded' LIMIT 1");
   const alreadySeeded = metaRows.length > 0 && metaRows[0].meta_value === 'true';

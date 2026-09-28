@@ -434,7 +434,9 @@ export const EODReport = sequelize.define('EODReport', {
   id: { type: DataTypes.STRING(100), primaryKey: true },
   employee_id: { type: DataTypes.STRING(50), allowNull: false },
   report_text: { type: DataTypes.TEXT, allowNull: false },
-  status: { type: DataTypes.STRING(50), defaultValue: 'Pending' }
+  status: { type: DataTypes.STRING(50), defaultValue: 'Pending' },
+  submitted_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
 }, { tableName: 'eod_reports', timestamps: false });
 
 export const AgentRegistration = sequelize.define('AgentRegistration', {
