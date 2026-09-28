@@ -63,6 +63,7 @@ export default function BookServicePage() {
       html: `
         <div style="text-align: left; font-size: 0.9rem;">
           <p style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: #16a34a; font-weight: bold;">${req.status}</span></p>
+          ${req.tl_name ? `<p style="margin-bottom: 8px;"><strong>Your Assigned TL:</strong> <span style="color: #4f46e5; font-weight: 600;">${req.tl_name}</span></p>` : ''}
           <p style="margin-bottom: 8px;"><strong>Your Original Requirement:</strong></p>
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin-top: 5px;">${req.requirements}</div>
           ${extraHtml}
@@ -140,7 +141,7 @@ export default function BookServicePage() {
             </nav>
       
       <div className="p-4 border-t border-gray-100">
-        <button onClick={() => window.location.href = '/login'} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={() => { localStorage.clear(); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
         </button>
       </div>
@@ -164,7 +165,7 @@ export default function BookServicePage() {
         <SidebarContent />
       </aside>
 
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen w-full relative">
+      <div className="flex-1 md:ml-64 flex flex-col min-h-screen relative overflow-x-hidden">
         <header className="bg-white border-b px-4 py-4 flex items-center justify-between md:hidden sticky top-0 z-30 shadow-sm">
           <div className="flex items-center">
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
@@ -233,6 +234,7 @@ export default function BookServicePage() {
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Service</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/3">Requirement</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned TL</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Status</th>
                         <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Action</th>
                       </tr>
@@ -243,6 +245,15 @@ export default function BookServicePage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.created_at).toLocaleDateString()}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">{req.service_type}</td>
                           <td className="px-6 py-4 text-sm text-gray-600 line-clamp-2">{req.requirements}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {req.tl_name ? (
+                              <span className="flex items-center gap-1 text-indigo-600 font-medium">
+                                <FiUser size={13} /> {req.tl_name}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">Pending</span>
+                            )}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${req.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
                               {req.status}

@@ -100,6 +100,8 @@ export default function LoginPage() {
           router.push('/candidate-dashboard');
         } else if (dbRoleLower === 'marketing') {
           router.push('/portal/marketing');
+        } else if (dbRoleLower === 'tl' || dbRoleLower === 'team lead' || dbRoleLower === 'team leader' || dbRoleLower === 'team_lead') {
+          router.push('/portal/leader');
         } else if (isRootAdmin) {
           router.push('/');
         } else if (dbRoleLower.includes('it') || deptLower.includes('it')) {
@@ -143,6 +145,8 @@ export default function LoginPage() {
           router.push('/admin/domains');
         } else if (dbRoleLower === 'candidate') {
           router.push('/candidate-dashboard');
+        } else if (dbRoleLower === 'tl' || dbRoleLower === 'team lead' || dbRoleLower === 'team leader' || dbRoleLower === 'team_lead') {
+          router.push('/portal/leader');
         } else if (dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || data.user?.email === 'admin@yopmail.com' || data.user?.email === 'pravi@yopmail.com') {
           router.push('/');
         } else if (dbRoleLower.includes('it') || deptLower.includes('it')) {

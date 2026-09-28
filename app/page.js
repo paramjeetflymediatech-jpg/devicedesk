@@ -65,7 +65,7 @@ import SystemHistoryModal from "./components/modals/SystemHistoryModal.js";
 import DeviceDetailsModal from "./components/modals/DeviceDetailsModal.js";
 import SystemImportModal from "./components/modals/SystemImportModal.js";
 import AuxiliaryModals from "./components/modals/AuxiliaryModals.js";
-import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock, FiCalendar, FiCheck, FiX, FiFolder, FiGlobe, FiTrendingUp, FiActivity, FiChevronDown, FiChevronRight, FiUserPlus } from "react-icons/fi";
+import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock, FiCalendar, FiCheck, FiX, FiFolder, FiGlobe, FiTrendingUp, FiActivity, FiChevronDown, FiChevronRight, FiUserPlus, FiList } from "react-icons/fi";
 
 export default function Home() {
   const { user, logout } = useAuth();
@@ -2374,6 +2374,12 @@ export default function Home() {
                       <li className="nav-item">
                         <button onClick={() => window.location.href = "/admin/client"}><span className="nav-icon"><FiUsers /></span> Client Records</button>
                       </li>
+                      <li className="nav-item">
+                        <button onClick={() => window.location.href = "/admin/client-requests"}><span className="nav-icon"><FiList /></span> Client Requests</button>
+                      </li>
+                      <li className="nav-item">
+                        <button onClick={() => window.location.href = "/admin/management-overview"}><span className="nav-icon"><FiActivity /></span> Management Overview</button>
+                      </li>
                       {(isRootAdmin || isDnsManager) && (
                         <li className="nav-item">
                           <button onClick={() => window.location.href = "/admin/domains"}><span className="nav-icon"><FiGlobe /></span> Domain Portfolio</button>
@@ -2422,6 +2428,9 @@ export default function Home() {
                   <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                     <li className="nav-item">
                       <button onClick={() => window.location.href = "/admin/users"}><span className="nav-icon"><FiUser /></span> Team Directory</button>
+                    </li>
+                    <li className="nav-item">
+                      <button onClick={() => window.location.href = "/admin/team-hierarchy"}><span className="nav-icon"><FiUsers /></span> Team Hierarchy</button>
                     </li>
                     <li className="nav-item">
                       <button onClick={() => window.location.href = "/admin/departments"}><span className="nav-icon"><FiBriefcase /></span> Departments</button>
@@ -2561,6 +2570,8 @@ export default function Home() {
                     </div>
                     <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
                       <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/client"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUsers /></span> Client Records</button>
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/client-requests"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiList /></span> Client Requests</button>
+                      <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/management-overview"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiActivity /></span> Management Overview</button>
                       {(isRootAdmin || isDnsManager) && (
                         <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/domains"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiGlobe /></span> Domain Portfolio</button>
                       )}
@@ -2600,6 +2611,7 @@ export default function Home() {
                   </div>
                   <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
                     <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/users"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUser /></span> Team Directory</button>
+                    <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/team-hierarchy"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUsers /></span> Team Hierarchy</button>
                     <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/departments"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments</button>
                     <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/recruitment"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUserPlus /></span> Recruitment</button>
                     {!isITSupport && !isDnsManager && (

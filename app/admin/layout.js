@@ -180,7 +180,9 @@ export default function AdminLayout({ children }) {
         { name: "Client Records", path: "/admin/client", icon: <FiUsers /> },
         { name: "Domain Portfolio", path: "/admin/domains", icon: <FiGlobe /> },
         { name: "Packages", path: "/admin/packages", icon: <FiBox /> },
-        { name: "Subscriptions", path: "/admin/subscriptions", icon: <FiList /> }
+        { name: "Subscriptions", path: "/admin/subscriptions", icon: <FiList /> },
+        { name: "Client Requests", path: "/admin/client-requests", icon: <FiList /> },
+        { name: "Management Overview", path: "/admin/management-overview", icon: <FiActivity /> }
       ]
     },
     {
@@ -202,6 +204,7 @@ export default function AdminLayout({ children }) {
       title: "Organization & HR",
       items: [
         { name: "Team Directory", path: "/admin/users", icon: <FiUser /> },
+        { name: "Team Hierarchy", path: "/admin/team-hierarchy", icon: <FiUsers /> },
         { name: "Departments", path: "/admin/departments", icon: <FiBriefcase /> },
         // { name: "Recruitment", path: "/employee-dashboard/hr-recruitment", icon: <FiUserPlus /> },
         { name: "Attendance", path: "/admin/attendance", icon: <FiClock /> },

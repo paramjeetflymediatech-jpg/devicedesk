@@ -35,13 +35,12 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setUser(null);
     if (typeof window !== "undefined") {
-      localStorage.removeItem("devicedesk_auth_user");
-      localStorage.removeItem("devicedesk_employee_view");
-      localStorage.removeItem("devicedesk_unread_chat_count");
-      
+      localStorage.clear();
+      sessionStorage.clear();
+
       // Clear cookies with max-age=0 & expired date
-      document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
-      document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
+      document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
+      document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
       
       // Perform clean full-page refresh to login page
       window.location.href = "/login";

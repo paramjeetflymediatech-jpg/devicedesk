@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { FiCheckSquare, FiSearch, FiX, FiEye } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import Pagination from '../../../components/Pagination';
+import { useAuth } from '../../../auth/AuthContext';
 
 export default function ClientRequestsPage() {
   const [clientRequests, setClientRequests] = useState([]);
@@ -15,6 +16,7 @@ export default function ClientRequestsPage() {
   const [teamMembers, setTeamMembers] = useState([]);
   const [assigneeId, setAssigneeId] = useState("");
   const [assigning, setAssigning] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     async function fetchData() {
@@ -25,13 +27,14 @@ export default function ClientRequestsPage() {
         if (dataReq.success) {
           const mappedReqs = (dataReq.data || []).map(req => ({
             id: req.id,
-            client: req.clientId || 'Unknown Client',
+            client: req.client_name || req.clientId || 'Unknown Client',
+            assigned_tl_id: req.assigned_tl_id,
             service: req.service_type,
             details: req.requirements,
             date: new Date(req.created_at).toLocaleDateString(),
             status: req.status || 'Pending Assignment'
           }));
-          setClientRequests(mappedReqs);
+          setClientRequests(user ? mappedReqs.filter(r => r.assigned_tl_id === user.id) : []);
         }
       } catch (err) {
         console.error("Failed to fetch requests:", err);
@@ -114,7 +117,16 @@ export default function ClientRequestsPage() {
       const res = await fetch('/api/employees');
       const data = await res.json();
       if (data.success) {
-        setTeamMembers(data.data.filter(emp => emp.role === 'Team Member' || emp.role === 'Employee'));
+        // Only show employees assigned to THIS TL
+        const myTeam = data.data.filter(emp =>
+          (emp.role === 'Team Member' || emp.role === 'Employee' || emp.role === 'team member') &&
+          emp.tl_id === user?.id
+        );
+        setTeamMembers(myTeam);
+        if (myTeam.length === 0) {
+          Swal.fire('No Team Members', 'You have no employees assigned to you yet. Ask admin to assign employees under you via Team Hierarchy.', 'info');
+          return;
+        }
       }
     } catch(err) {}
   };
@@ -193,7 +205,7 @@ export default function ClientRequestsPage() {
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Client ID</th>
+                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Client</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Service</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Requirements</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
