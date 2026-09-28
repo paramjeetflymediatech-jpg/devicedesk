@@ -75,14 +75,14 @@ export async function checkAuth(req) {
 
     const db = await getDbConnection();
     const [rows] = await db.execute(
-      'SELECT id, name, email, role, department, status FROM employees WHERE id = ? LIMIT 1',
-      [userId]
+      'SELECT id, name, email, role, department, status FROM employees WHERE id = ? OR LOWER(email) = LOWER(?) LIMIT 1',
+      [userId, String(userId).toLowerCase()]
     );
     if (rows.length === 0) {
-      console.log('checkAuth failed: User not found in DB for ID:', userId);
+      console.log('checkAuth failed: User not found in DB for ID/Email:', userId);
       return null;
     }
-    if (rows[0].status !== 'Active') {
+    if (rows[0].status && rows[0].status.toLowerCase() !== 'active') {
       console.log('checkAuth failed: User status is not Active. Status:', rows[0].status);
       return null;
     }

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request, { params }) {
   try {
     // 1. Session authentication and active database account check
-    const user = await checkAuth();
+    const user = await checkAuth(request);
     if (!user) {
       return new Response('Unauthorized: Please log in to view attachments', { status: 401 });
     }

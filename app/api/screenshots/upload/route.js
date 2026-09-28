@@ -121,9 +121,6 @@ export async function POST(req) {
       } catch (sftpErr) {
         console.warn('SFTP sync notice:', sftpErr.message);
       }
-    } else if (process.env.WHM_SFTP_BASE_URL) {
-      const cleanBase = process.env.WHM_SFTP_BASE_URL.replace(/\/$/, '');
-      imageUrl = `${cleanBase}/devicedesk/screenshots/${fileName}`;
     }
 
     // 4. Ensure screenshots table exists dynamically

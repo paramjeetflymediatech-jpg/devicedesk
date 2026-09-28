@@ -12,23 +12,23 @@ import { FaWindows, FaUbuntu, FaApple } from 'react-icons/fa';
 // Image load error fallback handler
 function handleImageError(e, rawUrl) {
   if (!e || !e.currentTarget || !rawUrl) return;
-  const currentSrc = e.currentTarget.src || '';
   const fileName = rawUrl.split('/').pop();
   if (!fileName) return;
 
-  // Prevent infinite loop
   const count = parseInt(e.currentTarget.getAttribute('data-retry-count') || '0', 10);
-  if (count >= 3) return;
+  if (count >= 4) return;
   e.currentTarget.setAttribute('data-retry-count', (count + 1).toString());
 
-  if (count === 0 && !currentSrc.includes('storage.flymediatech.com/uploads/devicedesk/screenshots/')) {
-    e.currentTarget.src = `https://storage.flymediatech.com/uploads/devicedesk/screenshots/${fileName}`;
-  } else if (count === 1 && !currentSrc.includes('storage.flymediatech.com/uploads/screenshots/')) {
-    e.currentTarget.src = `https://storage.flymediatech.com/uploads/screenshots/${fileName}`;
-  } else if (count === 2 && !currentSrc.includes('storage.flymediatech.com/uploads/')) {
-    e.currentTarget.src = `https://storage.flymediatech.com/uploads/${fileName}`;
-  } else {
-    e.currentTarget.src = `/api/uploads/${fileName}`;
+  const fallbacks = [
+    `/uploads/devicedesk/screenshots/${fileName}`,
+    `/api/uploads/${fileName}`,
+    `/uploads/${fileName}`,
+    `https://storage.flymediatech.com/uploads/devicedesk/screenshots/${fileName}`
+  ];
+
+  const nextSrc = fallbacks[count];
+  if (nextSrc) {
+    e.currentTarget.src = nextSrc;
   }
 }
 
