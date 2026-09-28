@@ -69,7 +69,6 @@ export async function checkAuth(req) {
     }
 
     if (!userId) {
-      console.log('checkAuth failed: no userId found from cookies or headers');
       return null;
     }
 
