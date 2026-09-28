@@ -206,9 +206,10 @@ export async function uploadFile(buffer, filename, subfolder = '') {
   
   if (!sftpSuccess) {
     // Local storage fallback
+    const rootDir = process['cwd']();
     const targetDir = subfolder 
-      ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''))
-      : join(process.cwd(), 'public', 'uploads');
+      ? join(rootDir, 'public', 'uploads', subfolder.replace(/^\//, ''))
+      : join(rootDir, 'public', 'uploads');
 
     await fs.mkdir(targetDir, { recursive: true });
     const localFilePath = join(targetDir, uniqueFilename);
@@ -234,9 +235,10 @@ export async function downloadFile(filename, subfolder = '') {
   }
 
   // 1. FAST LOCAL CHECK FIRST: If file exists locally on disk, return it immediately without network delay
+  const rootDir = process['cwd']();
   const targetDir = subfolder 
-    ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''))
-    : join(process.cwd(), 'uploads');
+    ? join(rootDir, 'public', 'uploads', subfolder.replace(/^\//, ''))
+    : join(rootDir, 'uploads');
   const localFilePath = join(targetDir, safeFilename);
 
   try {
@@ -244,7 +246,7 @@ export async function downloadFile(filename, subfolder = '') {
   } catch (e) {
     // Try root public/uploads/ or uploads/
     try {
-      const rootPath = join(process.cwd(), 'public', 'uploads', safeFilename);
+      const rootPath = join(rootDir, 'public', 'uploads', safeFilename);
       return await fs.readFile(rootPath);
     } catch (errRoot) {
       // Not found locally, proceed to remote SFTP if configured
@@ -331,11 +333,12 @@ export async function deleteFile(fileUrlOrName) {
 
   // Always cleanup local disk copies immediately if present
   try {
+    const rootDir = process['cwd']();
     const pathsToUnlink = [
-      join(process.cwd(), 'public', 'uploads', 'devicedesk', 'screenshots', safeFilename),
-      join(process.cwd(), 'public', 'uploads', 'screenshots', safeFilename),
-      join(process.cwd(), 'public', 'uploads', safeFilename),
-      join(process.cwd(), 'uploads', safeFilename)
+      join(rootDir, 'public', 'uploads', 'devicedesk', 'screenshots', safeFilename),
+      join(rootDir, 'public', 'uploads', 'screenshots', safeFilename),
+      join(rootDir, 'public', 'uploads', safeFilename),
+      join(rootDir, 'uploads', safeFilename)
     ];
     for (const p of pathsToUnlink) {
       fs.unlink(p).catch(() => {});

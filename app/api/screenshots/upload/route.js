@@ -100,8 +100,9 @@ export async function POST(req) {
     const fileName = `scr_${employeeId}_${Date.now()}_${screenshotId.slice(0, 8)}.${fileExtension}`;
 
     // 1. Ensure local public/uploads/devicedesk/screenshots directory exists
+    const rootDir = process['cwd']();
     const subfolderPath = path.join('devicedesk', 'screenshots');
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', subfolderPath);
+    const uploadDir = path.join(rootDir, 'public', 'uploads', subfolderPath);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -220,11 +221,6 @@ export async function POST(req) {
       if (oldRows && oldRows.length > 0) {
         for (const row of oldRows) {
           if (row.imageUrl) {
-            const relPath = row.imageUrl.replace(/^\//, '');
-            const fullPath = path.join(process.cwd(), 'public', relPath);
-            if (fs.existsSync(fullPath)) {
-              try { fs.unlinkSync(fullPath); } catch (e) { /* ignore */ }
-            }
             try { await deleteFile(row.imageUrl); } catch (e) { /* ignore */ }
           }
         }
