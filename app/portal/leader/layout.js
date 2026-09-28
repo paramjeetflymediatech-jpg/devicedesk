@@ -2,9 +2,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FiActivity, FiCheckSquare, FiUsers, FiMessageSquare, FiUser, FiMenu, FiX, FiBriefcase } from 'react-icons/fi';
+import { useAuth } from '../../auth/AuthContext.js';
+import { FiActivity, FiCheckSquare, FiUsers, FiMessageSquare, FiUser, FiMenu, FiX, FiBriefcase, FiLogOut } from 'react-icons/fi';
 
 export default function LeaderLayout({ children }) {
+  const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname() || '';
   
@@ -29,6 +31,18 @@ export default function LeaderLayout({ children }) {
     if (pathname.includes('team')) return 'Team & EODs';
     if (pathname.includes('client-chat')) return 'Client Chat Room';
     return 'Overview Dashboard';
+  };
+
+  const handleSignOut = () => {
+    if (logout) {
+      logout();
+    } else {
+      localStorage.clear();
+      sessionStorage.clear();
+      document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
+      document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
+      window.location.href = '/login';
+    }
   };
 
   const SidebarContent = () => (
@@ -78,8 +92,9 @@ export default function LeaderLayout({ children }) {
       </nav>
       
       <div className="p-4 border-t border-slate-100">
-        <button onClick={() => window.location.href = '/login'} className="w-full text-center p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-          Sign Out
+        <button onClick={handleSignOut} className="w-full flex items-center justify-center space-x-2 p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+          <FiLogOut size={16} />
+          <span>Sign Out</span>
         </button>
       </div>
     </div>
@@ -110,11 +125,21 @@ export default function LeaderLayout({ children }) {
               {getPageTitle()}
             </h1>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
              <div className="hidden md:block text-right">
-               <p className="text-sm font-medium text-slate-900">Active Session</p>
+               <p className="text-sm font-semibold text-slate-900">{user?.name || 'Team Leader'}</p>
+               <p className="text-xs text-slate-400">{user?.department || 'Lead'}</p>
              </div>
-             <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center font-medium text-sm">TL</div>
+             <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-sm">
+               {user?.name ? user.name.slice(0, 2).toUpperCase() : 'TL'}
+             </div>
+             <button 
+               onClick={handleSignOut}
+               title="Sign Out"
+               className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+             >
+               <FiLogOut size={18} />
+             </button>
           </div>
         </header>
 

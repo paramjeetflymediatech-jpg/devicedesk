@@ -75,8 +75,38 @@ export default function Home() {
   useEffect(() => {
     if (!user) {
       router.push("/login");
-    } else if (user.role === "employee") {
-      router.push("/employee-dashboard");
+    } else {
+      const dbRoleLower = (user.dbRole || "").toLowerCase();
+      const roleLower = (user.role || "").toLowerCase();
+      const deptLower = (user.department || "").toLowerCase();
+      const emailLower = (user.email || "").toLowerCase();
+
+      const isRootAdmin = 
+        dbRoleLower === 'admin' ||
+        dbRoleLower === 'management' ||
+        dbRoleLower === 'executive' ||
+        dbRoleLower === 'superadmin' ||
+        roleLower === 'admin' ||
+        emailLower === 'admin@yopmail.com' ||
+        emailLower === 'pravi@yopmail.com' ||
+        emailLower === 'admin@devicedesk.com';
+
+      const isITSupport = dbRoleLower.includes('it') || deptLower.includes('it') || roleLower.includes('it');
+      const isDNS = dbRoleLower === 'dns manager' || deptLower === 'dns manager';
+
+      if (!isRootAdmin && !isITSupport && !isDNS) {
+        if (dbRoleLower === 'tl' || dbRoleLower === 'team lead' || dbRoleLower === 'team leader' || dbRoleLower === 'team_lead' || roleLower === 'team leader' || roleLower === 'tl') {
+          router.push("/portal/leader");
+        } else if (dbRoleLower === 'client' || roleLower === 'client') {
+          router.push("/portal/client");
+        } else if (dbRoleLower === 'marketing' || roleLower === 'marketing') {
+          router.push("/portal/marketing");
+        } else if (dbRoleLower === 'candidate' || roleLower === 'candidate') {
+          router.push("/candidate-dashboard");
+        } else {
+          router.push("/employee-dashboard");
+        }
+      }
     }
   }, [user, router]);
 

@@ -23,15 +23,45 @@ export function proxy(request) {
 
   // 2. If authenticated, enforce authorization rules
   if (isAuthenticated) {
+    const role = (userRole || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'superadmin' || role === 'management' || role === 'executive';
+    const isTL = role === 'tl' || role === 'team leader' || role === 'team lead' || role === 'team_lead';
+    const isClient = role === 'client';
+    const isMarketing = role === 'marketing';
+    const isCandidate = role === 'candidate';
+
     // If authenticated user attempts to access any authentication page, redirect to appropriate dashboard
     if (pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password') {
-      const redirectUrl = userRole === 'admin' ? new URL('/', request.url) : new URL('/employee-dashboard', request.url);
+      let redirectUrl = new URL('/employee-dashboard', request.url);
+      if (isAdmin) {
+        redirectUrl = new URL('/', request.url);
+      } else if (isTL) {
+        redirectUrl = new URL('/portal/leader', request.url);
+      } else if (isClient) {
+        redirectUrl = new URL('/portal/client', request.url);
+      } else if (isMarketing) {
+        redirectUrl = new URL('/portal/marketing', request.url);
+      } else if (isCandidate) {
+        redirectUrl = new URL('/candidate-dashboard', request.url);
+      }
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Role-based route protection: employees cannot access admin desk
-    if (pathname === '/' && userRole === 'employee') {
-      return NextResponse.redirect(new URL('/employee-dashboard', request.url));
+    // Role-based route protection: non-admins cannot access admin desk
+    if (pathname === '/') {
+      const isIT = role.includes('it');
+      if (!isAdmin && !isIT) {
+        if (isTL) {
+          return NextResponse.redirect(new URL('/portal/leader', request.url));
+        } else if (isClient) {
+          return NextResponse.redirect(new URL('/portal/client', request.url));
+        } else if (isMarketing) {
+          return NextResponse.redirect(new URL('/portal/marketing', request.url));
+        } else if (isCandidate) {
+          return NextResponse.redirect(new URL('/candidate-dashboard', request.url));
+        }
+        return NextResponse.redirect(new URL('/employee-dashboard', request.url));
+      }
     }
   }
 
