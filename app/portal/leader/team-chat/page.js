@@ -1,4 +1,5 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../../auth/AuthContext.js';
 import { FiMessageSquare } from 'react-icons/fi';
 import ProjectChat from '../../../components/ProjectChat';
