@@ -93,7 +93,7 @@ export default function AdminSubscriptionsPage() {
                     <td style={{ padding: '14px 16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <FiClock style={{ color: sub.is_expired ? '#ef4444' : '#f59e0b' }} />
-                        <span style={{ color: sub.is_expired ? '#ef4444' : '#e2e8f0', fontWeight: sub.is_expired ? 'bold' : 'normal' }}>
+                        <span style={{ color: sub.is_expired ? 'var(--accent-red, #ef4444)' : 'var(--text-primary, inherit)', fontWeight: sub.is_expired ? 'bold' : 'normal' }}>
                           {sub.valid_until_formatted}
                         </span>
                       </div>

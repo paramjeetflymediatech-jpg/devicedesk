@@ -205,9 +205,9 @@ export default function ClientSlugPortal() {
       </nav>
       
       <div className="p-4 border-t border-gray-100">
-        <Link href="/" className="block w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={() => { localStorage.clear(); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="block w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
-        </Link>
+        </button>
       </div>
     </div>
   );
@@ -239,7 +239,7 @@ export default function ClientSlugPortal() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen w-full relative">
+      <div className="flex-1 md:ml-64 flex flex-col min-h-screen relative overflow-x-hidden">
         {/* Headers */}
         <header className="bg-white border-b px-4 py-4 flex items-center justify-between md:hidden sticky top-0 z-30 shadow-sm">
           <div className="flex items-center">

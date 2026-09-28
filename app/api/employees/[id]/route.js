@@ -44,7 +44,7 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const body = await request.json();
     const { 
-      name, email, role, department, status, ticketLimit, avatarUrl,
+      name, email, role, department, status, ticketLimit, avatarUrl, tl_id,
       company_name, phone, whatsapp, address, gst_number, website_url, primary_service, notes 
     } = body;
 
@@ -81,6 +81,10 @@ export async function PUT(request, { params }) {
     if (avatarUrl !== undefined) {
       updates.push('avatarUrl = ?');
       values.push(avatarUrl);
+    }
+    if (tl_id !== undefined) {
+      updates.push('tl_id = ?');
+      values.push(tl_id === "" ? null : tl_id);
     }
 
     if (updates.length === 0) {

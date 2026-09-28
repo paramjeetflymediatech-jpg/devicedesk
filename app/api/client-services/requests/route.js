@@ -11,12 +11,12 @@ export async function GET(request) {
 
     if (clientId) {
       [rows] = await db.query(
-        `SELECT * FROM service_requests WHERE clientId = ? ORDER BY created_at DESC`,
+        `SELECT r.*, c.name as client_name, tl.name as tl_name FROM service_requests r LEFT JOIN employees c ON r.clientId = c.id LEFT JOIN employees tl ON r.assigned_tl_id = tl.id WHERE r.clientId = ? ORDER BY r.created_at DESC`,
         [clientId]
       );
     } else {
       [rows] = await db.query(
-        `SELECT * FROM service_requests ORDER BY created_at DESC`
+        `SELECT r.*, c.name as client_name, tl.name as tl_name FROM service_requests r LEFT JOIN employees c ON r.clientId = c.id LEFT JOIN employees tl ON r.assigned_tl_id = tl.id ORDER BY r.created_at DESC`
       );
     }
 
@@ -53,15 +53,29 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, status } = await request.json();
-    if (!id || !status) {
-      return NextResponse.json({ success: false, error: 'Missing id or status' }, { status: 400 });
+    const { id, status, assigned_tl_id } = await request.json();
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 });
     }
 
     const db = await getDbConnection();
-    await db.query('UPDATE service_requests SET status = ? WHERE id = ?', [status, id]);
+    
+    // Update assigned_tl_id if provided
+    if (assigned_tl_id !== undefined) {
+      await db.query(`UPDATE service_requests SET assigned_tl_id = ? WHERE id = ?`, [assigned_tl_id || null, id]);
+      return NextResponse.json({ success: true });
+    }
 
-    return NextResponse.json({ success: true, message: 'Status updated to ' + status });
+    // Update status logic
+    if (status) {
+      await db.query(
+        `UPDATE service_requests SET status = ? WHERE id = ?`,
+        [status, id]
+      );
+      return NextResponse.json({ success: true });
+    }
+    
+    return NextResponse.json({ success: false, error: 'No update data provided' });
   } catch (err) {
     console.error('Update Service Request Error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

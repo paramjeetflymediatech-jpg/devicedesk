@@ -74,7 +74,7 @@ export default function PAIDAdsPage() {
             </nav>
       
       <div className="p-4 border-t border-gray-100">
-        <button onClick={() => window.location.href = '/login'} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={() => { localStorage.clear(); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
         </button>
       </div>
@@ -98,7 +98,7 @@ export default function PAIDAdsPage() {
         <SidebarContent />
       </aside>
 
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen w-full relative">
+      <div className="flex-1 md:ml-64 flex flex-col min-h-screen relative overflow-x-hidden">
         <header className="bg-white border-b px-4 py-4 flex items-center justify-between md:hidden sticky top-0 z-30 shadow-sm">
           <div className="flex items-center">
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
