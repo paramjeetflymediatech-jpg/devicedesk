@@ -298,12 +298,13 @@ export default function TaskBoardPage() {
 
     if (!confirm.isConfirmed) return;
 
-    const { value: files } = await Swal.fire({
-      title: "Upload Work Proof",
+    const { value: result } = await Swal.fire({
+      title: "Complete Task",
       html: `<div style="text-align: left; font-size: 0.9rem; color: #8b949e; margin-bottom: 10px;">
                <strong>Task:</strong> ${title}<br/>
-               Upload files, images, or documents as proof (optional).
+               Add an optional completion note and upload any work proof.
              </div>
+             <textarea id="swal-completion-note" class="swal2-textarea" placeholder="Describe the work done or leave a note for the TL..." style="margin-bottom: 15px; font-size: 0.9rem; padding: 10px; width: 100%; box-sizing: border-box; min-height: 80px; resize: vertical; background: rgba(255,255,255,0.05); color: #f0f6fc; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></textarea>
              <input type="file" id="swal-multiple-files" class="swal2-file" multiple style="display: flex; margin: 15px auto;" />`,
       showCancelButton: true,
       confirmButtonText: "Complete Task ✅",
@@ -313,9 +314,16 @@ export default function TaskBoardPage() {
       color: "#f0f6fc",
       preConfirm: () => {
         const fileInput = document.getElementById("swal-multiple-files");
-        return fileInput ? Array.from(fileInput.files) : [];
+        const noteInput = document.getElementById("swal-completion-note");
+        return {
+          files: fileInput ? Array.from(fileInput.files) : [],
+          note: noteInput ? noteInput.value : ""
+        };
       }
     });
+
+    if (!result) return;
+    const { files, note } = result;
 
     let fileUrl = null;
     if (files && files.length > 0) {
@@ -348,7 +356,7 @@ export default function TaskBoardPage() {
       }
     }
 
-    completeTask(taskId, user.name, fileUrl);
+    completeTask(taskId, user.name, fileUrl, note);
     refreshData();
     Swal.fire({
       icon: "success",
@@ -517,7 +525,11 @@ export default function TaskBoardPage() {
                       return (
                         <tr key={t.id}>
                           <td style={{ fontWeight: "600", color: "var(--text-primary)" }}>{t.title}</td>
-                          <td style={{ color: "var(--text-secondary)" }}>{t.description || "—"}</td>
+                          <td style={{ color: "var(--text-secondary)" }}>
+                            <div style={{ whiteSpace: "pre-wrap", maxHeight: "100px", overflowY: "auto", fontSize: "0.85rem", paddingRight: "5px" }}>
+                              {t.description || "—"}
+                            </div>
+                          </td>
                           <td>{t.assignedByName || "System"}</td>
                           <td>
                             <span
@@ -818,105 +830,79 @@ export default function TaskBoardPage() {
           return (
             <div className="modal-overlay active">
               <div className="modal-card" style={{ maxWidth: "1000px", width: "95%", background: "var(--bg-primary)", padding: "0", overflow: "hidden" }}>
-                {/* Header Area with Gradient and Profile Card */}
+                {/* Header Area */}
                 <div style={{
-                  padding: "24px 32px 32px",
-                  background: "linear-gradient(135deg, rgba(0, 240, 255, 0.1), rgba(59, 130, 246, 0.1))",
+                  padding: "20px 24px",
+                  background: "var(--bg-secondary)",
                   borderBottom: "1px solid var(--glass-border)",
-                  position: "relative"
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between"
                 }}>
+                  <div>
+                    <h3 style={{ margin: "0 0 4px", fontSize: "1.2rem", fontWeight: "600", color: "var(--text-primary)" }}>
+                      My Activity & Performance Report
+                    </h3>
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", gap: "10px", alignItems: "center" }}>
+                      <span><FiUser style={{ marginRight: "4px" }}/> {user.name} ({user.role || "Team Member"})</span>
+                      <span>✉️ {user.email || "N/A"}</span>
+                    </div>
+                  </div>
                   <button 
-                    className="modal-close" 
                     onClick={() => setShowReportModal(false)}
-                    style={{ position: "absolute", top: "16px", right: "16px", background: "rgba(0,0,0,0.2)", borderRadius: "50%", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--glass-border)", color: "#fff" }}
+                    style={{ background: "none", border: "none", fontSize: "1.5rem", color: "var(--text-secondary)", cursor: "pointer" }}
                   >
                     &times;
                   </button>
-                  <h3 style={{ margin: "0 0 20px", fontSize: "1.5rem", fontWeight: "800", background: "linear-gradient(to right, var(--accent-cyan), var(--accent-blue))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                    My Activity & Performance Report
-                  </h3>
-
-                  {/* Glassmorphic Profile Card */}
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "20px",
-                    background: "rgba(255, 255, 255, 0.05)",
-                    backdropFilter: "blur(10px)",
-                    border: "1px solid var(--glass-border)",
-                    borderRadius: "16px",
-                    padding: "20px",
-                    boxShadow: "0 10px 30px rgba(0,0,0,0.2)"
-                  }}>
-                    <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.8rem", color: "#fff", fontWeight: "bold", flexShrink: 0 }}>
-                      {user.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{ flexGrow: 1 }}>
-                      <h4 style={{ margin: "0 0 6px", fontSize: "1.2rem", fontWeight: "700" }}>{user.name}</h4>
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                        <span className="status-tag" style={{ background: "rgba(59, 130, 246, 0.15)", color: "var(--accent-blue)", border: "1px solid rgba(59, 130, 246, 0.3)" }}><FiUser style={{ marginRight: "4px" }}/> {user.role || "Team Member"}</span>
-                        <span className="status-tag" style={{ background: "rgba(255, 255, 255, 0.05)", color: "var(--text-secondary)", border: "1px solid var(--glass-border)" }}>✉️ {user.email || "N/A"}</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
                 <div style={{ padding: "24px 32px", maxHeight: "65vh", overflowY: "auto" }}>
                   {/* KPI Cards Row */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "32px" }}>
-                    <div style={{ background: "var(--bg-secondary)", padding: "20px", borderRadius: "12px", border: "1px solid var(--glass-border)", borderLeft: "4px solid var(--accent-cyan)", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-                      <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "rgba(0, 240, 255, 0.1)", color: "var(--accent-cyan)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem" }}><FiMonitor /></div>
-                      <div>
-                        <div style={{ fontSize: "2rem", fontWeight: "800", lineHeight: "1" }}>{currentDevices.length}</div>
-                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600", marginTop: "4px", textTransform: "uppercase" }}>Assigned Devices</div>
-                      </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+                    <div style={{ background: "var(--bg-secondary)", padding: "16px", borderRadius: "8px", border: "1px solid var(--glass-border)", display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px" }}><FiMonitor /> Assigned Devices</div>
+                      <div style={{ fontSize: "1.5rem", fontWeight: "600", color: "var(--text-primary)" }}>{currentDevices.length}</div>
                     </div>
-                    <div style={{ background: "var(--bg-secondary)", padding: "20px", borderRadius: "12px", border: "1px solid var(--glass-border)", borderLeft: "4px solid var(--accent-purple)", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-                      <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "rgba(168, 85, 247, 0.1)", color: "var(--accent-purple)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem" }}><FiAlertCircle /></div>
-                      <div>
-                        <div style={{ fontSize: "2rem", fontWeight: "800", lineHeight: "1" }}>{empTickets.length}</div>
-                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600", marginTop: "4px", textTransform: "uppercase" }}>Issues Raised</div>
-                      </div>
+                    <div style={{ background: "var(--bg-secondary)", padding: "16px", borderRadius: "8px", border: "1px solid var(--glass-border)", display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px" }}><FiAlertCircle /> Issues Raised</div>
+                      <div style={{ fontSize: "1.5rem", fontWeight: "600", color: "var(--text-primary)" }}>{empTickets.length}</div>
                     </div>
-                    <div style={{ background: "var(--bg-secondary)", padding: "20px", borderRadius: "12px", border: "1px solid var(--glass-border)", borderLeft: "4px solid var(--accent-blue)", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 4px 15px rgba(0,0,0,0.05)" }}>
-                      <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "rgba(59, 130, 246, 0.1)", color: "var(--accent-blue)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem" }}><FiCheckSquare /></div>
-                      <div>
-                        <div style={{ fontSize: "2rem", fontWeight: "800", lineHeight: "1" }}>{empTasks.length}</div>
-                        <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600", marginTop: "4px", textTransform: "uppercase" }}>Tasks Assigned</div>
-                      </div>
+                    <div style={{ background: "var(--bg-secondary)", padding: "16px", borderRadius: "8px", border: "1px solid var(--glass-border)", display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px" }}><FiCheckSquare /> Tasks Assigned</div>
+                      <div style={{ fontSize: "1.5rem", fontWeight: "600", color: "var(--text-primary)" }}>{empTasks.length}</div>
                     </div>
                   </div>
 
                   {/* Date Filters & Download Bar */}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "flex-end", marginBottom: "32px", background: "var(--bg-secondary)", padding: "16px 20px", borderRadius: "16px", border: "1px solid var(--glass-border)" }}>
-                    <div style={{ flex: "1 1 200px" }}>
-                      <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "600", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Filter From</label>
-                      <input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", background: "var(--bg-tertiary)", border: "1px solid var(--glass-border)", color: "var(--text-primary)", outline: "none", fontFamily: "var(--font-main)" }} />
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "flex-end", marginBottom: "24px" }}>
+                    <div style={{ flex: "1" }}>
+                      <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "4px" }}>From</label>
+                      <input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", background: "var(--bg-secondary)", border: "1px solid var(--glass-border)", color: "var(--text-primary)", outline: "none", fontSize: "0.9rem" }} />
                     </div>
-                    <div style={{ flex: "1 1 200px" }}>
-                      <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "600", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Filter To</label>
-                      <input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", background: "var(--bg-tertiary)", border: "1px solid var(--glass-border)", color: "var(--text-primary)", outline: "none", fontFamily: "var(--font-main)" }} />
+                    <div style={{ flex: "1" }}>
+                      <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "4px" }}>To</label>
+                      <input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", background: "var(--bg-secondary)", border: "1px solid var(--glass-border)", color: "var(--text-primary)", outline: "none", fontSize: "0.9rem" }} />
                     </div>
                     <div>
-                      <button onClick={() => handleDownloadReport(reportFrom, reportTo)} style={{ padding: "10px 20px", background: "linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))", color: "#000", fontWeight: "700", border: "none", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", whiteSpace: "nowrap", transition: "transform 0.2s", boxShadow: "0 4px 15px rgba(0, 240, 255, 0.2)" }} onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"} onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}>
-                        <FiDownload style={{ fontSize: "1.1rem" }} /> Download Report
+                      <button onClick={() => handleDownloadReport(reportFrom, reportTo)} style={{ padding: "8px 16px", background: "var(--accent-blue)", color: "#fff", fontWeight: "500", border: "none", borderRadius: "6px", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "0.9rem" }}>
+                        <FiDownload /> Download CSV
                       </button>
                     </div>
                   </div>
 
                   {/* Section 1: Assigned Devices */}
-                  <div style={{ marginBottom: "32px", background: "var(--bg-secondary)", borderRadius: "16px", border: "1px solid var(--glass-border)", overflow: "hidden" }}>
-                    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--glass-border)", background: "rgba(0, 240, 255, 0.05)", display: "flex", alignItems: "center", gap: "10px" }}>
-                      <FiMonitor style={{ color: "var(--accent-cyan)", fontSize: "1.2rem" }} />
-                      <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--text-main)" }}>Current Assigned Devices</h4>
-                    </div>
-                    <div style={{ padding: currentDevices.length === 0 ? "20px" : "0" }}>
+                  <div style={{ marginBottom: "24px" }}>
+                    <h4 style={{ margin: "0 0 12px", fontSize: "1rem", fontWeight: "600", color: "var(--text-primary)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "8px" }}>
+                      Current Assigned Devices
+                    </h4>
+                    <div>
                       {currentDevices.length === 0 ? (
-                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic", textAlign: "center" }}>No devices currently assigned.</p>
+                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic" }}>No devices currently assigned.</p>
                       ) : (
-                        <div className="table-wrapper" style={{ margin: 0, borderRadius: 0, border: "none" }}>
+                        <div className="table-wrapper" style={{ margin: 0, borderRadius: "6px", border: "1px solid var(--glass-border)" }}>
                           <table className="custom-table" style={{ fontSize: "0.85rem", margin: 0 }}>
-                            <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-secondary)" }}>
+                            <thead style={{ background: "var(--bg-secondary)" }}>
                               <tr>
                                 <th>System Number</th>
                                 <th>Model</th>
@@ -927,8 +913,8 @@ export default function TaskBoardPage() {
                             </thead>
                             <tbody>
                               {currentDevices.map((s) => (
-                                <tr key={s.id} style={{ transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
-                                  <td style={{ color: "var(--accent-cyan)", fontWeight: "700" }}>{s.systemNumber}</td>
+                                <tr key={s.id}>
+                                  <td style={{ color: "var(--text-primary)", fontWeight: "500" }}>{s.systemNumber}</td>
                                   <td>{s.model || "Generic PC"}</td>
                                   <td>{s.os || "Windows 11"}</td>
                                   <td>{s.cpu} / {s.ram} / {s.storage}</td>
@@ -945,16 +931,15 @@ export default function TaskBoardPage() {
                   </div>
 
                   {/* Section 1a: Logs */}
-                  <div style={{ marginBottom: "32px", background: "var(--bg-secondary)", borderRadius: "16px", border: "1px solid var(--glass-border)", overflow: "hidden" }}>
-                    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--glass-border)", background: "rgba(255, 255, 255, 0.02)", display: "flex", alignItems: "center", gap: "10px" }}>
-                      <FiList style={{ color: "var(--text-secondary)", fontSize: "1.2rem" }} />
-                      <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--text-main)" }}>Device Transfer Logs</h4>
-                    </div>
-                    <div style={{ padding: empLogs.length === 0 ? "20px" : "0" }}>
+                  <div style={{ marginBottom: "24px" }}>
+                    <h4 style={{ margin: "0 0 12px", fontSize: "1rem", fontWeight: "600", color: "var(--text-primary)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "8px" }}>
+                      Device Transfer Logs
+                    </h4>
+                    <div>
                       {empLogs.length === 0 ? (
-                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic", textAlign: "center" }}>No device assignment or transfer logs recorded for this period.</p>
+                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic" }}>No device assignment or transfer logs recorded for this period.</p>
                       ) : (
-                        <div className="table-wrapper" style={{ maxHeight: "250px", overflowY: "auto", margin: 0, borderRadius: 0, border: "none" }}>
+                        <div className="table-wrapper" style={{ maxHeight: "250px", overflowY: "auto", margin: 0, borderRadius: "6px", border: "1px solid var(--glass-border)" }}>
                           <table className="custom-table" style={{ fontSize: "0.85rem", margin: 0 }}>
                             <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-secondary)" }}>
                               <tr>
@@ -966,7 +951,7 @@ export default function TaskBoardPage() {
                             </thead>
                             <tbody>
                               {empLogs.map((log) => (
-                                <tr key={log.id} style={{ transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
+                                <tr key={log.id}>
                                   <td>
                                     <span className={`status-tag ${log.action.toLowerCase().includes("assign") ? "resolved" : "open"}`}>{log.action}</span>
                                   </td>
@@ -983,16 +968,15 @@ export default function TaskBoardPage() {
                   </div>
 
                   {/* Section 2: Complaints & Tickets */}
-                  <div style={{ marginBottom: "32px", background: "var(--bg-secondary)", borderRadius: "16px", border: "1px solid var(--glass-border)", overflow: "hidden" }}>
-                    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--glass-border)", background: "rgba(168, 85, 247, 0.05)", display: "flex", alignItems: "center", gap: "10px" }}>
-                      <FiAlertCircle style={{ color: "var(--accent-purple)", fontSize: "1.2rem" }} />
-                      <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--text-main)" }}>Issues & Complaints Raised</h4>
-                    </div>
-                    <div style={{ padding: empTickets.length === 0 ? "20px" : "0" }}>
+                  <div style={{ marginBottom: "24px" }}>
+                    <h4 style={{ margin: "0 0 12px", fontSize: "1rem", fontWeight: "600", color: "var(--text-primary)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "8px" }}>
+                      Issues & Complaints Raised
+                    </h4>
+                    <div>
                       {empTickets.length === 0 ? (
-                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic", textAlign: "center" }}>No issues or complaints registered by you during this period.</p>
+                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic" }}>No issues or complaints registered by you during this period.</p>
                       ) : (
-                        <div className="table-wrapper" style={{ maxHeight: "300px", overflowY: "auto", margin: 0, borderRadius: 0, border: "none" }}>
+                        <div className="table-wrapper" style={{ maxHeight: "300px", overflowY: "auto", margin: 0, borderRadius: "6px", border: "1px solid var(--glass-border)" }}>
                           <table className="custom-table" style={{ fontSize: "0.85rem", margin: 0 }}>
                             <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-secondary)" }}>
                               <tr>
@@ -1006,8 +990,8 @@ export default function TaskBoardPage() {
                             </thead>
                             <tbody>
                               {empTickets.map((t) => (
-                                <tr key={t.id} style={{ transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
-                                  <td style={{ color: "var(--accent-cyan)", fontWeight: "700" }}>{t.id}</td>
+                                <tr key={t.id}>
+                                  <td style={{ color: "var(--text-primary)", fontWeight: "500" }}>{t.id}</td>
                                   <td>{t.category}</td>
                                   <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description}</td>
                                   <td><span className={`status-tag ${t.severity.toLowerCase()}`}>{t.severity}</span></td>
@@ -1023,16 +1007,15 @@ export default function TaskBoardPage() {
                   </div>
 
                   {/* Section 3: Tasks Assigned */}
-                  <div style={{ marginBottom: "16px", background: "var(--bg-secondary)", borderRadius: "16px", border: "1px solid var(--glass-border)", overflow: "hidden" }}>
-                    <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--glass-border)", background: "rgba(59, 130, 246, 0.05)", display: "flex", alignItems: "center", gap: "10px" }}>
-                      <FiCheckSquare style={{ color: "var(--accent-blue)", fontSize: "1.2rem" }} />
-                      <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--text-main)" }}>Assigned Tasks</h4>
-                    </div>
-                    <div style={{ padding: empTasks.length === 0 ? "20px" : "0" }}>
+                  <div style={{ marginBottom: "24px" }}>
+                    <h4 style={{ margin: "0 0 12px", fontSize: "1rem", fontWeight: "600", color: "var(--text-primary)", borderBottom: "1px solid var(--glass-border)", paddingBottom: "8px" }}>
+                      Assigned Tasks
+                    </h4>
+                    <div>
                       {empTasks.length === 0 ? (
-                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic", textAlign: "center" }}>No tasks assigned to you during this period.</p>
+                        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic" }}>No tasks assigned to you during this period.</p>
                       ) : (
-                        <div className="table-wrapper" style={{ maxHeight: "300px", overflowY: "auto", margin: 0, borderRadius: 0, border: "none" }}>
+                        <div className="table-wrapper" style={{ maxHeight: "300px", overflowY: "auto", margin: 0, borderRadius: "6px", border: "1px solid var(--glass-border)" }}>
                           <table className="custom-table" style={{ fontSize: "0.85rem", margin: 0 }}>
                             <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-secondary)" }}>
                               <tr>
@@ -1047,8 +1030,8 @@ export default function TaskBoardPage() {
                               {empTasks.map((t) => {
                                 const durationMins = t.totalDuration ? Math.round(t.totalDuration / 60) : 0;
                                 return (
-                                  <tr key={t.id} style={{ transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>
-                                    <td><strong>{t.title}</strong></td>
+                                  <tr key={t.id}>
+                                    <td style={{ color: "var(--text-primary)", fontWeight: "500" }}>{t.title}</td>
                                     <td style={{ maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={t.description}>{t.description || "—"}</td>
                                     <td><span className={`status-tag ${t.status.toLowerCase().replace(" ", "")}`}>{t.status}</span></td>
                                     <td>{durationMins > 0 ? `${durationMins} mins` : "—"}</td>

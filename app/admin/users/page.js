@@ -29,8 +29,6 @@ const ROLES = [
   'IT Engineer',
   'Management',
   'HR Management',
-  'Admin',
-  'Client',
   'Marketing',
   'DNS Manager'
 ];
@@ -362,7 +360,9 @@ export default function UsersManagementPage() {
   };
 
   const allDepts = Array.from(new Set([...departments, ...DEFAULT_DEPARTMENTS, ...users.map(u => u.department).filter(Boolean)])).sort();
-  const allRoles = Array.from(new Set([...ROLES, ...users.map(u => u.role).filter(Boolean)])).sort();
+  const allRoles = Array.from(new Set([...ROLES, ...users.map(u => u.role).filter(Boolean)]))
+    .filter(r => !['admin', 'superadmin', 'client', 'candidate'].includes(r.toLowerCase()))
+    .sort();
 
   // Filter users list
   const filteredUsers = users.filter(u => {
@@ -373,8 +373,8 @@ export default function UsersManagementPage() {
     const role = (u.role || '').toLowerCase();
     const q = searchTerm.toLowerCase();
 
-    // Exclude admins from the team directory listing
-    if (role === 'admin' || role === 'superadmin') return false;
+    // Exclude admins, clients, and candidates from the team directory listing
+    if (role === 'admin' || role === 'superadmin' || role === 'client' || role === 'candidate') return false;
 
     const matchesSearch = name.includes(q) || email.includes(q) || slug.includes(q) || dept.includes(q) || role.includes(q);
     const matchesRole = roleFilter === 'All' || role === roleFilter.toLowerCase();

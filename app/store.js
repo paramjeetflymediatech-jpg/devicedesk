@@ -758,7 +758,7 @@ export function sendTaskCompletionEmail(task, operatorName = 'Team Member', file
     if (recipientEmail) {
       const durationMins = task.totalDuration ? Math.round(task.totalDuration / 60) : 0;
       const subject = `✅ Task Completed: ${task.title}`;
-      const body = `Hello ${assignerName},\n\nThe task "${task.title}" assigned to ${assigneeName} has been marked as COMPLETED.\n\nTask Details:\n- Title: ${task.title}\n- Description: ${task.description || 'No description provided'}\n- Completed By: ${assigneeName}\n- Assigned By: ${assignerName}\n- Time Spent: ${durationMins} min(s)\n- Completion Date: ${new Date(task.completedAt || Date.now()).toLocaleString()}\n${fileUrl ? '- Work Proof: Attached in portal\n' : ''}\nPlease log in to DeviceDesk to review the completed task details.\n\nBest Regards,\nDeviceDesk Operations Team`;
+      const body = `Hello ${assignerName},\n\nThe task "${task.title}" assigned to ${assigneeName} has been marked as COMPLETED.\n\nTask Details:\n- Title: ${task.title}\n- Description: ${task.description || 'No description provided'}\n- Completed By: ${assigneeName}\n- Assigned By: ${assignerName}\n- Time Spent: ${durationMins} min(s)\n- Completion Date: ${new Date(task.completedAt || Date.now()).toLocaleString()}\n${task.completionNote ? `- Completion Note: ${task.completionNote}\n` : ''}${fileUrl ? '- Work Proof: Attached in portal\n' : ''}\nPlease log in to DeviceDesk to review the completed task details.\n\nBest Regards,\nDeviceDesk Operations Team`;
 
       sendMockEmail(recipientEmail, subject, body);
     }
@@ -895,7 +895,7 @@ export function stopTask(taskId, operatorName = 'System') {
   return false;
 }
 
-export function completeTask(taskId, operatorName = 'System', fileUrl = null) {
+export function completeTask(taskId, operatorName = 'System', fileUrl = null, completionNote = null) {
   if(typeof window !== 'undefined') { fetch('/api/tasks', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: taskId, status: 'Completed'}) }).catch(e => console.error(e)); }
   const tasks = getTasks();
   const index = tasks.findIndex(t => t.id === taskId);
@@ -912,6 +912,7 @@ export function completeTask(taskId, operatorName = 'System', fileUrl = null) {
     tasks[index].startedAt = null;
     tasks[index].completedAt = new Date().toISOString();
     tasks[index].fileUrl = fileUrl || null;
+    if (completionNote) tasks[index].completionNote = completionNote;
     saveTasks(tasks);
 
     logAssignmentChange(

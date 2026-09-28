@@ -15,6 +15,7 @@ export default function ClientRequestsPage() {
   const [selectedReq, setSelectedReq] = useState(null);
   const [teamMembers, setTeamMembers] = useState([]);
   const [assigneeId, setAssigneeId] = useState("");
+  const [assignNote, setAssignNote] = useState("");
   const [assigning, setAssigning] = useState(false);
   const { user } = useAuth();
 
@@ -112,6 +113,8 @@ export default function ClientRequestsPage() {
 
   const handleAssignClick = async (req) => {
     setSelectedReq(req);
+    setAssigneeId("");
+    setAssignNote("");
     setIsAssignModalOpen(true);
     try {
       const res = await fetch('/api/employees');
@@ -141,7 +144,7 @@ export default function ClientRequestsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: `Client Request: ${selectedReq.service}`,
-          description: selectedReq.details,
+          description: assignNote.trim() ? `${selectedReq.details}\n\n**TL Note:**\n${assignNote}` : selectedReq.details,
           assignedTo: emp.id,
           assignedToName: emp.name,
           assignedBy: 'TL',
@@ -313,6 +316,16 @@ export default function ClientRequestsPage() {
                     <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
                   ))}
                 </select>
+              </div>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Attach a Note (Optional)</label>
+                <textarea
+                  className="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                  rows="3"
+                  placeholder="E.g., Please prioritize this task and follow the client's guidelines..."
+                  value={assignNote}
+                  onChange={(e) => setAssignNote(e.target.value)}
+                ></textarea>
               </div>
               <div className="flex gap-3 justify-end">
                 <button onClick={() => setIsAssignModalOpen(false)} className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
