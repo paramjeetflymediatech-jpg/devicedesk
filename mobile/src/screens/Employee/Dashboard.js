@@ -79,7 +79,7 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) 
         if (res?.success && Array.isArray(res.data)) {
           setAuthorizedMarketingIds(res.data.map(a => a.employeeId));
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     loadMarketingAuth();
   }, []);
@@ -1155,7 +1155,7 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) 
               <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]}>{empDetails.email || 'employee@devicedesk.com'}</Text>
             </View>
 
-            <ScrollView 
+            <ScrollView
               style={styles.drawerItemsContainer}
               contentContainerStyle={styles.drawerScrollContent}
               showsVerticalScrollIndicator={true}
@@ -1240,6 +1240,39 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) 
               >
                 <AppIcon name="alert" size={18} color="#2563eb" style={{ marginRight: 12 }} />
                 <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>File Complaint Ticket</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'tasks' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('tasks'); setIsDrawerOpen(false); }}
+              >
+                <AppIcon name="tasks" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>My Assigned Tasks</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'records' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('records'); setIsDrawerOpen(false); }}
+              >
+                <AppIcon name="records" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>My Raised Tickets</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'chat' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('chat'); setIsDrawerOpen(false); }}
+              >
+                <AppIcon name="chat" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Chat Workspace</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

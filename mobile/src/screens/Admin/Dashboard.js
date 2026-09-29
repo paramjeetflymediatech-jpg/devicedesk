@@ -62,18 +62,35 @@ function getRelativeTime(isoString) {
 export default function AdminDashboard({ user, onLogout }) {
   const { theme, isDark, toggleTheme, themeColors } = useTheme();
   const styles = getStyles(themeColors, isDark);
-  const isDnsManager =
-    (user?.role || '').toLowerCase().includes('dns') ||
-    (user?.department || '').toLowerCase().includes('dns');
-  const [activeTab, setActiveTab] = useState(isDnsManager ? 'domains' : 'overview');
+
+  const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
+  const deptStr = `${user?.department || ''}`.toLowerCase().trim();
+
+  const isAdminUser =
+    dbRoleStr === 'admin' ||
+    dbRoleStr === 'superadmin' ||
+    dbRoleStr === 'management'
+
+  const isITSupport = !isAdminUser && (dbRoleStr === 'it support' || dbRoleStr === 'it_support' || dbRoleStr === 'it' || deptStr.includes('it'));
+
+  const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+
+  const isDnsManager = !isAdminUser && (dbRoleStr === 'dns manager' || dbRoleStr.includes('dns') || deptStr.includes('dns'));
+
+  const isTeamLeader = isAdminUser || dbRoleStr === 'team leader' || dbRoleStr === 'leader' || dbRoleStr.includes('leader') || user?.isLeader;
+
+  const isMarketingRole = isAdminUser || dbRoleStr.includes('marketing') || deptStr.includes('marketing');
+
+  const defaultTab = isDnsManager ? 'domains' : (isHRUser ? 'employees' : 'overview');
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Back Button Handler
   useEffect(() => {
     const backAction = () => {
-      if (activeTab !== 'overview') {
-        setActiveTab('overview');
+      if (activeTab !== defaultTab) {
+        setActiveTab(defaultTab);
         return true; // prevent default behavior
       }
       return false; // let default behavior happen (exit app)
@@ -85,7 +102,7 @@ export default function AdminDashboard({ user, onLogout }) {
     );
 
     return () => backHandler.remove();
-  }, [activeTab]);
+  }, [activeTab, defaultTab]);
 
   const [stats, setStats] = useState(() => getStats());
   const [refreshing, setRefreshing] = useState(false);
@@ -178,251 +195,285 @@ export default function AdminDashboard({ user, onLogout }) {
         </View>
       </View>
 
-      {/* Latest 5 Tickets */}
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionCardHeader}>
-          <Text style={styles.sectionCardTitle}>🎫 Latest Tickets</Text>
-          <TouchableOpacity onPress={() => setActiveTab('tickets')}>
-            <Text style={styles.viewAllLink}>View All →</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Latest 5 Tickets - IT Support & Admin */}
+      {(isAdminUser || isITSupport) && (
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionCardHeader}>
+            <Text style={styles.sectionCardTitle}>🎫 Latest Tickets</Text>
+            <TouchableOpacity onPress={() => setActiveTab('tickets')}>
+              <Text style={styles.viewAllLink}>View All →</Text>
+            </TouchableOpacity>
+          </View>
 
-        {recentTickets.length === 0 ? (
-          <Text style={styles.emptyText}>No tickets yet.</Text>
-        ) : (
-          recentTickets.map(ticket => (
-            <View key={ticket.id} style={styles.ticketRow}>
-              <View style={styles.ticketLeft}>
-                <View style={[styles.severityDot, { backgroundColor: SEVERITY_COLOR[ticket.severity] || '#64748b' }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.ticketTitle} numberOfLines={1}>{ticket.title}</Text>
-                  <Text style={styles.ticketMeta}>
-                    {ticket.raisedByName || 'Unknown'} · {ticket.systemNumber || ''} · {getRelativeTime(ticket.createdAt)}
+          {recentTickets.length === 0 ? (
+            <Text style={styles.emptyText}>No tickets yet.</Text>
+          ) : (
+            recentTickets.map(ticket => (
+              <View key={ticket.id} style={styles.ticketRow}>
+                <View style={styles.ticketLeft}>
+                  <View style={[styles.severityDot, { backgroundColor: SEVERITY_COLOR[ticket.severity] || '#64748b' }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.ticketTitle} numberOfLines={1}>{ticket.title}</Text>
+                    <Text style={styles.ticketMeta}>
+                      {ticket.raisedByName || 'Unknown'} · {ticket.systemNumber || ''} · {getRelativeTime(ticket.createdAt)}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLOR[ticket.status] || '#64748b'}22`, borderColor: STATUS_COLOR[ticket.status] || '#64748b' }]}>
+                  <Text style={[styles.statusBadgeText, { color: STATUS_COLOR[ticket.status] || '#64748b' }]}>
+                    {ticket.status}
                   </Text>
                 </View>
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLOR[ticket.status] || '#64748b'}22`, borderColor: STATUS_COLOR[ticket.status] || '#64748b' }]}>
-                <Text style={[styles.statusBadgeText, { color: STATUS_COLOR[ticket.status] || '#64748b' }]}>
-                  {ticket.status}
+            ))
+          )}
+        </View>
+      )}
+
+      {/* Quick Access: Attendance & Leaves Management (Admin & HR) */}
+      {(isAdminUser || isHRUser) && (
+        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+          <TouchableOpacity
+            style={[styles.quickCardHalf, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: isDark ? '#334155' : '#bfdbfe' }]}
+            onPress={() => setActiveTab('attendance')}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontSize: 20 }}>📋</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textPrimary }}>Attendance</Text>
+                <Text style={{ fontSize: 10.5, color: themeColors.textSecondary }}>View daily punch logs</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickCardHalf, { backgroundColor: isDark ? '#1e293b' : '#f0fdf4', borderColor: isDark ? '#334155' : '#bbf7d0' }]}
+            onPress={() => setActiveTab('leaves')}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontSize: 20 }}>🌴</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textPrimary }}>Leave Requests</Text>
+                <Text style={{ fontSize: 10.5, color: themeColors.textSecondary }}>Approve/reject leaves</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Domain & DNS Management Quick Link (Admin & DNS Manager) */}
+      {(isAdminUser || isDnsManager) && (
+        <TouchableOpacity
+          style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#1e1b4b22' : '#eef2ff', borderColor: '#6366f1', marginBottom: 16 }]}
+          onPress={() => setActiveTab('domains')}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#6366f1', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 18 }}>🌐</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#c7d2fe' : '#3730a3' }}>
+                  Domains & DNS Registry
+                </Text>
+                <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                  Expiry tracking, SSL status & automated renewal alerts
                 </Text>
               </View>
             </View>
-          ))
-        )}
-      </View>
-
-      {/* Quick Access: Attendance & Leaves Management */}
-      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-        <TouchableOpacity
-          style={[styles.quickCardHalf, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: isDark ? '#334155' : '#bfdbfe' }]}
-          onPress={() => setActiveTab('attendance')}
-          activeOpacity={0.8}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: 20 }}>📋</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textPrimary }}>Attendance</Text>
-              <Text style={{ fontSize: 10.5, color: themeColors.textSecondary }}>View daily punch logs</Text>
-            </View>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#6366f1' }}>Manage →</Text>
           </View>
         </TouchableOpacity>
+      )}
 
+      {/* Work Submissions & Team EODs Quick Link (Admin Only) */}
+      {isAdminUser && (
         <TouchableOpacity
-          style={[styles.quickCardHalf, { backgroundColor: isDark ? '#1e293b' : '#f0fdf4', borderColor: isDark ? '#334155' : '#bbf7d0' }]}
-          onPress={() => setActiveTab('leaves')}
+          style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#1e3a8a22' : '#eff6ff', borderColor: '#3b82f6', marginBottom: 16 }]}
+          onPress={() => setActiveTab('submissions')}
           activeOpacity={0.8}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: 20 }}>🌴</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textPrimary }}>Leave Requests</Text>
-              <Text style={{ fontSize: 10.5, color: themeColors.textSecondary }}>Approve/reject leaves</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 18 }}>🚀</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#bfdbfe' : '#1e40af' }}>
+                  Work Submissions & EODs
+                </Text>
+                <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                  Review deliverables, client project status & team daily reports
+                </Text>
+              </View>
             </View>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#3b82f6' }}>Review →</Text>
           </View>
         </TouchableOpacity>
-      </View>
+      )}
 
-      {/* Domain & DNS Management Quick Link */}
-      <TouchableOpacity
-        style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#1e1b4b22' : '#eef2ff', borderColor: '#6366f1', marginBottom: 16 }]}
-        onPress={() => setActiveTab('domains')}
-        activeOpacity={0.8}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#6366f1', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 18 }}>🌐</Text>
+      {/* Candidate Pool & Recruitment Quick Link (Admin & HR) */}
+      {(isAdminUser || isHRUser) && (
+        <TouchableOpacity
+          style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#3b076422' : '#faf5ff', borderColor: '#a855f7', marginBottom: 16 }]}
+          onPress={() => setActiveTab('candidates')}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#a855f7', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 18 }}>🧑‍💼</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#e9d5ff' : '#6b21a8' }}>
+                  Candidate Pool & Recruitment
+                </Text>
+                <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                  Screen candidates, assess tests & record feedback
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#c7d2fe' : '#3730a3' }}>
-                Domains & DNS Registry
-              </Text>
-              <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
-                Expiry tracking, SSL status & automated renewal alerts
-              </Text>
-            </View>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#a855f7' }}>Review →</Text>
           </View>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#6366f1' }}>Manage →</Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
 
-      {/* Work Submissions & Team EODs Quick Link */}
-      <TouchableOpacity
-        style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#1e3a8a22' : '#eff6ff', borderColor: '#3b82f6', marginBottom: 16 }]}
-        onPress={() => setActiveTab('submissions')}
-        activeOpacity={0.8}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 18 }}>🚀</Text>
+      {/* Marketing Operations Quick Link (Admin & Marketing) */}
+      {(isAdminUser || isMarketingRole) && (
+        <TouchableOpacity
+          style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#064e3b22' : '#ecfdf5', borderColor: '#10b981', marginBottom: 16 }]}
+          onPress={() => setActiveTab('marketing')}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 18 }}>🚗</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#a7f3d0' : '#065f46' }}>
+                  Marketing Field Tracking
+                </Text>
+                <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                  Live GPS monitoring & team visit logs
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#bfdbfe' : '#1e40af' }}>
-                Work Submissions & EODs
-              </Text>
-              <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
-                Review deliverables, client project status & team daily reports
-              </Text>
-            </View>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#10b981' }}>View Live →</Text>
           </View>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#3b82f6' }}>Review →</Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
 
-      {/* Candidate Pool & Recruitment Quick Link */}
-      <TouchableOpacity
-        style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#3b076422' : '#faf5ff', borderColor: '#a855f7', marginBottom: 16 }]}
-        onPress={() => setActiveTab('candidates')}
-        activeOpacity={0.8}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#a855f7', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 18 }}>🧑‍💼</Text>
+      {/* Desktop Screenshots Live Monitoring Quick Link (Admin Only) */}
+      {isAdminUser && (
+        <TouchableOpacity
+          style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#1e3a8a22' : '#eff6ff', borderColor: '#2563eb', marginBottom: 16 }]}
+          onPress={() => setActiveTab('screenshots')}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 18 }}>🖥️</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#bfdbfe' : '#1e40af' }}>
+                  Desktop Live Monitoring
+                </Text>
+                <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                  Live workstation screenshots, active logs & activity scores
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#e9d5ff' : '#6b21a8' }}>
-                Candidate Pool & Recruitment
-              </Text>
-              <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
-                Screen candidates, assess tests & record feedback
-              </Text>
-            </View>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563eb' }}>Monitor →</Text>
           </View>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#a855f7' }}>Review →</Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
 
-      {/* Marketing Operations Quick Link */}
-      <TouchableOpacity
-        style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#064e3b22' : '#ecfdf5', borderColor: '#10b981' }]}
-        onPress={() => setActiveTab('marketing')}
-        activeOpacity={0.8}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 18 }}>🚗</Text>
+      {/* Team Leader Portal Quick Link (Admin & Team Leader) */}
+      {(isAdminUser || isTeamLeader) && (
+        <TouchableOpacity
+          style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#1e1b4b22' : '#f5f3ff', borderColor: '#7c3aed', marginBottom: 16 }]}
+          onPress={() => setActiveTab('leader')}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#7c3aed', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 18 }}>👔</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#ddd6fe' : '#5b21b6' }}>
+                  Team Leader Portal
+                </Text>
+                <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                  Team EOD reviews, task delegations & client requests
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#a7f3d0' : '#065f46' }}>
-                Marketing Field Tracking
-              </Text>
-              <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
-                Live GPS monitoring & team visit logs
-              </Text>
-            </View>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#7c3aed' }}>Open →</Text>
           </View>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#10b981' }}>View Live →</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Desktop Screenshots Live Monitoring Quick Link */}
-      <TouchableOpacity
-        style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#1e3a8a22' : '#eff6ff', borderColor: '#2563eb' }]}
-        onPress={() => setActiveTab('screenshots')}
-        activeOpacity={0.8}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 18 }}>🖥️</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#bfdbfe' : '#1e40af' }}>
-                Desktop Live Monitoring
-              </Text>
-              <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
-                Live workstation screenshots, active logs & activity scores
-              </Text>
-            </View>
-          </View>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563eb' }}>Monitor →</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Team Leader Portal Quick Link */}
-      <TouchableOpacity
-        style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#1e1b4b22' : '#f5f3ff', borderColor: '#7c3aed' }]}
-        onPress={() => setActiveTab('leader')}
-        activeOpacity={0.8}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#7c3aed', alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 18 }}>👔</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#ddd6fe' : '#5b21b6' }}>
-                Team Leader Portal
-              </Text>
-              <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
-                Team EOD reviews, task delegations & client requests
-              </Text>
-            </View>
-          </View>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: '#7c3aed' }}>Open →</Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.welcomeCard}>
         <Text style={styles.welcomeTitle}>Welcome back, {user.name}!</Text>
         <Text style={styles.welcomeDesc}>
-          {"Use the tabs below to manage your organization's IT infrastructure, track open tickets, and coordinate equipment assignments."}
+          {isAdminUser
+            ? "Use the tabs to manage your organization's IT infrastructure, track open tickets, monitor teams, and coordinate equipment assignments."
+            : isHRUser
+              ? "Manage employee directory, track daily attendance, review leave requests, and assess recruitment candidates."
+              : isITSupport
+                ? "Monitor hardware fleet inventory, assign devices, and resolve incoming technical support tickets."
+                : "Manage domain portfolios, DNS configurations, and company workspace tools."}
         </Text>
       </View>
     </ScrollView>
   );
 
-  const renderProfile = () => (
-    <ScrollView contentContainerStyle={styles.scrollContent}>
-      <Text style={styles.sectionTitle}>Administrator Profile</Text>
+  const renderProfile = () => {
+    const roleLabel = isAdminUser
+      ? 'Root Administrator'
+      : isHRUser
+        ? 'HR Specialist'
+        : isITSupport
+          ? 'IT Support Specialist'
+          : isDnsManager
+            ? 'DNS Administrator'
+            : user.role || 'Team Member';
 
-      <View style={styles.profileCardFull}>
-        <View style={styles.profileAvatarLarge}>
-          <Text style={styles.profileAvatarTextLarge}>A</Text>
-        </View>
-        <Text style={styles.profileNameLarge}>{user.name || 'Administrator'}</Text>
-        <Text style={styles.profileRoleLabel}>Root Administrator</Text>
+    return (
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.sectionTitle}>User Profile</Text>
 
-        <View style={styles.profileInfoList}>
-          <View style={styles.profileInfoItem}>
-            <Text style={styles.profileInfoLabel}>Email Address</Text>
-            <Text style={styles.profileInfoVal}>{user.email || 'admin@devicedesk.com'}</Text>
+        <View style={styles.profileCardFull}>
+          <View style={styles.profileAvatarLarge}>
+            <Text style={styles.profileAvatarTextLarge}>{user.name ? user.name.charAt(0).toUpperCase() : 'U'}</Text>
           </View>
-          <View style={styles.profileInfoItem}>
-            <Text style={styles.profileInfoLabel}>System Access Level</Text>
-            <Text style={styles.profileInfoVal}>Full Owner Access</Text>
-          </View>
-          <View style={styles.profileInfoItem}>
-            <Text style={styles.profileInfoLabel}>Assigned Equipment</Text>
-            <Text style={styles.profileInfoVal}>Management Server (Remote)</Text>
+          <Text style={styles.profileNameLarge}>{user.name || 'User'}</Text>
+          <Text style={styles.profileRoleLabel}>{roleLabel}</Text>
+
+          <View style={styles.profileInfoList}>
+            <View style={styles.profileInfoItem}>
+              <Text style={styles.profileInfoLabel}>Email Address</Text>
+              <Text style={styles.profileInfoVal}>{user.email || 'N/A'}</Text>
+            </View>
+            <View style={styles.profileInfoItem}>
+              <Text style={styles.profileInfoLabel}>Department</Text>
+              <Text style={styles.profileInfoVal}>{user.department || (isAdminUser ? 'Executive Management' : isHRUser ? 'Human Resources' : isITSupport ? 'IT & Infrastructure' : 'Operations')}</Text>
+            </View>
+            <View style={styles.profileInfoItem}>
+              <Text style={styles.profileInfoLabel}>System Access Level</Text>
+              <Text style={styles.profileInfoVal}>{isAdminUser ? 'Full Owner Access' : isHRUser ? 'HR Manager Access' : isITSupport ? 'IT Operations Access' : 'Specialized Role'}</Text>
+            </View>
           </View>
         </View>
-      </View>
-    </ScrollView>
-  );
+      </ScrollView>
+    );
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -439,23 +490,23 @@ export default function AdminDashboard({ user, onLogout }) {
       case 'tasks':
         return <ManageTasks currentUser={user} />;
       case 'domains':
-        return <ManageDomains currentUser={user} onBack={() => setActiveTab('overview')} />;
+        return <ManageDomains currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'candidates':
-        return <ManageCandidates currentUser={user} onBack={() => setActiveTab('overview')} />;
+        return <ManageCandidates currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'submissions':
-        return <ManageSubmissions currentUser={user} onBack={() => setActiveTab('overview')} />;
+        return <ManageSubmissions currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'screenshots':
-        return <ManageScreenshots user={user} onBack={() => setActiveTab('overview')} />;
+        return <ManageScreenshots user={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'leader':
-        return <LeaderDashboard user={user} onNavigateBack={() => setActiveTab('overview')} onLogout={onLogout} />;
+        return <LeaderDashboard user={user} onNavigateBack={() => setActiveTab(defaultTab)} onLogout={onLogout} />;
       case 'marketing':
-        return <ManageMarketing currentUser={user} onBack={() => setActiveTab('overview')} />;
+        return <ManageMarketing currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'attendance':
-        return <ManageAttendance currentUser={user} onBack={() => setActiveTab('overview')} />;
+        return <ManageAttendance currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'leaves':
-        return <ManageLeaves currentUser={user} onBack={() => setActiveTab('overview')} />;
+        return <ManageLeaves currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'chat':
-        return <ChatScreen user={user} onBack={() => setActiveTab('overview')} />;
+        return <ChatScreen user={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'profile':
         return renderProfile();
       case 'overview':
@@ -482,7 +533,9 @@ export default function AdminDashboard({ user, onLogout }) {
               style={{ width: 130, height: 32 }}
               resizeMode="contain"
             />
-            <Text style={[styles.headerSub, { color: themeColors.textSecondary, fontSize: 10 }]}>Admin Console</Text>
+            <Text style={[styles.headerSub, { color: themeColors.textSecondary, fontSize: 10 }]}>
+              {isAdminUser ? 'Admin Console' : isHRUser ? 'HR Portal' : isITSupport ? 'IT Support Desk' : isDnsManager ? 'DNS Manager' : 'Control Panel'}
+            </Text>
           </View>
         </View>
         <TouchableOpacity
@@ -506,7 +559,7 @@ export default function AdminDashboard({ user, onLogout }) {
         {renderContent()}
       </View>
 
-      {/* Hamburger Drawer Overlay */}
+      {/* Hamburger Drawer Overlay - Role-Based */}
       {isDrawerOpen && (
         <View style={styles.drawerOverlay}>
           <TouchableOpacity
@@ -517,74 +570,97 @@ export default function AdminDashboard({ user, onLogout }) {
           <View style={[styles.drawerContent, { backgroundColor: themeColors.drawerBg, borderColor: themeColors.border }]}>
             <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border }]}>
               <View style={styles.drawerAvatarContainer}>
-                <Text style={styles.drawerAvatarText}>A</Text>
+                <Text style={styles.drawerAvatarText}>
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </Text>
               </View>
-              <Text style={[styles.drawerName, { color: themeColors.textPrimary }]}>{user.name || 'Administrator'}</Text>
-              <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]}>{user.email || 'admin@devicedesk.com'}</Text>
+              <Text style={[styles.drawerName, { color: themeColors.textPrimary }]}>{user.name || 'User'}</Text>
+              <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]}>{user.email || 'user@devicedesk.com'}</Text>
+              <View style={{ backgroundColor: '#2563eb22', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'center', marginTop: 4 }}>
+                <Text style={{ fontSize: 10.5, color: '#2563eb', fontWeight: '700' }}>
+                  {isAdminUser ? 'Root Administrator' : isHRUser ? 'HR Specialist' : isITSupport ? 'IT Support' : isDnsManager ? 'DNS Manager' : 'Staff'}
+                </Text>
+              </View>
             </View>
 
-            <ScrollView 
+            <ScrollView
               style={styles.drawerItemsContainer}
               contentContainerStyle={styles.drawerScrollContent}
               showsVerticalScrollIndicator={true}
               bounces={true}
               keyboardShouldPersistTaps="handled"
             >
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'overview' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('overview'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>📊</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Overview Dashboard</Text>
-              </TouchableOpacity>
+              {/* Overview Dashboard - Admin, IT Support, HR */}
+              {(isAdminUser || isITSupport || isHRUser) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'overview' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('overview'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>📊</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Overview Dashboard</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'systems' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('systems'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>💻</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Systems Fleet</Text>
-              </TouchableOpacity>
+              {/* Systems Fleet - Admin, IT Support */}
+              {(isAdminUser || isITSupport) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'systems' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('systems'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>💻</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Systems Fleet</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'employees' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('employees'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>👥</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Employees Directory</Text>
-              </TouchableOpacity>
+              {/* Employees Directory / Teams - Admin, IT Support, HR */}
+              {(isAdminUser || isITSupport || isHRUser) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'employees' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('employees'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>👥</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Employees Directory</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'tickets' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('tickets'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🎫</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Support Tickets</Text>
-              </TouchableOpacity>
+              {/* Support Tickets - Admin, IT Support */}
+              {(isAdminUser || isITSupport) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'tickets' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('tickets'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🎫</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Support Tickets</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'history' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('history'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>📜</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Assignment History</Text>
-              </TouchableOpacity>
+              {/* Assignment History - Admin, IT Support */}
+              {(isAdminUser || isITSupport) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'history' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('history'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>📜</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Assignment History</Text>
+                </TouchableOpacity>
+              )}
 
+              {/* Chat Workspace - All Users */}
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
@@ -596,116 +672,147 @@ export default function AdminDashboard({ user, onLogout }) {
                 <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Chat Workspace</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'departments' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('departments'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🏢</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Manage Departments</Text>
-              </TouchableOpacity>
+              {/* Manage Departments - Admin, IT Support, HR */}
+              {(isAdminUser || isITSupport || isHRUser) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'departments' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('departments'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🏢</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Manage Departments</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'tasks' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('tasks'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>📅</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Manage Tasks</Text>
-              </TouchableOpacity>
+              {/* Manage Tasks - Admin, IT Support */}
+              {(isAdminUser || isITSupport) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'tasks' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('tasks'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>📅</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Manage Tasks</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'attendance' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('attendance'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>📋</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Global Attendance</Text>
-              </TouchableOpacity>
+              {/* Global Attendance - Admin, HR */}
+              {(isAdminUser || isHRUser) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'attendance' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('attendance'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>📋</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Global Attendance</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'leaves' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('leaves'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🌴</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Leave Applications</Text>
-              </TouchableOpacity>
+              {/* Leave Applications - Admin, HR */}
+              {(isAdminUser || isHRUser) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'leaves' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('leaves'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🌴</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Leave Applications</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'domains' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('domains'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🌐</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Domains & DNS</Text>
-              </TouchableOpacity>
+              {/* Domains & DNS - Admin, DNS Manager */}
+              {(isAdminUser || isDnsManager) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'domains' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('domains'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🌐</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Domains & DNS</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'candidates' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('candidates'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🧑‍💼</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Candidate Pool & Tests</Text>
-              </TouchableOpacity>
+              {/* Candidate Pool & Tests - Admin, HR */}
+              {(isAdminUser || isHRUser) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'candidates' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('candidates'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🧑‍💼</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Candidate Pool & Tests</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'submissions' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('submissions'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🚀</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Work Submissions & EODs</Text>
-              </TouchableOpacity>
+              {/* Work Submissions & EODs - Admin Only */}
+              {isAdminUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'submissions' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('submissions'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🚀</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Work Submissions & EODs</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'screenshots' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('screenshots'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🖥️</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Desktop Live Monitoring</Text>
-              </TouchableOpacity>
+              {/* Desktop Live Monitoring - Admin Only */}
+              {isAdminUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'screenshots' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('screenshots'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🖥️</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Desktop Live Monitoring</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'leader' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('leader'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>👔</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Team Leader Portal</Text>
-              </TouchableOpacity>
+              {/* Team Leader Portal - Admin & Team Leader */}
+              {(isAdminUser || isTeamLeader) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'leader' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('leader'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>👔</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Team Leader Portal</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'marketing' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('marketing'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🚗</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Marketing Field Trips</Text>
-              </TouchableOpacity>
+              {/* Marketing Field Trips - Admin & Marketing */}
+              {(isAdminUser || isMarketingRole) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'marketing' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('marketing'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🚗</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Marketing Field Trips</Text>
+                </TouchableOpacity>
+              )}
 
+              {/* Admin / User Profile - All */}
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
@@ -714,7 +821,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
               >
                 <Text style={styles.drawerItemIcon}>👤</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Admin Profile</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Profile Details</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -811,18 +918,18 @@ export default function AdminDashboard({ user, onLogout }) {
             <Text style={styles.modalTitle}>Settings & Policies</Text>
 
             <View style={styles.settingsProfileSection}>
-              <Text style={styles.settingsProfileTitle}>👤 Admin Profile Details</Text>
+              <Text style={styles.settingsProfileTitle}>👤 Profile Details</Text>
               <View style={styles.profileDetailRow}>
                 <Text style={styles.profileDetailLabel}>Name:</Text>
-                <Text style={styles.profileDetailValue}>{user.name || 'Administrator'}</Text>
+                <Text style={styles.profileDetailValue}>{user.name || 'User'}</Text>
               </View>
               <View style={styles.profileDetailRow}>
                 <Text style={styles.profileDetailLabel}>Email:</Text>
-                <Text style={styles.profileDetailValue}>{user.email || 'admin@devicedesk.com'}</Text>
+                <Text style={styles.profileDetailValue}>{user.email || 'user@devicedesk.com'}</Text>
               </View>
               <View style={styles.profileDetailRow}>
                 <Text style={styles.profileDetailLabel}>Role:</Text>
-                <Text style={styles.profileDetailValue}>System Administrator</Text>
+                <Text style={styles.profileDetailValue}>{isAdminUser ? 'Root Administrator' : isHRUser ? 'HR Specialist' : isITSupport ? 'IT Support Specialist' : isDnsManager ? 'DNS Administrator' : 'Staff'}</Text>
               </View>
             </View>
 
@@ -870,67 +977,155 @@ export default function AdminDashboard({ user, onLogout }) {
         </SafeAreaView>
       </Modal>
 
-      {/* Bottom Navigation Tabs */}
+      {/* Role-Based Bottom Navigation Tabs */}
       <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'overview' && styles.tabItemActive]}
-          onPress={() => setActiveTab('overview')}
-        >
-          <Text style={styles.tabIcon}>📊</Text>
-          <Text style={[styles.tabLabel, activeTab === 'overview' && styles.tabLabelActive]}>
-            Overview
-          </Text>
-        </TouchableOpacity>
+        {isHRUser ? (
+          <>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'employees' && styles.tabItemActive]}
+              onPress={() => setActiveTab('employees')}
+            >
+              <Text style={styles.tabIcon}>👥</Text>
+              <Text style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>
+                Teams
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'systems' && styles.tabItemActive]}
-          onPress={() => setActiveTab('systems')}
-        >
-          <Text style={styles.tabIcon}>💻</Text>
-          <Text style={[styles.tabLabel, activeTab === 'systems' && styles.tabLabelActive]}>
-            Systems
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'attendance' && styles.tabItemActive]}
+              onPress={() => setActiveTab('attendance')}
+            >
+              <Text style={styles.tabIcon}>📋</Text>
+              <Text style={[styles.tabLabel, activeTab === 'attendance' && styles.tabLabelActive]}>
+                Attendance
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'employees' && styles.tabItemActive]}
-          onPress={() => setActiveTab('employees')}
-        >
-          <Text style={styles.tabIcon}>👥</Text>
-          <Text style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>
-            Teams
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'leaves' && styles.tabItemActive]}
+              onPress={() => setActiveTab('leaves')}
+            >
+              <Text style={styles.tabIcon}>🌴</Text>
+              <Text style={[styles.tabLabel, activeTab === 'leaves' && styles.tabLabelActive]}>
+                Leaves
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'tickets' && styles.tabItemActive]}
-          onPress={() => setActiveTab('tickets')}
-        >
-          <Text style={styles.tabIcon}>🎫</Text>
-          <Text style={[styles.tabLabel, activeTab === 'tickets' && styles.tabLabelActive]}>
-            Tickets
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'candidates' && styles.tabItemActive]}
+              onPress={() => setActiveTab('candidates')}
+            >
+              <Text style={styles.tabIcon}>🧑‍💼</Text>
+              <Text style={[styles.tabLabel, activeTab === 'candidates' && styles.tabLabelActive]}>
+                Candidates
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
-          onPress={() => setActiveTab('chat')}
-        >
-          <Text style={styles.tabIcon}>💬</Text>
-          <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>
-            Chat
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
+              onPress={() => setActiveTab('chat')}
+            >
+              <Text style={styles.tabIcon}>💬</Text>
+              <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>
+                Chat
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : isDnsManager ? (
+          <>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'domains' && styles.tabItemActive]}
+              onPress={() => setActiveTab('domains')}
+            >
+              <Text style={styles.tabIcon}>🌐</Text>
+              <Text style={[styles.tabLabel, activeTab === 'domains' && styles.tabLabelActive]}>
+                Domains
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'history' && styles.tabItemActive]}
-          onPress={() => setActiveTab('history')}
-        >
-          <Text style={styles.tabIcon}>📜</Text>
-          <Text style={[styles.tabLabel, activeTab === 'history' && styles.tabLabelActive]}>
-            Logs
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
+              onPress={() => setActiveTab('chat')}
+            >
+              <Text style={styles.tabIcon}>💬</Text>
+              <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>
+                Chat
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'profile' && styles.tabItemActive]}
+              onPress={() => setActiveTab('profile')}
+            >
+              <Text style={styles.tabIcon}>👤</Text>
+              <Text style={[styles.tabLabel, activeTab === 'profile' && styles.tabLabelActive]}>
+                Profile
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'overview' && styles.tabItemActive]}
+              onPress={() => setActiveTab('overview')}
+            >
+              <Text style={styles.tabIcon}>📊</Text>
+              <Text style={[styles.tabLabel, activeTab === 'overview' && styles.tabLabelActive]}>
+                Overview
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'systems' && styles.tabItemActive]}
+              onPress={() => setActiveTab('systems')}
+            >
+              <Text style={styles.tabIcon}>💻</Text>
+              <Text style={[styles.tabLabel, activeTab === 'systems' && styles.tabLabelActive]}>
+                Systems
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'employees' && styles.tabItemActive]}
+              onPress={() => setActiveTab('employees')}
+            >
+              <Text style={styles.tabIcon}>👥</Text>
+              <Text style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>
+                Teams
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'tickets' && styles.tabItemActive]}
+              onPress={() => setActiveTab('tickets')}
+            >
+              <Text style={styles.tabIcon}>🎫</Text>
+              <Text style={[styles.tabLabel, activeTab === 'tickets' && styles.tabLabelActive]}>
+                Tickets
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
+              onPress={() => setActiveTab('chat')}
+            >
+              <Text style={styles.tabIcon}>💬</Text>
+              <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>
+                Chat
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabItem, activeTab === 'history' && styles.tabItemActive]}
+              onPress={() => setActiveTab('history')}
+            >
+              <Text style={styles.tabIcon}>📜</Text>
+              <Text style={[styles.tabLabel, activeTab === 'history' && styles.tabLabelActive]}>
+                Logs
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
