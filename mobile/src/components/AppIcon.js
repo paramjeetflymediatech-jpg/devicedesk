@@ -2,17 +2,179 @@ import React from 'react';
 import Svg, { Path, Circle, Rect, Line, Polyline, Polygon } from 'react-native-svg';
 
 export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
-  const iconKey = String(name).toLowerCase();
+  const iconKey = String(name || '').toLowerCase().trim();
 
   switch (iconKey) {
     case 'overview':
     case 'dashboard':
+    case 'grid':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Rect x="3" y="3" width="7" height="7" />
           <Rect x="14" y="3" width="7" height="7" />
           <Rect x="14" y="14" width="7" height="7" />
           <Rect x="3" y="14" width="7" height="7" />
+        </Svg>
+      );
+
+    case 'chevron-left':
+    case 'chevronleft':
+    case 'chevron_left':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="15 18 9 12 15 6" />
+        </Svg>
+      );
+
+    case 'chevron-right':
+    case 'chevronright':
+    case 'chevron_right':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="9 18 15 12 9 6" />
+        </Svg>
+      );
+
+    case 'chevron-down':
+    case 'chevrondown':
+    case 'chevron_down':
+    case 'down':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="6 9 12 15 18 9" />
+        </Svg>
+      );
+
+    case 'chevron-up':
+    case 'chevronup':
+    case 'chevron_up':
+    case 'up':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="18 15 12 9 6 15" />
+        </Svg>
+      );
+
+    case 'arrow-left':
+    case 'arrowleft':
+    case 'arrow_left':
+    case 'back':
+    case 'left':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Line x1="19" y1="12" x2="5" y2="12" />
+          <Polyline points="12 19 5 12 12 5" />
+        </Svg>
+      );
+
+    case 'arrow-right':
+    case 'arrowright':
+    case 'arrow_right':
+    case 'forward':
+    case 'right':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Line x1="5" y1="12" x2="19" y2="12" />
+          <Polyline points="12 5 19 12 12 19" />
+        </Svg>
+      );
+
+    case 'trash':
+    case 'trash-2':
+    case 'trash2':
+    case 'delete':
+    case 'remove':
+    case 'bin':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="3 6 5 6 21 6" />
+          <Path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <Line x1="10" y1="11" x2="10" y2="17" />
+          <Line x1="14" y1="11" x2="14" y2="17" />
+        </Svg>
+      );
+
+    case 'external-link':
+    case 'externallink':
+    case 'external_link':
+    case 'link-external':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <Polyline points="15 3 21 3 21 9" />
+          <Line x1="10" y1="14" x2="21" y2="3" />
+        </Svg>
+      );
+
+    case 'link':
+    case 'link2':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <Path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </Svg>
+      );
+
+    case 'upload-cloud':
+    case 'uploadcloud':
+    case 'upload':
+    case 'cloud-upload':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="16 16 12 12 8 16" />
+          <Line x1="12" y1="12" x2="12" y2="21" />
+          <Path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+          <Polyline points="16 16 12 12 8 16" />
+        </Svg>
+      );
+
+    case 'download-cloud':
+    case 'downloadcloud':
+    case 'download':
+    case 'cloud-download':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Polyline points="8 17 12 21 16 17" />
+          <Line x1="12" y1="12" x2="12" y2="21" />
+          <Path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+        </Svg>
+      );
+
+    case 'sliders':
+    case 'filter':
+    case 'tune':
+    case 'adjustments':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Line x1="4" y1="21" x2="4" y2="14" />
+          <Line x1="4" y1="10" x2="4" y2="3" />
+          <Line x1="12" y1="21" x2="12" y2="12" />
+          <Line x1="12" y1="8" x2="12" y2="3" />
+          <Line x1="20" y1="21" x2="20" y2="16" />
+          <Line x1="20" y1="12" x2="20" y2="3" />
+          <Line x1="1" y1="14" x2="7" y2="14" />
+          <Line x1="9" y1="8" x2="15" y2="8" />
+          <Line x1="17" y1="16" x2="23" y2="16" />
+        </Svg>
+      );
+
+    case 'settings':
+    case 'gear':
+    case 'cog':
+    case 'config':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Circle cx="12" cy="12" r="3" />
+          <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </Svg>
+      );
+
+    case 'copy':
+    case 'clipboard':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <Path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </Svg>
       );
 
@@ -103,6 +265,7 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
 
     case 'monitor':
     case 'hardware':
+    case 'laptop':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
@@ -112,6 +275,7 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
       );
 
     case 'wrench':
+    case 'tool':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
@@ -119,6 +283,7 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
       );
 
     case 'bell':
+    case 'notification':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -127,17 +292,10 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
       );
 
     case 'shield':
+    case 'security':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </Svg>
-      );
-
-    case 'trash':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-          <Polyline points="3 6 5 6 21 6" />
-          <Path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </Svg>
       );
 
@@ -149,15 +307,8 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
         </Svg>
       );
 
-    case 'back':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-          <Line x1="19" y1="12" x2="5" y2="12" />
-          <Polyline points="12 19 5 12 12 5" />
-        </Svg>
-      );
-
     case 'plus':
+    case 'add':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Line x1="12" y1="5" x2="12" y2="19" />
@@ -223,14 +374,6 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
         </Svg>
       );
 
-    case 'forward':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-          <Polyline points="15 17 20 12 15 7" />
-          <Path d="M4 18v-2a4 4 0 0 1 4-4h12" />
-        </Svg>
-      );
-
     case 'edit':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
@@ -240,6 +383,7 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
       );
 
     case 'info':
+    case 'help':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Circle cx="12" cy="12" r="10" />
@@ -302,6 +446,8 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
 
     case 'close':
     case 'x':
+    case 'cross':
+    case 'cancel':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Line x1="18" y1="6" x2="6" y2="18" />
@@ -371,35 +517,15 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
       );
 
     case 'navigation':
-    case 'send':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Polygon points="3 11 22 2 13 21 11 13 3 11" />
         </Svg>
       );
 
-    case 'arrow-left':
-    case 'arrowleft':
-    case 'back':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-          <Line x1="19" y1="12" x2="5" y2="12" />
-          <Polyline points="12 19 5 12 12 5" />
-        </Svg>
-      );
-
-    case 'arrow-right':
-    case 'arrowright':
-    case 'forward':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-          <Line x1="5" y1="12" x2="19" y2="12" />
-          <Polyline points="12 5 19 12 12 19" />
-        </Svg>
-      );
-
     case 'refresh-cw':
     case 'refresh':
+    case 'sync':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Polyline points="23 4 23 10 17 10" />
@@ -444,6 +570,8 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
       );
 
     case 'inbox':
+    case 'mail':
+    case 'email':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
           <Polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
@@ -471,10 +599,8 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
     default:
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-          <Rect x="3" y="3" width="7" height="7" />
-          <Rect x="14" y="3" width="7" height="7" />
-          <Rect x="14" y="14" width="7" height="7" />
-          <Rect x="3" y="14" width="7" height="7" />
+          <Line x1="19" y1="12" x2="5" y2="12" />
+          <Polyline points="12 19 5 12 12 5" />
         </Svg>
       );
   }

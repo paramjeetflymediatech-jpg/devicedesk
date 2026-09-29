@@ -81,8 +81,8 @@ export default function SetupAgentPage() {
             </a>
 
             <a
-              href="/download/DeviceDeskAgent-Linux.zip"
-              download="DeviceDeskAgent-Linux.zip"
+              href="/download/DeviceDeskAgent.zip"
+              download="DeviceDeskAgent.zip"
               style={{ textDecoration: 'none', backgroundColor: '#e05206', color: '#ffffff', padding: '9px 16px', borderRadius: '10px', fontWeight: '700', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 2px 8px rgba(224,82,6,0.3)' }}
             >
               <FaUbuntu style={{ fontSize: '1rem' }} /> Ubuntu (.zip)
@@ -182,7 +182,7 @@ export default function SetupAgentPage() {
 
               {/* Command Block */}
               <CodeBlock
-                cmd={`wget https://devicedesk.flymediatech.com/download/DeviceDeskAgent-Linux.zip -O ~/Downloads/DeviceDeskAgent-Linux.zip\nunzip ~/Downloads/DeviceDeskAgent-Linux.zip -d ~/DeviceDeskAgent\ncd ~/DeviceDeskAgent`}
+                cmd={`wget https://devicedesk.flymediatech.com/download/DeviceDeskAgent.zip -O ~/Downloads/DeviceDeskAgent.zip\nunzip ~/Downloads/DeviceDeskAgent.zip -d ~/DeviceDeskAgent\ncd ~/DeviceDeskAgent`}
                 id="ub-step1"
                 copiedCmd={copiedCmd}
                 copyToClipboard={copyToClipboard}
@@ -191,16 +191,16 @@ export default function SetupAgentPage() {
               {/* Terminal Output Output Preview */}
               <TerminalOutput
                 title="Terminal Output (Extraction Log):"
-                output={`--2026-08-10 17:45:12--  https://devicedesk.flymediatech.com/download/DeviceDeskAgent-Linux.zip
+                output={`--2026-08-10 17:45:12--  https://devicedesk.flymediatech.com/download/DeviceDeskAgent.zip
 Resolving localhost (localhost)... 127.0.0.1
 Connecting to localhost (localhost)|127.0.0.1|:3000... connected.
 HTTP request sent, awaiting response... 200 OK
 Length: 99749124 (95M) [application/zip]
-Saving to: ‘/home/user/Downloads/DeviceDeskAgent-Linux.zip’
+Saving to: ‘/home/user/Downloads/DeviceDeskAgent.zip’
 
 100%[======================================>] 99,749,124   185MB/s   in 0.5s
 
-Archive:  /home/user/Downloads/DeviceDeskAgent-Linux.zip
+Archive:  /home/user/Downloads/DeviceDeskAgent.zip
   creating: /home/user/DeviceDeskAgent/
  inflating: /home/user/DeviceDeskAgent/devicedesk-agent
  inflating: /home/user/DeviceDeskAgent/chrome_100_percent.pak
@@ -286,11 +286,11 @@ Please log in via the graphical application window.`}
                 <FaApple /> Step 1: Download & Extract Finder App
               </h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '14px', lineHeight: '1.6' }}>
-                Click <strong>macOS (.zip)</strong> to download <code>DeviceDeskAgent-Mac.zip</code>, then extract it to your Applications folder:
+                Click <strong>macOS (.zip)</strong> to download <code>DeviceDeskAgent.AppImage</code>, then extract it to your Applications folder:
               </p>
 
               <CodeBlock
-                cmd={`curl -O https://devicedesk.flymediatech.com/download/DeviceDeskAgent-Mac.zip\nunzip DeviceDeskAgent-Mac.zip -d /Applications/`}
+                cmd={`curl -O https://devicedesk.flymediatech.com/download/DeviceDeskAgent.AppImage\nchmod +x DeviceDeskAgent.AppImage\n`}
                 id="mac-step1"
                 copiedCmd={copiedCmd}
                 copyToClipboard={copyToClipboard}

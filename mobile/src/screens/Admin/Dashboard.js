@@ -523,7 +523,13 @@ export default function AdminDashboard({ user, onLogout }) {
               <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]}>{user.email || 'admin@devicedesk.com'}</Text>
             </View>
 
-            <View style={styles.drawerItemsContainer}>
+            <ScrollView 
+              style={styles.drawerItemsContainer}
+              contentContainerStyle={styles.drawerScrollContent}
+              showsVerticalScrollIndicator={true}
+              bounces={true}
+              keyboardShouldPersistTaps="handled"
+            >
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
@@ -538,12 +544,56 @@ export default function AdminDashboard({ user, onLogout }) {
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
-                  activeTab === 'profile' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  activeTab === 'systems' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
                 ]}
-                onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
+                onPress={() => { setActiveTab('systems'); setIsDrawerOpen(false); }}
               >
-                <Text style={styles.drawerItemIcon}>👤</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Admin Profile</Text>
+                <Text style={styles.drawerItemIcon}>💻</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Systems Fleet</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'employees' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('employees'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>👥</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Employees Directory</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'tickets' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('tickets'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>🎫</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Support Tickets</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'history' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('history'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>📜</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Assignment History</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'chat' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('chat'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>💬</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Chat Workspace</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -657,6 +707,17 @@ export default function AdminDashboard({ user, onLogout }) {
               </TouchableOpacity>
 
               <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'profile' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
+              >
+                <Text style={styles.drawerItemIcon}>👤</Text>
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Admin Profile</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={styles.drawerItem}
                 onPress={() => { setShowSettingsModal(true); setIsDrawerOpen(false); }}
               >
@@ -715,10 +776,10 @@ export default function AdminDashboard({ user, onLogout }) {
                   });
                 }}
               >
-                <Text style={styles.drawerItemIcon}>⚠️</Text>
+                <AppIcon name="trash" size={18} color="#dc2626" style={{ marginRight: 12 }} />
                 <Text style={[styles.drawerItemLabel, { color: '#dc2626' }]}>Delete User Account</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
 
             <TouchableOpacity
               style={styles.drawerLogoutBtn}
@@ -837,7 +898,7 @@ export default function AdminDashboard({ user, onLogout }) {
         >
           <Text style={styles.tabIcon}>👥</Text>
           <Text style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>
-            Team Members
+            Teams
           </Text>
         </TouchableOpacity>
 
@@ -1234,33 +1295,34 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   drawerContent: {
-    width: 280,
+    width: 290,
     height: '100%',
     backgroundColor: themeColors.card,
     borderRightWidth: 1,
     borderColor: themeColors.border,
-    padding: 20,
+    paddingHorizontal: 16,
     paddingTop: 45,
-    justifyContent: 'space-between',
+    paddingBottom: 24,
+    flexDirection: 'column',
   },
   drawerHeader: {
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: themeColors.border,
-    paddingBottom: 20,
-    marginBottom: 20,
+    paddingBottom: 16,
+    marginBottom: 12,
   },
   drawerAvatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: themeColors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   drawerAvatarText: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: themeColors.background,
   },
@@ -1273,11 +1335,15 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
   drawerEmail: {
     fontSize: 12,
     color: themeColors.textSecondary,
-    marginTop: 4,
+    marginTop: 3,
     textAlign: 'center',
   },
   drawerItemsContainer: {
     flex: 1,
+  },
+  drawerScrollContent: {
+    paddingVertical: 6,
+    paddingBottom: 24,
   },
   drawerItem: {
     flexDirection: 'row',
@@ -1308,6 +1374,7 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
+    marginTop: 10,
   },
   drawerLogoutText: {
     color: '#ef4444',

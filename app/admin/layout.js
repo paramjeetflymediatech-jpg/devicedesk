@@ -278,8 +278,8 @@ export default function AdminLayout({ children }) {
   return (
     <div style={{ display: "contents" }}>
       {/* Sidebar Navigation (Desktop) */}
-      <aside className="sidebar desktop-only" style={{ width: isCollapsed ? '80px' : '260px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: 'var(--bg-secondary)', borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', borderBottom: '1px solid var(--glass-border)' }}>
+      <aside className="sidebar desktop-only" style={{ width: isCollapsed ? '80px' : '260px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: 'var(--bg-secondary)', borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, padding: 0, overflow: 'hidden' }}>
+        <div style={{ flexShrink: 0, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', borderBottom: '1px solid var(--glass-border)' }}>
           {!isCollapsed && (
             <Link href="/" style={{ textDecoration: "none" }}>
               <Logo height="28px" />
@@ -290,7 +290,7 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
 
-        <nav style={{ flex: 1, overflowY: "auto", padding: '16px 0', overflowX: 'hidden' }}>
+        <nav style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: '16px 0', overflowX: 'hidden' }}>
           {(isHRUser || isITSupport) && (
             <div style={{ padding: '0 16px', marginBottom: '16px', marginTop: '4px' }}>
               <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', width: '100%', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '12px', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
@@ -332,7 +332,7 @@ export default function AdminLayout({ children }) {
           ))}
         </nav>
 
-        <div style={{ padding: "16px", borderTop: "1px solid var(--glass-border)", background: 'rgba(0,0,0,0.1)' }}>
+        <div style={{ flexShrink: 0, padding: "16px", borderTop: "1px solid var(--glass-border)", background: 'rgba(0,0,0,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', background: 'rgba(255,255,255,0.03)', padding: isCollapsed ? '10px' : '10px 14px', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {renderProfileAvatar(empDetails, "32px")}
@@ -369,7 +369,7 @@ export default function AdminLayout({ children }) {
             ✕
           </button>
         </div>
-        <div style={{ padding: "0.5rem 0 1rem", borderBottom: "1px solid var(--glass-border)", marginBottom: "0.5rem" }}>
+        <div style={{ padding: "0.5rem 1.25rem 1rem", borderBottom: "1px solid var(--glass-border)", marginBottom: "0.5rem", flexShrink: 0 }}>
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>Logged in as</p>
           <p style={{ fontWeight: "600", color: "var(--accent-cyan)" }}>{empDetails.name}</p>
           <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{empDetails.role || "Administrator"}</p>
@@ -422,7 +422,7 @@ export default function AdminLayout({ children }) {
             );
           })}
         </nav>
-        <div className="mobile-drawer-footer" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        <div className="mobile-drawer-footer" style={{ display: "flex", flexDirection: "column", gap: "12px", flexShrink: 0, padding: "0.75rem 1.25rem 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "10px", background: "var(--bg-tertiary)", border: "1px solid var(--glass-border)" }}>
             <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-secondary)" }}>Theme Mode</span>
             <ThemeToggle />
@@ -441,7 +441,7 @@ export default function AdminLayout({ children }) {
       </div>
 
       {/* Main Container Wrapper */}
-      <div className="main-wrapper">
+      <div className="main-wrapper" style={{ marginLeft: isCollapsed ? '80px' : '260px', width: isCollapsed ? 'calc(100% - 80px)' : 'calc(100% - 260px)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
         {/* Top Header */}
         <header className="top-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <button className="hamburger-btn" onClick={(e) => { e.stopPropagation(); setMobileMenuOpen(true); }} aria-label="Open menu">

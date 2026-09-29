@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { getTasks, addTask, updateTask, deleteTask, getEmployees, subscribe } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
-import { getApiUrl } from '../../utils/api';
+import { getApiUrl, resolveSafeImageUri } from '../../utils/api';
 
 export default function ManageTasks({ currentUser }) {
   const { themeColors, isDark } = useTheme();
@@ -340,19 +340,20 @@ export default function ManageTasks({ currentUser }) {
                   return (
                     <View style={{ gap: 12 }}>
                       {urls.map((url, idx) => {
-                        const fileAddress = url.startsWith('http') ? url : `${getApiUrl()}${url}`;
+                        const fileAddress = resolveSafeImageUri(url) || url;
                         const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(url);
+                        const canRenderImage = isImage && resolveSafeImageUri(url);
                         return (
                           <View key={idx} style={styles.attachmentCard}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                               <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}>File #{idx + 1}</Text>
-                              <TouchableOpacity onPress={() => Linking.openURL(fileAddress)}>
+                              <TouchableOpacity onPress={() => Linking.openURL(fileAddress).catch(() => {})}>
                                 <Text style={{ color: themeColors.accent, fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline' }}>
                                   Open
                                 </Text>
                               </TouchableOpacity>
                             </View>
-                            {isImage ? (
+                            {canRenderImage ? (
                               <Image 
                                 source={{ uri: fileAddress }} 
                                 style={{ width: '100%', height: 140, borderRadius: 6, resizeMode: 'cover', marginTop: 4 }} 
@@ -362,7 +363,7 @@ export default function ManageTasks({ currentUser }) {
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, backgroundColor: themeColors.background, borderRadius: 4 }}>
                                 <Text style={{ fontSize: 18 }}>📄</Text>
                                 <Text style={{ color: themeColors.textSecondary, fontSize: 11, flex: 1 }} numberOfLines={1}>
-                                  {url.split('/').pop()}
+                                  {typeof url === 'string' ? url.split('/').pop() : 'Attachment'}
                                 </Text>
                               </View>
                             )}
@@ -397,14 +398,14 @@ export default function ManageTasks({ currentUser }) {
                       setEditModalVisible(true);
                     }}
                   >
-                    <Text style={{ color: themeColors.card, fontWeight: 'bold' }}>Edit</Text>
+                    <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Edit</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
                     style={[styles.submitBtn, { flex: 1, alignItems: 'center', backgroundColor: '#da3637' }]} 
                     onPress={() => handleDeleteTask(selectedTask)}
                   >
-                    <Text style={{ color: themeColors.card, fontWeight: 'bold' }}>Delete</Text>
+                    <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Delete</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>

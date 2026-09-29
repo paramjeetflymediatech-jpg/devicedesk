@@ -22,6 +22,7 @@ import AppIcon from '../../components/AppIcon';
 
 export default function EmployeeTasks({ currentUser }) {
   const { isDark, themeColors } = useTheme();
+  const styles = getStyles(themeColors, isDark);
   const [tasks, setTasks] = useState(() => getTasks().filter(t => t.assignedTo === currentUser?.id));
   const [now, setNow] = useState(() => Date.now());
   const [refreshing, setRefreshing] = useState(false);
@@ -290,9 +291,9 @@ export default function EmployeeTasks({ currentUser }) {
                     ]}>
                       <Text style={[
                         styles.statusText,
-                        task.status === 'Completed' && { color: '#059669' },
-                        task.isRunning && { color: '#2563eb' },
-                        task.status !== 'Completed' && !task.isRunning && { color: '#d97706' }
+                        task.status === 'Completed' && { color: isDark ? '#34d399' : '#059669' },
+                        task.isRunning && { color: isDark ? '#60a5fa' : '#2563eb' },
+                        task.status !== 'Completed' && !task.isRunning && { color: isDark ? '#fbbf24' : '#d97706' }
                       ]}>
                         {task.status === 'Completed' ? 'Completed' : task.isRunning ? 'Running' : task.status}
                       </Text>
@@ -338,15 +339,15 @@ export default function EmployeeTasks({ currentUser }) {
 
                 {task.attachments && task.attachments.length > 0 && (
                   <View style={{ marginBottom: 10 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#64748b', marginBottom: 4 }}>Proof Attachments:</Text>
+                    <Text style={[styles.attachmentHeaderLabel, { color: themeColors.textSecondary }]}>Proof Attachments:</Text>
                     {task.attachments.map((url, idx) => (
                       <TouchableOpacity 
                         key={idx} 
                         onPress={() => Linking.openURL(url)}
                         style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2, gap: 4 }}
                       >
-                        <AppIcon name="paperclip" size={14} color="#2563eb" />
-                        <Text style={{ fontSize: 12, color: '#2563eb', textDecorationLine: 'underline' }}>
+                        <AppIcon name="paperclip" size={14} color={isDark ? '#60a5fa' : '#2563eb'} />
+                        <Text style={{ fontSize: 12, color: isDark ? '#60a5fa' : '#2563eb', textDecorationLine: 'underline' }}>
                           Attachment #{idx + 1}
                         </Text>
                       </TouchableOpacity>
@@ -363,7 +364,7 @@ export default function EmployeeTasks({ currentUser }) {
                           onPress={() => handleStart(task.id)}
                         >
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <AppIcon name="play" size={14} color="#ffffff" />
+                            <AppIcon name="play" size={14} color={isDark ? '#60a5fa' : '#2563eb'} />
                             <Text style={styles.btnTextStart}>Start Timer</Text>
                           </View>
                         </TouchableOpacity>
@@ -373,7 +374,7 @@ export default function EmployeeTasks({ currentUser }) {
                           onPress={() => handleStop(task.id)}
                         >
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <AppIcon name="pause" size={14} color="#ffffff" />
+                            <AppIcon name="pause" size={14} color={isDark ? '#fbbf24' : '#d97706'} />
                             <Text style={styles.btnTextStop}>Pause Timer</Text>
                           </View>
                         </TouchableOpacity>
@@ -384,7 +385,7 @@ export default function EmployeeTasks({ currentUser }) {
                         onPress={() => handleCompletePress(task.id)}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <AppIcon name="check" size={14} color="#ffffff" />
+                          <AppIcon name="check" size={14} color={isDark ? '#34d399' : '#059669'} />
                           <Text style={styles.btnTextComplete}>Complete</Text>
                         </View>
                       </TouchableOpacity>
@@ -427,7 +428,7 @@ export default function EmployeeTasks({ currentUser }) {
               disabled={uploading}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <AppIcon name="paperclip" size={16} color="#0f172a" />
+                <AppIcon name="paperclip" size={16} color={isDark ? '#60a5fa' : '#2563eb'} />
                 <Text style={styles.fileSelectText}>Select Proof Files</Text>
               </View>
             </TouchableOpacity>
@@ -436,11 +437,11 @@ export default function EmployeeTasks({ currentUser }) {
               <View style={{ marginBottom: 16 }}>
                 {selectedFiles.map((file, idx) => (
                   <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <Text style={{ color: '#334155', fontSize: 12, flex: 1 }} numberOfLines={1}>
+                    <Text style={{ color: themeColors.textPrimary, fontSize: 12, flex: 1 }} numberOfLines={1}>
                       📄 {file.name}
                     </Text>
                     <TouchableOpacity onPress={() => handleRemoveFile(idx)}>
-                      <Text style={{ color: '#dc2626', fontSize: 12, marginLeft: 8 }}>Remove</Text>
+                      <Text style={{ color: '#ef4444', fontSize: 12, marginLeft: 8, fontWeight: '600' }}>Remove</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -453,7 +454,7 @@ export default function EmployeeTasks({ currentUser }) {
                 onPress={() => setCompleteModalVisible(false)}
                 disabled={uploading}
               >
-                <Text style={{ color: '#64748b', fontWeight: '600' }}>Cancel</Text>
+                <Text style={{ color: themeColors.textSecondary, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -482,7 +483,7 @@ export default function EmployeeTasks({ currentUser }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <AppIcon name="plus" size={18} color="#2563eb" />
+              <AppIcon name="plus" size={18} color={isDark ? '#60a5fa' : '#2563eb'} />
               <Text style={styles.modalTitle}>Create New Task</Text>
             </View>
             
@@ -490,7 +491,7 @@ export default function EmployeeTasks({ currentUser }) {
             <TextInput
               style={styles.textInput}
               placeholder="e.g. Update Client Proposal"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={themeColors.textSecondary}
               value={selfTitle}
               onChangeText={setSelfTitle}
             />
@@ -499,7 +500,7 @@ export default function EmployeeTasks({ currentUser }) {
             <TextInput
               style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
               placeholder="Task details..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={themeColors.textSecondary}
               multiline
               numberOfLines={3}
               value={selfDesc}
@@ -511,7 +512,7 @@ export default function EmployeeTasks({ currentUser }) {
                 style={styles.cancelBtn} 
                 onPress={() => setShowSelfModal(false)}
               >
-                <Text style={{ color: '#64748b', fontWeight: '600' }}>Cancel</Text>
+                <Text style={{ color: themeColors.textSecondary, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.submitBtn} 
@@ -542,7 +543,7 @@ export default function EmployeeTasks({ currentUser }) {
             <TextInput
               style={styles.textInput}
               placeholder="Task title..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={themeColors.textSecondary}
               value={editTitle}
               onChangeText={setEditTitle}
             />
@@ -551,7 +552,7 @@ export default function EmployeeTasks({ currentUser }) {
             <TextInput
               style={[styles.textInput, { height: 70, textAlignVertical: 'top' }]}
               placeholder="Task details..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={themeColors.textSecondary}
               multiline
               numberOfLines={3}
               value={editDesc}
@@ -580,7 +581,7 @@ export default function EmployeeTasks({ currentUser }) {
                 style={styles.cancelBtn} 
                 onPress={() => setEditModalVisible(false)}
               >
-                <Text style={{ color: '#64748b', fontWeight: '600' }}>Cancel</Text>
+                <Text style={{ color: themeColors.textSecondary, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.submitBtn} 
@@ -596,31 +597,31 @@ export default function EmployeeTasks({ currentUser }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (themeColors, isDark) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: themeColors.background,
   },
   header: {
     padding: 18,
-    backgroundColor: '#ffffff',
+    backgroundColor: themeColors.headerBg,
     borderBottomWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: themeColors.border,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: isDark ? 0.2 : 0.04,
     shadowRadius: 6,
     elevation: 3,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: themeColors.textPrimary,
     letterSpacing: -0.3,
   },
   headerSub: {
     fontSize: 12,
-    color: '#64748b',
+    color: themeColors.textSecondary,
     marginTop: 4,
   },
   scrollContent: {
@@ -629,22 +630,24 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: 40,
     alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
   },
   emptyText: {
-    color: '#64748b',
+    color: themeColors.textSecondary,
     fontSize: 14.5,
     fontStyle: 'italic',
   },
   taskCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: themeColors.cardBg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: themeColors.border,
     borderRadius: 18,
     padding: 16,
     marginBottom: 14,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: isDark ? 0.2 : 0.04,
     shadowRadius: 6,
     elevation: 2,
   },
@@ -657,19 +660,19 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 15.5,
     fontWeight: '800',
-    color: '#0f172a',
+    color: themeColors.textPrimary,
     flex: 1,
     marginRight: 10,
   },
   taskDesc: {
     fontSize: 13,
-    color: '#475569',
+    color: themeColors.textSecondary,
     lineHeight: 18,
     marginBottom: 10,
   },
   divider: {
     height: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: themeColors.border,
     marginVertical: 10,
   },
   durationRow: {
@@ -678,13 +681,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   durationLabel: {
-    color: '#64748b',
+    color: themeColors.textSecondary,
     fontSize: 13,
+    fontWeight: '500',
   },
   durationValue: {
-    color: '#2563eb',
+    color: isDark ? '#60a5fa' : '#2563eb',
     fontWeight: '800',
     fontSize: 13,
+  },
+  attachmentHeaderLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -693,46 +702,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   startBtn: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe',
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
   btnTextStart: {
-    color: '#2563eb',
+    color: isDark ? '#60a5fa' : '#2563eb',
     fontSize: 13,
     fontWeight: '700',
   },
   stopBtn: {
-    backgroundColor: '#fffbeb',
+    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb',
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#fde68a',
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
   btnTextStop: {
-    color: '#d97706',
+    color: isDark ? '#fbbf24' : '#d97706',
     fontSize: 13,
     fontWeight: '700',
   },
   completeBtn: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
     borderWidth: 1,
-    borderColor: '#a7f3d0',
+    borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0',
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
   btnTextComplete: {
-    color: '#059669',
+    color: isDark ? '#34d399' : '#059669',
     fontSize: 13,
     fontWeight: '700',
   },
   completedText: {
-    color: '#64748b',
+    color: themeColors.textSecondary,
     fontSize: 12,
     fontStyle: 'italic',
   },
@@ -743,16 +752,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   badgePending: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#fde68a',
+    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb',
+    borderColor: isDark ? 'rgba(245, 158, 11, 0.35)' : '#fde68a',
   },
   badgeProgress: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
+    borderColor: isDark ? 'rgba(59, 130, 246, 0.35)' : '#bfdbfe',
   },
   badgeSuccess: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0',
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+    borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : '#a7f3d0',
   },
   statusText: {
     fontSize: 10.5,
@@ -760,48 +769,48 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: themeColors.cardBg,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: themeColors.border,
     padding: 22,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#2563eb',
+    color: isDark ? '#60a5fa' : '#2563eb',
     marginBottom: 10,
     textAlign: 'center',
   },
   modalLabel: {
-    color: '#64748b',
+    color: themeColors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 20,
     textAlign: 'center',
   },
   fileSelectBtn: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: isDark ? themeColors.background : '#f8fafc',
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#2563eb',
+    borderColor: isDark ? '#3b82f6' : '#2563eb',
     borderRadius: 12,
     padding: 20,
     alignItems: 'center',
     marginBottom: 20,
   },
   fileSelectText: {
-    color: '#2563eb',
+    color: isDark ? '#60a5fa' : '#2563eb',
     fontWeight: '800',
     fontSize: 14,
   },
@@ -814,18 +823,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: isDark ? themeColors.background : '#f1f5f9',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: themeColors.border,
   },
   submitBtn: {
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: 10,
-    backgroundColor: '#2563eb',
+    backgroundColor: isDark ? '#2563eb' : '#2563eb',
   },
   createTaskBtn: {
-    backgroundColor: '#2563eb',
+    backgroundColor: isDark ? '#2563eb' : '#2563eb',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -836,17 +845,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   inputLabel: {
-    color: '#334155',
+    color: themeColors.textPrimary,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
   },
   textInput: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: isDark ? themeColors.background : '#f8fafc',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: themeColors.border,
     borderRadius: 12,
-    color: '#0f172a',
+    color: themeColors.textPrimary,
     padding: 12,
     fontSize: 14,
     marginBottom: 16,
@@ -866,9 +875,9 @@ const styles = StyleSheet.create({
   pickerContainer: {
     height: 120,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: themeColors.border,
     borderRadius: 12,
-    backgroundColor: '#f8fafc',
+    backgroundColor: isDark ? themeColors.background : '#f8fafc',
     padding: 5,
   },
   pickerItem: {
@@ -880,7 +889,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563eb',
   },
   pickerItemText: {
-    color: '#475569',
+    color: themeColors.textPrimary,
     fontSize: 13,
   },
   pickerItemTextActive: {

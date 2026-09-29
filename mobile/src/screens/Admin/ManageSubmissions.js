@@ -10,9 +10,12 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Dimensions
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTheme } from '../../utils/ThemeContext';
+import AppIcon from '../../components/AppIcon';
 import {
   fetchWorkSubmissionsApi,
   createWorkSubmissionApi,
@@ -250,7 +253,8 @@ export default function ManageSubmissions({ navigation, onBack }) {
           }}
           style={styles.backBtn}
         >
-          <Text style={{ fontSize: 18, color: '#38bdf8' }}>← Back</Text>
+          <AppIcon name="arrow-left" size={18} color="#38bdf8" />
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#38bdf8', marginLeft: 4 }}>Back</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: textPrimary }]}>Submissions & EODs</Text>
         <TouchableOpacity
@@ -260,7 +264,7 @@ export default function ManageSubmissions({ navigation, onBack }) {
             else loadEodReports();
           }}
         >
-          <Text style={{ color: '#38bdf8', fontWeight: 'bold' }}>⟳</Text>
+          <AppIcon name="refresh-cw" size={16} color="#38bdf8" />
         </TouchableOpacity>
       </View>
 
@@ -596,206 +600,224 @@ export default function ManageSubmissions({ navigation, onBack }) {
       {/* ========================================================= */}
       {/* MODAL: ADD WORK SUBMISSION */}
       {/* ========================================================= */}
-      <Modal visible={showAddSubModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <Text style={[styles.modalTitle, { color: textPrimary }]}>Create Work Submission</Text>
-            <Text style={[styles.modalSubtitle, { color: textSecondary }]}>
-              Submit deliverables or task output for review.
-            </Text>
+      {/* ========================================================= */}
+      {/* MODAL: ADD WORK SUBMISSION */}
+      {/* ========================================================= */}
+      <Modal visible={showAddSubModal} transparent animationType="slide" onRequestClose={() => setShowAddSubModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <ScrollView contentContainerStyle={styles.modalScrollContent} keyboardShouldPersistTaps="handled" bounces={false}>
+            <View style={[styles.modalBox, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.modalTitle, { color: textPrimary }]}>Create Work Submission</Text>
+              <Text style={[styles.modalSubtitle, { color: textSecondary }]}>
+                Submit deliverables or task output for review.
+              </Text>
 
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: subCardBg, borderColor: borderCol, color: textPrimary }]}
-              placeholder="Task ID (e.g. TASK_101)"
-              placeholderTextColor={textSecondary}
-              value={newTaskId}
-              onChangeText={setNewTaskId}
-            />
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: subCardBg, borderColor: borderCol, color: textPrimary }]}
+                placeholder="Task ID (e.g. TASK_101)"
+                placeholderTextColor={textSecondary}
+                value={newTaskId}
+                onChangeText={setNewTaskId}
+              />
 
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: subCardBg, borderColor: borderCol, color: textPrimary }]}
-              placeholder="Project ID (e.g. PROJ_DEV_01)"
-              placeholderTextColor={textSecondary}
-              value={newProjectId}
-              onChangeText={setNewProjectId}
-            />
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: subCardBg, borderColor: borderCol, color: textPrimary }]}
+                placeholder="Project ID (e.g. PROJ_DEV_01)"
+                placeholderTextColor={textSecondary}
+                value={newProjectId}
+                onChangeText={setNewProjectId}
+              />
 
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: subCardBg, borderColor: borderCol, color: textPrimary, height: 80 }]}
-              placeholder="Description of completed work..."
-              placeholderTextColor={textSecondary}
-              multiline
-              value={newDescription}
-              onChangeText={setNewDescription}
-            />
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: subCardBg, borderColor: borderCol, color: textPrimary, height: 80 }]}
+                placeholder="Description of completed work..."
+                placeholderTextColor={textSecondary}
+                multiline
+                value={newDescription}
+                onChangeText={setNewDescription}
+              />
 
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: subCardBg, borderColor: borderCol, color: textPrimary }]}
-              placeholder="Deliverable File URL / Drive Link"
-              placeholderTextColor={textSecondary}
-              value={newFileUrl}
-              onChangeText={setNewFileUrl}
-            />
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: subCardBg, borderColor: borderCol, color: textPrimary }]}
+                placeholder="Deliverable File URL / Drive Link"
+                placeholderTextColor={textSecondary}
+                value={newFileUrl}
+                onChangeText={setNewFileUrl}
+              />
 
-            <View style={styles.modalActionRow}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, { borderColor: borderCol }]}
-                onPress={() => setShowAddSubModal(false)}
-              >
-                <Text style={{ color: textSecondary }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.confirmBtn}
-                onPress={handleCreateSubmission}
-                disabled={submittingSub}
-              >
-                {submittingSub ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.confirmBtnText}>Submit Deliverable</Text>
-                )}
-              </TouchableOpacity>
+              <View style={styles.modalActionRow}>
+                <TouchableOpacity
+                  style={[styles.cancelBtn, { borderColor: borderCol }]}
+                  onPress={() => setShowAddSubModal(false)}
+                >
+                  <Text style={{ color: textSecondary }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={handleCreateSubmission}
+                  disabled={submittingSub}
+                >
+                  {submittingSub ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.confirmBtnText}>Submit Deliverable</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ========================================================= */}
       {/* MODAL: STATUS OVERRIDE */}
       {/* ========================================================= */}
-      <Modal visible={showStatusModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <Text style={[styles.modalTitle, { color: textPrimary }]}>Override Submission Status</Text>
-            <Text style={[styles.modalSubtitle, { color: textSecondary }]}>
-              Submission: {selectedSub?.id}
-            </Text>
+      <Modal visible={showStatusModal} transparent animationType="fade" onRequestClose={() => { setShowStatusModal(false); setSelectedSub(null); }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <ScrollView contentContainerStyle={styles.modalScrollContent} keyboardShouldPersistTaps="handled" bounces={false}>
+            <View style={[styles.modalBox, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.modalTitle, { color: textPrimary }]}>Override Submission Status</Text>
+              <Text style={[styles.modalSubtitle, { color: textSecondary }]}>
+                Submission: {selectedSub?.id}
+              </Text>
 
-            <Text style={[styles.fieldLabel, { color: textSecondary }]}>Select New Status:</Text>
-            <View style={styles.statusSelectRow}>
-              {['Draft', 'Approved', 'Published', 'Changes Requested'].map((st) => (
-                <TouchableOpacity
-                  key={st}
-                  style={[
-                    styles.statusOptionBtn,
-                    {
-                      backgroundColor: overrideStatus === st ? '#38bdf8' : subCardBg,
-                      borderColor: borderCol
-                    }
-                  ]}
-                  onPress={() => setOverrideStatus(st)}
-                >
-                  <Text
-                    style={{
-                      color: overrideStatus === st ? '#0f172a' : textPrimary,
-                      fontWeight: overrideStatus === st ? 'bold' : 'normal',
-                      fontSize: 12
-                    }}
+              <Text style={[styles.fieldLabel, { color: textSecondary }]}>Select New Status:</Text>
+              <View style={styles.statusSelectRow}>
+                {['Draft', 'Approved', 'Published', 'Changes Requested'].map((st) => (
+                  <TouchableOpacity
+                    key={st}
+                    style={[
+                      styles.statusOptionBtn,
+                      {
+                        backgroundColor: overrideStatus === st ? '#38bdf8' : subCardBg,
+                        borderColor: borderCol
+                      }
+                    ]}
+                    onPress={() => setOverrideStatus(st)}
                   >
-                    {st}
-                  </Text>
+                    <Text
+                      style={{
+                        color: overrideStatus === st ? '#0f172a' : textPrimary,
+                        fontWeight: overrideStatus === st ? 'bold' : 'normal',
+                        fontSize: 12
+                      }}
+                    >
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.fieldLabel, { color: textSecondary, marginTop: 12 }]}>Admin Comment / Feedback:</Text>
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: subCardBg, borderColor: borderCol, color: textPrimary, height: 70 }]}
+                placeholder="Add review remarks..."
+                placeholderTextColor={textSecondary}
+                multiline
+                value={overrideComment}
+                onChangeText={setOverrideComment}
+              />
+
+              <View style={styles.modalActionRow}>
+                <TouchableOpacity
+                  style={[styles.cancelBtn, { borderColor: borderCol }]}
+                  onPress={() => {
+                    setShowStatusModal(false);
+                    setSelectedSub(null);
+                  }}
+                >
+                  <Text style={{ color: textSecondary }}>Cancel</Text>
                 </TouchableOpacity>
-              ))}
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={handleOverrideStatus}
+                  disabled={updatingStatus}
+                >
+                  {updatingStatus ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.confirmBtnText}>Save Status</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-
-            <Text style={[styles.fieldLabel, { color: textSecondary, marginTop: 12 }]}>Admin Comment / Feedback:</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: subCardBg, borderColor: borderCol, color: textPrimary, height: 70 }]}
-              placeholder="Add review remarks..."
-              placeholderTextColor={textSecondary}
-              multiline
-              value={overrideComment}
-              onChangeText={setOverrideComment}
-            />
-
-            <View style={styles.modalActionRow}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, { borderColor: borderCol }]}
-                onPress={() => {
-                  setShowStatusModal(false);
-                  setSelectedSub(null);
-                }}
-              >
-                <Text style={{ color: textSecondary }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.confirmBtn}
-                onPress={handleOverrideStatus}
-                disabled={updatingStatus}
-              >
-                {updatingStatus ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.confirmBtnText}>Save Status</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ========================================================= */}
       {/* MODAL: EOD REVIEW */}
       {/* ========================================================= */}
-      <Modal visible={showEodReviewModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: cardBg, borderColor: borderCol }]}>
-            <Text style={[styles.modalTitle, { color: textPrimary }]}>Review EOD Report</Text>
-            <Text style={[styles.modalSubtitle, { color: textSecondary }]}>
-              Employee: {selectedEod?.employee_id}
-            </Text>
+      <Modal visible={showEodReviewModal} transparent animationType="fade" onRequestClose={() => { setShowEodReviewModal(false); setSelectedEod(null); }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <ScrollView contentContainerStyle={styles.modalScrollContent} keyboardShouldPersistTaps="handled" bounces={false}>
+            <View style={[styles.modalBox, { backgroundColor: cardBg, borderColor: borderCol }]}>
+              <Text style={[styles.modalTitle, { color: textPrimary }]}>Review EOD Report</Text>
+              <Text style={[styles.modalSubtitle, { color: textSecondary }]}>
+                Employee: {selectedEod?.employee_id}
+              </Text>
 
-            <Text style={[styles.fieldLabel, { color: textSecondary }]}>Set Verification Status:</Text>
-            <View style={styles.statusSelectRow}>
-              {['Submitted', 'Approved', 'Reviewed', 'Pending'].map((st) => (
-                <TouchableOpacity
-                  key={st}
-                  style={[
-                    styles.statusOptionBtn,
-                    {
-                      backgroundColor: eodNewStatus === st ? '#10b981' : subCardBg,
-                      borderColor: borderCol
-                    }
-                  ]}
-                  onPress={() => setEodNewStatus(st)}
-                >
-                  <Text
-                    style={{
-                      color: eodNewStatus === st ? '#ffffff' : textPrimary,
-                      fontWeight: eodNewStatus === st ? 'bold' : 'normal',
-                      fontSize: 12
-                    }}
+              <Text style={[styles.fieldLabel, { color: textSecondary }]}>Set Verification Status:</Text>
+              <View style={styles.statusSelectRow}>
+                {['Submitted', 'Approved', 'Reviewed', 'Pending'].map((st) => (
+                  <TouchableOpacity
+                    key={st}
+                    style={[
+                      styles.statusOptionBtn,
+                      {
+                        backgroundColor: eodNewStatus === st ? '#10b981' : subCardBg,
+                        borderColor: borderCol
+                      }
+                    ]}
+                    onPress={() => setEodNewStatus(st)}
                   >
-                    {st}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <Text
+                      style={{
+                        color: eodNewStatus === st ? '#ffffff' : textPrimary,
+                        fontWeight: eodNewStatus === st ? 'bold' : 'normal',
+                        fontSize: 12
+                      }}
+                    >
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            <View style={styles.modalActionRow}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, { borderColor: borderCol }]}
-                onPress={() => {
-                  setShowEodReviewModal(false);
-                  setSelectedEod(null);
-                }}
-              >
-                <Text style={{ color: textSecondary }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.confirmBtn, { backgroundColor: '#10b981' }]}
-                onPress={handleUpdateEodStatus}
-                disabled={updatingEod}
-              >
-                {updatingEod ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.confirmBtnText}>Save EOD Status</Text>
-                )}
-              </TouchableOpacity>
+              <View style={styles.modalActionRow}>
+                <TouchableOpacity
+                  style={[styles.cancelBtn, { borderColor: borderCol }]}
+                  onPress={() => {
+                    setShowEodReviewModal(false);
+                    setSelectedEod(null);
+                  }}
+                >
+                  <Text style={{ color: textSecondary }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.confirmBtn, { backgroundColor: '#10b981' }]}
+                  onPress={handleUpdateEodStatus}
+                  disabled={updatingEod}
+                >
+                  {updatingEod ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.confirmBtnText}>Save EOD Status</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -814,6 +836,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1
   },
   backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 4,
     paddingRight: 8
   },
@@ -846,25 +870,27 @@ const styles = StyleSheet.create({
   },
   metricsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 14
+    marginBottom: 10
   },
   metricCard: {
-    flex: 1,
-    marginHorizontal: 3,
-    paddingVertical: 10,
-    borderRadius: 10,
+    width: '48.5%',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
     alignItems: 'center',
-    borderWidth: 1
+    borderWidth: 1,
+    marginBottom: 8
   },
   metricVal: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: '#38bdf8'
   },
   metricLabel: {
-    fontSize: 10,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 3,
     fontWeight: '600'
   },
   searchBarRow: {
@@ -875,7 +901,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    height: 42,
+    height: 44,
     borderRadius: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
@@ -883,8 +909,8 @@ const styles = StyleSheet.create({
   },
   addBtn: {
     backgroundColor: '#38bdf8',
-    height: 42,
-    paddingHorizontal: 14,
+    height: 44,
+    paddingHorizontal: 16,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center'
@@ -951,6 +977,7 @@ const styles = StyleSheet.create({
   },
   tagsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
     marginBottom: 8
   },
@@ -991,7 +1018,7 @@ const styles = StyleSheet.create({
   reviewBtn: {
     backgroundColor: '#38bdf8',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 6
   },
   reviewBtnText: {
@@ -1012,14 +1039,19 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center'
+  },
+  modalScrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20
+    padding: 16
   },
   modalBox: {
     width: '100%',
-    borderRadius: 14,
-    padding: 18,
+    maxWidth: 480,
+    alignSelf: 'center',
+    borderRadius: 16,
+    padding: 20,
     borderWidth: 1
   },
   modalTitle: {
