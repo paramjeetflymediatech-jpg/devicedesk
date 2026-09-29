@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setUser(null);
     if (typeof window !== "undefined") {
-      localStorage.clear();
+      localStorage.removeItem('devicedesk_auth_user');
       sessionStorage.clear();
 
       // Clear cookies with max-age=0 & expired date
