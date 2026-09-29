@@ -21,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SoundPlayer from 'react-native-sound-player';
 import { getEmployees, getSystems, subscribe } from '../store/store';
-import { getApiUrl, fetchMarketingAuthorizations } from '../utils/api';
+import { getApiUrl, fetchMarketingAuthorizations, resolveSafeImageUri } from '../utils/api';
 import { pick } from '@react-native-documents/picker';
 import { launchCamera } from 'react-native-image-picker';
 import { useTheme } from '../utils/ThemeContext';
@@ -497,75 +497,108 @@ export default function ChatScreen({ user, onBack }) {
 
     const caption = uploadCaption.trim();
 
-    if (filesToSend.length > 1) {
-      // GROUPED MEDIA ALBUM BATCH
-      const mediaItems = filesToSend.map(item => ({
-        url: item.file.uri,
-        name: item.file.name,
-        type: item.msgType,
-      }));
-
-      const newMsg = {
-        id: `msg_${Date.now()}`,
-        senderId: user?.id || 'anonymous',
-        senderName: user?.name || 'User',
-        receiverId: activeChatId,
-        content: caption || '',
-        messageType: 'media_group',
-        fileUrl: JSON.stringify(mediaItems),
-        fileName: `${mediaItems.length} media files`,
-        mediaItems: mediaItems,
-        timestamp: new Date().toISOString(),
-      };
-
-      setMessages(prev => [...prev, newMsg]);
-
-      try {
-        await fetch(`${getApiUrl()}/api/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-id': String(user?.id || ''),
-          },
-          body: JSON.stringify(newMsg),
+    try {
+      // 1. Upload files to server /api/upload
+      const formData = new FormData();
+      filesToSend.forEach((item) => {
+        const fileUri = item.file.uri || '';
+        formData.append('files', {
+          uri: Platform.OS === 'android' ? fileUri : fileUri.replace('file://', ''),
+          type: item.file.type || (item.isImage ? 'image/jpeg' : item.isVideo ? 'video/mp4' : item.isAudio ? 'audio/mpeg' : 'application/octet-stream'),
+          name: item.file.name || `file_${Date.now()}`
         });
-      } catch (e) {}
-    } else {
-      // SINGLE MEDIA ITEM
-      const { file, msgType, isImage, isVideo, isAudio } = filesToSend[0];
-      const defaultText = isImage ? '📷 Photo' : isVideo ? '🎥 Video' : isAudio ? '🎙️ Voice Note' : `📎 ${file.name || 'File'}`;
-      const finalContent = caption ? `${defaultText}\n${caption}` : defaultText;
+      });
 
-      const newMsg = {
-        id: `msg_${Date.now()}`,
-        senderId: user?.id || 'anonymous',
-        senderName: user?.name || 'User',
-        receiverId: activeChatId,
-        content: finalContent,
-        messageType: msgType,
-        fileUrl: file.uri,
-        fileName: file.name,
-        fileSize: file.size,
-        timestamp: new Date().toISOString(),
-      };
-
-      setMessages(prev => [...prev, newMsg]);
-
+      let uploadedUrls = [];
       try {
-        await fetch(`${getApiUrl()}/api/chat`, {
+        const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
           method: 'POST',
+          body: formData,
           headers: {
-            'Content-Type': 'application/json',
-            'x-user-id': String(user?.id || ''),
+            'Accept': 'application/json',
           },
-          body: JSON.stringify(newMsg),
         });
-      } catch (e) {}
+        const uploadData = await uploadRes.json();
+        if (uploadRes.ok && uploadData.success) {
+          uploadedUrls = uploadData.fileUrls || [];
+        }
+      } catch (uploadErr) {
+        console.warn('Chat upload server error:', uploadErr);
+      }
+
+      if (filesToSend.length > 1) {
+        // GROUPED MEDIA ALBUM BATCH
+        const mediaItems = filesToSend.map((item, idx) => ({
+          url: uploadedUrls[idx] || item.file.uri,
+          name: item.file.name,
+          type: item.msgType,
+        }));
+
+        const newMsg = {
+          id: `msg_${Date.now()}`,
+          senderId: user?.id || 'anonymous',
+          senderName: user?.name || 'User',
+          receiverId: activeChatId,
+          content: caption || '',
+          messageType: 'media_group',
+          fileUrl: JSON.stringify(mediaItems),
+          fileName: `${mediaItems.length} media files`,
+          mediaItems: mediaItems,
+          timestamp: new Date().toISOString(),
+        };
+
+        setMessages(prev => [...prev, newMsg]);
+
+        try {
+          await fetch(`${getApiUrl()}/api/chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-id': String(user?.id || ''),
+            },
+            body: JSON.stringify(newMsg),
+          });
+        } catch (e) {}
+      } else {
+        // SINGLE MEDIA ITEM
+        const { file, msgType, isImage, isVideo, isAudio } = filesToSend[0];
+        const defaultText = isImage ? '📷 Photo' : isVideo ? '🎥 Video' : isAudio ? '🎙️ Voice Note' : `📎 ${file.name || 'File'}`;
+        const finalContent = caption ? `${defaultText}\n${caption}` : defaultText;
+        const finalFileUrl = uploadedUrls[0] || file.uri;
+
+        const newMsg = {
+          id: `msg_${Date.now()}`,
+          senderId: user?.id || 'anonymous',
+          senderName: user?.name || 'User',
+          receiverId: activeChatId,
+          content: finalContent,
+          messageType: msgType,
+          fileUrl: finalFileUrl,
+          fileName: file.name,
+          fileSize: file.size,
+          timestamp: new Date().toISOString(),
+        };
+
+        setMessages(prev => [...prev, newMsg]);
+
+        try {
+          await fetch(`${getApiUrl()}/api/chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-id': String(user?.id || ''),
+            },
+            body: JSON.stringify(newMsg),
+          });
+        } catch (e) {}
+      }
+    } catch (err) {
+      console.error('Chat upload error:', err);
+    } finally {
+      setPendingUploadFiles([]);
+      setUploadCaption('');
+      setUploading(false);
     }
-
-    setPendingUploadFiles([]);
-    setUploadCaption('');
-    setUploading(false);
   };
 
   // Handle Send Voice Note
@@ -1436,13 +1469,17 @@ export default function ChatScreen({ user, onBack }) {
                                           }}
                                           style={styles.mediaGridTile}
                                         >
-                                          {item.type === 'image' || !item.type ? (
-                                            <Image source={{ uri: item.url }} style={styles.mediaGridImage} resizeMode="cover" />
-                                          ) : (
-                                            <View style={styles.mediaGridPlaceholder}>
-                                              <AppIcon name={item.type === 'video' ? 'video' : item.type === 'audio' ? 'mic' : 'file'} size={24} color="#ffffff" />
-                                            </View>
-                                          )}
+                                          {(() => {
+                                            const resolvedImg = resolveSafeImageUri(item.url);
+                                            if ((item.type === 'image' || !item.type) && resolvedImg) {
+                                              return <Image source={{ uri: resolvedImg }} style={styles.mediaGridImage} resizeMode="cover" />;
+                                            }
+                                            return (
+                                              <View style={styles.mediaGridPlaceholder}>
+                                                <AppIcon name={item.type === 'video' ? 'video' : item.type === 'audio' ? 'mic' : item.type === 'image' ? 'image' : 'file'} size={24} color="#ffffff" />
+                                              </View>
+                                            );
+                                          })()}
 
                                           {/* Count Badge on 4th item if > 4 */}
                                           {idx === 3 && displayItems.length > 4 && (
@@ -1474,18 +1511,31 @@ export default function ChatScreen({ user, onBack }) {
                                   </View>
                                 );
                               })()
-                            ) : msg.messageType === 'image' && (msg.fileUrl || msg.content?.startsWith('file:')) ? (
-                              <TouchableOpacity
-                                onPress={() => setActiveImageUrl(msg.fileUrl || msg.content)}
-                                style={{ marginBottom: 4 }}
-                                activeOpacity={0.85}
-                              >
-                                <Image
-                                  source={{ uri: msg.fileUrl || msg.content }}
-                                  style={styles.chatMediaImage}
-                                  resizeMode="cover"
-                                />
-                              </TouchableOpacity>
+                            ) : msg.messageType === 'image' && (msg.fileUrl || msg.content?.startsWith('file:') || msg.content?.startsWith('http')) ? (
+                              (() => {
+                                const resolvedSingleImg = resolveSafeImageUri(msg.fileUrl || msg.content);
+                                if (!resolvedSingleImg) {
+                                  return (
+                                    <View style={[styles.chatMediaImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f2c34', borderRadius: 8, padding: 12 }]}>
+                                      <AppIcon name="image" size={28} color="#8696a0" />
+                                      <Text style={{ color: '#8696a0', fontSize: 11, marginTop: 4 }}>📷 Photo</Text>
+                                    </View>
+                                  );
+                                }
+                                return (
+                                  <TouchableOpacity
+                                    onPress={() => setActiveImageUrl(resolvedSingleImg)}
+                                    style={{ marginBottom: 4 }}
+                                    activeOpacity={0.85}
+                                  >
+                                    <Image
+                                      source={{ uri: resolvedSingleImg }}
+                                      style={styles.chatMediaImage}
+                                      resizeMode="cover"
+                                    />
+                                  </TouchableOpacity>
+                                );
+                              })()
                             ) : msg.messageType === 'video' ? (
                               /* Video Attachment Card */
                               <TouchableOpacity
@@ -1860,19 +1910,25 @@ export default function ChatScreen({ user, onBack }) {
                                   position: 'relative',
                                 }}
                               >
-                                {m.type === 'image' && m.fileUrl ? (
-                                  <Image
-                                    source={{ uri: m.fileUrl }}
-                                    style={{ width: '100%', height: '100%' }}
-                                    resizeMode="cover"
-                                  />
-                                ) : (
-                                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f2c34' }}>
-                                    <Text style={{ fontSize: 28 }}>
-                                      {m.type === 'video' ? '🎥' : '🖼️'}
-                                    </Text>
-                                  </View>
-                                )}
+                                {(() => {
+                                  const resolvedShared = resolveSafeImageUri(m.fileUrl);
+                                  if (m.type === 'image' && resolvedShared) {
+                                    return (
+                                      <Image
+                                        source={{ uri: resolvedShared }}
+                                        style={{ width: '100%', height: '100%' }}
+                                        resizeMode="cover"
+                                      />
+                                    );
+                                  }
+                                  return (
+                                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f2c34' }}>
+                                      <Text style={{ fontSize: 28 }}>
+                                        {m.type === 'video' ? '🎥' : '🖼️'}
+                                      </Text>
+                                    </View>
+                                  );
+                                })()}
                                 {m.type === 'video' && (
                                   <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' }}>
                                     <Text style={{ fontSize: 22, color: '#fff' }}>▶️</Text>
@@ -2057,20 +2113,26 @@ export default function ChatScreen({ user, onBack }) {
                   </TouchableOpacity>
                 </View>
 
-                {item.isImage ? (
-                  <Image
-                    source={{ uri: item.file.uri }}
-                    style={{ width: '100%', height: 220 }}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 36, marginBottom: 6 }}>
-                      {item.isVideo ? '🎥' : item.isAudio ? '🎙️' : '📄'}
-                    </Text>
-                    <Text style={{ color: '#8696a0', fontSize: 11 }}>Ready to upload</Text>
-                  </View>
-                )}
+                {(() => {
+                  const resolvedPreview = resolveSafeImageUri(item.file?.uri) || (Platform.OS !== 'ios' ? item.file?.uri : null);
+                  if (item.isImage && resolvedPreview) {
+                    return (
+                      <Image
+                        source={{ uri: resolvedPreview }}
+                        style={{ width: '100%', height: 220 }}
+                        resizeMode="contain"
+                      />
+                    );
+                  }
+                  return (
+                    <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 36, marginBottom: 6 }}>
+                        {item.isVideo ? '🎥' : item.isAudio ? '🎙️' : item.isImage ? '📷' : '📄'}
+                      </Text>
+                      <Text style={{ color: '#8696a0', fontSize: 11 }}>Ready to upload</Text>
+                    </View>
+                  );
+                })()}
               </View>
             ))}
 
@@ -2154,15 +2216,19 @@ export default function ChatScreen({ user, onBack }) {
                   }}
                   style={{ width: '48%', backgroundColor: '#111b21', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#2a3942', marginBottom: 10 }}
                 >
-                  {item.type === 'image' ? (
-                    <Image source={{ uri: item.url }} style={{ width: '100%', height: 140 }} resizeMode="cover" />
-                  ) : (
-                    <View style={{ height: 140, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f2c34' }}>
-                      <Text style={{ fontSize: 40, marginBottom: 4 }}>
-                        {item.type === 'video' ? '🎥' : item.type === 'audio' ? '🎙️' : '📄'}
-                      </Text>
-                    </View>
-                  )}
+                  {(() => {
+                    const resolvedGalleryImg = resolveSafeImageUri(item.url);
+                    if (item.type === 'image' && resolvedGalleryImg) {
+                      return <Image source={{ uri: resolvedGalleryImg }} style={{ width: '100%', height: 140 }} resizeMode="cover" />;
+                    }
+                    return (
+                      <View style={{ height: 140, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f2c34' }}>
+                        <Text style={{ fontSize: 40, marginBottom: 4 }}>
+                          {item.type === 'video' ? '🎥' : item.type === 'audio' ? '🎙️' : '📄'}
+                        </Text>
+                      </View>
+                    );
+                  })()}
                   <View style={{ padding: 8, backgroundColor: '#1f2c34' }}>
                     <Text style={{ color: '#e9edef', fontSize: 11, fontWeight: 'bold' }} numberOfLines={1}>
                       {item.name || `File ${index + 1}`}
@@ -2192,13 +2258,24 @@ export default function ChatScreen({ user, onBack }) {
 
           {/* Full Screen Image Viewport */}
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-            {activeImageUrl ? (
-              <Image
-                source={{ uri: activeImageUrl }}
-                style={{ width: '100%', height: '100%' }}
-                resizeMode="contain"
-              />
-            ) : null}
+            {(() => {
+              const resolvedFullImg = resolveSafeImageUri(activeImageUrl);
+              if (resolvedFullImg) {
+                return (
+                  <Image
+                    source={{ uri: resolvedFullImg }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="contain"
+                  />
+                );
+              }
+              return (
+                <View style={{ alignItems: 'center', padding: 20 }}>
+                  <Text style={{ fontSize: 40, marginBottom: 8 }}>🖼️</Text>
+                  <Text style={{ color: '#8696a0', fontSize: 14 }}>Image preview not available</Text>
+                </View>
+              );
+            })()}
           </View>
         </SafeAreaView>
       </Modal>

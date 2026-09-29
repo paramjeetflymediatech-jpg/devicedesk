@@ -994,14 +994,23 @@ export async function updateClientDetailsApi(data) {
 // Live Desktop Screenshots APIs
 // ==========================================
 
-export function resolveScreenshotImageUrl(rawUrl) {
-  if (!rawUrl) return '';
-  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-    return rawUrl;
+export function resolveSafeImageUri(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  const trimmed = rawUrl.trim();
+  // iOS RCTImageLoader crashes if given Android content:// URLs
+  if (Platform.OS === 'ios' && trimmed.startsWith('content://')) {
+    return null;
+  }
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/') || trimmed.startsWith('file://')) {
+    return trimmed;
   }
   const cleanBase = currentApiUrl.replace(/\/$/, '');
-  const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+  const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   return `${cleanBase}${cleanPath}`;
+}
+
+export function resolveScreenshotImageUrl(rawUrl) {
+  return resolveSafeImageUri(rawUrl) || '';
 }
 
 export async function fetchScreenshotsListApi(params = {}) {

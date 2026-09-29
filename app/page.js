@@ -2326,12 +2326,12 @@ export default function Home() {
     <div onClick={handleBodyClick} style={{ display: "contents" }}>
       
       {/* Sidebar Navigation (Desktop) */}
-      <aside className="sidebar">
-        <div className="logo-container">
+      <aside className="sidebar" style={{ display: "flex", flexDirection: "column", height: "100vh", position: "fixed", left: 0, top: 0, bottom: 0, zIndex: 100, padding: 0, overflow: "hidden" }}>
+        <div className="logo-container" style={{ flexShrink: 0, padding: "1.5rem 1.25rem 1rem", marginBottom: "0.5rem", borderBottom: "1px solid var(--glass-border)" }}>
           <Logo height="36px" />
         </div>
         
-        <nav style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <nav style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", padding: "0.75rem 1.25rem" }}>
           <ul className="nav-links">
             {isITSupport && (
               <>

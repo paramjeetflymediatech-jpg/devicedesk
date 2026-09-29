@@ -328,17 +328,17 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* HEADER BAR (Same as Employee Dashboard with Logo) */}
+      {/* HEADER BAR (Responsive layout with Logo & Controls) */}
       <View style={[styles.header, { backgroundColor: themeColors.headerBg || themeColors.card, borderColor: themeColors.border }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={styles.headerLeft}>
           {onNavigateBack && (
             <TouchableOpacity onPress={onNavigateBack} style={styles.backBtn} activeOpacity={0.7}>
-              <AppIcon name="arrow-left" size={20} color={themeColors.text} />
+              <AppIcon name="arrow-left" size={18} color={themeColors.text} />
             </TouchableOpacity>
           )}
           <Image
             source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
-            style={{ width: 140, height: 36 }}
+            style={styles.headerLogo}
             resizeMode="contain"
           />
           <View style={styles.leadBadge}>
@@ -348,26 +348,26 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={toggleTheme} style={styles.iconCircleBtn} activeOpacity={0.7}>
-            <AppIcon name={isDark ? 'sun' : 'moon'} size={18} color={themeColors.text} />
+            <AppIcon name={isDark ? 'sun' : 'moon'} size={17} color={themeColors.text} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.logoutBtn}
-            onPress={() => {
-              sweetAlert({
-                title: 'Log Out',
-                text: 'Are you sure you want to log out of your session?',
-                type: 'warning',
-                showCancel: true,
-                onConfirm: onLogout,
-              });
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="logout" size={15} color="#dc2626" />
+          {onLogout && (
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={() => {
+                sweetAlert({
+                  title: 'Log Out',
+                  text: 'Are you sure you want to log out of your session?',
+                  type: 'warning',
+                  showCancel: true,
+                  onConfirm: onLogout,
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              <AppIcon name="logout" size={14} color="#dc2626" />
               <Text style={styles.logoutBtnText}>Log Out</Text>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -1151,8 +1151,8 @@ function getStyles(themeColors, isDark) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
       borderBottomWidth: 1,
       borderBottomColor: themeColors.border,
       backgroundColor: themeColors.card,
@@ -1160,41 +1160,28 @@ function getStyles(themeColors, isDark) {
     headerLeft: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 6,
+      flex: 1,
+      minWidth: 0,
     },
     backBtn: {
       padding: 6,
       borderRadius: 8,
       backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
     },
-    headerAvatarWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: isDark ? '#1e3a8a' : '#dbeafe',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    headerTitle: {
-      fontSize: 17,
-      fontWeight: '800',
-      letterSpacing: -0.3,
-      color: themeColors.text,
+    headerLogo: {
+      width: 110,
+      height: 30,
+      maxWidth: 120,
     },
     leadBadge: {
-      paddingHorizontal: 7,
-      paddingVertical: 3,
-      borderRadius: 6,
+      paddingHorizontal: 5,
+      paddingVertical: 2,
+      borderRadius: 5,
       backgroundColor: '#2563eb',
-      marginLeft: 6,
     },
     leadBadgeText: {
-      fontSize: 10,
+      fontSize: 9.5,
       fontWeight: '800',
       color: '#ffffff',
       letterSpacing: 0.5,
@@ -1202,6 +1189,8 @@ function getStyles(themeColors, isDark) {
     headerRight: {
       flexDirection: 'row',
       alignItems: 'center',
+      gap: 6,
+      flexShrink: 0,
     },
     logoutBtn: {
       flexDirection: 'row',
@@ -1209,20 +1198,20 @@ function getStyles(themeColors, isDark) {
       backgroundColor: isDark ? '#450a0a' : '#fef2f2',
       borderWidth: 1,
       borderColor: isDark ? '#7f1d1d' : '#fca5a5',
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      marginLeft: 8,
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      gap: 4,
     },
     logoutBtnText: {
       color: '#dc2626',
-      fontSize: 13,
+      fontSize: 11.5,
       fontWeight: '700',
     },
     iconCircleBtn: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
       backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
       alignItems: 'center',
       justifyContent: 'center',
@@ -1235,14 +1224,16 @@ function getStyles(themeColors, isDark) {
       backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
       borderWidth: 1,
       borderColor: isDark ? '#334155' : '#e2e8f0',
+      gap: 4,
     },
     portalToggleActive: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 9,
+      gap: 4,
+      paddingVertical: 8,
+      paddingHorizontal: 6,
       borderRadius: 10,
       backgroundColor: isDark ? '#2563eb' : '#ffffff',
       shadowColor: '#000',
@@ -1252,7 +1243,7 @@ function getStyles(themeColors, isDark) {
       elevation: 2,
     },
     portalToggleActiveText: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '700',
       color: isDark ? '#ffffff' : '#1e293b',
     },
@@ -1261,60 +1252,63 @@ function getStyles(themeColors, isDark) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 9,
+      gap: 4,
+      paddingVertical: 8,
+      paddingHorizontal: 6,
       borderRadius: 10,
     },
     portalToggleInactiveText: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '600',
       color: '#2563eb',
     },
     scrollContent: {
-      padding: 16,
+      padding: 12,
       paddingBottom: 40,
-      gap: 16,
+      gap: 12,
     },
 
     // HERO CARD
     heroCard: {
-      borderRadius: 18,
-      padding: 18,
-      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+      borderRadius: 16,
+      padding: 14,
+      backgroundColor: themeColors.card,
       borderWidth: 1,
-      borderColor: isDark ? '#334155' : '#e2e8f0',
+      borderColor: themeColors.border,
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
+      shadowOffset: { width: 0, height: 2 },
       shadowOpacity: isDark ? 0.3 : 0.05,
-      shadowRadius: 10,
+      shadowRadius: 8,
       elevation: 3,
     },
     heroTopRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
-      marginBottom: 16,
+      marginBottom: 12,
+      gap: 8,
     },
     heroGreeting: {
-      fontSize: 18,
+      fontSize: 16.5,
       fontWeight: '800',
       color: themeColors.text,
     },
     heroSubtext: {
-      fontSize: 12,
+      fontSize: 11.5,
       color: themeColors.textSecondary,
       marginTop: 2,
     },
     livePulseBadge: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 5,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 12,
+      gap: 4,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 10,
       backgroundColor: isDark ? '#064e3b55' : '#dcfce7',
       borderWidth: 1,
       borderColor: '#16a34a',
+      flexShrink: 0,
     },
     liveDot: {
       width: 6,
@@ -1323,7 +1317,7 @@ function getStyles(themeColors, isDark) {
       backgroundColor: '#16a34a',
     },
     liveText: {
-      fontSize: 10,
+      fontSize: 9.5,
       fontWeight: '800',
       color: '#16a34a',
       letterSpacing: 0.5,
@@ -1331,37 +1325,39 @@ function getStyles(themeColors, isDark) {
     kpiGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 10,
+      justifyContent: 'space-between',
+      gap: 8,
     },
     kpiItem: {
-      flex: 1,
-      minWidth: '45%',
-      padding: 12,
-      borderRadius: 14,
+      width: '48%',
+      flexGrow: 1,
+      minWidth: 130,
+      padding: 10,
+      borderRadius: 12,
       backgroundColor: isDark ? '#0f172a' : '#f8fafc',
       borderWidth: 1,
       borderColor: isDark ? '#1e293b' : '#e2e8f0',
     },
     kpiIconBox: {
-      width: 32,
-      height: 32,
-      borderRadius: 10,
+      width: 28,
+      height: 28,
+      borderRadius: 8,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 8,
+      marginBottom: 6,
     },
     kpiNumber: {
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: '800',
       color: themeColors.text,
     },
     kpiDenominator: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '600',
       color: themeColors.textSecondary,
     },
     kpiLabel: {
-      fontSize: 11,
+      fontSize: 10.5,
       fontWeight: '600',
       color: themeColors.textSecondary,
       marginTop: 2,
@@ -1370,19 +1366,21 @@ function getStyles(themeColors, isDark) {
     // SEGMENTED TAB SWITCHER
     tabSwitcher: {
       flexDirection: 'row',
-      padding: 4,
-      borderRadius: 14,
+      padding: 3,
+      borderRadius: 12,
       backgroundColor: isDark ? '#1e293b' : '#e2e8f0',
-      gap: 4,
+      gap: 3,
     },
     tabButton: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 10,
-      borderRadius: 10,
-      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+      borderRadius: 9,
+      gap: 4,
+      minWidth: 0,
     },
     tabButtonActive: {
       backgroundColor: '#2563eb',
@@ -1393,7 +1391,7 @@ function getStyles(themeColors, isDark) {
       elevation: 2,
     },
     tabButtonText: {
-      fontSize: 13,
+      fontSize: 11.5,
       fontWeight: '600',
       color: themeColors.textSecondary,
     },
@@ -1402,9 +1400,9 @@ function getStyles(themeColors, isDark) {
       fontWeight: '700',
     },
     tabBadge: {
-      paddingHorizontal: 6,
+      paddingHorizontal: 5,
       paddingVertical: 1,
-      borderRadius: 8,
+      borderRadius: 6,
     },
     tabBadgeActive: {
       backgroundColor: '#ffffff',
@@ -1413,45 +1411,46 @@ function getStyles(themeColors, isDark) {
       backgroundColor: isDark ? '#334155' : '#cbd5e1',
     },
     tabBadgeText: {
-      fontSize: 10,
+      fontSize: 9.5,
       fontWeight: '800',
       color: themeColors.text,
     },
 
     // TAB CONTENT
     tabContent: {
-      gap: 14,
+      gap: 12,
     },
 
     // SEARCH & FILTER
     searchContainer: {
-      gap: 10,
+      gap: 8,
     },
     searchInputWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 10,
       backgroundColor: themeColors.card,
       borderWidth: 1,
       borderColor: themeColors.border,
-      gap: 10,
+      gap: 8,
     },
     searchInput: {
       flex: 1,
-      fontSize: 14,
+      fontSize: 13,
       color: themeColors.text,
       padding: 0,
     },
     chipRow: {
       flexDirection: 'row',
-      gap: 8,
+      flexWrap: 'wrap',
+      gap: 6,
     },
     statusChip: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 16,
       backgroundColor: themeColors.card,
       borderWidth: 1,
       borderColor: themeColors.border,
@@ -1469,7 +1468,7 @@ function getStyles(themeColors, isDark) {
       borderColor: '#d97706',
     },
     statusChipText: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '600',
       color: themeColors.textSecondary,
     },
@@ -1479,8 +1478,8 @@ function getStyles(themeColors, isDark) {
 
     // EXECUTIVE CARD
     executiveCard: {
-      borderRadius: 16,
-      padding: 16,
+      borderRadius: 14,
+      padding: 14,
       backgroundColor: themeColors.card,
       borderWidth: 1,
       borderColor: themeColors.border,
@@ -1494,58 +1493,65 @@ function getStyles(themeColors, isDark) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
+      gap: 8,
     },
     avatarWithInfo: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 10,
       flex: 1,
+      minWidth: 0,
     },
     memberAvatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 0,
     },
     memberAvatarText: {
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: '800',
     },
     memberInfoCol: {
       flex: 1,
+      minWidth: 0,
     },
     memberName: {
-      fontSize: 15,
+      fontSize: 14.5,
       fontWeight: '700',
       color: themeColors.text,
     },
     badgeRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      marginTop: 4,
+      flexWrap: 'wrap',
+      gap: 4,
+      marginTop: 3,
     },
     deptPill: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 6,
+      paddingHorizontal: 5,
+      paddingVertical: 1.5,
+      borderRadius: 5,
     },
     deptPillText: {
-      fontSize: 10,
+      fontSize: 9.5,
       fontWeight: '700',
     },
     roleSubtext: {
-      fontSize: 11,
+      fontSize: 10.5,
       color: themeColors.textSecondary,
     },
     eodStatusBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 8,
+      paddingHorizontal: 7,
+      paddingVertical: 3.5,
+      borderRadius: 7,
+      alignSelf: 'flex-start',
+      flexShrink: 0,
     },
     eodBadgeSuccess: {
       backgroundColor: isDark ? '#064e3b44' : '#dcfce7',
@@ -1558,27 +1564,29 @@ function getStyles(themeColors, isDark) {
       borderColor: '#fde68a',
     },
     eodStatusText: {
-      fontSize: 10,
+      fontSize: 9.5,
       fontWeight: '800',
       letterSpacing: 0.5,
     },
     metricStrip: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 10,
+      gap: 6,
+      marginTop: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
       backgroundColor: isDark ? '#0f172a' : '#f8fafc',
     },
     metricItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: 5,
     },
     metricLabel: {
-      fontSize: 12,
+      fontSize: 11,
       color: themeColors.textSecondary,
     },
     metricValueBold: {
@@ -1586,9 +1594,9 @@ function getStyles(themeColors, isDark) {
       color: themeColors.text,
     },
     reportCard: {
-      marginTop: 12,
-      padding: 12,
-      borderRadius: 10,
+      marginTop: 10,
+      padding: 10,
+      borderRadius: 8,
       backgroundColor: isDark ? '#0f172a' : '#f8fafc',
       borderLeftWidth: 3,
       borderLeftColor: '#2563eb',
@@ -1597,50 +1605,53 @@ function getStyles(themeColors, isDark) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 6,
+      marginBottom: 4,
     },
     reportSectionTitle: {
-      fontSize: 10,
+      fontSize: 9.5,
       fontWeight: '800',
       letterSpacing: 0.5,
       color: themeColors.textSecondary,
     },
     expandLink: {
-      fontSize: 11,
+      fontSize: 10.5,
       fontWeight: '700',
       color: '#2563eb',
     },
     reportContentText: {
-      fontSize: 13,
-      lineHeight: 18,
+      fontSize: 12,
+      lineHeight: 17,
       color: themeColors.text,
       fontStyle: 'italic',
     },
     pendingReportNotice: {
-      paddingVertical: 4,
+      paddingVertical: 2,
     },
     pendingReportText: {
-      fontSize: 12,
+      fontSize: 11,
       color: themeColors.textSecondary,
       fontStyle: 'italic',
     },
     cardFooterActions: {
       flexDirection: 'row',
-      gap: 10,
-      marginTop: 12,
-      paddingTop: 12,
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 10,
+      paddingTop: 10,
       borderTopWidth: 1,
       borderTopColor: themeColors.border,
     },
     primaryAssignBtn: {
       flex: 1,
+      minWidth: 120,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 10,
-      borderRadius: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 8,
+      borderRadius: 8,
       backgroundColor: '#2563eb',
-      gap: 6,
+      gap: 5,
       shadowColor: '#2563eb',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
@@ -1648,19 +1659,21 @@ function getStyles(themeColors, isDark) {
       elevation: 2,
     },
     primaryAssignBtnText: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '700',
       color: '#ffffff',
     },
     emeraldForwardBtn: {
       flex: 1,
+      minWidth: 120,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 10,
-      borderRadius: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 8,
+      borderRadius: 8,
       backgroundColor: '#10b981',
-      gap: 6,
+      gap: 5,
       shadowColor: '#10b981',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
@@ -1668,7 +1681,7 @@ function getStyles(themeColors, isDark) {
       elevation: 2,
     },
     emeraldForwardBtnText: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '700',
       color: '#ffffff',
     },
@@ -1677,77 +1690,80 @@ function getStyles(themeColors, isDark) {
     sopHeroCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 16,
-      borderRadius: 16,
+      padding: 14,
+      borderRadius: 14,
       backgroundColor: isDark ? '#1e3a8a33' : '#eff6ff',
       borderWidth: 1,
       borderColor: isDark ? '#1e3a8a' : '#bfdbfe',
-      gap: 14,
+      gap: 12,
     },
     sopHeroIcon: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
+      width: 42,
+      height: 42,
+      borderRadius: 21,
       backgroundColor: isDark ? '#1e3a8a' : '#dbeafe',
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 0,
     },
     sopHeroTitle: {
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: '800',
       color: '#2563eb',
     },
     sopHeroSubtitle: {
-      fontSize: 12,
+      fontSize: 11,
       color: themeColors.textSecondary,
       marginTop: 2,
-      lineHeight: 16,
+      lineHeight: 15,
     },
     sopStepCard: {
       flexDirection: 'row',
-      padding: 16,
-      borderRadius: 16,
+      padding: 14,
+      borderRadius: 14,
       backgroundColor: themeColors.card,
       borderWidth: 1,
       borderColor: themeColors.border,
-      gap: 14,
+      gap: 12,
     },
     stepNumberBadge: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
       backgroundColor: '#2563eb',
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 0,
     },
     stepNumberText: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '800',
       color: '#ffffff',
     },
     stepContent: {
       flex: 1,
+      minWidth: 0,
     },
     stepTitle: {
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: '700',
       color: themeColors.text,
     },
     stepDescription: {
-      fontSize: 12,
-      lineHeight: 18,
+      fontSize: 11.5,
+      lineHeight: 16,
       color: themeColors.textSecondary,
-      marginTop: 4,
+      marginTop: 3,
     },
     stepChecklist: {
-      marginTop: 8,
-      padding: 10,
-      borderRadius: 8,
+      marginTop: 6,
+      padding: 8,
+      borderRadius: 6,
       backgroundColor: isDark ? '#0f172a' : '#f8fafc',
-      gap: 4,
+      gap: 3,
     },
     checkItem: {
-      fontSize: 11,
+      fontSize: 10.5,
       fontWeight: '600',
       color: themeColors.text,
     },

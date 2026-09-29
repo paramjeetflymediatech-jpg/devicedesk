@@ -35,7 +35,7 @@
   --bg-primary: #0a0b10;
   --bg-secondary: rgba(20, 22, 34, 0.75);
   --bg-tertiary: rgba(30, 32, 50, 0.85);
-  --bg-card: rgba(22, 24, 38, 0.55);
+  --bg-card: #000000;
   
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
@@ -50,8 +50,25 @@
   --status-resolved: #10b981; /* Success Green */
   --status-critical: #ef4444; /* Alert Red */
   
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.12);
   --glass-glow: rgba(0, 240, 255, 0.1);
+}
+
+[data-theme="dark"] .container-card,
+[data-theme="dark"] .emp-card,
+[data-theme="dark"] .modal-card,
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .panel-card,
+[data-theme="dark"] .card,
+[data-theme="dark"] .mobile-card,
+[data-theme="dark"] .complaint-card,
+[data-theme="dark"] .history-log-card,
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] div[class*="-card"],
+[data-theme="dark"] div[class*=" card"] {
+  background-color: #000000 !important;
+  background: #000000 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 /* Universal Form Control & Input Theme Fixes */
@@ -288,7 +305,7 @@ body {
   background: var(--bg-secondary);
   backdrop-filter: blur(20px);
   border-right: 1px solid var(--glass-border);
-  padding: 2rem 1.5rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -297,7 +314,37 @@ body {
   top: 0;
   bottom: 0;
   z-index: 100;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.sidebar nav {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1rem 1.25rem;
+}
+
+.sidebar nav::-webkit-scrollbar,
+.mobile-drawer-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar nav::-webkit-scrollbar-track,
+.mobile-drawer-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar nav::-webkit-scrollbar-thumb,
+.mobile-drawer-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.sidebar nav::-webkit-scrollbar-thumb:hover,
+.mobile-drawer-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
 }
 
 .logo-container {
@@ -1239,18 +1286,20 @@ textarea.form-control {
   position: fixed;
   top: 0;
   left: 0;
-  width: 280px;
+  width: 290px;
+  max-width: 85vw;
   height: 100vh;
   background: var(--bg-secondary);
   border-right: 1px solid var(--glass-border);
   z-index: 400;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
+  padding: 1.25rem 0;
   transform: translateX(-100%);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: none;
-  overflow-y: auto;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .mobile-drawer.open {
@@ -1261,9 +1310,9 @@ textarea.form-control {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
+  padding: 0 1.25rem 1rem;
   border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
 }
 
 .mobile-drawer-close {
@@ -1290,7 +1339,11 @@ textarea.form-control {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.75rem 1.25rem;
 }
 
 .mobile-drawer-item {

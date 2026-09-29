@@ -11,6 +11,8 @@ import {
   RefreshControl,
   Linking,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
@@ -386,7 +388,7 @@ export default function EODSubmission({ currentUser, onBack }) {
             <View>
               {/* Header with New Submission Button */}
               <View style={styles.subHeaderRow}>
-                <View>
+                <View style={{ flex: 1, marginRight: 12 }}>
                   <Text style={styles.sectionLabel}>Deliverables & Submissions</Text>
                   <Text style={styles.sectionSub}>
                     Submit pull requests, live links, designs & deliverables for client projects
@@ -395,6 +397,7 @@ export default function EODSubmission({ currentUser, onBack }) {
                 <TouchableOpacity
                   style={styles.addSubBtn}
                   onPress={() => setShowAddSubModal(true)}
+                  activeOpacity={0.8}
                 >
                   <Text style={styles.addSubBtnText}>+ New Work</Text>
                 </TouchableOpacity>
@@ -414,7 +417,7 @@ export default function EODSubmission({ currentUser, onBack }) {
                   return (
                     <View key={sub.id || index} style={styles.subCard}>
                       <View style={styles.subCardHeader}>
-                        <View style={{ flex: 1 }}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
                           <Text style={styles.subProjectTitle}>
                             Project: {sub.project_id || 'General'}
                           </Text>
@@ -438,9 +441,10 @@ export default function EODSubmission({ currentUser, onBack }) {
                         <TouchableOpacity
                           style={styles.urlButton}
                           onPress={() => Linking.openURL(sub.file_url).catch(() => {})}
+                          activeOpacity={0.8}
                         >
                           <AppIcon name="external-link" size={14} color="#3b82f6" />
-                          <Text style={styles.urlButtonText} numberOfLines={1}>
+                          <Text style={styles.urlButtonText} numberOfLines={1} ellipsizeMode="middle">
                             {sub.file_url}
                           </Text>
                         </TouchableOpacity>
@@ -470,75 +474,84 @@ export default function EODSubmission({ currentUser, onBack }) {
         animationType="slide"
         onRequestClose={() => setShowAddSubModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Submit Work Deliverable</Text>
-            <Text style={styles.modalSub}>
-              Attach task code, PR links, or project deliverables for review.
-            </Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+          >
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Submit Work Deliverable</Text>
+              <Text style={styles.modalSub}>
+                Attach task code, PR links, or project deliverables for review.
+              </Text>
 
-            <Text style={styles.inputLabel}>Project ID / Name *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. PRJ-CRM-01"
-              placeholderTextColor={themeColors.textSecondary}
-              value={projectIdInput}
-              onChangeText={setProjectIdInput}
-            />
+              <Text style={styles.inputLabel}>Project ID / Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. PRJ-CRM-01"
+                placeholderTextColor={themeColors.textSecondary}
+                value={projectIdInput}
+                onChangeText={setProjectIdInput}
+              />
 
-            <Text style={styles.inputLabel}>Task ID *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. TSK-104"
-              placeholderTextColor={themeColors.textSecondary}
-              value={taskIdInput}
-              onChangeText={setTaskIdInput}
-            />
+              <Text style={styles.inputLabel}>Task ID *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. TSK-104"
+                placeholderTextColor={themeColors.textSecondary}
+                value={taskIdInput}
+                onChangeText={setTaskIdInput}
+              />
 
-            <Text style={styles.inputLabel}>Work Description *</Text>
-            <TextInput
-              style={[styles.input, styles.modalTextArea]}
-              placeholder="Describe deliverables, features completed, and testing notes..."
-              placeholderTextColor={themeColors.textSecondary}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              value={subDescInput}
-              onChangeText={setSubDescInput}
-            />
+              <Text style={styles.inputLabel}>Work Description *</Text>
+              <TextInput
+                style={[styles.input, styles.modalTextArea]}
+                placeholder="Describe deliverables, features completed, and testing notes..."
+                placeholderTextColor={themeColors.textSecondary}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                value={subDescInput}
+                onChangeText={setSubDescInput}
+              />
 
-            <Text style={styles.inputLabel}>Deliverable URL (GitHub / Figma / Drive)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="https://github.com/... or https://figma.com/..."
-              placeholderTextColor={themeColors.textSecondary}
-              autoCapitalize="none"
-              value={subUrlInput}
-              onChangeText={setSubUrlInput}
-            />
+              <Text style={styles.inputLabel}>Deliverable URL (GitHub / Figma / Drive)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="https://github.com/... or https://figma.com/..."
+                placeholderTextColor={themeColors.textSecondary}
+                autoCapitalize="none"
+                value={subUrlInput}
+                onChangeText={setSubUrlInput}
+              />
 
-            <View style={styles.modalButtonRow}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setShowAddSubModal(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={styles.modalButtonRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setShowAddSubModal(false)}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.modalSubmitBtn, savingSubmission && styles.buttonDisabled]}
-                onPress={handleCreateWorkSubmission}
-                disabled={savingSubmission}
-              >
-                {savingSubmission ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.modalSubmitText}>Submit Work 🚀</Text>
-                )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalSubmitBtn, savingSubmission && styles.buttonDisabled]}
+                  onPress={handleCreateWorkSubmission}
+                  disabled={savingSubmission}
+                >
+                  {savingSubmission ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.modalSubmitText}>Submit Work 🚀</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -667,7 +680,7 @@ const getStyles = (colors, isDark) =>
     },
     chip: {
       paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingVertical: 7,
       borderRadius: 20,
       backgroundColor: isDark ? '#1e293b' : '#e0f2fe',
       marginRight: 8,
@@ -750,6 +763,8 @@ const getStyles = (colors, isDark) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: 6,
       marginBottom: 8,
     },
     historyDate: {
@@ -861,7 +876,11 @@ const getStyles = (colors, isDark) =>
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.6)',
+      backgroundColor: 'rgba(0,0,0,0.65)',
+      justifyContent: 'center',
+    },
+    modalScrollContent: {
+      flexGrow: 1,
       justifyContent: 'center',
       padding: 16,
     },
@@ -871,6 +890,9 @@ const getStyles = (colors, isDark) =>
       padding: 20,
       borderWidth: 1,
       borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      width: '100%',
+      maxWidth: 480,
+      alignSelf: 'center',
     },
     modalTitle: {
       fontSize: 16,

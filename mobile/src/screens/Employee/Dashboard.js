@@ -1155,7 +1155,13 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) 
               <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]}>{empDetails.email || 'employee@devicedesk.com'}</Text>
             </View>
 
-            <View style={styles.drawerItemsContainer}>
+            <ScrollView 
+              style={styles.drawerItemsContainer}
+              contentContainerStyle={styles.drawerScrollContent}
+              showsVerticalScrollIndicator={true}
+              bounces={true}
+              keyboardShouldPersistTaps="handled"
+            >
               {onSwitchToLeader && (
                 <TouchableOpacity
                   style={[
@@ -1307,7 +1313,7 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) 
                 <AppIcon name="trash" size={18} color="#dc2626" style={{ marginRight: 12 }} />
                 <Text style={[styles.drawerItemLabel, { color: '#dc2626' }]}>Delete User Account</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
 
             <TouchableOpacity
               style={styles.drawerLogoutBtn}
@@ -2124,35 +2130,36 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.4)',
   },
   drawerContent: {
-    width: 280,
+    width: 290,
     height: '100%',
     backgroundColor: '#ffffff',
     borderRightWidth: 1,
     borderColor: '#e2e8f0',
-    padding: 20,
+    paddingHorizontal: 16,
     paddingTop: 45,
-    justifyContent: 'space-between',
+    paddingBottom: 24,
+    flexDirection: 'column',
   },
   drawerHeader: {
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
-    paddingBottom: 20,
-    marginBottom: 20,
+    paddingBottom: 16,
+    marginBottom: 12,
   },
   drawerAvatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#eff6ff',
     borderWidth: 2,
     borderColor: '#2563eb',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   drawerAvatarText: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     color: '#2563eb',
   },
@@ -2165,11 +2172,15 @@ const styles = StyleSheet.create({
   drawerEmail: {
     fontSize: 12,
     color: '#64748b',
-    marginTop: 4,
+    marginTop: 3,
     textAlign: 'center',
   },
   drawerItemsContainer: {
     flex: 1,
+  },
+  drawerScrollContent: {
+    paddingVertical: 6,
+    paddingBottom: 24,
   },
   drawerItem: {
     flexDirection: 'row',
@@ -2200,6 +2211,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
+    marginTop: 10,
   },
   drawerLogoutText: {
     color: '#dc2626',
