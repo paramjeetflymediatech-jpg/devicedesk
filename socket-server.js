@@ -222,6 +222,32 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('typing', (data) => {
+    if (!data || !data.receiverId) return;
+    const lowerReceiverId = String(data.receiverId).toLowerCase();
+    if (lowerReceiverId.startsWith('group_') || lowerReceiverId.startsWith('dept_') || lowerReceiverId === 'general') {
+      socket.to(lowerReceiverId).emit('typing', data);
+    } else {
+      const receiverSockets = onlineUsers.get(lowerReceiverId);
+      if (receiverSockets) {
+        receiverSockets.forEach(socketId => io.to(socketId).emit('typing', data));
+      }
+    }
+  });
+
+  socket.on('stop-typing', (data) => {
+    if (!data || !data.receiverId) return;
+    const lowerReceiverId = String(data.receiverId).toLowerCase();
+    if (lowerReceiverId.startsWith('group_') || lowerReceiverId.startsWith('dept_') || lowerReceiverId === 'general') {
+      socket.to(lowerReceiverId).emit('stop-typing', data);
+    } else {
+      const receiverSockets = onlineUsers.get(lowerReceiverId);
+      if (receiverSockets) {
+        receiverSockets.forEach(socketId => io.to(socketId).emit('stop-typing', data));
+      }
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
     if (socket.userId) {

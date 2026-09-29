@@ -57,6 +57,12 @@ export default function EmployeeLayout({ children }) {
 
   // Sync unread chat count
   useEffect(() => {
+    if (pathname === '/employee-dashboard/chat') {
+      setUnreadChatCount(0);
+      localStorage.setItem("devicedesk_unread_chat_count", 0);
+      return;
+    }
+
     const stored = localStorage.getItem("devicedesk_unread_chat_count");
     if (stored) setUnreadChatCount(Number(stored));
 
@@ -68,7 +74,7 @@ export default function EmployeeLayout({ children }) {
     return () => {
       window.removeEventListener("devicedesk_unread_chat_changed", handleUnreadChange);
     };
-  }, []);
+  }, [pathname]);
 
   // Audio Context initialization
   const initAudio = () => {

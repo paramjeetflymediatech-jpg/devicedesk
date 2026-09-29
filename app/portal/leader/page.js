@@ -2,32 +2,52 @@
 import { useState, useEffect } from 'react';
 import { FiCheckSquare, FiUsers, FiClock, FiArrowRight } from 'react-icons/fi';
 import Link from 'next/link';
+import { useAuth } from '../../auth/AuthContext';
 
 export default function LeaderOverviewPage() {
+  const { user } = useAuth();
   const [teamMembers, setTeamMembers] = useState([]);
   const [clientRequests, setClientRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
+      if (!user?.id) return;
       try {
         setLoading(true);
-        const resEmp = await fetch('/api/employees');
+        const [resEmp, resReq, resEod] = await Promise.all([
+          fetch('/api/employees'),
+          fetch('/api/client-services/requests'),
+          fetch('/api/eod-reports')
+        ]);
+        
         const dataEmp = await resEmp.json();
+        const dataReq = await resReq.json();
+        const dataEod = await resEod.json();
+        
         if (dataEmp.success) {
-          const members = dataEmp.data.filter(emp => emp.role === 'Team Member');
-          const mappedMembers = members.map(m => ({
-            id: m.id,
-            name: m.name,
-            eodStatus: Math.random() > 0.5 ? 'Submitted' : 'Pending',
-          }));
+          const eodList = dataEod.success ? dataEod.data : [];
+          const members = dataEmp.data.filter(emp => 
+            (emp.role === 'Team Member' || emp.role === 'Employee' || emp.role === 'team member') && 
+            emp.tl_id === user.id
+          );
+          const today = new Date().toISOString().split('T')[0];
+          
+          const mappedMembers = members.map(m => {
+            const mEods = eodList.filter(e => e.employee_id === m.id && (e.submitted_at || '').startsWith(today));
+            const latestEod = mEods.length > 0 ? mEods[0] : null;
+            return {
+              id: m.id,
+              name: m.name,
+              eodStatus: latestEod ? (latestEod.status || 'Submitted') : 'Pending',
+            };
+          });
           setTeamMembers(mappedMembers);
         }
 
-        const resReq = await fetch('/api/client-services/requests');
-        const dataReq = await resReq.json();
         if (dataReq.success) {
-          setClientRequests(dataReq.data);
+          const reqs = dataReq.data.filter(r => r.assigned_tl_id === user.id);
+          setClientRequests(reqs);
         }
       } catch (err) {
         console.error("Failed to fetch TL data:", err);
@@ -36,7 +56,7 @@ export default function LeaderOverviewPage() {
       }
     }
     fetchData();
-  }, []);
+  }, [user?.id]);
 
   if (loading) {
     return (

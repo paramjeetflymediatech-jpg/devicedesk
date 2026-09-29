@@ -17,16 +17,21 @@ export default function LeaderLayout({ children }) {
   useEffect(() => {
     setMounted(true);
     async function fetchRequests() {
+      if (!user?.id) return;
       try {
         const resReq = await fetch('/api/client-services/requests');
         const dataReq = await resReq.json();
         if (dataReq.success) {
-          setRequestsCount(dataReq.data.length);
+          const myPendingReqs = dataReq.data.filter(r => 
+            r.assigned_tl_id === user.id && 
+            r.status === 'Pending Assignment'
+          );
+          setRequestsCount(myPendingReqs.length);
         }
       } catch (err) {}
     }
     fetchRequests();
-  }, []);
+  }, [user?.id, pathname]);
 
   const getPageTitle = () => {
     if (pathname.includes('client-requests')) return 'Client Requests';
