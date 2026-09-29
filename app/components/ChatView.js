@@ -12,7 +12,7 @@ export default function ChatView({ user }) {
   const [groups, setGroups] = useState([]);
   const [blockedUsers, setBlockedUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeChatId, setActiveChatId] = useState("general"); // 'general', 'dept_DepartmentName', group ID, or employee ID
+  const [activeChatId, setActiveChatId] = useState(null); // 'general', 'dept_DepartmentName', group ID, or employee ID
   const [messageText, setMessageText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -23,6 +23,9 @@ export default function ChatView({ user }) {
   // Socket.io states
   const [onlineUsersList, setOnlineUsersList] = useState([]);
   const [lastSeenMap, setLastSeenMap] = useState({});
+  const [typingUsers, setTypingUsers] = useState({});
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const typingTimeoutRef = useRef({});
   const socketRef = useRef(null);
   const pickerContainerRef = useRef(null);
 
@@ -168,15 +171,16 @@ export default function ChatView({ user }) {
   }, []);
 
   // Update read timestamp when room changes
+  // Update read timestamp when room changes or new messages arrive
   useEffect(() => {
     if (activeChatId) {
       lastReadTimestamps.current[activeChatId.toLowerCase()] = new Date().toISOString();
       if (typeof window !== "undefined") {
         localStorage.setItem("devicedesk_chat_last_read", JSON.stringify(lastReadTimestamps.current));
       }
-      recalculateUnread(messages);
     }
-  }, [activeChatId]);
+    recalculateUnread(messages);
+  }, [activeChatId, messages]);
 
   // Recalculate unread messages counts
   const recalculateUnread = (allMsgs) => {
@@ -366,6 +370,22 @@ export default function ChatView({ user }) {
       }));
     });
 
+    socket.on("typing", (data) => {
+      if (data.senderId === user.id) return;
+      const key = `${data.receiverId}_${data.senderId}`;
+      setTypingUsers(prev => ({ ...prev, [key]: data.senderName }));
+    });
+
+    socket.on("stop-typing", (data) => {
+      if (data.senderId === user.id) return;
+      const key = `${data.receiverId}_${data.senderId}`;
+      setTypingUsers(prev => {
+        const newState = { ...prev };
+        delete newState[key];
+        return newState;
+      });
+    });
+
     return () => {
       if (socket) {
         socket.disconnect();
@@ -432,6 +452,14 @@ export default function ChatView({ user }) {
     };
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  // Timer to force re-render of "Last Seen" timestamps every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 60000);
+    return () => clearInterval(timer);
   }, []);
 
   // Returns a human-readable "Last seen X ago" string from an ISO timestamp
@@ -2105,14 +2133,41 @@ export default function ChatView({ user }) {
   const groupedMessages = getGroupedMessages();
   
   // Resolve title
-  let selectedChatName = "General Chat";
-  if (activeChatId.startsWith("dept_")) {
-    selectedChatName = `${activeChatId.replace("dept_", "")} Department`;
-  } else if (activeChatId.startsWith("group_")) {
-    selectedChatName = groups.find(g => g.id === activeChatId)?.name || "Group Chat";
-  } else if (activeChatId !== "general") {
-    selectedChatName = employees.find(e => e.id === activeChatId)?.name || "Direct Message";
+  let selectedChatName = "";
+  if (activeChatId) {
+    if (activeChatId === "general") {
+      selectedChatName = "General Chat";
+    } else if (activeChatId.startsWith("dept_")) {
+      selectedChatName = `${activeChatId.replace("dept_", "")} Department`;
+    } else if (activeChatId.startsWith("group_")) {
+      selectedChatName = groups.find(g => g.id === activeChatId)?.name || "Group Chat";
+    } else {
+      selectedChatName = employees.find(e => e.id === activeChatId)?.name || "Direct Message";
+    }
   }
+
+  const handleTyping = (e) => {
+    setMessageText(e.target.value);
+    
+    if (socketRef.current && activeChatId) {
+      socketRef.current.emit("typing", {
+        senderId: user.id,
+        senderName: user.name,
+        receiverId: activeChatId
+      });
+      
+      if (typingTimeoutRef.current[activeChatId]) {
+        clearTimeout(typingTimeoutRef.current[activeChatId]);
+      }
+      
+      typingTimeoutRef.current[activeChatId] = setTimeout(() => {
+        socketRef.current.emit("stop-typing", {
+          senderId: user.id,
+          receiverId: activeChatId
+        });
+      }, 2000);
+    }
+  };
 
   return (
     <div style={{
@@ -2509,6 +2564,15 @@ export default function ChatView({ user }) {
           minWidth: 0,
           borderRight: showDetailsPanel ? "1px solid var(--glass-border)" : "none"
         }}>
+        
+        {!activeChatId ? (
+          <div style={{ flexGrow: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", background: "var(--bg-primary)" }}>
+            <div style={{ fontSize: "4rem", color: "rgba(255, 255, 255, 0.05)", marginBottom: "1.5rem" }}><FiMessageSquare /></div>
+            <h3 style={{ margin: 0, color: "var(--text-primary)", fontWeight: "600", fontSize: "1.3rem" }}>Welcome to Chat Workspace</h3>
+            <p style={{ color: "var(--text-secondary)", marginTop: "0.5rem", fontSize: "0.9rem" }}>Select a conversation from the sidebar to start messaging.</p>
+          </div>
+        ) : (
+          <>
         {/* Chat Header */}
         <div style={{
           padding: "1.25rem",
@@ -2558,18 +2622,41 @@ export default function ChatView({ user }) {
             <div style={{ minWidth: 0 }}>
               <h4 style={{ fontSize: "0.95rem", fontWeight: "700", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedChatName}</h4>
               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {activeChatId === "general" 
-                  ? "Open Company-wide Channel" 
-                  : activeChatId.startsWith("dept_") 
-                    ? `Only authorized ${activeChatId.replace("dept_", "")} personnel`
-                    : activeChatId.startsWith("group_")
-                      ? `Members: ${getGroupMemberNames(activeChatId)}`
-                      : (() => {
-                          const emp = employees.find(e => String(e.id).toLowerCase() === String(activeChatId).toLowerCase());
-                          const isOnline = onlineUsersList.includes(String(activeChatId).toLowerCase());
-                          const lastSeenStr = formatLastSeen(lastSeenMap[String(activeChatId).toLowerCase()]);
-                          return `${isOnline ? "🟢 Online" : `⚪ ${lastSeenStr}`} — ${emp?.role || "Active Member"}`;
-                        })()}
+                {(() => {
+                  const activeTypers = Object.entries(typingUsers)
+                    .filter(([key]) => key.startsWith(String(activeChatId).toLowerCase() + "_"))
+                    .map(([, name]) => name);
+                  
+                  if (activeTypers.length > 0) {
+                    const uniqueTypers = [...new Set(activeTypers)];
+                    return (
+                      <span style={{ color: "var(--accent-cyan)", fontStyle: "italic", fontWeight: "600" }}>
+                        {uniqueTypers.join(", ")} {uniqueTypers.length > 1 ? "are" : "is"} typing...
+                      </span>
+                    );
+                  }
+
+                  if (activeChatId === "general") return "Open Company-wide Channel";
+                  if (activeChatId.startsWith("dept_")) return `Only authorized ${activeChatId.replace("dept_", "")} personnel`;
+                  if (activeChatId.startsWith("group_")) return `Members: ${getGroupMemberNames(activeChatId)}`;
+                  
+                  const emp = employees.find(e => String(e.id).toLowerCase() === String(activeChatId).toLowerCase());
+                  const isOnline = onlineUsersList.includes(String(activeChatId).toLowerCase());
+                  const lastSeenStr = formatLastSeen(lastSeenMap[String(activeChatId).toLowerCase()]);
+                  
+                  return (
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{
+                        display: "inline-block",
+                        width: "8px",
+                        height: "8px",
+                        borderRadius: "50%",
+                        background: isOnline ? "#10b981" : "#fbbf24"
+                      }} />
+                      {isOnline ? "Online" : lastSeenStr}
+                    </span>
+                  );
+                })()}
               </span>
             </div>
           </div>
@@ -2840,7 +2927,8 @@ export default function ChatView({ user }) {
                               border: isOwn ? "none" : "1px solid var(--glass-border)",
                               color: isOwn ? "#ffffff" : "var(--text-primary)",
                               fontSize: "0.85rem",
-                                                            wordBreak: "break-word"
+                              wordBreak: "break-word",
+                              whiteSpace: "pre-wrap"
                             }}>
                               {/* Render based on message type */}
                               {msg.messageType === "text" && (
@@ -3334,7 +3422,7 @@ export default function ChatView({ user }) {
                   placeholder={isRecording ? "Finish recording to send..." : "Type a message..."}
                   value={messageText}
                   disabled={isRecording || uploading}
-                  onChange={(e) => setMessageText(e.target.value)}
+                  onChange={handleTyping}
                   onFocus={() => { setShowEmojiPicker(false); setShowGifPicker(false); }}
                   style={{
                     width: "100%",
@@ -3483,6 +3571,8 @@ export default function ChatView({ user }) {
             </form>
           )}
         </div>
+        </>
+        )}
         </div>
 
         {/* Right Column: Conversation Details & Media */}
