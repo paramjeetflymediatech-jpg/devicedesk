@@ -210,6 +210,18 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('send-notification', (data) => {
+    if (!data || !data.userId) return;
+    const lowerUserId = String(data.userId).toLowerCase();
+    const receiverSockets = onlineUsers.get(lowerUserId);
+    if (receiverSockets) {
+      receiverSockets.forEach(socketId => {
+        io.to(socketId).emit('receive-notification', data);
+      });
+      console.log(`Sent notification to ${lowerUserId}`);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
     if (socket.userId) {

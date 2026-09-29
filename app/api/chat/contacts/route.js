@@ -92,14 +92,10 @@ export async function GET(request) {
       return NextResponse.json({ success: true, data: filtered });
     }
 
-    // 4. Team Member -> Can only see their Department's Team Leader, and Admins/Management (optional)
+    // 4. Team Member -> Can see all internal employees (except Clients)
     const filtered = allUsers.filter(u => {
       const uRole = (u.role || '').toLowerCase();
-      const uDept = (u.department || '').toLowerCase();
-      const isMyTeamLeader = (uRole.includes('team leader') || uRole === 'tl') && uDept === userDept;
-      const isManagement = uRole === 'admin' || uRole === 'management';
-      
-      return isMyTeamLeader || isManagement;
+      return uRole !== 'client'; // Allow seeing all internal staff
     });
 
     return NextResponse.json({ success: true, data: filtered });

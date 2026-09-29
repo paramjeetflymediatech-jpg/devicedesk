@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
+import { sendNotification } from '../utils/notificationsHelper.js';
 
 export async function GET() {
   try {
@@ -73,6 +74,16 @@ export async function POST(request) {
       } catch (e) {
         console.error('Failed to update service_requests status:', e);
       }
+    }
+
+    if (assignedTo) {
+      const assignedByNameStr = assignedByName || 'the system';
+      await sendNotification(
+        assignedTo,
+        'New Task Assigned',
+        `You have been assigned a new task "${taskTitle}" by ${assignedByNameStr}.`,
+        '/employee-dashboard/tasks'
+      );
     }
 
     return NextResponse.json({

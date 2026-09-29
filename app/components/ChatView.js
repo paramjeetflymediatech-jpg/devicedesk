@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import { io } from "socket.io-client";
-import { FiPaperclip, FiCamera, FiMic, FiSend, FiMessageSquare, FiUsers, FiBriefcase, FiDownload, FiFile, FiCornerUpRight, FiX, FiMoreVertical, FiPlay, FiPause , FiMapPin , FiTrash2 , FiInfo, FiFolder, FiImage, FiLink, FiArrowLeft, FiEdit2 } from "react-icons/fi";
+import EmojiPicker from 'emoji-picker-react';
+import { FiPaperclip, FiCamera, FiMic, FiSend, FiMessageSquare, FiUsers, FiBriefcase, FiDownload, FiFile, FiCornerUpRight, FiX, FiMoreVertical, FiPlay, FiPause , FiMapPin , FiTrash2 , FiInfo, FiFolder, FiImage, FiLink, FiArrowLeft, FiEdit2, FiSmile } from "react-icons/fi";
 
 export default function ChatView({ user }) {
   const [employees, setEmployees] = useState([]);
@@ -14,15 +15,21 @@ export default function ChatView({ user }) {
   const [activeChatId, setActiveChatId] = useState("general"); // 'general', 'dept_DepartmentName', group ID, or employee ID
   const [messageText, setMessageText] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [gifSearchQuery, setGifSearchQuery] = useState("");
+  const [gifs, setGifs] = useState([]);
 
   // Socket.io states
   const [onlineUsersList, setOnlineUsersList] = useState([]);
   const [lastSeenMap, setLastSeenMap] = useState({});
   const socketRef = useRef(null);
+  const pickerContainerRef = useRef(null);
 
   // Right Sidebar: Details & Media States
   const [showDetailsPanel, setShowDetailsPanel] = useState(false);
   const [previewMediaUrl, setPreviewMediaUrl] = useState(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
   const [mediaFilter, setMediaFilter] = useState("all");
   const [authorizedMarketingIds, setAuthorizedMarketingIds] = useState([]);
 
@@ -92,6 +99,56 @@ export default function ChatView({ user }) {
   // Unread Tracking States
   const [unreadCounts, setUnreadCounts] = useState({});
   const lastReadTimestamps = useRef({});
+
+  // Fetch GIFs when Gif Picker is open
+  useEffect(() => {
+    if (!showGifPicker) return;
+    const fetchGifs = async () => {
+      try {
+        const apiKey = process.env.NEXT_PUBLIC_GIPHY_API_KEY || "YOUR_GIPHY_KEY";
+        const url = gifSearchQuery 
+          ? `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(gifSearchQuery)}&limit=24`
+          : `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=24`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.data && data.data.length > 0) {
+          setGifs(data.data.map(g => g.images.fixed_height.url));
+        } else {
+          // Fallback demo GIFs if API key fails or no results
+          setGifs([
+            "https://media.giphy.com/media/xT0GqssRweIhlz209i/giphy.gif",
+            "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif",
+            "https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif",
+            "https://media.giphy.com/media/26AHONQ79FdWZhAIw/giphy.gif",
+            "https://media.giphy.com/media/d3mlE7uhX8KFgEmY/giphy.gif",
+            "https://media.giphy.com/media/11ISwbgCxEzMyY/giphy.gif"
+          ]);
+        }
+      } catch (e) {
+        setGifs([
+          "https://media.giphy.com/media/xT0GqssRweIhlz209i/giphy.gif",
+          "https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif"
+        ]);
+      }
+    };
+    const t = setTimeout(fetchGifs, 400);
+    return () => clearTimeout(t);
+  }, [showGifPicker, gifSearchQuery]);
+
+  // Close Pickers when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (pickerContainerRef.current && !pickerContainerRef.current.contains(event.target)) {
+        setShowEmojiPicker(false);
+        setShowGifPicker(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Request notification permission and load read timestamps on mount
   useEffect(() => {
@@ -284,7 +341,7 @@ export default function ChatView({ user }) {
 
       const isOwnMsg = String(message.senderId).toLowerCase() === String(user.id).toLowerCase();
       if (!isOwnMsg) {
-        playNotificationChime();
+        playNotificationSound();
         showDesktopNotification(message);
       }
     });
@@ -464,7 +521,7 @@ export default function ChatView({ user }) {
     }
   };
 
-  // 2. Sending Messages
+  // Sending Messages
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
     if (!messageText.trim()) return;
@@ -500,6 +557,40 @@ export default function ChatView({ user }) {
     } catch (err) {
       console.error("Send message error:", err);
       Swal.fire("Error", "Network error. Failed to send message.", "error");
+    }
+  };
+
+  const handleSendGif = async (gifUrl) => {
+    setShowGifPicker(false);
+    setGifSearchQuery("");
+    const payload = {
+      receiverId: activeChatId,
+      messageType: "image",
+      content: "Sent a GIF",
+      fileUrl: gifUrl,
+      fileName: "gif.gif",
+      fileSize: "0 Bytes"
+    };
+
+    try {
+      const chatRes = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (chatRes.ok) {
+        const data = await chatRes.json();
+        if (data.success && data.message) {
+          socketRef.current?.emit("send-message", data.message);
+          setMessages(prev => {
+            if (prev.some(m => m.id === data.message.id)) return prev;
+            return [...prev, data.message];
+          });
+        }
+        fetchChatHistory();
+      }
+    } catch (err) {
+      console.error("Send GIF error:", err);
     }
   };
 
@@ -1268,6 +1359,37 @@ export default function ChatView({ user }) {
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Show preview modal before sending
+    const isImage = file.type.startsWith('image/');
+    const previewUrl = isImage ? URL.createObjectURL(file) : null;
+    const fileIcon = isImage ? '' : '📄';
+
+    const result = await Swal.fire({
+      title: 'Send Attachment?',
+      html: `
+        <div style="display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:10px;">
+          ${isImage ? `<img src="${previewUrl}" style="max-width: 100%; max-height: 250px; border-radius: 8px; border: 1px solid var(--glass-border);"/>` : `<div style="font-size: 3rem;">${fileIcon}</div>`}
+          <p style="margin: 0; font-weight: 500; word-break: break-all;">${file.name}</p>
+          <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary);">${formatBytes(file.size)}</p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Send File',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: 'var(--accent-cyan)',
+      background: '#161b22',
+      color: '#f0f6fc',
+      didClose: () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+      }
+    });
+
+    if (!result.isConfirmed) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setUploading(true);
 
     try {
@@ -1334,8 +1456,29 @@ export default function ChatView({ user }) {
     }
   };
 
-  const triggerFileSelect = () => {
-    fileInputRef.current?.click();
+  const triggerFileSelect = async () => {
+    const choice = await Swal.fire({
+      title: 'Attach File',
+      text: 'Where would you like to attach the file from?',
+      icon: 'question',
+      showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: 'Upload from this Device',
+      denyButtonText: 'Attach Cloud Files',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: 'var(--accent-cyan)',
+      denyButtonColor: '#8a2be2', // Purple for cloud
+      background: '#161b22',
+      color: '#f0f6fc'
+    });
+
+    if (choice.isConfirmed) {
+      // Trigger native file picker
+      fileInputRef.current?.click();
+    } else if (choice.isDenied) {
+      // Logic for Cloud files picker
+      Swal.fire('Cloud Files', 'Cloud files integration coming soon!', 'info');
+    }
   };
 
   // Helpers
@@ -2224,7 +2367,7 @@ export default function ChatView({ user }) {
                               width: "8px",
                               height: "8px",
                               borderRadius: "50%",
-                              background: onlineUsersList.includes(String(emp.id).toLowerCase()) ? "var(--status-success)" : "rgba(255, 255, 255, 0.25)",
+                              background: onlineUsersList.includes(String(emp.id).toLowerCase()) ? "#10b981" : "#fbbf24", // Green for online, Yellow for offline
                               display: "inline-block"
                             }}
                             title={onlineUsersList.includes(String(emp.id).toLowerCase()) ? "Online" : formatLastSeen(lastSeenMap[String(emp.id).toLowerCase()])}
@@ -3184,26 +3327,134 @@ export default function ChatView({ user }) {
                 </button>
               </div>
 
-              {/* Input field */}
-              <input
-                type="text"
-                placeholder={isRecording ? "Finish recording to send..." : "Type a message..."}
-                value={messageText}
-                disabled={isRecording || uploading}
-                onChange={(e) => setMessageText(e.target.value)}
-                style={{
-                  flexGrow: 1,
-                  padding: "12px 16px",
-                  borderRadius: "10px",
-                  background: "var(--bg-tertiary)",
-                  border: "1px solid var(--glass-border)",
-                  color: "var(--text-primary)",
-                  outline: "none",
-                  fontSize: "0.85rem",
-                  fontFamily: "var(--font-main)",
-                  minWidth: 0
-                }}
-              />
+              {/* Input field with Emoji Picker */}
+              <div ref={pickerContainerRef} style={{ position: "relative", flexGrow: 1, display: "flex", alignItems: "center" }}>
+                <input
+                  type="text"
+                  placeholder={isRecording ? "Finish recording to send..." : "Type a message..."}
+                  value={messageText}
+                  disabled={isRecording || uploading}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  onFocus={() => { setShowEmojiPicker(false); setShowGifPicker(false); }}
+                  style={{
+                    width: "100%",
+                    padding: "12px 45px 12px 16px",
+                    borderRadius: "10px",
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--glass-border)",
+                    color: "var(--text-primary)",
+                    outline: "none",
+                    fontSize: "0.85rem",
+                    fontFamily: "var(--font-main)",
+                  }}
+                />
+                
+                <button
+                  type="button"
+                  onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowGifPicker(false); }}
+                  style={{
+                    position: "absolute",
+                    right: "48px",
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "1.2rem",
+                    transition: "color 0.2s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = "var(--text-primary)"}
+                  onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-secondary)"}
+                >
+                  <FiSmile />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setShowGifPicker(!showGifPicker); setShowEmojiPicker(false); }}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "0.85rem",
+                    fontWeight: "bold",
+                    padding: "4px 6px",
+                    borderRadius: "4px",
+                    background: "rgba(255,255,255,0.05)",
+                    transition: "color 0.2s, background 0.2s"
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text-primary)"; e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-secondary)"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+                >
+                  GIF
+                </button>
+
+                {showEmojiPicker && (
+                  <div style={{ position: "absolute", bottom: "100%", right: "30px", marginBottom: "10px", zIndex: 100 }}>
+                    <EmojiPicker 
+                      theme="light" 
+                      onEmojiClick={(emojiData) => {
+                        setMessageText(prev => prev + emojiData.emoji);
+                        setShowEmojiPicker(false);
+                      }} 
+                    />
+                  </div>
+                )}
+
+                {showGifPicker && (
+                  <div style={{ 
+                    position: "absolute", 
+                    bottom: "100%", 
+                    right: 0, 
+                    marginBottom: "10px", 
+                    zIndex: 100,
+                    width: "300px",
+                    height: "400px",
+                    background: "#ffffff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "10px",
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
+                  }}>
+                    <input 
+                      type="text" 
+                      placeholder="Search GIFs... (Requires Giphy API Key in .env)" 
+                      value={gifSearchQuery}
+                      onChange={(e) => setGifSearchQuery(e.target.value)}
+                      style={{
+                        padding: "12px",
+                        background: "#f8fafc",
+                        border: "none",
+                        borderBottom: "1px solid #e2e8f0",
+                        color: "#334155",
+                        outline: "none",
+                        fontSize: "0.85rem"
+                      }}
+                    />
+                    <div style={{ flex: 1, overflowY: "auto", padding: "8px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", background: "#ffffff" }}>
+                      {gifs.map((url, i) => (
+                        <img 
+                          key={i} 
+                          src={url} 
+                          alt="gif" 
+                          style={{ width: "100%", height: "100px", objectFit: "cover", cursor: "pointer", borderRadius: "6px", border: "1px solid #f1f5f9" }} 
+                          onClick={() => handleSendGif(url)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Send Message Button */}
               <button
@@ -3489,8 +3740,8 @@ export default function ChatView({ user }) {
                           </div>
                         )}
                         <h5 style={{ margin: "0 0 4px 0", fontSize: "0.95rem", fontWeight: "700" }}>{emp?.name}</h5>
-                        <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: "600", marginBottom: "0.75rem", color: onlineUsersList.includes(String(emp?.id).toLowerCase()) ? "var(--status-success)" : "var(--text-secondary)" }}>
-                          {onlineUsersList.includes(String(emp?.id).toLowerCase()) ? "🟢 Online" : `⚪ ${formatLastSeen(lastSeenMap[String(emp?.id).toLowerCase()])}`}
+                        <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: "600", marginBottom: "0.75rem", color: onlineUsersList.includes(String(emp?.id).toLowerCase()) ? "#10b981" : "#fbbf24" }}>
+                          {onlineUsersList.includes(String(emp?.id).toLowerCase()) ? "🟢 Online" : `🟡 ${formatLastSeen(lastSeenMap[String(emp?.id).toLowerCase()])}`}
                         </p>
                         
                         <div style={{ width: "100%", textAlign: "left", display: "flex", flexDirection: "column", gap: "6px", fontSize: "0.75rem" }}>
@@ -4370,7 +4621,7 @@ export default function ChatView({ user }) {
             justifyContent: "center",
             padding: "20px"
           }}
-          onClick={() => setPreviewMediaUrl(null)}
+          onClick={() => { setPreviewMediaUrl(null); setPreviewZoom(1); }}
         >
           {/* Top Control Bar */}
           <div 
@@ -4385,6 +4636,27 @@ export default function ChatView({ user }) {
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/\.(jpeg|jpg|gif|png|webp|svg)$/i.test(previewMediaUrl) && (
+              <div style={{ display: "flex", gap: "6px", background: "rgba(255,255,255,0.15)", borderRadius: "8px", padding: "4px", border: "1px solid rgba(255,255,255,0.2)" }}>
+                <button
+                  onClick={() => setPreviewZoom(prev => Math.max(0.5, prev - 0.25))}
+                  title="Zoom Out"
+                  style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", padding: "6px 12px", fontSize: "1.2rem", fontWeight: "bold" }}
+                >
+                  -
+                </button>
+                <span style={{ color: "#fff", padding: "6px 8px", fontSize: "0.85rem", fontWeight: "bold", display: "flex", alignItems: "center", minWidth: "45px", justifyContent: "center" }}>
+                  {Math.round(previewZoom * 100)}%
+                </span>
+                <button
+                  onClick={() => setPreviewZoom(prev => Math.min(4, prev + 0.25))}
+                  title="Zoom In"
+                  style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", padding: "6px 12px", fontSize: "1.2rem", fontWeight: "bold" }}
+                >
+                  +
+                </button>
+              </div>
+            )}
             <a 
               href={previewMediaUrl} 
               download
@@ -4406,7 +4678,7 @@ export default function ChatView({ user }) {
               <FiDownload /> Download File
             </a>
             <button
-              onClick={() => setPreviewMediaUrl(null)}
+              onClick={() => { setPreviewMediaUrl(null); setPreviewZoom(1); }}
               style={{
                 background: "rgba(255, 255, 255, 0.2)",
                 border: "1px solid rgba(255, 255, 255, 0.3)",
@@ -4430,12 +4702,14 @@ export default function ChatView({ user }) {
           {/* Media Content Display */}
           <div 
             style={{
-              maxWidth: "92vw",
-              maxHeight: "88vh",
+              maxWidth: "100vw",
+              maxHeight: "100vh",
+              width: "100%",
+              height: "100%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              overflow: "hidden"
+              overflow: "auto"
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -4445,7 +4719,7 @@ export default function ChatView({ user }) {
                 controls 
                 autoPlay
                 style={{
-                  maxWidth: "100%",
+                  maxWidth: "92vw",
                   maxHeight: "85vh",
                   borderRadius: "12px",
                                     outline: "none"
@@ -4456,10 +4730,13 @@ export default function ChatView({ user }) {
                 src={previewMediaUrl} 
                 alt="Media Preview" 
                 style={{
-                  maxWidth: "100%",
-                  maxHeight: "85vh",
+                  maxWidth: previewZoom > 1 ? "none" : "92vw",
+                  maxHeight: previewZoom > 1 ? "none" : "85vh",
+                  width: previewZoom > 1 ? `${92 * previewZoom}vw` : "auto",
+                  height: previewZoom > 1 ? `${85 * previewZoom}vh` : "auto",
                   objectFit: "contain",
-                  borderRadius: "12px",
+                  borderRadius: previewZoom > 1 ? "0px" : "12px",
+                  transition: "width 0.2s, height 0.2s, max-width 0.2s, max-height 0.2s",
                                   }} 
               />
             ) : /\.pdf$/i.test(previewMediaUrl) ? (

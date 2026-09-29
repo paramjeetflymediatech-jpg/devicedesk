@@ -8,6 +8,7 @@ import { useAuth } from "../auth/AuthContext";
 import { getEmployees, isSoundEnabled } from "../store";
 import ThemeToggle from "../components/ThemeToggle.js";
 import Logo from "../components/Logo.js";
+import NotificationBadge from "../components/NotificationBadge.js";
 import TabScreenshotLogger from "../components/TabScreenshotLogger.js";
 import {
   FiGrid,
@@ -439,6 +440,7 @@ export default function EmployeeLayout({ children }) {
             <div className="desktop-only">
               <ThemeToggle />
             </div>
+            <NotificationBadge />
             {/* Clickable User Capsule & Dropdown */}
             <div style={{ position: "relative" }}>
               <div

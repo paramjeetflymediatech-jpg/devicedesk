@@ -798,6 +798,32 @@ async function initializeDatabase(db) {
   try { await db.execute(`ALTER TABLE eod_reports ADD COLUMN submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (e) {}
   try { await db.execute(`ALTER TABLE eod_reports ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (e) {}
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id VARCHAR(100) PRIMARY KEY,
+      user_id VARCHAR(50) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      message TEXT NOT NULL,
+      is_read INT DEFAULT 0,
+      link VARCHAR(512) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_notif_user (user_id),
+      INDEX idx_notif_read (is_read)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id VARCHAR(100) PRIMARY KEY,
+      user_id VARCHAR(50) NOT NULL,
+      endpoint TEXT NOT NULL,
+      keys_p256dh TEXT NOT NULL,
+      keys_auth TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_push_user (user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   // Ensure standard test/operational accounts (emp_tl, admin) exist and are Active
   try {
     const pepper = process.env.PASSWORD_PEPPER || 'devicedesk_secure_pepper_key_2026';
