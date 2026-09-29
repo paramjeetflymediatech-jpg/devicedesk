@@ -21,9 +21,9 @@ export function getPool() {
   return global.mysqlPool;
 }
 
-export async function getDbConnection() {
-  const db = getPool();
+let initPromise = null;
 
+async function initializeDatabase(db) {
   // Create tables if they don't exist
   await db.execute(`
     CREATE TABLE IF NOT EXISTS employees (
@@ -546,7 +546,15 @@ export async function getDbConnection() {
   `);
 
   try {
+    await db.execute(`ALTER TABLE work_submissions ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  } catch (err) {}
+
+  try {
     await db.execute(`ALTER TABLE work_submissions ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`);
+  } catch (err) {}
+
+  try {
+    await db.execute(`ALTER TABLE work_submission_history ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
   } catch (err) {}
 
   await db.execute(`
@@ -912,6 +920,18 @@ export async function getDbConnection() {
     // Mark as seeded so it never auto-seeds again
     await db.execute("INSERT INTO db_meta (meta_key, meta_value) VALUES ('seeded', 'true') ON DUPLICATE KEY UPDATE meta_value='true'");
   }
+}
 
+export async function getDbConnection() {
+  const db = getPool();
+  if (!initPromise) {
+    initPromise = initializeDatabase(db).catch(err => {
+      console.error('Database initialization failed:', err);
+      initPromise = null;
+      throw err;
+    });
+  }
+  await initPromise;
   return db;
 }
+

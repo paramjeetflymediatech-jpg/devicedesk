@@ -311,7 +311,9 @@ export const WorkSubmission = sequelize.define('WorkSubmission', {
   submitted_by: { type: DataTypes.STRING(50), allowNull: false },
   status: { type: DataTypes.STRING(50), defaultValue: 'Draft' },
   description: { type: DataTypes.TEXT },
-  file_url: { type: DataTypes.TEXT, allowNull: true }
+  file_url: { type: DataTypes.TEXT, allowNull: true },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
 }, { tableName: 'work_submissions', timestamps: false });
 
 export const WorkSubmissionHistory = sequelize.define('WorkSubmissionHistory', {
@@ -320,7 +322,8 @@ export const WorkSubmissionHistory = sequelize.define('WorkSubmissionHistory', {
   changed_by: { type: DataTypes.STRING(50), allowNull: false },
   old_status: { type: DataTypes.STRING(50) },
   new_status: { type: DataTypes.STRING(50) },
-  comment: { type: DataTypes.TEXT }
+  comment: { type: DataTypes.TEXT },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
 }, { tableName: 'work_submission_history', timestamps: false });
 
 export const ClientDetail = sequelize.define('ClientDetail', {
