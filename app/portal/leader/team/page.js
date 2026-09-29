@@ -4,7 +4,10 @@ import { FiUsers, FiClock, FiCheck, FiSend, FiSearch, FiX } from 'react-icons/fi
 import Swal from 'sweetalert2';
 import Pagination from '../../../components/Pagination';
 
+import { useAuth } from '../../../auth/AuthContext';
+
 export default function TeamAndEODsPage() {
+  const { user } = useAuth();
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -17,6 +20,7 @@ export default function TeamAndEODsPage() {
   const [newTaskDesc, setNewTaskDesc] = useState("");
 
   const fetchData = async () => {
+    if (!user?.id) return;
     try {
       setLoading(true);
       const [resEmp, resTasks, resEod] = await Promise.all([
@@ -29,7 +33,10 @@ export default function TeamAndEODsPage() {
       const dataEod = await resEod.json();
       
       if (dataEmp.success) {
-        const members = (dataEmp.data || []).filter(emp => emp.role === 'Team Member' || emp.role === 'Employee');
+        const members = (dataEmp.data || []).filter(emp => 
+          (emp.role === 'Team Member' || emp.role === 'Employee' || emp.role === 'team member') &&
+          emp.tl_id === user.id
+        );
         const tasksList = dataTasks.success ? dataTasks.data : (dataTasks.tasks || []);
         const eodList = dataEod.success ? dataEod.data : [];
         
@@ -60,7 +67,7 @@ export default function TeamAndEODsPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [user?.id]);
 
   const handleAssignClick = (emp) => {
     setSelectedEmp(emp);

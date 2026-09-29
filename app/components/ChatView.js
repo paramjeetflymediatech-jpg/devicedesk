@@ -207,8 +207,11 @@ export default function ChatView({ user }) {
       if (isRoomActive) return;
 
       // Check if message is newer than last read timestamp
-      const lastRead = lastReadTimestamps.current[roomKey] || "1970-01-01T00:00:00.000Z";
-      if (msg.timestamp > lastRead) {
+      const lastReadStr = lastReadTimestamps.current[roomKey] || "1970-01-01T00:00:00.000Z";
+      const msgTime = new Date(msg.timestamp).getTime();
+      const lastReadTime = new Date(lastReadStr).getTime();
+      
+      if (msgTime > lastReadTime) {
         counts[roomKey] = (counts[roomKey] || 0) + 1;
       }
     });
