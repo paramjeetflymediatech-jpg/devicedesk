@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
+import { sendNotification } from '../../utils/notificationsHelper.js';
 
 export async function GET(request) {
   try {
@@ -44,6 +45,24 @@ export async function POST(request) {
       [id, clientId, service_type, requirements, now]
     );
 
+    // Notify Management (Admins & Management)
+    try {
+      const [admins] = await db.query(`SELECT id FROM employees WHERE role IN ('Admin', 'Management')`);
+      const [clientData] = await db.query(`SELECT name FROM employees WHERE id = ?`, [clientId]);
+      const clientName = clientData.length > 0 ? clientData[0].name : 'A client';
+
+      for (const admin of admins) {
+        await sendNotification(
+          admin.id,
+          'New Client Service Request',
+          `${clientName} has booked a new service request for ${service_type}.`,
+          '/admin/client-requests'
+        );
+      }
+    } catch (notifyErr) {
+      console.error('Failed to notify admins of new client request:', notifyErr);
+    }
+
     return NextResponse.json({ success: true, id });
   } catch (err) {
     console.error('Add Service Request Error:', err);
@@ -63,6 +82,14 @@ export async function PUT(request) {
     // Update assigned_tl_id if provided
     if (assigned_tl_id !== undefined) {
       await db.query(`UPDATE service_requests SET assigned_tl_id = ? WHERE id = ?`, [assigned_tl_id || null, id]);
+      if (assigned_tl_id) {
+        await sendNotification(
+          assigned_tl_id,
+          'New Client Request',
+          'A new client requirement has been assigned to you.',
+          '/portal/leader/client-requests'
+        );
+      }
       return NextResponse.json({ success: true });
     }
 

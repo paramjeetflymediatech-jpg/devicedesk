@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { getEmployees, getTickets } from "../store";
 import ThemeToggle from "../components/ThemeToggle.js";
 import Logo from "../components/Logo.js";
+import NotificationBadge from "../components/NotificationBadge.js";
 import {
   FiGrid,
   FiServer,
@@ -455,6 +456,7 @@ export default function AdminLayout({ children }) {
             <div className="desktop-only">
               <ThemeToggle />
             </div>
+            <NotificationBadge />
             {/* Clickable User Capsule & Dropdown */}
             <div style={{ position: "relative" }}>
               <div

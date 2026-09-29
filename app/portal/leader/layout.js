@@ -4,15 +4,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../../auth/AuthContext.js';
 import { FiActivity, FiCheckSquare, FiUsers, FiMessageSquare, FiUser, FiMenu, FiX, FiBriefcase, FiLogOut } from 'react-icons/fi';
+import NotificationBadge from '../../components/NotificationBadge.js';
 
 export default function LeaderLayout({ children }) {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname() || '';
+  const [mounted, setMounted] = useState(false);
   
   const [requestsCount, setRequestsCount] = useState(0);
 
   useEffect(() => {
+    setMounted(true);
     async function fetchRequests() {
       try {
         const resReq = await fetch('/api/client-services/requests');
@@ -126,13 +129,18 @@ export default function LeaderLayout({ children }) {
             </h1>
           </div>
           <div className="flex items-center space-x-4">
-             <div className="hidden md:block text-right">
-               <p className="text-sm font-semibold text-slate-900">{user?.name || 'Team Leader'}</p>
-               <p className="text-xs text-slate-400">{user?.department || 'Lead'}</p>
-             </div>
-             <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-sm">
-               {user?.name ? user.name.slice(0, 2).toUpperCase() : 'TL'}
-             </div>
+             {mounted && (
+               <>
+                 <div className="hidden md:block text-right">
+                   <p className="text-sm font-semibold text-slate-900">{user?.name || 'Team Leader'}</p>
+                   <p className="text-xs text-slate-400">{user?.department || 'Lead'}</p>
+                 </div>
+                 <NotificationBadge />
+                 <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-sm">
+                   {user?.name ? user.name.slice(0, 2).toUpperCase() : 'TL'}
+                 </div>
+               </>
+             )}
              <button 
                onClick={handleSignOut}
                title="Sign Out"
