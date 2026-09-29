@@ -183,7 +183,7 @@ export default function ChatView({ user }) {
       if (!activeChatId.startsWith('group_') && !activeChatId.startsWith('dept_') && activeChatId !== 'general') {
         const readerId = String(user?.id).toLowerCase();
         const senderId = String(activeChatId).toLowerCase();
-        socket?.emit('messages-read', { readerId, senderId });
+        socketRef.current?.emit('messages-read', { readerId, senderId });
         
         // Save to DB
         fetch('/api/chat', {
