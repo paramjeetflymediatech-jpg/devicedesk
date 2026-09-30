@@ -10,15 +10,17 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
-  Alert,
   Image,
   Switch,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
 import {
   fetchClientPackagesApi,
+  fetchPackagesApi,
+  purchasePackageApi,
   fetchClientRequestsApi,
   createClientRequestApi,
   fetchClientSeoReportsApi,
@@ -33,18 +35,21 @@ import {
 } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
 
+const { width } = Dimensions.get('window');
+
 export default function ClientDashboard({ user, onLogout }) {
   const { isDark, toggleTheme, themeColors } = useTheme();
   const styles = getStyles(themeColors, isDark);
 
-  const [activeTab, setActiveTab] = useState('overview'); // overview, requests, marketing, billing, notes, profile
-  const [marketingSubTab, setMarketingSubTab] = useState('seo'); // seo, smo, ads
+  // Navigation tabs: 'overview', 'packages', 'requests', 'seo', 'smo', 'ads', 'billing', 'notes', 'profile'
+  const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Client Data States
-  const [packages, setPackages] = useState([]);
+  const [activePackages, setActivePackages] = useState([]);
+  const [allPackages, setAllPackages] = useState([]);
   const [requests, setRequests] = useState([]);
   const [seoReports, setSeoReports] = useState([]);
   const [smoRequests, setSmoRequests] = useState([]);
@@ -52,6 +57,11 @@ export default function ClientDashboard({ user, onLogout }) {
   const [invoices, setInvoices] = useState([]);
   const [notes, setNotes] = useState([]);
   const [clientDetails, setClientDetails] = useState(null);
+
+  // Package Card Expanders
+  const [expandedPkgs, setExpandedPkgs] = useState({});
+  const [expandedFeatures, setExpandedFeatures] = useState({});
+  const [purchasingPkgId, setPurchasingPkgId] = useState(null);
 
   // Modals & Form States
   const [showBookServiceModal, setShowBookServiceModal] = useState(false);
@@ -83,58 +93,66 @@ export default function ClientDashboard({ user, onLogout }) {
   const loadAllData = useCallback(async () => {
     if (!clientId) return;
     try {
-      // 1. Packages
-      fetchClientPackagesApi(clientId)
-        .then(res => res.success && setPackages(res.data || []))
-        .catch(() => {});
+      setLoading(true);
 
-      // 2. Service Requests
-      fetchClientRequestsApi(clientId)
-        .then(res => res.success && setRequests(res.data || []))
-        .catch(() => {});
+      const [
+        myPkgsRes,
+        allPkgsRes,
+        reqsRes,
+        seoRes,
+        smoRes,
+        adsRes,
+        invsRes,
+        notesRes,
+        detailsRes,
+      ] = await Promise.all([
+        fetchClientPackagesApi(clientId).catch(() => ({ data: [] })),
+        fetchPackagesApi(clientId).catch(() => ({ packages: [] })),
+        fetchClientRequestsApi(clientId).catch(() => ({ data: [] })),
+        fetchClientSeoReportsApi(clientId).catch(() => ({ data: [] })),
+        fetchClientSmoGraphicsApi(clientId).catch(() => ({ data: [] })),
+        fetchClientAdsApi(clientId).catch(() => ({ data: [] })),
+        fetchClientInvoicesApi(clientId).catch(() => ({ invoices: [] })),
+        fetchClientNotesApi(clientId).catch(() => ({ notes: [] })),
+        fetchClientDetailsApi(clientId).catch(() => ({ data: null })),
+      ]);
 
-      // 3. SEO Reports
-      fetchClientSeoReportsApi(clientId)
-        .then(res => res.success && setSeoReports(res.data || []))
-        .catch(() => {});
-
-      // 4. SMO Graphics
-      fetchClientSmoGraphicsApi(clientId)
-        .then(res => res.success && setSmoRequests(res.data || []))
-        .catch(() => {});
-
-      // 5. Ads
-      fetchClientAdsApi(clientId)
-        .then(res => res.success && setAdsCampaigns(res.data || []))
-        .catch(() => {});
-
-      // 6. Invoices
-      fetchClientInvoicesApi(clientId)
-        .then(res => res.success && setInvoices(res.invoices || []))
-        .catch(() => {});
-
-      // 7. Notes
-      fetchClientNotesApi(clientId)
-        .then(res => res.success && setNotes(res.notes || []))
-        .catch(() => {});
-
-      // 8. Client Details
-      fetchClientDetailsApi(clientId)
-        .then(res => {
-          if (res.success && res.data) {
-            setClientDetails(res.data);
-            setProfileForm({
-              company_name: res.data.company_name || '',
-              phone: res.data.phone || '',
-              whatsapp: res.data.whatsapp || '',
-              address: res.data.address || '',
-              gst_number: res.data.gst_number || '',
-              website_url: res.data.website_url || '',
-              primary_service: res.data.primary_service || '',
-            });
-          }
-        })
-        .catch(() => {});
+      if (myPkgsRes && myPkgsRes.success) {
+        setActivePackages(myPkgsRes.data || []);
+      }
+      if (allPkgsRes && allPkgsRes.success) {
+        setAllPackages(allPkgsRes.packages || []);
+      }
+      if (reqsRes && reqsRes.success) {
+        setRequests(reqsRes.data || []);
+      }
+      if (seoRes && seoRes.success) {
+        setSeoReports(seoRes.data || []);
+      }
+      if (smoRes && smoRes.success) {
+        setSmoRequests(smoRes.data || []);
+      }
+      if (adsRes && adsRes.success) {
+        setAdsCampaigns(adsRes.data || []);
+      }
+      if (invsRes && invsRes.success) {
+        setInvoices(invsRes.invoices || invsRes.data || []);
+      }
+      if (notesRes && notesRes.success) {
+        setNotes(notesRes.notes || notesRes.data || []);
+      }
+      if (detailsRes && detailsRes.success && detailsRes.data) {
+        setClientDetails(detailsRes.data);
+        setProfileForm({
+          company_name: detailsRes.data.company_name || '',
+          phone: detailsRes.data.phone || '',
+          whatsapp: detailsRes.data.whatsapp || '',
+          address: detailsRes.data.address || '',
+          gst_number: detailsRes.data.gst_number || '',
+          website_url: detailsRes.data.website_url || '',
+          primary_service: detailsRes.data.primary_service || '',
+        });
+      }
     } catch (err) {
       console.error('Error loading client portal data:', err);
     } finally {
@@ -165,13 +183,13 @@ export default function ClientDashboard({ user, onLogout }) {
         service_type: serviceType,
         requirements: serviceReqs.trim(),
       });
-      if (res.success) {
+      if (res && res.success) {
         sweetAlert({ title: 'Service Request Sent! 🚀', text: 'Our team will review and contact you shortly.', type: 'success' });
         setShowBookServiceModal(false);
         setServiceReqs('');
         fetchClientRequestsApi(clientId).then(r => r.success && setRequests(r.data || []));
       } else {
-        throw new Error(res.error || 'Failed to submit request');
+        throw new Error(res?.error || 'Failed to submit request');
       }
     } catch (err) {
       sweetAlert({ title: 'Error', text: err.message || 'Could not submit request.', type: 'error' });
@@ -192,13 +210,13 @@ export default function ClientDashboard({ user, onLogout }) {
         client_id: clientId,
         requirements: smoRequirements.trim(),
       });
-      if (res.success) {
+      if (res && res.success) {
         sweetAlert({ title: 'Creative Request Sent! 🎨', text: 'Our design team has received your creative request.', type: 'success' });
         setShowSmoModal(false);
         setSmoRequirements('');
         fetchClientSmoGraphicsApi(clientId).then(r => r.success && setSmoRequests(r.data || []));
       } else {
-        throw new Error(res.error || 'Failed to submit SMO request');
+        throw new Error(res?.error || 'Failed to submit SMO request');
       }
     } catch (err) {
       sweetAlert({ title: 'Error', text: err.message || 'Could not submit request.', type: 'error' });
@@ -207,7 +225,45 @@ export default function ClientDashboard({ user, onLogout }) {
     }
   };
 
-  // 3. Submit Project Note
+  // 3. Purchase / Activate Package
+  const handleBuyPackage = (pkg) => {
+    sweetAlert({
+      title: 'Activate Subscription?',
+      text: `Subscribe to "${pkg.name}" for $${pkg.price} / ${pkg.billing_cycle || 'Monthly'}? An invoice statement will be generated.`,
+      type: 'info',
+      showCancel: true,
+      onConfirm: async () => {
+        setPurchasingPkgId(pkg.id);
+        try {
+          const res = await purchasePackageApi(clientId, pkg.id);
+          if (res && res.success) {
+            sweetAlert({
+              title: 'Package Activated! 🎉',
+              text: res.message || 'Your package subscription is now active.',
+              type: 'success',
+            });
+            loadAllData();
+          } else {
+            sweetAlert({
+              title: 'Error',
+              text: res?.error || 'Failed to activate package.',
+              type: 'error',
+            });
+          }
+        } catch (err) {
+          sweetAlert({
+            title: 'Error',
+            text: 'Network error processing package activation.',
+            type: 'error',
+          });
+        } finally {
+          setPurchasingPkgId(null);
+        }
+      },
+    });
+  };
+
+  // 4. Submit Project Note
   const handleSendNote = async () => {
     if (!noteInput.trim()) return;
     setSubmittingNote(true);
@@ -216,11 +272,11 @@ export default function ClientDashboard({ user, onLogout }) {
         client_id: clientId,
         note: noteInput.trim(),
       });
-      if (res.success) {
+      if (res && res.success) {
         setNoteInput('');
-        fetchClientNotesApi(clientId).then(r => r.success && setNotes(r.notes || []));
+        fetchClientNotesApi(clientId).then(r => r.success && setNotes(r.notes || r.data || []));
       } else {
-        throw new Error(res.error || 'Failed to send note');
+        throw new Error(res?.error || 'Failed to send note');
       }
     } catch (err) {
       sweetAlert({ title: 'Error', text: err.message || 'Could not send message.', type: 'error' });
@@ -229,7 +285,7 @@ export default function ClientDashboard({ user, onLogout }) {
     }
   };
 
-  // 4. Save Profile Form
+  // 5. Save Profile Form
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     try {
@@ -237,12 +293,12 @@ export default function ClientDashboard({ user, onLogout }) {
         client_id: clientId,
         ...profileForm,
       });
-      if (res.success) {
+      if (res && res.success) {
         sweetAlert({ title: 'Profile Updated! ✅', text: 'Company details saved successfully.', type: 'success' });
         setShowEditProfileModal(false);
         loadAllData();
       } else {
-        throw new Error(res.error || 'Failed to update profile');
+        throw new Error(res?.error || 'Failed to update profile');
       }
     } catch (err) {
       sweetAlert({ title: 'Error', text: err.message || 'Could not save profile.', type: 'error' });
@@ -259,16 +315,29 @@ export default function ClientDashboard({ user, onLogout }) {
     if (s === 'in progress' || s === 'under review') {
       return { bg: '#d9770622', text: '#f59e0b', border: '#d97706' };
     }
-    if (s === 'rejected' || s === 'overdue') {
+    if (s === 'rejected' || s === 'overdue' || s === 'expired') {
       return { bg: '#dc262622', text: '#ef4444', border: '#dc2626' };
     }
     return { bg: '#3b82f622', text: '#3b82f6', border: '#3b82f6' };
   };
 
-  // Calculation for Overview Metrics
-  const totalInvoicesAmount = invoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
-  const pendingInvoices = invoices.filter(inv => (inv.status || '').toLowerCase() === 'pending');
-  const pendingRequests = requests.filter(req => (req.status || '').toLowerCase() === 'pending');
+  // Metrics for Overview
+  const totalAdBudget = adsCampaigns.reduce((acc, ad) => acc + parseFloat(ad.total_budget || 0), 0);
+  const totalAdSpent = adsCampaigns.reduce((acc, ad) => acc + parseFloat(ad.spent_amount || 0), 0);
+  const pendingRequestsCount = requests.filter(r => (r.status || '').toLowerCase() === 'pending').length;
+  const latestSEO = seoReports.length > 0 ? seoReports[0] : null;
+
+  const navMenuItems = [
+    { id: 'overview', label: 'Dashboard Overview', icon: 'grid' },
+    { id: 'packages', label: 'Subscription Packages', icon: 'box' },
+    { id: 'requests', label: 'Book & Track Services', icon: 'tasks' },
+    { id: 'seo', label: 'SEO Reports', icon: 'file' },
+    { id: 'smo', label: 'SMO Graphics', icon: 'image' },
+    { id: 'ads', label: 'PAID Ads (PPC)', icon: 'dollar' },
+    { id: 'billing', label: 'Invoices & Billing', icon: 'ticket' },
+    { id: 'notes', label: 'Project Notes & TL Chat', icon: 'chat' },
+    { id: 'profile', label: 'Company Profile', icon: 'user' },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -283,22 +352,21 @@ export default function ClientDashboard({ user, onLogout }) {
             <AppIcon name="menu" size={22} color="#2563eb" />
           </TouchableOpacity>
           <View style={{ marginLeft: 10 }}>
-            <Image
-              source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
-              style={{ width: 130, height: 32 }}
-              resizeMode="contain"
-            />
-            <Text style={[styles.headerSub, { color: themeColors.textSecondary, fontSize: 10 }]}>
-              Client Experience Portal
+            <Text style={styles.headerTitle}>
+              {clientDetails?.company_name || user?.name || 'Client Portal'}
+            </Text>
+            <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>
+              {navMenuItems.find(m => m.id === activeTab)?.label || 'Client Experience Portal'}
             </Text>
           </View>
         </View>
+
         <TouchableOpacity
           style={styles.logoutBtn}
           onPress={() => {
             sweetAlert({
               title: 'Log Out',
-              text: 'Are you sure you want to log out of your client session?',
+              text: 'Are you sure you want to log out of your client portal?',
               type: 'warning',
               showCancel: true,
               onConfirm: onLogout,
@@ -309,12 +377,12 @@ export default function ClientDashboard({ user, onLogout }) {
         </TouchableOpacity>
       </View>
 
-      {/* Main Content Area */}
+      {/* Main Content View */}
       <View style={styles.content}>
         {loading ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color="#2563eb" />
-            <Text style={styles.loadingText}>Loading client portal...</Text>
+            <Text style={styles.loadingText}>Loading client dashboard...</Text>
           </View>
         ) : (
           <ScrollView
@@ -322,18 +390,20 @@ export default function ClientDashboard({ user, onLogout }) {
             contentContainerStyle={styles.scrollContent}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />}
           >
-            {/* TAB: OVERVIEW */}
+            {/* ======================================================== */}
+            {/* 1. TAB: OVERVIEW                                         */}
+            {/* ======================================================== */}
             {activeTab === 'overview' && (
               <View>
-                {/* Welcome Card */}
+                {/* Welcome Banner */}
                 <View style={styles.welcomeCard}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
                       <Text style={styles.welcomeTitle}>
-                        Welcome, {clientDetails?.company_name || user?.name || 'Valued Client'}!
+                        Welcome back, {clientDetails?.company_name || user?.name || 'Valued Client'}!
                       </Text>
                       <Text style={styles.welcomeSub}>
-                        Manage your active digital marketing packages, SEO rankings, and billing statements.
+                        Here's your live progress on digital campaigns, SEO rankings, and active deliverables.
                       </Text>
                     </View>
                     <View style={styles.avatarBubble}>
@@ -346,53 +416,127 @@ export default function ClientDashboard({ user, onLogout }) {
                   <TouchableOpacity
                     style={styles.bookServiceBtn}
                     onPress={() => setShowBookServiceModal(true)}
+                    activeOpacity={0.8}
                   >
-                    <Text style={styles.bookServiceBtnText}>+ Book New Service 🚀</Text>
+                    <Text style={styles.bookServiceBtnText}>+ Book a New Service 🚀</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Metrics Row */}
-                <View style={styles.metricsRow}>
-                  <View style={styles.metricCard}>
-                    <Text style={[styles.metricVal, { color: '#2563eb' }]}>{packages.length}</Text>
-                    <Text style={styles.metricLabel}>Active Packages</Text>
-                  </View>
+                {/* 4 Stat Cards */}
+                <View style={styles.metricsGrid}>
+                  <TouchableOpacity
+                    style={styles.metricCard}
+                    onPress={() => setActiveTab('packages')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.metricIconBox, { backgroundColor: '#2563eb22' }]}>
+                      <AppIcon name="box" size={18} color="#2563eb" />
+                    </View>
+                    <Text style={[styles.metricVal, { color: '#2563eb' }]}>{activePackages.length}</Text>
+                    <Text style={styles.metricLabel}>Active Subscriptions</Text>
+                  </TouchableOpacity>
 
-                  <View style={styles.metricCard}>
-                    <Text style={[styles.metricVal, { color: '#f59e0b' }]}>{pendingRequests.length}</Text>
+                  <TouchableOpacity
+                    style={styles.metricCard}
+                    onPress={() => setActiveTab('ads')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.metricIconBox, { backgroundColor: '#10b98122' }]}>
+                      <AppIcon name="dollar" size={18} color="#10b981" />
+                    </View>
+                    <Text style={[styles.metricVal, { color: '#10b981' }]}>
+                      ${totalAdSpent.toLocaleString()}
+                    </Text>
+                    <Text style={styles.metricLabel}>Total Ad Spend</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.metricCard}
+                    onPress={() => setActiveTab('requests')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.metricIconBox, { backgroundColor: '#f59e0b22' }]}>
+                      <AppIcon name="tasks" size={18} color="#f59e0b" />
+                    </View>
+                    <Text style={[styles.metricVal, { color: '#f59e0b' }]}>{pendingRequestsCount}</Text>
                     <Text style={styles.metricLabel}>Pending Requests</Text>
-                  </View>
+                  </TouchableOpacity>
 
-                  <View style={styles.metricCard}>
-                    <Text style={[styles.metricVal, { color: '#10b981' }]}>₹{totalInvoicesAmount.toLocaleString()}</Text>
-                    <Text style={styles.metricLabel}>Total Invoiced</Text>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.metricCard}
+                    onPress={() => setActiveTab('seo')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.metricIconBox, { backgroundColor: '#06b6d422' }]}>
+                      <AppIcon name="file" size={18} color="#06b6d4" />
+                    </View>
+                    <Text style={[styles.metricVal, { color: '#06b6d4', fontSize: 13 }]} numberOfLines={1}>
+                      {latestSEO ? `${latestSEO.month} ${latestSEO.year}` : 'N/A'}
+                    </Text>
+                    <Text style={styles.metricLabel}>Latest SEO Audit</Text>
+                  </TouchableOpacity>
                 </View>
 
-                {/* Quick Marketing Nav Cards */}
-                <Text style={styles.sectionHeading}>🎯 Digital Marketing Hub</Text>
+                {/* Active Packages Strip */}
+                {activePackages.length > 0 && (
+                  <View style={{ marginTop: 16 }}>
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.sectionHeading}>📦 Current Package Status</Text>
+                      <TouchableOpacity onPress={() => setActiveTab('packages')}>
+                        <Text style={styles.seeAllLink}>View All &rarr;</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {activePackages.map((pkg) => (
+                      <View key={pkg.override_id || pkg.package_id || pkg.id} style={styles.packageCard}>
+                        <View style={styles.pkgHeader}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.pkgName}>{pkg.name}</Text>
+                            <Text style={styles.pkgCycle}>{pkg.billing_cycle || 'Monthly'} Plan</Text>
+                          </View>
+                          <View style={[styles.statusPill, pkg.is_expired ? styles.statusInactive : styles.statusActive]}>
+                            <Text style={[styles.statusText, pkg.is_expired ? styles.statusTextInactive : styles.statusTextActive]}>
+                              {pkg.is_expired ? 'Expired' : 'Active'}
+                            </Text>
+                          </View>
+                        </View>
+                        {pkg.valid_until_formatted ? (
+                          <Text style={styles.pkgValidityText}>
+                            🗓️ Valid Until: <Text style={{ fontWeight: '700' }}>{pkg.valid_until_formatted}</Text>
+                          </Text>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Quick Marketing Hub Nav */}
+                <Text style={[styles.sectionHeading, { marginTop: 18 }]}>🎯 Marketing Services Hub</Text>
                 <View style={styles.marketingGrid}>
                   <TouchableOpacity
                     style={styles.marketingTile}
-                    onPress={() => { setActiveTab('marketing'); setMarketingSubTab('seo'); }}
+                    onPress={() => setActiveTab('seo')}
+                    activeOpacity={0.7}
                   >
                     <Text style={{ fontSize: 24 }}>📈</Text>
                     <Text style={styles.tileTitle}>SEO Reports</Text>
-                    <Text style={styles.tileSub}>{seoReports.length} Monthly Reports</Text>
+                    <Text style={styles.tileSub}>{seoReports.length} Reports Logged</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.marketingTile}
-                    onPress={() => { setActiveTab('marketing'); setMarketingSubTab('smo'); }}
+                    onPress={() => setActiveTab('smo')}
+                    activeOpacity={0.7}
                   >
                     <Text style={{ fontSize: 24 }}>🎨</Text>
                     <Text style={styles.tileTitle}>SMO Graphics</Text>
-                    <Text style={styles.tileSub}>{smoRequests.length} Creatives Logged</Text>
+                    <Text style={styles.tileSub}>{smoRequests.length} Creatives</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.marketingTile}
-                    onPress={() => { setActiveTab('marketing'); setMarketingSubTab('ads'); }}
+                    onPress={() => setActiveTab('ads')}
+                    activeOpacity={0.7}
                   >
                     <Text style={{ fontSize: 24 }}>📢</Text>
                     <Text style={styles.tileTitle}>Paid Ads (PPC)</Text>
@@ -402,6 +546,7 @@ export default function ClientDashboard({ user, onLogout }) {
                   <TouchableOpacity
                     style={styles.marketingTile}
                     onPress={() => setActiveTab('billing')}
+                    activeOpacity={0.7}
                   >
                     <Text style={{ fontSize: 24 }}>🧾</Text>
                     <Text style={styles.tileTitle}>Invoices & Billing</Text>
@@ -409,213 +554,391 @@ export default function ClientDashboard({ user, onLogout }) {
                   </TouchableOpacity>
                 </View>
 
-                {/* Active Packages List */}
-                <Text style={[styles.sectionHeading, { marginTop: 20 }]}>📦 Your Active Packages ({packages.length})</Text>
-                {packages.length === 0 ? (
-                  <View style={styles.emptyCard}>
-                    <Text style={{ fontSize: 28, marginBottom: 6 }}>📦</Text>
-                    <Text style={styles.emptyTitle}>No Active Packages</Text>
-                    <Text style={styles.emptySub}>Contact your account manager or book a service to get started.</Text>
+                {/* Recent Submissions */}
+                <View style={{ marginTop: 16 }}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.sectionHeading}>📝 Recent Service Requests</Text>
+                    <TouchableOpacity onPress={() => setActiveTab('requests')}>
+                      <Text style={styles.seeAllLink}>View All &rarr;</Text>
+                    </TouchableOpacity>
                   </View>
-                ) : (
-                  packages.map((pkg, idx) => (
-                    <View key={pkg.override_id || pkg.package_id || idx} style={styles.packageCard}>
-                      <View style={styles.pkgHeader}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.pkgName}>{pkg.name}</Text>
-                          <Text style={styles.pkgCycle}>Cycle: {pkg.billing_cycle || 'Monthly'}</Text>
-                        </View>
-                        <View style={styles.pkgPriceBadge}>
-                          <Text style={styles.pkgPriceText}>₹{Number(pkg.price || 0).toLocaleString()}</Text>
-                        </View>
-                      </View>
 
-                      <Text style={styles.pkgDesc}>{pkg.description || 'Full digital marketing & optimization services.'}</Text>
+                  {requests.length === 0 ? (
+                    <View style={styles.emptyCard}>
+                      <Text style={{ fontSize: 28, marginBottom: 4 }}>📝</Text>
+                      <Text style={styles.emptyTitle}>No Submissions Yet</Text>
+                      <Text style={styles.emptySub}>Book a service to submit your requirements.</Text>
+                    </View>
+                  ) : (
+                    requests.slice(0, 3).map((req) => {
+                      const badge = getStatusBadge(req.status);
+                      return (
+                        <View key={req.id} style={styles.itemCard}>
+                          <View style={styles.itemCardHeader}>
+                            <Text style={styles.itemCardTitle}>{req.service_type || 'Service Request'}</Text>
+                            <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+                              <Text style={[styles.badgeText, { color: badge.text }]}>{req.status || 'Pending'}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.itemDesc} numberOfLines={2}>{req.requirements}</Text>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                            <Text style={styles.itemFooterDate}>
+                              📅 {new Date(req.created_at || Date.now()).toLocaleDateString()}
+                            </Text>
+                            {req.tl_name ? (
+                              <Text style={{ fontSize: 11, color: '#6366f1', fontWeight: '700' }}>
+                                🛡️ TL: {req.tl_name}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              </View>
+            )}
 
-                      {pkg.valid_until_formatted ? (
-                        <View style={styles.pkgValidityRow}>
-                          <Text style={styles.pkgValidityText}>
-                            🗓️ Valid Until: <Text style={{ fontWeight: '700' }}>{pkg.valid_until_formatted}</Text>
+            {/* ======================================================== */}
+            {/* 2. TAB: PACKAGES & SUBSCRIPTIONS STORE                   */}
+            {/* ======================================================== */}
+            {activeTab === 'packages' && (
+              <View>
+                {/* Active Subscriptions Section */}
+                {activePackages.length > 0 && (
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={styles.sectionHeading}>⚡ Your Active Subscriptions</Text>
+                    {activePackages.map((pkg) => (
+                      <View key={pkg.override_id || pkg.package_id || pkg.id} style={styles.activePackageHeroCard}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.activePkgHeroTitle}>{pkg.name}</Text>
+                            <Text style={styles.activePkgHeroCycle}>{pkg.billing_cycle || 'Monthly'} Plan</Text>
+                          </View>
+                          <View style={[styles.statusPill, pkg.is_expired ? styles.statusInactive : styles.statusActive]}>
+                            <Text style={[styles.statusText, pkg.is_expired ? styles.statusTextInactive : styles.statusTextActive]}>
+                              {pkg.is_expired ? 'Expired' : 'Active'}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
+                          <Text style={{ fontSize: 11.5, color: themeColors.textSecondary }}>
+                            Started: {pkg.start_date_formatted || 'Active'}
+                          </Text>
+                          <Text style={{ fontSize: 11.5, fontWeight: '700', color: pkg.is_expired ? '#ef4444' : '#10b981' }}>
+                            Valid: {pkg.valid_until_formatted || 'Ongoing'}
                           </Text>
                         </View>
-                      ) : null}
+                      </View>
+                    ))}
+                  </View>
+                )}
 
-                      {Array.isArray(pkg.features_list) && pkg.features_list.length > 0 && (
-                        <View style={styles.featuresList}>
-                          {pkg.features_list.map((feat, fIdx) => (
-                            <View key={fIdx} style={styles.featureItem}>
-                              <Text style={{ color: '#10b981', marginRight: 6 }}>✓</Text>
-                              <Text style={styles.featureText}>{feat}</Text>
-                            </View>
-                          ))}
+                {/* Available Packages Catalog */}
+                <Text style={styles.sectionHeading}>📦 Available Subscription Packages</Text>
+                {allPackages.length === 0 ? (
+                  <View style={styles.emptyCard}>
+                    <Text style={{ fontSize: 28, marginBottom: 4 }}>📦</Text>
+                    <Text style={styles.emptyTitle}>No Packages Available</Text>
+                    <Text style={styles.emptySub}>Contact support for customized enterprise plans.</Text>
+                  </View>
+                ) : (
+                  allPackages.map((pkg) => {
+                    const isSubscribed = activePackages.some(
+                      (ap) => String(ap.package_id) === String(pkg.id) && !ap.is_expired
+                    );
+                    const features = Array.isArray(pkg.features)
+                      ? pkg.features
+                      : typeof pkg.features === 'string'
+                      ? pkg.features.replace(/<\/?[^>]+(>|$)/g, '\n').split('\n').map((f) => f.trim()).filter(Boolean)
+                      : [];
+
+                    const isExpanded = expandedPkgs[pkg.id];
+                    const isFeatExpanded = expandedFeatures[pkg.id];
+
+                    return (
+                      <View key={pkg.id} style={styles.packageCard}>
+                        <View style={styles.pkgHeader}>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={styles.pkgName}>{pkg.name}</Text>
+                            <Text style={styles.pkgDesc}>
+                              {pkg.description && pkg.description.length > 80
+                                ? isExpanded
+                                  ? pkg.description
+                                  : `${pkg.description.slice(0, 80)}...`
+                                : pkg.description}
+                            </Text>
+                            {pkg.description && pkg.description.length > 80 ? (
+                              <TouchableOpacity onPress={() => setExpandedPkgs({ ...expandedPkgs, [pkg.id]: !isExpanded })}>
+                                <Text style={{ color: '#2563eb', fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                                  {isExpanded ? 'Read Less' : 'Read More'}
+                                </Text>
+                              </TouchableOpacity>
+                            ) : null}
+                          </View>
+
+                          <View style={styles.pkgPriceBadge}>
+                            <Text style={styles.pkgPriceText}>${pkg.price}</Text>
+                            <Text style={{ fontSize: 9.5, color: '#10b981', textAlign: 'center' }}>/{pkg.billing_cycle || 'Mo'}</Text>
+                          </View>
                         </View>
-                      )}
+
+                        {/* Features List */}
+                        {features.length > 0 && (
+                          <View style={styles.featuresList}>
+                            {(isFeatExpanded ? features : features.slice(0, 4)).map((feat, fIdx) => (
+                              <View key={fIdx} style={styles.featureItem}>
+                                <Text style={{ color: '#10b981', marginRight: 6, fontWeight: 'bold' }}>✓</Text>
+                                <Text style={styles.featureText}>{feat}</Text>
+                              </View>
+                            ))}
+                            {features.length > 4 && (
+                              <TouchableOpacity onPress={() => setExpandedFeatures({ ...expandedFeatures, [pkg.id]: !isFeatExpanded })}>
+                                <Text style={{ color: '#2563eb', fontSize: 11, fontWeight: '700', marginTop: 4 }}>
+                                  {isFeatExpanded ? 'View Less' : `+ ${features.length - 4} More Features`}
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        )}
+
+                        {/* Buy / Subscribed CTA */}
+                        {isSubscribed ? (
+                          <View style={styles.subscribedBtn}>
+                            <Text style={styles.subscribedBtnText}>✓ Currently Subscribed</Text>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.buyNowBtn}
+                            onPress={() => handleBuyPackage(pkg)}
+                            disabled={purchasingPkgId === pkg.id}
+                            activeOpacity={0.8}
+                          >
+                            {purchasingPkgId === pkg.id ? (
+                              <ActivityIndicator color="#ffffff" size="small" />
+                            ) : (
+                              <Text style={styles.buyNowBtnText}>Subscribe Now 🚀</Text>
+                            )}
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+            {/* ======================================================== */}
+            {/* 3. TAB: BOOK SERVICE & TRACK REQUESTS                    */}
+            {/* ======================================================== */}
+            {activeTab === 'requests' && (
+              <View>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.sectionHeading}>📝 Service Requests ({requests.length})</Text>
+                  <TouchableOpacity
+                    style={styles.smallActionBtn}
+                    onPress={() => setShowBookServiceModal(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.smallActionBtnText}>+ Book Service</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {requests.length === 0 ? (
+                  <View style={styles.emptyCard}>
+                    <Text style={{ fontSize: 28, marginBottom: 4 }}>📝</Text>
+                    <Text style={styles.emptyTitle}>No Requests Submitted</Text>
+                    <Text style={styles.emptySub}>Tap "+ Book Service" to submit your project requirements.</Text>
+                  </View>
+                ) : (
+                  requests.map((req) => {
+                    const badge = getStatusBadge(req.status);
+                    return (
+                      <View key={req.id} style={styles.itemCard}>
+                        <View style={styles.itemCardHeader}>
+                          <Text style={styles.itemCardTitle}>📌 {req.service_type || 'Service Request'}</Text>
+                          <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+                            <Text style={[styles.badgeText, { color: badge.text }]}>{req.status || 'Pending'}</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.itemDesc}>{req.requirements}</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                          <Text style={styles.itemFooterDate}>
+                            Submitted: {new Date(req.created_at || Date.now()).toLocaleDateString()}
+                          </Text>
+                          {req.tl_name ? (
+                            <Text style={{ fontSize: 11, color: '#6366f1', fontWeight: '700' }}>
+                              🛡️ Assigned TL: {req.tl_name}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+            {/* ======================================================== */}
+            {/* 4. TAB: SEO REPORTS                                      */}
+            {/* ======================================================== */}
+            {activeTab === 'seo' && (
+              <View>
+                <Text style={styles.sectionHeading}>📈 Monthly SEO Audit & Ranking Reports</Text>
+                {seoReports.length === 0 ? (
+                  <View style={styles.emptyCard}>
+                    <Text style={{ fontSize: 28, marginBottom: 4 }}>📊</Text>
+                    <Text style={styles.emptyTitle}>No SEO Reports Published Yet</Text>
+                    <Text style={styles.emptySub}>Monthly ranking and traffic reports will appear here.</Text>
+                  </View>
+                ) : (
+                  seoReports.map((rep) => (
+                    <View key={rep.id} style={styles.itemCard}>
+                      <View style={styles.itemCardHeader}>
+                        <View>
+                          <Text style={styles.itemCardTitle}>
+                            📄 {rep.month} {rep.year} SEO Audit Report
+                          </Text>
+                          <Text style={styles.itemCardSub}>
+                            Published: {new Date(rep.created_at || Date.now()).toLocaleDateString()}
+                          </Text>
+                        </View>
+                        <View style={[styles.badge, { backgroundColor: '#10b98122', borderColor: '#10b981' }]}>
+                          <Text style={[styles.badgeText, { color: '#10b981' }]}>{rep.status || 'Active'}</Text>
+                        </View>
+                      </View>
+                      {rep.file_url ? (
+                        <TouchableOpacity
+                          style={styles.downloadLinkBtn}
+                          onPress={() => Linking.openURL(rep.file_url).catch(() => {})}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.downloadLinkText}>📥 Open / Download Full Report</Text>
+                        </TouchableOpacity>
+                      ) : null}
                     </View>
                   ))
                 )}
               </View>
             )}
 
-            {/* TAB: MARKETING (SEO, SMO, ADS) */}
-            {activeTab === 'marketing' && (
+            {/* ======================================================== */}
+            {/* 5. TAB: SMO GRAPHICS                                     */}
+            {/* ======================================================== */}
+            {activeTab === 'smo' && (
               <View>
-                {/* Marketing Sub-Tabs */}
-                <View style={styles.subTabRow}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.sectionHeading}>🎨 Social Media Creatives & Banners</Text>
                   <TouchableOpacity
-                    style={[styles.subTabBtn, marketingSubTab === 'seo' && styles.subTabBtnActive]}
-                    onPress={() => setMarketingSubTab('seo')}
+                    style={styles.smallActionBtn}
+                    onPress={() => setShowSmoModal(true)}
+                    activeOpacity={0.8}
                   >
-                    <Text style={[styles.subTabText, marketingSubTab === 'seo' && styles.subTabTextActive]}>
-                      📈 SEO Reports ({seoReports.length})
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.subTabBtn, marketingSubTab === 'smo' && styles.subTabBtnActive]}
-                    onPress={() => setMarketingSubTab('smo')}
-                  >
-                    <Text style={[styles.subTabText, marketingSubTab === 'smo' && styles.subTabTextActive]}>
-                      🎨 SMO Graphics ({smoRequests.length})
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.subTabBtn, marketingSubTab === 'ads' && styles.subTabBtnActive]}
-                    onPress={() => setMarketingSubTab('ads')}
-                  >
-                    <Text style={[styles.subTabText, marketingSubTab === 'ads' && styles.subTabTextActive]}>
-                      📢 Paid Ads ({adsCampaigns.length})
-                    </Text>
+                    <Text style={styles.smallActionBtnText}>+ Request Graphic</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Sub Tab: SEO */}
-                {marketingSubTab === 'seo' && (
-                  <View>
-                    <Text style={styles.sectionHeading}>Monthly Search Engine Optimization Reports</Text>
-                    {seoReports.length === 0 ? (
-                      <View style={styles.emptyCard}>
-                        <Text style={{ fontSize: 28, marginBottom: 6 }}>📊</Text>
-                        <Text style={styles.emptyTitle}>No SEO Reports Published Yet</Text>
-                        <Text style={styles.emptySub}>Monthly ranking and traffic reports will appear here.</Text>
-                      </View>
-                    ) : (
-                      seoReports.map((rep, idx) => (
-                        <View key={rep.id || idx} style={styles.itemCard}>
-                          <View style={styles.itemCardHeader}>
-                            <View>
-                              <Text style={styles.itemCardTitle}>
-                                📄 {rep.month} {rep.year} SEO Audit Report
-                              </Text>
-                              <Text style={styles.itemCardSub}>
-                                Published on {new Date(rep.created_at || Date.now()).toLocaleDateString()}
-                              </Text>
-                            </View>
+                {smoRequests.length === 0 ? (
+                  <View style={styles.emptyCard}>
+                    <Text style={{ fontSize: 28, marginBottom: 4 }}>🎨</Text>
+                    <Text style={styles.emptyTitle}>No Creative Requests</Text>
+                    <Text style={styles.emptySub}>Request promotional banners for Facebook, Instagram & LinkedIn.</Text>
+                  </View>
+                ) : (
+                  smoRequests.map((req) => {
+                    const badge = getStatusBadge(req.status);
+                    return (
+                      <View key={req.id} style={styles.itemCard}>
+                        <View style={styles.itemCardHeader}>
+                          <Text style={styles.itemCardTitle}>🎨 Creative Request #{req.id}</Text>
+                          <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+                            <Text style={[styles.badgeText, { color: badge.text }]}>{req.status || 'Pending'}</Text>
                           </View>
-                          {rep.file_url ? (
-                            <TouchableOpacity
-                              style={styles.downloadLinkBtn}
-                              onPress={() => Linking.openURL(rep.file_url).catch(() => {})}
-                            >
-                              <Text style={styles.downloadLinkText}>📥 Open / Download Full Report</Text>
-                            </TouchableOpacity>
-                          ) : null}
                         </View>
-                      ))
-                    )}
-                  </View>
-                )}
-
-                {/* Sub Tab: SMO */}
-                {marketingSubTab === 'smo' && (
-                  <View>
-                    <View style={styles.rowBetween}>
-                      <Text style={styles.sectionHeading}>Social Media Graphics & Creatives</Text>
-                      <TouchableOpacity
-                        style={styles.smallActionBtn}
-                        onPress={() => setShowSmoModal(true)}
-                      >
-                        <Text style={styles.smallActionBtnText}>+ Request Graphic</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {smoRequests.length === 0 ? (
-                      <View style={styles.emptyCard}>
-                        <Text style={{ fontSize: 28, marginBottom: 6 }}>🎨</Text>
-                        <Text style={styles.emptyTitle}>No SMO Creative Requests</Text>
-                        <Text style={styles.emptySub}>Request custom promotional creatives for Facebook, Instagram & LinkedIn.</Text>
+                        <Text style={styles.itemDesc}>{req.requirements}</Text>
+                        <Text style={styles.itemFooterDate}>
+                          Requested: {new Date(req.created_at || Date.now()).toLocaleDateString()}
+                        </Text>
                       </View>
-                    ) : (
-                      smoRequests.map((req, idx) => {
-                        const badge = getStatusBadge(req.status);
-                        return (
-                          <View key={req.id || idx} style={styles.itemCard}>
-                            <View style={styles.itemCardHeader}>
-                              <Text style={styles.itemCardTitle}>Creative #{req.id || idx + 1}</Text>
-                              <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
-                                <Text style={[styles.badgeText, { color: badge.text }]}>{req.status || 'Pending'}</Text>
-                              </View>
-                            </View>
-                            <Text style={styles.itemDesc}>{req.requirements}</Text>
-                            <Text style={styles.itemFooterDate}>
-                              Requested: {new Date(req.created_at || Date.now()).toLocaleDateString()}
-                            </Text>
-                          </View>
-                        );
-                      })
-                    )}
-                  </View>
-                )}
-
-                {/* Sub Tab: Paid Ads */}
-                {marketingSubTab === 'ads' && (
-                  <View>
-                    <Text style={styles.sectionHeading}>Google & Meta PPC Campaigns</Text>
-                    {adsCampaigns.length === 0 ? (
-                      <View style={styles.emptyCard}>
-                        <Text style={{ fontSize: 28, marginBottom: 6 }}>📢</Text>
-                        <Text style={styles.emptyTitle}>No Active Paid Campaigns</Text>
-                        <Text style={styles.emptySub}>Reach out to your campaign strategist to activate Google or Meta Ads.</Text>
-                      </View>
-                    ) : (
-                      adsCampaigns.map((ad, idx) => (
-                        <View key={ad.id || idx} style={styles.itemCard}>
-                          <View style={styles.itemCardHeader}>
-                            <Text style={styles.itemCardTitle}>🎯 {ad.platform || 'Google Ads'} Campaign</Text>
-                            <View style={[styles.badge, { backgroundColor: '#10b98122', borderColor: '#10b981' }]}>
-                              <Text style={[styles.badgeText, { color: '#10b981' }]}>{ad.status || 'Active'}</Text>
-                            </View>
-                          </View>
-                          <Text style={styles.itemDesc}>{ad.campaign_name || ad.details || 'Targeted Lead Generation Campaign'}</Text>
-                        </View>
-                      ))
-                    )}
-                  </View>
+                    );
+                  })
                 )}
               </View>
             )}
 
-            {/* TAB: INVOICES & BILLING */}
-            {activeTab === 'billing' && (
+            {/* ======================================================== */}
+            {/* 6. TAB: PAID ADS (PPC)                                   */}
+            {/* ======================================================== */}
+            {activeTab === 'ads' && (
               <View>
-                <Text style={styles.sectionHeading}>Invoices & Payment History ({invoices.length})</Text>
-                {invoices.length === 0 ? (
+                <Text style={styles.sectionHeading}>📢 PPC & Paid Ads Campaign Metrics</Text>
+                {adsCampaigns.length === 0 ? (
                   <View style={styles.emptyCard}>
-                    <Text style={{ fontSize: 28, marginBottom: 6 }}>🧾</Text>
-                    <Text style={styles.emptyTitle}>No Invoices Issued</Text>
-                    <Text style={styles.emptySub}>Your invoice statements will appear here upon subscription cycle renewal.</Text>
+                    <Text style={{ fontSize: 28, marginBottom: 4 }}>📢</Text>
+                    <Text style={styles.emptyTitle}>No Active Paid Campaigns</Text>
+                    <Text style={styles.emptySub}>Reach out to your campaign strategist to activate Google or Meta Ads.</Text>
                   </View>
                 ) : (
-                  invoices.map((inv, idx) => {
+                  adsCampaigns.map((ad) => {
+                    const totalB = parseFloat(ad.total_budget || 0);
+                    const spent = parseFloat(ad.spent_amount || 0);
+                    const pct = totalB > 0 ? Math.min((spent / totalB) * 100, 100) : 0;
+
+                    return (
+                      <View key={ad.id} style={styles.itemCard}>
+                        <View style={styles.itemCardHeader}>
+                          <Text style={styles.itemCardTitle}>🎯 {ad.platform || 'Google Ads'}</Text>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: '#10b981' }}>
+                            ${spent.toFixed(2)} / ${totalB.toFixed(2)}
+                          </Text>
+                        </View>
+
+                        {/* Progress Bar */}
+                        <View style={styles.progressBarBg}>
+                          <View
+                            style={[
+                              styles.progressBarFill,
+                              { width: `${pct}%`, backgroundColor: pct > 90 ? '#dc2626' : '#2563eb' },
+                            ]}
+                          />
+                        </View>
+
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                          <Text style={{ fontSize: 11.5, color: themeColors.textSecondary }}>
+                            Spent: <Text style={{ fontWeight: '700', color: '#dc2626' }}>${spent.toFixed(2)}</Text>
+                          </Text>
+                          <Text style={{ fontSize: 11.5, color: themeColors.textSecondary }}>
+                            Remaining: <Text style={{ fontWeight: '700', color: '#10b981' }}>${parseFloat(ad.pending_balance || 0).toFixed(2)}</Text>
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+
+            {/* ======================================================== */}
+            {/* 7. TAB: INVOICES & BILLING                               */}
+            {/* ======================================================== */}
+            {activeTab === 'billing' && (
+              <View>
+                <Text style={styles.sectionHeading}>🧾 Invoices & Payment Records ({invoices.length})</Text>
+                {invoices.length === 0 ? (
+                  <View style={styles.emptyCard}>
+                    <Text style={{ fontSize: 28, marginBottom: 4 }}>🧾</Text>
+                    <Text style={styles.emptyTitle}>No Invoices Issued</Text>
+                    <Text style={styles.emptySub}>Statements will appear here upon subscription cycle renewal.</Text>
+                  </View>
+                ) : (
+                  invoices.map((inv) => {
                     const badge = getStatusBadge(inv.status);
                     return (
-                      <View key={inv.id || idx} style={styles.itemCard}>
+                      <View key={inv.id} style={styles.itemCard}>
                         <View style={styles.itemCardHeader}>
                           <View>
                             <Text style={styles.itemCardTitle}>Invoice #{inv.id}</Text>
-                            <Text style={styles.itemCardSub}>
-                              Package: {inv.package_name || 'Digital Marketing Service'}
-                            </Text>
+                            <Text style={styles.itemCardSub}>{inv.package_name || 'Service Package'}</Text>
                           </View>
                           <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
                             <Text style={[styles.badgeText, { color: badge.text }]}>{inv.status || 'Pending'}</Text>
@@ -624,7 +947,7 @@ export default function ClientDashboard({ user, onLogout }) {
 
                         <View style={styles.invoiceAmountRow}>
                           <Text style={styles.invoiceAmountLabel}>Amount Due:</Text>
-                          <Text style={styles.invoiceAmountVal}>₹{Number(inv.amount || 0).toLocaleString()}</Text>
+                          <Text style={styles.invoiceAmountVal}>${Number(inv.amount || 0).toLocaleString()}</Text>
                         </View>
 
                         <View style={styles.rowBetween}>
@@ -636,13 +959,13 @@ export default function ClientDashboard({ user, onLogout }) {
                               style={styles.payNowBtn}
                               onPress={() => {
                                 sweetAlert({
-                                  title: 'Payment Gateway',
-                                  text: `Proceed to pay ₹${Number(inv.amount || 0).toLocaleString()} via UPI / Online Gateway?`,
+                                  title: 'Online Payment',
+                                  text: `Proceed to pay $${Number(inv.amount || 0).toLocaleString()} online?`,
                                   type: 'info',
                                   showCancel: true,
                                   onConfirm: () => {
-                                    Linking.openURL(`https://devicedesk.flymediatech.com/portal/client/billing`).catch(() => {});
-                                  }
+                                    Linking.openURL('https://devicedesk.flymediatech.com/portal/client/billing').catch(() => {});
+                                  },
                                 });
                               }}
                             >
@@ -657,51 +980,12 @@ export default function ClientDashboard({ user, onLogout }) {
               </View>
             )}
 
-            {/* TAB: SERVICE REQUESTS */}
-            {activeTab === 'requests' && (
-              <View>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.sectionHeading}>Your Service Requests ({requests.length})</Text>
-                  <TouchableOpacity
-                    style={styles.smallActionBtn}
-                    onPress={() => setShowBookServiceModal(true)}
-                  >
-                    <Text style={styles.smallActionBtnText}>+ New Request</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {requests.length === 0 ? (
-                  <View style={styles.emptyCard}>
-                    <Text style={{ fontSize: 28, marginBottom: 6 }}>📝</Text>
-                    <Text style={styles.emptyTitle}>No Requests Submitted</Text>
-                    <Text style={styles.emptySub}>Need website changes, SEO boost, or new creatives? Submit a request.</Text>
-                  </View>
-                ) : (
-                  requests.map((req, idx) => {
-                    const badge = getStatusBadge(req.status);
-                    return (
-                      <View key={req.id || idx} style={styles.itemCard}>
-                        <View style={styles.itemCardHeader}>
-                          <Text style={styles.itemCardTitle}>📌 {req.service_type || 'Service Request'}</Text>
-                          <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
-                            <Text style={[styles.badgeText, { color: badge.text }]}>{req.status || 'Pending'}</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.itemDesc}>{req.requirements}</Text>
-                        <Text style={styles.itemFooterDate}>
-                          Submitted: {new Date(req.created_at || Date.now()).toLocaleDateString()}
-                        </Text>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
-            )}
-
-            {/* TAB: PROJECT NOTES / COMMUNICATION */}
+            {/* ======================================================== */}
+            {/* 8. TAB: PROJECT NOTES & TL DIRECT CHAT                   */}
+            {/* ======================================================== */}
             {activeTab === 'notes' && (
               <View>
-                <Text style={styles.sectionHeading}>Project Notes & Direct Team Updates</Text>
+                <Text style={styles.sectionHeading}>💬 Project Notes & Team Updates</Text>
                 <Text style={styles.sectionSubText}>
                   Send instant notes and feedback directly to your dedicated team leader.
                 </Text>
@@ -710,7 +994,7 @@ export default function ClientDashboard({ user, onLogout }) {
                 <View style={styles.noteInputCard}>
                   <TextInput
                     style={styles.noteTextInput}
-                    placeholder="Write a note or query for your account manager..."
+                    placeholder="Write a message or query for your account manager..."
                     placeholderTextColor={themeColors.textSecondary}
                     multiline
                     numberOfLines={3}
@@ -733,13 +1017,13 @@ export default function ClientDashboard({ user, onLogout }) {
                 {/* Notes Stream */}
                 {notes.length === 0 ? (
                   <View style={styles.emptyCard}>
-                    <Text style={{ fontSize: 28, marginBottom: 6 }}>💬</Text>
+                    <Text style={{ fontSize: 28, marginBottom: 4 }}>💬</Text>
                     <Text style={styles.emptyTitle}>No Communication Notes Yet</Text>
                     <Text style={styles.emptySub}>Leave a note above to communicate directly with your team.</Text>
                   </View>
                 ) : (
-                  notes.map((n, idx) => (
-                    <View key={n.id || idx} style={styles.noteCard}>
+                  notes.map((n) => (
+                    <View key={n.id} style={styles.noteCard}>
                       <View style={styles.noteClientRow}>
                         <Text style={styles.noteClientHeader}>You wrote:</Text>
                         <Text style={styles.noteDate}>
@@ -762,22 +1046,24 @@ export default function ClientDashboard({ user, onLogout }) {
               </View>
             )}
 
-            {/* TAB: CLIENT PROFILE */}
+            {/* ======================================================== */}
+            {/* 9. TAB: COMPANY PROFILE                                  */}
+            {/* ======================================================== */}
             {activeTab === 'profile' && (
               <View>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.sectionHeading}>Company & Client Profile</Text>
+                  <Text style={styles.sectionHeading}>🏢 Corporate Account Details</Text>
                   <TouchableOpacity
                     style={styles.smallActionBtn}
                     onPress={() => setShowEditProfileModal(true)}
                   >
-                    <Text style={styles.smallActionBtnText}>✏️ Edit Details</Text>
+                    <Text style={styles.smallActionBtnText}>✏️ Edit Profile</Text>
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.profileCard}>
                   <View style={styles.profileRow}>
-                    <Text style={styles.profileLabel}>Company / Business Name:</Text>
+                    <Text style={styles.profileLabel}>Company / Brand Name:</Text>
                     <Text style={styles.profileVal}>{clientDetails?.company_name || 'Not Specified'}</Text>
                   </View>
                   <View style={styles.profileRow}>
@@ -815,7 +1101,9 @@ export default function ClientDashboard({ user, onLogout }) {
         )}
       </View>
 
-      {/* Hamburger Drawer */}
+      {/* ======================================================== */}
+      {/* HAMBURGER SIDEBAR / DRAWER                               */}
+      {/* ======================================================== */}
       {isDrawerOpen && (
         <View style={styles.drawerOverlay}>
           <TouchableOpacity
@@ -830,62 +1118,43 @@ export default function ClientDashboard({ user, onLogout }) {
                   {(clientDetails?.company_name || user?.name || 'C').charAt(0).toUpperCase()}
                 </Text>
               </View>
-              <Text style={[styles.drawerName, { color: themeColors.textPrimary }]}>
+              <Text style={[styles.drawerName, { color: themeColors.textPrimary }]} numberOfLines={1}>
                 {clientDetails?.company_name || user?.name || 'Client'}
               </Text>
-              <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]}>
+              <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]} numberOfLines={1}>
                 {user?.email || 'client@devicedesk.com'}
               </Text>
             </View>
 
-            <ScrollView style={styles.drawerItemsContainer}>
-              <TouchableOpacity
-                style={[styles.drawerItem, activeTab === 'overview' && styles.drawerItemActive]}
-                onPress={() => { setActiveTab('overview'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>📊</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Overview & Packages</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.drawerItem, activeTab === 'requests' && styles.drawerItemActive]}
-                onPress={() => { setActiveTab('requests'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>📝</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Service Requests</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.drawerItem, activeTab === 'marketing' && styles.drawerItemActive]}
-                onPress={() => { setActiveTab('marketing'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🎯</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Digital Marketing Hub</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.drawerItem, activeTab === 'billing' && styles.drawerItemActive]}
-                onPress={() => { setActiveTab('billing'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🧾</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Invoices & Billing</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.drawerItem, activeTab === 'notes' && styles.drawerItemActive]}
-                onPress={() => { setActiveTab('notes'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>💬</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Project Notes</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.drawerItem, activeTab === 'profile' && styles.drawerItemActive]}
-                onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
-              >
-                <Text style={styles.drawerItemIcon}>🏢</Text>
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Company Profile</Text>
-              </TouchableOpacity>
+            <ScrollView style={styles.drawerItemsContainer} showsVerticalScrollIndicator={false}>
+              {navMenuItems.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.drawerItem, isActive && styles.drawerItemActive]}
+                    onPress={() => {
+                      setActiveTab(item.id);
+                      setIsDrawerOpen(false);
+                    }}
+                  >
+                    <AppIcon
+                      name={item.icon}
+                      size={18}
+                      color={isActive ? '#2563eb' : themeColors.drawerItemText}
+                      style={{ marginRight: 10 }}
+                    />
+                    <Text
+                      style={[
+                        styles.drawerItemLabel,
+                        { color: isActive ? '#2563eb' : themeColors.drawerItemText, fontWeight: isActive ? '800' : '600' },
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
 
               {/* Theme Toggle */}
               <TouchableOpacity
@@ -893,19 +1162,19 @@ export default function ClientDashboard({ user, onLogout }) {
                   styles.drawerItem,
                   {
                     justifyContent: 'space-between',
-                    marginTop: 12,
-                    marginBottom: 12,
+                    marginTop: 14,
+                    marginBottom: 14,
                     backgroundColor: isDark ? '#334155' : '#f1f5f9',
                     paddingHorizontal: 12,
                     paddingVertical: 8,
                     borderRadius: 12,
-                  }
+                  },
                 ]}
                 activeOpacity={0.8}
                 onPress={toggleTheme}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 12 }} />
+                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 10 }} />
                   <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText, fontWeight: '700' }]}>
                     {isDark ? 'Dark Mode' : 'Light Mode'}
                   </Text>
@@ -922,7 +1191,9 @@ export default function ClientDashboard({ user, onLogout }) {
         </View>
       )}
 
-      {/* Modal: Book Service */}
+      {/* ======================================================== */}
+      {/* MODAL: BOOK NEW SERVICE                                  */}
+      {/* ======================================================== */}
       <Modal
         visible={showBookServiceModal}
         transparent
@@ -931,10 +1202,14 @@ export default function ClientDashboard({ user, onLogout }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Book a New Service</Text>
-            <Text style={styles.modalSub}>Select service type and describe your deliverables or scope.</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🚀 Book a New Service</Text>
+              <TouchableOpacity onPress={() => setShowBookServiceModal(false)}>
+                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
-            <Text style={styles.inputLabel}>Service Type</Text>
+            <Text style={styles.inputLabel}>Service Category *</Text>
             <View style={styles.serviceChips}>
               {['SEO', 'Social Media (SMO)', 'Google / Meta Ads', 'Website Development', 'Graphic Design'].map(st => (
                 <TouchableOpacity
@@ -949,10 +1224,10 @@ export default function ClientDashboard({ user, onLogout }) {
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>Project Requirements & Details</Text>
+            <Text style={styles.inputLabel}>Project Scope & Requirements *</Text>
             <TextInput
               style={[styles.input, styles.modalTextArea]}
-              placeholder="Describe your goals, targets, or specific changes needed..."
+              placeholder="Describe your goals, targets, or specific deliverables needed..."
               placeholderTextColor={themeColors.textSecondary}
               multiline
               numberOfLines={4}
@@ -985,7 +1260,9 @@ export default function ClientDashboard({ user, onLogout }) {
         </View>
       </Modal>
 
-      {/* Modal: Request SMO Graphic */}
+      {/* ======================================================== */}
+      {/* MODAL: REQUEST SMO GRAPHIC                               */}
+      {/* ======================================================== */}
       <Modal
         visible={showSmoModal}
         transparent
@@ -994,10 +1271,14 @@ export default function ClientDashboard({ user, onLogout }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Request Social Media Graphic</Text>
-            <Text style={styles.modalSub}>Describe the creative theme, text copy, or promotional banner needed.</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🎨 Request Social Media Creative</Text>
+              <TouchableOpacity onPress={() => setShowSmoModal(false)}>
+                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
-            <Text style={styles.inputLabel}>Graphic Requirements / Caption</Text>
+            <Text style={styles.inputLabel}>Creative Requirements & Text Copy *</Text>
             <TextInput
               style={[styles.input, styles.modalTextArea]}
               placeholder="e.g. Festival post, 20% discount offer banner, new product launch..."
@@ -1033,7 +1314,9 @@ export default function ClientDashboard({ user, onLogout }) {
         </View>
       </Modal>
 
-      {/* Modal: Edit Profile */}
+      {/* ======================================================== */}
+      {/* MODAL: EDIT CORPORATE PROFILE                            */}
+      {/* ======================================================== */}
       <Modal
         visible={showEditProfileModal}
         transparent
@@ -1041,10 +1324,15 @@ export default function ClientDashboard({ user, onLogout }) {
         onRequestClose={() => setShowEditProfileModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={{ padding: 16, justifyContent: 'center', flexGrow: 1 }}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Edit Company Details</Text>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>✏️ Edit Corporate Details</Text>
+              <TouchableOpacity onPress={() => setShowEditProfileModal(false)}>
+                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
+            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={true}>
               <Text style={styles.inputLabel}>Company / Brand Name</Text>
               <TextInput
                 style={styles.input}
@@ -1056,6 +1344,7 @@ export default function ClientDashboard({ user, onLogout }) {
               <TextInput
                 style={styles.input}
                 value={profileForm.phone}
+                keyboardType="phone-pad"
                 onChangeText={t => setProfileForm(p => ({ ...p, phone: t }))}
               />
 
@@ -1063,10 +1352,11 @@ export default function ClientDashboard({ user, onLogout }) {
               <TextInput
                 style={styles.input}
                 value={profileForm.whatsapp}
+                keyboardType="phone-pad"
                 onChangeText={t => setProfileForm(p => ({ ...p, whatsapp: t }))}
               />
 
-              <Text style={styles.inputLabel}>GST Number</Text>
+              <Text style={styles.inputLabel}>GST / Tax Number</Text>
               <TextInput
                 style={styles.input}
                 value={profileForm.gst_number}
@@ -1076,40 +1366,41 @@ export default function ClientDashboard({ user, onLogout }) {
               <Text style={styles.inputLabel}>Website URL</Text>
               <TextInput
                 style={styles.input}
+                autoCapitalize="none"
                 value={profileForm.website_url}
                 onChangeText={t => setProfileForm(p => ({ ...p, website_url: t }))}
               />
 
               <Text style={styles.inputLabel}>Office Address</Text>
               <TextInput
-                style={[styles.input, { minHeight: 60 }]}
+                style={[styles.input, { height: 60 }]}
                 multiline
                 value={profileForm.address}
                 onChangeText={t => setProfileForm(p => ({ ...p, address: t }))}
               />
+            </ScrollView>
 
-              <View style={styles.modalButtonRow}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => setShowEditProfileModal(false)}
-                >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowEditProfileModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.modalSubmitBtn, savingProfile && styles.btnDisabled]}
-                  onPress={handleSaveProfile}
-                  disabled={savingProfile}
-                >
-                  {savingProfile ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.modalSubmitText}>Save Changes 💾</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, savingProfile && styles.btnDisabled]}
+                onPress={handleSaveProfile}
+                disabled={savingProfile}
+              >
+                {savingProfile ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalSubmitText}>Save Changes 💾</Text>
+                )}
+              </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1133,21 +1424,29 @@ const getStyles = (colors, isDark) =>
       backgroundColor: colors.headerBg || (isDark ? '#1e293b' : '#ffffff'),
     },
     hamburgerBtn: {
-      padding: 4,
+      padding: 6,
+      borderRadius: 8,
+      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+    },
+    headerTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
     },
     headerSub: {
-      fontWeight: '600',
+      fontSize: 11,
+      marginTop: 2,
     },
     logoutBtn: {
       backgroundColor: isDark ? '#334155' : '#fef2f2',
-      paddingHorizontal: 12,
-      paddingVertical: 7,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: isDark ? '#475569' : '#fca5a5',
     },
     logoutBtnText: {
-      fontSize: 12,
+      fontSize: 11.5,
       fontWeight: '700',
       color: '#dc2626',
     },
@@ -1162,7 +1461,7 @@ const getStyles = (colors, isDark) =>
     },
     loadingText: {
       marginTop: 12,
-      fontSize: 14,
+      fontSize: 13,
       color: colors.textSecondary || '#64748b',
     },
     scroll: {
@@ -1175,18 +1474,13 @@ const getStyles = (colors, isDark) =>
     welcomeCard: {
       backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
       borderRadius: 16,
-      padding: 18,
+      padding: 16,
       borderWidth: 1,
       borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
       marginBottom: 16,
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.04,
-      shadowRadius: 6,
-      elevation: 2,
     },
     welcomeTitle: {
-      fontSize: 18,
+      fontSize: 17,
       fontWeight: '800',
       color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
     },
@@ -1197,9 +1491,9 @@ const getStyles = (colors, isDark) =>
       lineHeight: 18,
     },
     avatarBubble: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 42,
+      height: 42,
+      borderRadius: 12,
       backgroundColor: '#2563eb',
       alignItems: 'center',
       justifyContent: 'center',
@@ -1211,48 +1505,50 @@ const getStyles = (colors, isDark) =>
     },
     bookServiceBtn: {
       backgroundColor: '#2563eb',
-      borderRadius: 10,
-      paddingVertical: 10,
+      borderRadius: 8,
+      paddingVertical: 9,
       paddingHorizontal: 14,
       alignSelf: 'flex-start',
-      marginTop: 14,
+      marginTop: 12,
     },
     bookServiceBtnText: {
       color: '#ffffff',
-      fontSize: 13,
+      fontSize: 12.5,
       fontWeight: '700',
     },
-    metricsRow: {
+    metricsGrid: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       gap: 10,
       marginBottom: 16,
     },
     metricCard: {
-      flex: 1,
+      width: (width - 42) / 2,
       backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
       borderRadius: 12,
       padding: 12,
       borderWidth: 1,
       borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+    },
+    metricIconBox: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
       alignItems: 'center',
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.03,
-      shadowRadius: 4,
-      elevation: 1,
+      justifyContent: 'center',
+      marginBottom: 6,
     },
     metricVal: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '800',
-      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
     },
     metricLabel: {
-      fontSize: 10.5,
+      fontSize: 11,
       color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
       marginTop: 2,
     },
     sectionHeading: {
-      fontSize: 15,
+      fontSize: 14.5,
       fontWeight: '800',
       color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
       marginBottom: 10,
@@ -1262,6 +1558,11 @@ const getStyles = (colors, isDark) =>
       color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
       marginBottom: 12,
     },
+    seeAllLink: {
+      fontSize: 12,
+      color: '#2563eb',
+      fontWeight: '700',
+    },
     marketingGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -1269,23 +1570,18 @@ const getStyles = (colors, isDark) =>
       marginBottom: 16,
     },
     marketingTile: {
-      width: '48%',
+      width: (width - 42) / 2,
       borderRadius: 12,
       padding: 14,
       borderWidth: 1,
       borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
       backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.03,
-      shadowRadius: 4,
-      elevation: 1,
     },
     tileTitle: {
       fontSize: 13,
       fontWeight: '700',
       color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
-      marginTop: 8,
+      marginTop: 6,
     },
     tileSub: {
       fontSize: 10.5,
@@ -1295,10 +1591,30 @@ const getStyles = (colors, isDark) =>
     packageCard: {
       backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
       borderRadius: 14,
-      padding: 16,
+      padding: 14,
       borderWidth: 1,
       borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
       marginBottom: 12,
+    },
+    activePackageHeroCard: {
+      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: '#2563eb44',
+      borderLeftWidth: 4,
+      borderLeftColor: '#2563eb',
+      marginBottom: 10,
+    },
+    activePkgHeroTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+    },
+    activePkgHeroCycle: {
+      fontSize: 11.5,
+      color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
+      marginTop: 2,
     },
     pkgHeader: {
       flexDirection: 'row',
@@ -1318,37 +1634,34 @@ const getStyles = (colors, isDark) =>
     },
     pkgPriceBadge: {
       backgroundColor: isDark ? '#064e3b' : '#ecfdf5',
-      paddingHorizontal: 10,
+      paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: '#10b981',
+      alignItems: 'center',
     },
     pkgPriceText: {
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '800',
       color: '#10b981',
     },
     pkgDesc: {
       fontSize: 12,
       color: colors.textSecondary || (isDark ? '#cbd5e1' : '#475569'),
-      lineHeight: 18,
-      marginBottom: 10,
-    },
-    pkgValidityRow: {
-      backgroundColor: isDark ? '#0f172a' : '#f8fafc',
-      padding: 8,
-      borderRadius: 8,
-      marginBottom: 8,
+      lineHeight: 17,
+      marginTop: 4,
     },
     pkgValidityText: {
       fontSize: 11.5,
       color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+      marginTop: 6,
     },
     featuresList: {
       borderTopWidth: 1,
       borderTopColor: colors.border || (isDark ? '#334155' : '#f1f5f9'),
       paddingTop: 8,
+      marginTop: 8,
       gap: 4,
     },
     featureItem: {
@@ -1358,33 +1671,32 @@ const getStyles = (colors, isDark) =>
     featureText: {
       fontSize: 11.5,
       color: colors.textSecondary || (isDark ? '#cbd5e1' : '#475569'),
-    },
-    subTabRow: {
-      flexDirection: 'row',
-      backgroundColor: colors.headerBg || (isDark ? '#1e293b' : '#ffffff'),
-      borderRadius: 10,
-      padding: 4,
-      borderWidth: 1,
-      borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
-      marginBottom: 14,
-      gap: 4,
-    },
-    subTabBtn: {
       flex: 1,
-      paddingVertical: 8,
-      alignItems: 'center',
-      borderRadius: 8,
     },
-    subTabBtnActive: {
+    buyNowBtn: {
       backgroundColor: '#2563eb',
+      paddingVertical: 9,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 10,
     },
-    subTabText: {
-      fontSize: 11.5,
-      fontWeight: '600',
-      color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
-    },
-    subTabTextActive: {
+    buyNowBtnText: {
       color: '#ffffff',
+      fontSize: 12.5,
+      fontWeight: '700',
+    },
+    subscribedBtn: {
+      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+      paddingVertical: 9,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 10,
+      borderWidth: 1,
+      borderColor: colors.border || '#cbd5e1',
+    },
+    subscribedBtnText: {
+      color: '#10b981',
+      fontSize: 12,
       fontWeight: '700',
     },
     itemCard: {
@@ -1402,9 +1714,11 @@ const getStyles = (colors, isDark) =>
       marginBottom: 6,
     },
     itemCardTitle: {
-      fontSize: 14,
+      fontSize: 13.5,
       fontWeight: '700',
       color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+      flex: 1,
+      paddingRight: 6,
     },
     itemCardSub: {
       fontSize: 11,
@@ -1427,9 +1741,9 @@ const getStyles = (colors, isDark) =>
       color: '#2563eb',
     },
     itemDesc: {
-      fontSize: 12.5,
+      fontSize: 12,
       color: colors.textSecondary || (isDark ? '#cbd5e1' : '#475569'),
-      lineHeight: 18,
+      lineHeight: 17,
       marginBottom: 6,
     },
     itemFooterDate: {
@@ -1446,6 +1760,17 @@ const getStyles = (colors, isDark) =>
       fontSize: 10,
       fontWeight: '700',
       textTransform: 'uppercase',
+    },
+    progressBarBg: {
+      height: 6,
+      backgroundColor: isDark ? '#334155' : '#e2e8f0',
+      borderRadius: 3,
+      overflow: 'hidden',
+      marginVertical: 4,
+    },
+    progressBarFill: {
+      height: '100%',
+      borderRadius: 3,
     },
     invoiceAmountRow: {
       flexDirection: 'row',
@@ -1600,73 +1925,93 @@ const getStyles = (colors, isDark) =>
       fontWeight: '700',
     },
     emptyCard: {
-      padding: 24,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 12,
       backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
+      borderRadius: 14,
+      padding: 24,
       borderWidth: 1,
       borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginVertical: 8,
     },
     emptyTitle: {
-      fontSize: 14,
+      fontSize: 14.5,
       fontWeight: '700',
       color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
-      marginBottom: 4,
     },
     emptySub: {
       fontSize: 11.5,
-      color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
+      color: colors.textSecondary || '#64748b',
       textAlign: 'center',
+      marginTop: 4,
+    },
+    statusPill: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    statusActive: {
+      backgroundColor: '#16a34a22',
+    },
+    statusInactive: {
+      backgroundColor: '#dc262622',
+    },
+    statusText: {
+      fontSize: 10.5,
+      fontWeight: '700',
+    },
+    statusTextActive: {
+      color: '#16a34a',
+    },
+    statusTextInactive: {
+      color: '#dc2626',
     },
     drawerOverlay: {
       position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
+      inset: 0,
+      zIndex: 100,
       flexDirection: 'row',
-      zIndex: 1000,
     },
     drawerBackdrop: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      position: 'absolute',
+      inset: 0,
+      backgroundColor: 'rgba(0,0,0,0.6)',
     },
     drawerContent: {
-      width: 280,
+      width: '78%',
+      maxWidth: 300,
       height: '100%',
-      padding: 16,
-      borderLeftWidth: 1,
+      borderRightWidth: 1,
+      paddingTop: 10,
     },
     drawerHeader: {
-      alignItems: 'center',
-      paddingVertical: 20,
+      padding: 16,
       borderBottomWidth: 1,
-      marginBottom: 14,
     },
     drawerAvatarContainer: {
-      width: 54,
-      height: 54,
-      borderRadius: 27,
+      width: 44,
+      height: 44,
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 8,
+      marginBottom: 10,
     },
     drawerAvatarText: {
-      fontSize: 22,
-      fontWeight: '800',
       color: '#ffffff',
+      fontSize: 18,
+      fontWeight: '800',
     },
     drawerName: {
       fontSize: 15,
       fontWeight: '800',
     },
     drawerEmail: {
-      fontSize: 11,
+      fontSize: 11.5,
       marginTop: 2,
     },
     drawerItemsContainer: {
       flex: 1,
+      padding: 12,
     },
     drawerItem: {
       flexDirection: 'row',
@@ -1677,73 +2022,73 @@ const getStyles = (colors, isDark) =>
       marginBottom: 4,
     },
     drawerItemActive: {
-      backgroundColor: isDark ? '#1e3a8a33' : '#eff6ff',
-    },
-    drawerItemIcon: {
-      fontSize: 16,
-      marginRight: 12,
+      backgroundColor: 'rgba(37, 99, 235, 0.12)',
     },
     drawerItemLabel: {
-      fontSize: 13,
-      fontWeight: '600',
+      fontSize: 12.5,
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.6)',
+      backgroundColor: 'rgba(0,0,0,0.65)',
       justifyContent: 'center',
+      alignItems: 'center',
       padding: 16,
     },
     modalCard: {
+      width: '100%',
+      maxWidth: 420,
       backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
       borderRadius: 16,
-      padding: 20,
+      padding: 16,
       borderWidth: 1,
       borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
     },
-    modalTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingBottom: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      marginBottom: 12,
     },
-    modalSub: {
-      fontSize: 11.5,
-      color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
-      marginTop: 2,
-      marginBottom: 14,
+    modalTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
     },
     inputLabel: {
       fontSize: 11.5,
-      fontWeight: '600',
-      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
-      marginBottom: 4,
+      fontWeight: '700',
+      color: colors.textSecondary || '#64748b',
       marginTop: 8,
+      marginBottom: 4,
     },
     input: {
       backgroundColor: isDark ? '#0f172a' : '#f8fafc',
       borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      padding: 10,
       borderWidth: 1,
       borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
       color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
       fontSize: 13,
     },
     modalTextArea: {
-      minHeight: 90,
+      minHeight: 80,
     },
     serviceChips: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 6,
-      marginBottom: 8,
+      marginBottom: 6,
     },
     serviceChip: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 16,
-      backgroundColor: isDark ? '#0f172a' : '#f1f5f9',
+      borderRadius: 8,
       borderWidth: 1,
       borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      backgroundColor: isDark ? '#0f172a' : '#f8fafc',
     },
     serviceChipActive: {
       backgroundColor: '#2563eb',
@@ -1761,29 +2106,32 @@ const getStyles = (colors, isDark) =>
     modalButtonRow: {
       flexDirection: 'row',
       gap: 10,
-      marginTop: 18,
+      marginTop: 14,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
     },
     modalCancelBtn: {
       flex: 1,
       paddingVertical: 10,
       borderRadius: 8,
-      alignItems: 'center',
       backgroundColor: isDark ? '#334155' : '#e2e8f0',
+      alignItems: 'center',
     },
     modalCancelText: {
-      fontSize: 13,
-      fontWeight: '600',
+      fontSize: 12.5,
+      fontWeight: '700',
       color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
     },
     modalSubmitBtn: {
       flex: 1.5,
       paddingVertical: 10,
       borderRadius: 8,
-      alignItems: 'center',
       backgroundColor: '#2563eb',
+      alignItems: 'center',
     },
     modalSubmitText: {
-      fontSize: 13,
+      fontSize: 12.5,
       fontWeight: '700',
       color: '#ffffff',
     },
