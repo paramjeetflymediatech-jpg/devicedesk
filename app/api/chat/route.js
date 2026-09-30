@@ -251,6 +251,24 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    // Mark Messages as Read
+    if (action === 'markRead') {
+      const { senderId } = body;
+      if (!senderId) {
+        return NextResponse.json({ success: false, error: 'Sender ID is required' }, { status: 400 });
+      }
+      const db = await getDbConnection();
+      try {
+        await db.execute(
+          'UPDATE chat_messages SET isRead = 1 WHERE senderId = ? AND receiverId = ? AND isRead = 0',
+          [senderId, user.id]
+        );
+      } catch (e) {
+        // Ignore if column doesn't exist just in case
+      }
+      return NextResponse.json({ success: true });
+    }
+
     // Edit Message (recent messages within 15 minutes)
     if (action === 'editMessage') {
       const { messageId, content } = body;

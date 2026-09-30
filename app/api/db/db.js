@@ -557,6 +557,27 @@ async function initializeDatabase(db) {
     await db.execute(`ALTER TABLE work_submission_history ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
   } catch (err) {}
 
+  try { await db.execute(`ALTER TABLE projects ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE projects ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
+
+  try { await db.execute(`ALTER TABLE packages ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE packages ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
+
+  try { await db.execute(`ALTER TABLE campaigns ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE leads ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  
+  try { await db.execute(`ALTER TABLE client_seo_reports ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  
+  try { await db.execute(`ALTER TABLE client_paid_ads ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_paid_ads ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
+  
+  try { await db.execute(`ALTER TABLE client_details ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_details ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
+  
+  try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS work_submissions (
       id VARCHAR(100) PRIMARY KEY,

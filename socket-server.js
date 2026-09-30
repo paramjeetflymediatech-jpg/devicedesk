@@ -210,6 +210,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('messages-read', (data) => {
+    if (!data || !data.readerId || !data.senderId) return;
+    const lowerSenderId = String(data.senderId).toLowerCase();
+    
+    // Notify the sender that their messages were read
+    const senderSockets = onlineUsers.get(lowerSenderId);
+    if (senderSockets) {
+      senderSockets.forEach(socketId => io.to(socketId).emit('messages-read-receipt', data));
+    }
+  });
+
   socket.on('send-notification', (data) => {
     if (!data || !data.userId) return;
     const lowerUserId = String(data.userId).toLowerCase();

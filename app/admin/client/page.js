@@ -36,7 +36,21 @@ export default function ClientManagementPage() {
       const res = await fetch(`/api/packages?client_id=${client.id}`);
       const data = await res.json();
       if (data.success) {
-        setClientSpecificPackages(data.packages || []);
+        const pkgs = data.packages || [];
+        setClientSpecificPackages(pkgs);
+        const overridden = pkgs.find(p => p.hasOverride);
+        if (overridden) {
+          setPricingForm({
+            client_id: client.id,
+            client_name: client.name,
+            package_id: overridden.id,
+            custom_price: overridden.price || '',
+            custom_name: overridden.name || '',
+            custom_description: overridden.description || '',
+            custom_billing_cycle: overridden.billing_cycle || 'Monthly',
+            custom_features: overridden.features || ''
+          });
+        }
       }
     } catch (err) {
       console.error(err);
@@ -48,7 +62,7 @@ export default function ClientManagementPage() {
       const res = await fetch(`/api/packages?client_id=${client.id}`);
       const data = await res.json();
       if (data.success) {
-        setViewingClientPackages(data.packages || []);
+        setViewingClientPackages((data.packages || []).filter(p => p.hasOverride));
         setViewingClientName(client.name);
         setShowViewPackagesModal(true);
       }

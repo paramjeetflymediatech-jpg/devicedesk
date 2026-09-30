@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import { io } from "socket.io-client";
 import EmojiPicker from 'emoji-picker-react';
-import { FiPaperclip, FiCamera, FiMic, FiSend, FiMessageSquare, FiUsers, FiBriefcase, FiDownload, FiFile, FiCornerUpRight, FiX, FiMoreVertical, FiPlay, FiPause , FiMapPin , FiTrash2 , FiInfo, FiFolder, FiImage, FiLink, FiArrowLeft, FiEdit2, FiSmile } from "react-icons/fi";
+import { FiPaperclip, FiCamera, FiMic, FiSend, FiMessageSquare, FiUsers, FiBriefcase, FiDownload, FiFile, FiCornerUpRight, FiX, FiMoreVertical, FiPlay, FiPause , FiMapPin , FiTrash2 , FiInfo, FiFolder, FiImage, FiLink, FiArrowLeft, FiEdit2, FiSmile, FiCheck } from "react-icons/fi";
+import { BiCheckDouble } from "react-icons/bi";
 
 export default function ChatView({ user }) {
   const [employees, setEmployees] = useState([]);
@@ -177,6 +178,19 @@ export default function ChatView({ user }) {
       lastReadTimestamps.current[activeChatId.toLowerCase()] = new Date().toISOString();
       if (typeof window !== "undefined") {
         localStorage.setItem("devicedesk_chat_last_read", JSON.stringify(lastReadTimestamps.current));
+      }
+      // Send read receipt if it's a DM
+      if (!activeChatId.startsWith('group_') && !activeChatId.startsWith('dept_') && activeChatId !== 'general') {
+        const readerId = String(user?.id).toLowerCase();
+        const senderId = String(activeChatId).toLowerCase();
+        socketRef.current?.emit('messages-read', { readerId, senderId });
+        
+        // Save to DB
+        fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'markRead', senderId })
+        }).catch(e => console.warn(e));
       }
     }
     recalculateUnread(messages);
@@ -373,15 +387,32 @@ export default function ChatView({ user }) {
       }));
     });
 
+    socket.on("messages-read-receipt", (data) => {
+      // Mark all messages sent by the current user to the reader as read
+      setMessages(prev => prev.map(m => {
+        if (
+          String(m.senderId).toLowerCase() === String(user.id).toLowerCase() && 
+          String(m.receiverId).toLowerCase() === String(data.readerId).toLowerCase()
+        ) {
+          return { ...m, isRead: 1 };
+        }
+        return m;
+      }));
+    });
+
     socket.on("typing", (data) => {
       if (data.senderId === user.id) return;
-      const key = `${data.receiverId}_${data.senderId}`;
+      const isGroup = data.receiverId.startsWith('group_') || data.receiverId.startsWith('dept_') || data.receiverId === 'general';
+      const room = isGroup ? data.receiverId : data.senderId;
+      const key = `${room}_${data.senderId}`;
       setTypingUsers(prev => ({ ...prev, [key]: data.senderName }));
     });
 
     socket.on("stop-typing", (data) => {
       if (data.senderId === user.id) return;
-      const key = `${data.receiverId}_${data.senderId}`;
+      const isGroup = data.receiverId.startsWith('group_') || data.receiverId.startsWith('dept_') || data.receiverId === 'general';
+      const room = isGroup ? data.receiverId : data.senderId;
+      const key = `${room}_${data.senderId}`;
       setTypingUsers(prev => {
         const newState = { ...prev };
         delete newState[key];
@@ -2275,7 +2306,18 @@ export default function ChatView({ user }) {
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>Everyone in company</div>
+                <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {(() => {
+                    const tyers = Object.entries(typingUsers)
+                      .filter(([key]) => key.startsWith("general_"))
+                      .map(([, name]) => name);
+                    if (tyers.length > 0) {
+                      const uniqueTypers = [...new Set(tyers)];
+                      return <span style={{ color: "var(--accent-cyan)", fontStyle: "italic", fontWeight: "600" }}>{uniqueTypers.join(", ")} {uniqueTypers.length > 1 ? "are" : "is"} typing...</span>;
+                    }
+                    return "Everyone in company";
+                  })()}
+                </div>
               </div>
             </div>
 
@@ -2305,7 +2347,19 @@ export default function ChatView({ user }) {
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>Only {currentDept} members</div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {(() => {
+                      const deptId = `dept_${currentDept}`;
+                      const tyers = Object.entries(typingUsers)
+                        .filter(([key]) => key.startsWith(deptId.toLowerCase() + "_"))
+                        .map(([, name]) => name);
+                      if (tyers.length > 0) {
+                        const uniqueTypers = [...new Set(tyers)];
+                        return <span style={{ color: "var(--accent-cyan)", fontStyle: "italic", fontWeight: "600" }}>{uniqueTypers.join(", ")} {uniqueTypers.length > 1 ? "are" : "is"} typing...</span>;
+                      }
+                      return `Only ${currentDept} members`;
+                    })()}
+                  </div>
                 </div>
               </div>
             )}
@@ -2379,7 +2433,17 @@ export default function ChatView({ user }) {
                         </div>
                       </div>
                       <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {lastMsgInfo.content || `${group.memberIds ? group.memberIds.split(",").length : 0} members`}
+                        {(() => {
+                          const tyers = Object.entries(typingUsers)
+                            .filter(([key]) => key.startsWith(group.id.toLowerCase() + "_"))
+                            .map(([, name]) => name);
+                          
+                          if (tyers.length > 0) {
+                            const uniqueTypers = [...new Set(tyers)];
+                            return <span style={{ color: "var(--accent-cyan)", fontStyle: "italic", fontWeight: "600" }}>{uniqueTypers.join(", ")} {uniqueTypers.length > 1 ? "are" : "is"} typing...</span>;
+                          }
+                          return lastMsgInfo.content || `${group.memberIds ? group.memberIds.split(",").length : 0} members`;
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -2451,7 +2515,13 @@ export default function ChatView({ user }) {
                         </div>
                       </div>
                       <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {lastMsgInfo.content || `${emp.role} • ${emp.department}`}
+                        {(() => {
+                          const tyers = Object.entries(typingUsers).filter(([key]) => key.startsWith(emp.id.toLowerCase() + "_"));
+                          if (tyers.length > 0) {
+                            return <span style={{ color: "var(--accent-cyan)", fontStyle: "italic", fontWeight: "600" }}>Typing...</span>;
+                          }
+                          return lastMsgInfo.content || `${emp.role} • ${emp.department}`;
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -3149,10 +3219,19 @@ export default function ChatView({ user }) {
                         </div>
 
                         {/* Timestamp */}
-                        <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "4px" }}>
+                        <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "4px", display: "flex", alignItems: "center", gap: "4px", justifyContent: isOwn ? "flex-end" : "flex-start" }}>
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           {(msg.isEdited === 1 || msg.isEdited === true) && (
                             <span style={{ marginLeft: "4px", opacity: 0.8, fontStyle: "italic" }}>(edited)</span>
+                          )}
+                          {isOwn && !msg.receiverId.startsWith('group_') && !msg.receiverId.startsWith('dept_') && msg.receiverId !== 'general' && (
+                            <span style={{ fontSize: "0.85rem", display: "flex", alignItems: "center" }}>
+                              {msg.isRead ? (
+                                <BiCheckDouble style={{ color: "var(--accent-cyan)", marginLeft: "2px" }} />
+                              ) : (
+                                <FiCheck style={{ color: "var(--text-muted)", marginLeft: "2px" }} />
+                              )}
+                            </span>
                           )}
                         </span>
                       </div>
