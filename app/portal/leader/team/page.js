@@ -33,10 +33,10 @@ export default function TeamAndEODsPage() {
       const dataEod = await resEod.json();
       
       if (dataEmp.success) {
-        const members = (dataEmp.data || []).filter(emp => 
-          (emp.role === 'Team Member' || emp.role === 'Employee' || emp.role === 'team member') &&
-          emp.tl_id === user.id
-        );
+        const members = (dataEmp.data || []).filter(emp => {
+          const r = (emp.role || '').toLowerCase();
+          return (r === 'team member' || r === 'employee') && emp.tl_id === user.id;
+        });
         const tasksList = dataTasks.success ? dataTasks.data : (dataTasks.tasks || []);
         const eodList = dataEod.success ? dataEod.data : [];
         
@@ -87,8 +87,8 @@ export default function TeamAndEODsPage() {
           description: newTaskDesc,
           assignedTo: selectedEmp.id,
           assignedToName: selectedEmp.name,
-          assignedBy: 'TL',
-          assignedByName: 'Team Leader'
+          assignedBy: user.id,
+          assignedByName: user.name || 'Team Leader'
         })
       });
       const d = await res.json();
@@ -264,30 +264,6 @@ export default function TeamAndEODsPage() {
         </div>
       )}
 
-      {assignModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h3 className="font-semibold text-slate-900">Assign Task to {selectedEmp?.name}</h3>
-              <button onClick={() => setAssignModalOpen(false)} className="text-slate-400 hover:text-slate-600"><FiX size={20} /></button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Task Title</label>
-                <input type="text" className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                <textarea className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none h-24" value={newTaskDesc} onChange={e => setNewTaskDesc(e.target.value)}></textarea>
-              </div>
-              <div className="flex gap-3 justify-end pt-2">
-                <button onClick={() => setAssignModalOpen(false)} className="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Cancel</button>
-                <button onClick={submitAssignTask} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Assign</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
