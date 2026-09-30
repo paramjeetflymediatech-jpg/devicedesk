@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Image, SafeAreaView, Platform, StatusBar } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Image, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { pick, types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import { useTheme } from '../utils/ThemeContext';
 import { sweetAlertRef } from '../utils/sweetAlert';

@@ -32,6 +32,12 @@ import ManageDomains from './ManageDomains';
 import ManageCandidates from './ManageCandidates';
 import ManageSubmissions from './ManageSubmissions';
 import ManageScreenshots from './ManageScreenshots';
+import ManageClients from './ManageClients';
+import ManagePackages from './ManagePackages';
+import ManageSubscriptions from './ManageSubscriptions';
+import ManageTeamHierarchy from './ManageTeamHierarchy';
+import ManageAuditLogs from './ManageAuditLogs';
+import ManageProjects from './ManageProjects';
 import LeaderDashboard from '../Leader/LeaderDashboard';
 import ChatScreen from '../ChatScreen';
 
@@ -419,6 +425,105 @@ export default function AdminDashboard({ user, onLogout }) {
         </TouchableOpacity>
       )}
 
+      {/* CRM & Projects Quick Actions Grid (Admin & HR) */}
+      {isAdminUser && (
+        <>
+          <TouchableOpacity
+            style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#022c2222' : '#f0fdf4', borderColor: '#10b981', marginBottom: 16 }]}
+            onPress={() => setActiveTab('clients')}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 18 }}>🏢</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#bbf7d0' : '#15803d' }}>
+                    Client CRM & Portals
+                  </Text>
+                  <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                    Manage customer accounts, portal links & credentials
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#10b981' }}>Manage →</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#08334422' : '#ecfeff', borderColor: '#06b6d4', marginBottom: 16 }]}
+            onPress={() => setActiveTab('projects')}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#06b6d4', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 18 }}>📁</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#a5f3fc' : '#0e7490' }}>
+                    Projects Portfolio Board
+                  </Text>
+                  <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                    Track client scopes, deliverables & progress
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#06b6d4' }}>View →</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#312e8122' : '#eef2ff', borderColor: '#6366f1', marginBottom: 16 }]}
+            onPress={() => setActiveTab('subscriptions')}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#6366f1', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 18 }}>💳</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#c7d2fe' : '#4338ca' }}>
+                    Subscriptions & Packages
+                  </Text>
+                  <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                    Monitor client billing, active plans & renewal cycles
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#6366f1' }}>Track →</Text>
+            </View>
+          </TouchableOpacity>
+        </>
+      )}
+
+      {(isAdminUser || isHRUser) && (
+        <TouchableOpacity
+          style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#43140722' : '#fff7ed', borderColor: '#ea580c', marginBottom: 16 }]}
+          onPress={() => setActiveTab('hierarchy')}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#ea580c', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 18 }}>🌳</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#fed7aa' : '#c2410c' }}>
+                  Team Hierarchy Tree
+                </Text>
+                <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                  Visual reporting lines & TL assignments
+                </Text>
+              </View>
+            </View>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#ea580c' }}>View Tree →</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.welcomeCard}>
         <Text style={styles.welcomeTitle}>Welcome back, {user.name}!</Text>
         <Text style={styles.welcomeDesc}>
@@ -505,6 +610,18 @@ export default function AdminDashboard({ user, onLogout }) {
         return <ManageAttendance currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'leaves':
         return <ManageLeaves currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
+      case 'clients':
+        return <ManageClients currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
+      case 'packages':
+        return <ManagePackages currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
+      case 'subscriptions':
+        return <ManageSubscriptions currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
+      case 'hierarchy':
+        return <ManageTeamHierarchy currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
+      case 'audit_logs':
+        return <ManageAuditLogs currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
+      case 'projects':
+        return <ManageProjects currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'chat':
         return <ChatScreen user={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'profile':
@@ -809,6 +926,90 @@ export default function AdminDashboard({ user, onLogout }) {
                 >
                   <Text style={styles.drawerItemIcon}>🚗</Text>
                   <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Marketing Field Trips</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Client CRM Records - Admin Only */}
+              {isAdminUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'clients' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('clients'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🏢</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Client CRM Records</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Service Packages - Admin Only */}
+              {isAdminUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'packages' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('packages'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>📦</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Service Packages</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Subscriptions Tracker - Admin Only */}
+              {isAdminUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'subscriptions' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('subscriptions'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>💳</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Subscriptions Tracker</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Visual Team Hierarchy - Admin & HR */}
+              {(isAdminUser || isHRUser) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'hierarchy' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('hierarchy'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🌳</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Visual Team Hierarchy</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* System Audit Logs - Admin Only */}
+              {isAdminUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'audit_logs' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('audit_logs'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🛡️</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>System Audit Logs</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Projects Portfolio Board - Admin Only */}
+              {isAdminUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'projects' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('projects'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>📁</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Projects Portfolio</Text>
                 </TouchableOpacity>
               )}
 

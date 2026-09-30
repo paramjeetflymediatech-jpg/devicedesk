@@ -56,6 +56,7 @@ export default function AttendanceLogs({ user }) {
 
   // Calendar Modal State
   const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [visibleLimit, setVisibleLimit] = useState(25);
 
   const statuses = ['ALL', 'Present', 'Absent', 'Late', 'Half Day', 'Completed', 'Overtime', 'Auto Closed'];
 
@@ -325,49 +326,61 @@ export default function AttendanceLogs({ user }) {
           <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No attendance records found for this period.</Text>
         </View>
       ) : (
-        filteredRecords.map((r) => {
-          const colors = getStatusColor(r.status);
-          return (
-            <View key={r.id || r.date} style={[styles.recordCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
-              <View style={styles.recordHeader}>
-                <Text style={[styles.recordDate, { color: themeColors.textPrimary }]}>📆 {r.date}</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: colors.bg, borderColor: colors.border },
-                  ]}
-                >
-                  <Text style={[styles.statusText, { color: colors.text }]}>
-                    {r.status || 'Present'}
-                  </Text>
+        <>
+          {filteredRecords.slice(0, visibleLimit).map((r) => {
+            const colors = getStatusColor(r.status);
+            return (
+              <View key={r.id || r.date} style={[styles.recordCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+                <View style={styles.recordHeader}>
+                  <Text style={[styles.recordDate, { color: themeColors.textPrimary }]}>📆 {r.date}</Text>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: colors.bg, borderColor: colors.border },
+                    ]}
+                  >
+                    <Text style={[styles.statusText, { color: colors.text }]}>
+                      {r.status || 'Present'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                <View style={styles.recordDetailsRow}>
+                  <View style={styles.detailItem}>
+                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>IN TIME</Text>
+                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.punchInTimeFormatted || formatTime(r.punchInTime) || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>OUT TIME</Text>
+                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.punchOutTimeFormatted || formatTime(r.punchOutTime) || '--:--'}</Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>BREAKS</Text>
+                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.totalBreakMinutes || 0}m</Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>NET WORK</Text>
+                    <Text style={[styles.detailValue, { color: '#2563eb', fontWeight: '800' }]}>
+                      {r.netWorkHoursFormatted || formatDuration(r.netWorkMinutes)}
+                    </Text>
+                  </View>
                 </View>
               </View>
-
-              <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-
-              <View style={styles.recordDetailsRow}>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>IN TIME</Text>
-                  <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.punchInTimeFormatted || formatTime(r.punchInTime) || 'N/A'}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>OUT TIME</Text>
-                  <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.punchOutTimeFormatted || formatTime(r.punchOutTime) || '--:--'}</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>BREAKS</Text>
-                  <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.totalBreakMinutes || 0}m</Text>
-                </View>
-                <View style={styles.detailItem}>
-                  <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>NET WORK</Text>
-                  <Text style={[styles.detailValue, { color: '#2563eb', fontWeight: '800' }]}>
-                    {r.netWorkHoursFormatted || formatDuration(r.netWorkMinutes)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          );
-        })
+            );
+          })}
+          {visibleLimit < filteredRecords.length && (
+            <TouchableOpacity
+              style={[styles.recordCard, { alignItems: 'center', paddingVertical: 12, backgroundColor: themeColors.cardBg, borderColor: themeColors.border, marginBottom: 20 }]}
+              onPress={() => setVisibleLimit((prev) => prev + 25)}
+            >
+              <Text style={{ color: '#2563eb', fontWeight: '700', fontSize: 13 }}>
+                Load More Records ({filteredRecords.length - visibleLimit} remaining)
+              </Text>
+            </TouchableOpacity>
+          )}
+        </>
       )}
 
       {/* Single Calendar Picker Modal */}
