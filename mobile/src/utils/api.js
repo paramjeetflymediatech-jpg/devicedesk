@@ -1333,6 +1333,24 @@ export async function fetchPackagesApi(clientId = null) {
   }
 }
 
+export async function purchasePackageApi(clientId, packageId) {
+  const url = `${currentApiUrl}/api/packages/purchase`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ client_id: clientId, package_id: packageId })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Purchase package failed at ${url}:`, err);
+    throw err;
+  }
+}
+
 export async function createPackageApi(packageData) {
   const url = `${currentApiUrl}/api/packages`;
   try {
