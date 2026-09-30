@@ -88,9 +88,9 @@ export default function LeaderLayout({ children }) {
           <FiMessageSquare size={20} /><span>Client Chat Room</span>
         </Link>
         
-        <Link href="/portal/leader/team-chat" className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${pathname.includes('team-chat') ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
+        {/* <Link href="/portal/leader/team-chat" className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${pathname.includes('team-chat') ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
           <FiUsers size={20} /><span>Team Chat Room</span>
-        </Link>
+        </Link> */}
 
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-6 px-3">Personal</div>
         

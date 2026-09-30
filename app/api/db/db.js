@@ -577,6 +577,9 @@ async function initializeDatabase(db) {
   
   try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
+  
+  try { await db.execute(`ALTER TABLE client_notes ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_notes ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS work_submissions (
