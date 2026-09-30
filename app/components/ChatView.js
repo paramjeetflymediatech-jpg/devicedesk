@@ -3489,8 +3489,52 @@ export default function ChatView({ user }) {
             </div>
           )}
 
+          {(() => {
+            const activeTypers = Object.entries(typingUsers)
+              .filter(([key]) => key.startsWith(String(activeChatId).toLowerCase() + "_"))
+              .map(([, name]) => name);
+            
+            if (activeTypers.length > 0) {
+              const uniqueTypers = [...new Set(activeTypers)];
+              return (
+                <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", padding: "4px 10px", margin: "10px 0" }}>
+                  <div style={{
+                    width: "32px", height: "32px", borderRadius: "50%", background: "var(--bg-tertiary)", 
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", color: "#fff"
+                  }}>
+                    {uniqueTypers[0].substring(0, 2).toUpperCase()}
+                  </div>
+                  <div style={{
+                    background: "var(--bg-card)",
+                    padding: "8px 14px",
+                    borderRadius: "16px 16px 16px 0",
+                    border: "1px solid var(--glass-border)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px"
+                  }}>
+                    <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>{uniqueTypers.length > 1 ? uniqueTypers.join(", ") : ""}</span>
+                    <div style={{ display: "flex", gap: "4px", padding: "4px 2px" }}>
+                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both" }} />
+                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both", animationDelay: "-0.32s" }} />
+                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both", animationDelay: "-0.16s" }} />
+                    </div>
+                  </div>
+                  <style>{`
+                    @keyframes typing-bounce {
+                      0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+                      40% { transform: scale(1); opacity: 1; }
+                    }
+                  `}</style>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           <div ref={messageEndRef} />
         </div>
+
 
         {/* Voice Note Recording Preview */}
         {recordedUrl && (
@@ -3892,7 +3936,7 @@ export default function ChatView({ user }) {
                   }}>
                     <input 
                       type="text" 
-                      placeholder="Search GIFs... (Requires Giphy API Key in .env)" 
+                      placeholder="Search GIF..."
                       value={gifSearchQuery}
                       onChange={(e) => setGifSearchQuery(e.target.value)}
                       style={{
