@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import { io } from "socket.io-client";
 import EmojiPicker from 'emoji-picker-react';
-import { FiPaperclip, FiCamera, FiMic, FiSend, FiMessageSquare, FiUsers, FiBriefcase, FiDownload, FiFile, FiCornerUpRight, FiX, FiMoreVertical, FiPlay, FiPause , FiMapPin , FiTrash2 , FiInfo, FiFolder, FiImage, FiLink, FiArrowLeft, FiEdit2, FiSmile, FiCheck } from "react-icons/fi";
+import { FiPaperclip, FiCamera, FiMic, FiSend, FiMessageSquare, FiUsers, FiBriefcase, FiDownload, FiFile, FiCornerUpRight, FiCornerUpLeft, FiX, FiMoreVertical, FiPlay, FiPause , FiMapPin , FiTrash2 , FiInfo, FiFolder, FiImage, FiLink, FiArrowLeft, FiEdit2, FiSmile, FiCheck } from "react-icons/fi";
 import { BiCheckDouble } from "react-icons/bi";
 
 export default function ChatView({ user }) {
@@ -16,6 +16,7 @@ export default function ChatView({ user }) {
   const [activeChatId, setActiveChatId] = useState(null); // 'general', 'dept_DepartmentName', group ID, or employee ID
   const [messageText, setMessageText] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [gifSearchQuery, setGifSearchQuery] = useState("");
@@ -23,10 +24,17 @@ export default function ChatView({ user }) {
 
   // Socket.io states
   const [onlineUsersList, setOnlineUsersList] = useState([]);
+  
+  // Pagination State
+  const [chatPage, setChatPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const scrollRef = useRef(null);
   const [lastSeenMap, setLastSeenMap] = useState({});
   const [typingUsers, setTypingUsers] = useState({});
   const [currentTime, setCurrentTime] = useState(Date.now());
   const typingTimeoutRef = useRef({});
+  const receiveTypingTimeoutRef = useRef({});
   const socketRef = useRef(null);
   const pickerContainerRef = useRef(null);
 
@@ -41,6 +49,7 @@ export default function ChatView({ user }) {
   const [clearedChats, setClearedChats] = useState({});
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingText, setEditingText] = useState("");
+  const [replyingToMessage, setReplyingToMessage] = useState(null);
 
   // Forward Message States
   const [showForwardModal, setShowForwardModal] = useState(false);
@@ -220,13 +229,20 @@ export default function ChatView({ user }) {
       const isRoomActive = roomKey === activeChatIdLower;
       if (isRoomActive) return;
 
-      // Check if message is newer than last read timestamp
-      const lastReadStr = lastReadTimestamps.current[roomKey] || "1970-01-01T00:00:00.000Z";
-      const msgTime = new Date(msg.timestamp).getTime();
-      const lastReadTime = new Date(lastReadStr).getTime();
-      
-      if (msgTime > lastReadTime) {
-        counts[roomKey] = (counts[roomKey] || 0) + 1;
+      if (roomKey !== "general" && !roomKey.startsWith("dept_") && !roomKey.startsWith("group_")) {
+        // Direct Message uses Server-Side isRead flag
+        if (msg.isRead === 0 || msg.isRead === false) {
+          counts[roomKey] = (counts[roomKey] || 0) + 1;
+        }
+      } else {
+        // Groups/Channels still use local timestamp fallback for unread badges
+        const lastReadStr = lastReadTimestamps.current[roomKey] || "1970-01-01T00:00:00.000Z";
+        const msgTime = new Date(msg.timestamp).getTime();
+        const lastReadTime = new Date(lastReadStr).getTime();
+        
+        if (msgTime > lastReadTime) {
+          counts[roomKey] = (counts[roomKey] || 0) + 1;
+        }
       }
     });
 
@@ -299,11 +315,8 @@ export default function ChatView({ user }) {
     fetchMarketingAuthorizations();
     fetchChatHistory();
 
-    // Start polling for new messages every 2 seconds
-    pollingRef.current = setInterval(fetchChatHistory, 2000);
-
+    // Polling removed in favor of Socket-Based Chat
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
       stopRecordingStream();
       stopCameraStream();
     };
@@ -406,6 +419,18 @@ export default function ChatView({ user }) {
       const room = isGroup ? data.receiverId : data.senderId;
       const key = `${room}_${data.senderId}`;
       setTypingUsers(prev => ({ ...prev, [key]: data.senderName }));
+
+      // Automatically clear stuck typing status after 4 seconds
+      if (receiveTypingTimeoutRef.current[key]) {
+        clearTimeout(receiveTypingTimeoutRef.current[key]);
+      }
+      receiveTypingTimeoutRef.current[key] = setTimeout(() => {
+        setTypingUsers(prev => {
+          const newState = { ...prev };
+          delete newState[key];
+          return newState;
+        });
+      }, 4000);
     });
 
     socket.on("stop-typing", (data) => {
@@ -487,6 +512,19 @@ export default function ChatView({ user }) {
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
+
+  // Helper to render URLs as clickable links
+  const renderMessageText = (text, isOwn) => {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: isOwn ? "#ffffff" : "var(--accent-cyan)", textDecoration: "underline", wordBreak: "break-all" }}>{part}</a>;
+      }
+      return part;
+    });
+  };
 
   // Timer to force re-render of "Last Seen" timestamps every minute
   useEffect(() => {
@@ -583,6 +621,54 @@ export default function ChatView({ user }) {
     }
   };
 
+  const fetchOlderMessages = async () => {
+    if (!activeChatId || isLoadingMore || !hasMoreMessages) return;
+    setIsLoadingMore(true);
+    
+    try {
+      const nextPage = chatPage + 1;
+      const res = await fetch(`/api/chat?chatId=${encodeURIComponent(activeChatId)}&page=${nextPage}&limit=50`);
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        if (data.messages && data.messages.length > 0) {
+          setMessages(prev => {
+            const newMessages = [...prev];
+            // Only add messages that aren't already in state
+            data.messages.forEach(newMsg => {
+              if (!newMessages.find(m => m.id === newMsg.id)) {
+                newMessages.push(newMsg);
+              }
+            });
+            // Re-sort chronologically
+            return newMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+          });
+          setChatPage(nextPage);
+        }
+        
+        if (!data.messages || data.messages.length < 50) {
+          setHasMoreMessages(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching older messages:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    setChatPage(1);
+    setHasMoreMessages(true);
+  }, [activeChatId]);
+
+  const handleScroll = (e) => {
+    // Fetch older messages when scrolling to the very top (scrollTop === 0)
+    if (e.target.scrollTop === 0) {
+      fetchOlderMessages();
+    }
+  };
+
   // Sending Messages
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
@@ -591,10 +677,12 @@ export default function ChatView({ user }) {
     const payload = {
       receiverId: activeChatId,
       messageType: "text",
-      content: messageText.trim()
+      content: messageText.trim(),
+      replyToMessageId: replyingToMessage ? replyingToMessage.id : null
     };
 
     setMessageText("");
+    setReplyingToMessage(null);
 
     try {
       const res = await fetch("/api/chat", {
@@ -1455,16 +1543,47 @@ export default function ChatView({ user }) {
     setUploading(true);
 
     try {
+      setUploadProgress(0);
       const formData = new FormData();
       formData.append("file", file);
 
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData
+      const uploadData = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/upload', true);
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(percentComplete);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const resData = JSON.parse(xhr.responseText);
+              resolve(resData);
+            } catch (e) {
+              reject(new Error("Invalid JSON response from server"));
+            }
+          } else {
+            try {
+              const errData = JSON.parse(xhr.responseText);
+              reject(new Error(errData.error || "Upload failed with status " + xhr.status));
+            } catch (e) {
+              reject(new Error("Upload failed with status " + xhr.status));
+            }
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(new Error("Network error occurred during upload."));
+        };
+
+        xhr.send(formData);
       });
 
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok || !uploadData.success) {
+      if (!uploadData.success) {
         throw new Error(uploadData.error || "Upload rejected.");
       }
 
@@ -1486,8 +1605,11 @@ export default function ChatView({ user }) {
         messageType,
         fileUrl,
         fileName: file.name,
-        fileSize: formatBytes(file.size)
+        fileSize: formatBytes(file.size),
+        replyToMessageId: replyingToMessage ? replyingToMessage.id : null
       };
+
+      setReplyingToMessage(null);
 
       const chatRes = await fetch("/api/chat", {
         method: "POST",
@@ -2901,14 +3023,23 @@ export default function ChatView({ user }) {
         </div>
 
         {/* Messages Feed */}
-        <div style={{
-          flexGrow: 1,
-          overflowY: "auto",
-          padding: "1.5rem",
-          display: "flex",
-          flexDirection: "column",
-          gap: "1.5rem"
-        }}>
+        <div 
+          onScroll={handleScroll}
+          style={{
+            flexGrow: 1,
+            overflowY: "auto",
+            padding: "1.5rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1.5rem"
+          }}
+        >
+          {isLoadingMore && (
+            <div style={{ textAlign: "center", padding: "10px", color: "var(--accent-cyan)", fontSize: "0.8rem", display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
+              <span className="spinner" style={{ width: "14px", height: "14px", border: "2px solid rgba(0, 212, 255, 0.3)", borderTopColor: "var(--accent-cyan)", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+              Loading older messages...
+            </div>
+          )}
           {Object.keys(groupedMessages).length === 0 ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyStyle: "center", flexGrow: 1, marginTop: "20%" }}>
               <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}><FiMessageSquare /></div>
@@ -2934,6 +3065,7 @@ export default function ChatView({ user }) {
                   return (
                     <div 
                       key={msg.id}
+                      id={`message-${msg.id}`}
                       style={{
                         display: "flex",
                         justifyContent: isOwn ? "flex-end" : "flex-start",
@@ -2999,10 +3131,53 @@ export default function ChatView({ user }) {
                                 : "var(--bg-card)",
                               border: isOwn ? "none" : "1px solid var(--glass-border)",
                               color: isOwn ? "#ffffff" : "var(--text-primary)",
-                              fontSize: "0.85rem",
+                              fontSize: "0.95rem",
                               wordBreak: "break-word",
-                              whiteSpace: "pre-wrap"
+                              whiteSpace: "pre-wrap",
+                              lineHeight: "1.5"
                             }}>
+                              {/* Quoted Message (Reply) */}
+                              {msg.replyToMessageId && (
+                                (() => {
+                                  const repliedMsg = messages.find(m => m.id === msg.replyToMessageId);
+                                  const renderName = repliedMsg ? repliedMsg.senderName : "Original Message";
+                                  const renderContent = repliedMsg ? 
+                                    (repliedMsg.messageType === "text" ? repliedMsg.content : `[${repliedMsg.messageType}]`) : 
+                                    "Scroll to view original message";
+
+                                  return (
+                                    <div 
+                                      onClick={() => {
+                                        const el = document.getElementById(`message-${msg.replyToMessageId}`);
+                                        if (el) {
+                                          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                          const originalBg = el.style.backgroundColor;
+                                          el.style.backgroundColor = 'rgba(0, 212, 255, 0.2)';
+                                          setTimeout(() => el.style.backgroundColor = originalBg, 2000);
+                                        }
+                                      }}
+                                      style={{
+                                        background: "rgba(0, 0, 0, 0.15)",
+                                        borderLeft: "3px solid " + (isOwn ? "#fff" : "var(--accent-cyan)"),
+                                        padding: "6px 10px",
+                                        marginBottom: "6px",
+                                        borderRadius: "4px",
+                                        fontSize: "0.75rem",
+                                        cursor: "pointer",
+                                        transition: "background 0.2s"
+                                      }}
+                                    >
+                                      <div style={{ fontWeight: "700", marginBottom: "2px", color: isOwn ? "#fff" : "var(--accent-cyan)" }}>
+                                        {renderName}
+                                      </div>
+                                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: 0.85 }}>
+                                        {renderContent}
+                                      </div>
+                                    </div>
+                                  );
+                                })()
+                              )}
+
                               {/* Render based on message type */}
                               {msg.messageType === "text" && (
                                 <div>
@@ -3011,10 +3186,10 @@ export default function ChatView({ user }) {
                                       <span style={{ fontSize: "0.7rem", color: "var(--accent-cyan)", fontWeight: "600", display: "block", marginBottom: "2px" }}>
                                         <FiCornerUpRight /> Forwarded
                                       </span>
-                                      <div>{msg.content.replace(/^<FiCornerUpRight \/> Forwarded\n?/, "")}</div>
+                                      <div>{renderMessageText(msg.content.replace(/^<FiCornerUpRight \/> Forwarded\n?/, ""), isOwn)}</div>
                                     </div>
                                   ) : (
-                                    <div>{msg.content}</div>
+                                    <div>{renderMessageText(msg.content, isOwn)}</div>
                                   )}
                                 </div>
                               )}
@@ -3026,12 +3201,28 @@ export default function ChatView({ user }) {
                                       <FiCornerUpRight /> Forwarded
                                     </span>
                                   )}
-                                  {msg.content && !msg.content.startsWith("<FiCornerUpRight /> Forwarded") && <div style={{ marginBottom: "8px" }}>{msg.content}</div>}
+                                  {msg.content && !msg.content.startsWith("<FiCornerUpRight /> Forwarded") && <div style={{ marginBottom: "8px" }}>{renderMessageText(msg.content, isOwn)}</div>}
                                   <img 
                                     src={msg.fileUrl} 
                                     alt={msg.fileName || "Shared media"}
                                     style={{ maxWidth: "100%", maxHeight: "250px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer" }}
                                     onClick={() => setPreviewMediaUrl(msg.fileUrl)}
+                                  />
+                                </div>
+                              )}
+
+                              {msg.messageType === "video" && (
+                                <div>
+                                  {msg.content?.startsWith("<FiCornerUpRight /> Forwarded") && (
+                                    <span style={{ fontSize: "0.7rem", color: "var(--accent-cyan)", fontWeight: "600", display: "block", marginBottom: "4px" }}>
+                                      <FiCornerUpRight /> Forwarded
+                                    </span>
+                                  )}
+                                  {msg.content && !msg.content.startsWith("<FiCornerUpRight /> Forwarded") && <div style={{ marginBottom: "8px" }}>{renderMessageText(msg.content, isOwn)}</div>}
+                                  <video 
+                                    src={msg.fileUrl} 
+                                    controls
+                                    style={{ maxWidth: "100%", maxHeight: "250px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}
                                   />
                                 </div>
                               )}
@@ -3066,7 +3257,7 @@ export default function ChatView({ user }) {
                                       alignItems: "center",
                                       gap: "10px",
                                       textDecoration: "none",
-                                      color: "#fff",
+                                      color: "inherit",
                                       padding: "4px"
                                     }}
                                   >
@@ -3129,6 +3320,32 @@ export default function ChatView({ user }) {
                                   }}
                                   onClick={(e) => e.stopPropagation()}
                                 >
+                                  {/* Reply Option */}
+                                  <button 
+                                    onClick={() => {
+                                      setActiveMenuMessageId(null);
+                                      setReplyingToMessage(msg);
+                                    }}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      color: "var(--text-main)",
+                                      padding: "9px 14px",
+                                      textAlign: "left",
+                                      cursor: "pointer",
+                                      fontSize: "0.85rem",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "10px",
+                                      width: "100%",
+                                      transition: "background 0.15s"
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--glass-border)"}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                                  >
+                                    <span style={{ fontSize: "1rem" }}><FiCornerUpLeft /></span> Reply
+                                  </button>
+
                                   {/* Forward Option */}
                                   <button 
                                     onClick={() => {
@@ -3241,8 +3458,83 @@ export default function ChatView({ user }) {
               </div>
             ))
           )}
+
+          {uploading && (
+            <div style={{ display: "flex", justifyContent: "flex-end", width: "100%", marginTop: "10px" }}>
+              <div style={{
+                maxWidth: "70%",
+                minWidth: "150px",
+                background: "var(--accent-cyan)",
+                color: "#fff",
+                padding: "12px 14px",
+                borderRadius: "14px 14px 0px 14px",
+                boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "8px"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.9rem", fontWeight: "600" }}>
+                  <span className="spinner" style={{ width: "16px", height: "16px", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 1s linear infinite", display: "inline-block" }} />
+                  Uploading...
+                </div>
+                <div style={{ width: "100%", height: "6px", background: "rgba(255,255,255,0.3)", borderRadius: "3px", overflow: "hidden" }}>
+                  <div style={{ width: `${uploadProgress}%`, height: "100%", background: "#fff", transition: "width 0.2s" }} />
+                </div>
+                <span style={{ fontSize: "0.75rem", alignSelf: "flex-end", fontWeight: "bold" }}>{uploadProgress}%</span>
+                <style>{`
+                  @keyframes spin { 100% { transform: rotate(360deg); } }
+                `}</style>
+              </div>
+            </div>
+          )}
+
+          {(() => {
+            const activeTypers = Object.entries(typingUsers)
+              .filter(([key]) => key.startsWith(String(activeChatId).toLowerCase() + "_"))
+              .map(([, name]) => name);
+            
+            if (activeTypers.length > 0) {
+              const uniqueTypers = [...new Set(activeTypers)];
+              return (
+                <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", padding: "4px 10px", margin: "10px 0" }}>
+                  <div style={{
+                    width: "32px", height: "32px", borderRadius: "50%", background: "var(--bg-tertiary)", 
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", color: "#fff"
+                  }}>
+                    {uniqueTypers[0].substring(0, 2).toUpperCase()}
+                  </div>
+                  <div style={{
+                    background: "var(--bg-card)",
+                    padding: "8px 14px",
+                    borderRadius: "16px 16px 16px 0",
+                    border: "1px solid var(--glass-border)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px"
+                  }}>
+                    <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>{uniqueTypers.length > 1 ? uniqueTypers.join(", ") : ""}</span>
+                    <div style={{ display: "flex", gap: "4px", padding: "4px 2px" }}>
+                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both" }} />
+                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both", animationDelay: "-0.32s" }} />
+                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both", animationDelay: "-0.16s" }} />
+                    </div>
+                  </div>
+                  <style>{`
+                    @keyframes typing-bounce {
+                      0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+                      40% { transform: scale(1); opacity: 1; }
+                    }
+                  `}</style>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           <div ref={messageEndRef} />
         </div>
+
 
         {/* Voice Note Recording Preview */}
         {recordedUrl && (
@@ -3410,8 +3702,37 @@ export default function ChatView({ user }) {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSendMessage} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              {/* Pick file input */}
+            <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+              {replyingToMessage && (
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "var(--bg-tertiary)",
+                  borderLeft: "4px solid var(--accent-cyan)",
+                  padding: "8px 12px",
+                  marginBottom: "8px",
+                  borderRadius: "4px"
+                }}>
+                  <div style={{ overflow: "hidden" }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--accent-cyan)", fontWeight: "600", marginBottom: "2px" }}>
+                      Replying to {replyingToMessage.senderName}
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {replyingToMessage.messageType === "text" ? replyingToMessage.content : `[${replyingToMessage.messageType}]`}
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setReplyingToMessage(null)}
+                    style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "4px" }}
+                  >
+                    <FiX size={16} />
+                  </button>
+                </div>
+              )}
+              <form onSubmit={handleSendMessage} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                {/* Pick file input */}
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -3499,12 +3820,22 @@ export default function ChatView({ user }) {
 
               {/* Input field with Emoji Picker */}
               <div ref={pickerContainerRef} style={{ position: "relative", flexGrow: 1, display: "flex", alignItems: "center" }}>
-                <input
-                  type="text"
+                <textarea
                   placeholder={isRecording ? "Finish recording to send..." : "Type a message..."}
                   value={messageText}
                   disabled={isRecording || uploading}
-                  onChange={handleTyping}
+                  onChange={(e) => {
+                    handleTyping(e);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage(e);
+                      e.target.style.height = 'auto';
+                    }
+                  }}
                   onFocus={() => { setShowEmojiPicker(false); setShowGifPicker(false); }}
                   style={{
                     width: "100%",
@@ -3514,9 +3845,16 @@ export default function ChatView({ user }) {
                     border: "1px solid var(--glass-border)",
                     color: "var(--text-primary)",
                     outline: "none",
-                    fontSize: "0.85rem",
+                    fontSize: "0.95rem",
                     fontFamily: "var(--font-main)",
+                    resize: "none",
+                    minHeight: "48px",
+                    maxHeight: "150px",
+                    overflowY: "auto",
+                    lineHeight: "1.5",
+                    boxSizing: "border-box"
                   }}
+                  rows={1}
                 />
                 
                 <button
@@ -3598,7 +3936,7 @@ export default function ChatView({ user }) {
                   }}>
                     <input 
                       type="text" 
-                      placeholder="Search GIFs... (Requires Giphy API Key in .env)" 
+                      placeholder="Search GIF..."
                       value={gifSearchQuery}
                       onChange={(e) => setGifSearchQuery(e.target.value)}
                       style={{
@@ -3651,6 +3989,7 @@ export default function ChatView({ user }) {
                 <FiSend />
               </button>
             </form>
+            </div>
           )}
         </div>
         </>
@@ -3782,6 +4121,10 @@ export default function ChatView({ user }) {
                             {memberIds.slice(0, 5).map(id => {
                               const emp = employees.find(e => String(e.id).toLowerCase() === String(id).toLowerCase());
                               const isSelf = String(id).toLowerCase() === String(user?.id || "").toLowerCase();
+                              const isCreator = String(user?.id || "").toLowerCase() === String(group?.createdBy || "").toLowerCase();
+                              const isAdmin = user?.dbRole === 'admin' || user?.role === 'admin';
+                              const canRemove = isSelf || isCreator || isAdmin;
+                              
                               return (
                                 <div key={id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.75rem", width: "100%" }}>
                                   {renderAvatar("employee", emp || { name: id }, "20px")}
@@ -3792,22 +4135,25 @@ export default function ChatView({ user }) {
                                     )}
                                   </span>
                                   <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginRight: "4px" }}>{emp?.role || "Member"}</span>
-                                  <button 
-                                    onClick={() => handleRemoveMember(id, emp?.name || id)}
-                                    style={{
-                                      background: "none",
-                                      border: "none",
-                                      color: "var(--status-critical)",
-                                      cursor: "pointer",
-                                      fontSize: "0.7rem",
-                                      padding: "2px",
-                                      display: "flex",
-                                      alignItems: "center"
-                                    }}
-                                    title={isSelf ? "Leave Group" : "Remove Member"}
-                                  >
-                                    ✕
-                                  </button>
+                                  
+                                  {canRemove && (
+                                    <button 
+                                      onClick={() => handleRemoveMember(id, emp?.name || id)}
+                                      style={{
+                                        background: "none",
+                                        border: "none",
+                                        color: "var(--status-critical)",
+                                        cursor: "pointer",
+                                        fontSize: "0.7rem",
+                                        padding: "2px",
+                                        display: "flex",
+                                        alignItems: "center"
+                                      }}
+                                      title={isSelf ? "Leave Group" : "Remove Member"}
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
                                 </div>
                               );
                             })}

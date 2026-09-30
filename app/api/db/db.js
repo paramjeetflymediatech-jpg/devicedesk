@@ -277,9 +277,23 @@ async function initializeDatabase(db) {
       fileUrl TEXT DEFAULT NULL,
       fileName VARCHAR(255) DEFAULT NULL,
       fileSize VARCHAR(50) DEFAULT NULL,
+      replyToMessageId VARCHAR(100) DEFAULT NULL,
+      isRead TINYINT(1) DEFAULT 0,
       timestamp VARCHAR(50) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  try {
+    await db.execute('ALTER TABLE chat_messages ADD COLUMN replyToMessageId VARCHAR(100) DEFAULT NULL');
+  } catch (err) {
+    // Column might already exist
+  }
+
+  try {
+    await db.execute('ALTER TABLE chat_messages ADD COLUMN isRead TINYINT(1) DEFAULT 0');
+  } catch (err) {
+    // Column might already exist
+  }
 
   // Create indexes if they don't exist
   try {
