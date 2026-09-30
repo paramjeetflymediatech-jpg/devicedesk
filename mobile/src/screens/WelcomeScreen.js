@@ -5,12 +5,12 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Dimensions,
   Animated,
   StatusBar,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AppIcon from '../components/AppIcon';
 
 const { width } = Dimensions.get('window');

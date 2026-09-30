@@ -14,7 +14,7 @@ export async function GET(request) {
   const pool = getPool();
 
   try {
-    let query = `SELECT * FROM attendance_records WHERE 1=1`;
+    let query = `SELECT id, employeeId, employeeName, date, punchInTime, punchOutTime, status, totalWorkMinutes, totalBreakMinutes, netWorkMinutes, remarks, modifiedBy, modifiedReason, breakStatus FROM attendance_records WHERE 1=1`;
     const params = [];
 
     const search = searchParams.get('search');
