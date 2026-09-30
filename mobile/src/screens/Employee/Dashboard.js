@@ -38,7 +38,7 @@ import EODSubmission from './EODSubmission';
 import AppIcon from '../../components/AppIcon';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
 
-export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) {
+export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, onSwitchToAdmin }) {
   const { theme, isDark, toggleTheme, themeColors } = useTheme();
   const [activeTab, setActiveTab] = useState('overview'); // overview, file-complaint, records, profile, tasks, attendance, chat
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -84,12 +84,16 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) 
     loadMarketingAuth();
   }, []);
 
+  const dbRoleStr = (user?.dbRole || '').toLowerCase().trim();
+  const roleStr = (user?.role || '').toLowerCase().trim();
+  const deptStr = (user?.department || '').toLowerCase().trim();
+
   const isMarketingUser =
-    (user?.role || '').toLowerCase().includes('admin') ||
-    (user?.role || '').toLowerCase().includes('superadmin') ||
-    (user?.role || '').toLowerCase().includes('management') ||
-    (user?.department || '').toLowerCase() === 'marketing' ||
-    (user?.role || '').toLowerCase().includes('marketing') ||
+    dbRoleStr === 'admin' ||
+    dbRoleStr === 'superadmin' ||
+    dbRoleStr === 'management' ||
+    deptStr === 'marketing' ||
+    dbRoleStr.includes('marketing') ||
     authorizedMarketingIds.includes(user?.id);
 
   // Complaint form states
@@ -803,7 +807,7 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) 
             </TouchableOpacity>
 
             {/* Quick Action: Marketing Field Trips Banner */}
-            {isMarketingUser && (
+            {/* {isMarketingUser && (
               <TouchableOpacity
                 style={[
                   styles.card,
@@ -830,7 +834,7 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) 
                   <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Field Trips ➔</Text>
                 </View>
               </TouchableOpacity>
-            )}
+            )} */}
 
             {/* Attendance Punch Section */}
             <AttendanceWidget user={user} />
@@ -1163,27 +1167,43 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader }) 
               keyboardShouldPersistTaps="handled"
             >
               {onSwitchToLeader && (
-                <TouchableOpacity
-                  style={[
-                    styles.drawerItem,
-                    {
-                      backgroundColor: isDark ? '#1e3a8a' : '#dbeafe',
-                      borderColor: '#2563eb',
-                      borderWidth: 1,
-                      marginBottom: 8,
-                    },
-                  ]}
-                  onPress={() => {
-                    setIsDrawerOpen(false);
-                    onSwitchToLeader();
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={{ fontSize: 16, marginRight: 12 }}>👔</Text>
-                  <Text style={[styles.drawerItemLabel, { color: '#2563eb', fontWeight: '800' }]}>
-                    Switch to Leader Portal
-                  </Text>
-                </TouchableOpacity>
+                <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 16 }}>
+                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(37, 99, 235, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.3)' : 'rgba(37, 99, 235, 0.2)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>👔</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>TL Portal</Text>
+                    </View>
+                    <Switch
+                      value={false}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToLeader();
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
+                      thumbColor={'#f8fafc'}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {onSwitchToAdmin && (
+                <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: onSwitchToLeader ? 0 : 16 }}>
+                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(220, 38, 38, 0.1)' : 'rgba(220, 38, 38, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(220, 38, 38, 0.3)' : 'rgba(220, 38, 38, 0.2)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>🛡️</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#dc2626' }}>IT Portal</Text>
+                    </View>
+                    <Switch
+                      value={false}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToAdmin();
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#fca5a5' }}
+                      thumbColor={'#f8fafc'}
+                    />
+                  </View>
+                </View>
               )}
               {isMarketingUser && (
                 <TouchableOpacity

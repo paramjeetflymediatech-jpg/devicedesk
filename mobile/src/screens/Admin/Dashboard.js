@@ -65,7 +65,7 @@ function getRelativeTime(isoString) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function AdminDashboard({ user, onLogout }) {
+export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
   const { theme, isDark, toggleTheme, themeColors } = useTheme();
   const styles = getStyles(themeColors, isDark);
 
@@ -632,6 +632,16 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
+  if (activeTab === 'leader') {
+    return (
+      <LeaderDashboard
+        user={user}
+        onLogout={onLogout}
+        onSwitchToEmployee={() => setActiveTab('overview')}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
@@ -903,16 +913,44 @@ export default function AdminDashboard({ user, onLogout }) {
 
               {/* Team Leader Portal - Admin & Team Leader */}
               {(isAdminUser || isTeamLeader) && (
-                <TouchableOpacity
-                  style={[
-                    styles.drawerItem,
-                    activeTab === 'leader' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                  ]}
-                  onPress={() => { setActiveTab('leader'); setIsDrawerOpen(false); }}
-                >
-                  <Text style={styles.drawerItemIcon}>👔</Text>
-                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Team Leader Portal</Text>
-                </TouchableOpacity>
+                <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 16 }}>
+                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(37, 99, 235, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.3)' : 'rgba(37, 99, 235, 0.2)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>👔</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>TL Portal</Text>
+                    </View>
+                    <Switch
+                      value={activeTab === 'leader'}
+                      onValueChange={(val) => {
+                        setActiveTab(val ? 'leader' : defaultTab);
+                        setIsDrawerOpen(false);
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
+                      thumbColor={activeTab === 'leader' ? '#3b82f6' : '#f8fafc'}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* Employee Dashboard - Switch for Admin */}
+              {onSwitchToEmployee && (
+                <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: (isAdminUser || isTeamLeader) ? 0 : 16 }}>
+                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>👤</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#10b981' }}>Employee Portal</Text>
+                    </View>
+                    <Switch
+                      value={false}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToEmployee();
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#6ee7b7' }}
+                      thumbColor={'#f8fafc'}
+                    />
+                  </View>
+                </View>
               )}
 
               {/* Marketing Field Trips - Admin & Marketing */}

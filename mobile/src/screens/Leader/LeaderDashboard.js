@@ -49,7 +49,7 @@ function getDeptColor(dept = '') {
   return DEPT_COLORS.Default;
 }
 
-export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwitchToEmployee }) {
+export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwitchToEmployee, onSwitchToAdmin }) {
   const { themeColors, isDark, toggleTheme } = useTheme();
 
   // Navigation tab: 'overview' | 'requests' | 'team' | 'sop'
@@ -84,6 +84,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const [assigneeId, setAssigneeId] = useState('');
   const [assignNote, setAssignNote] = useState('');
   const [assigningReq, setAssigningReq] = useState(false);
+  const [reqAssignDropdownOpen, setReqAssignDropdownOpen] = useState(false);
 
   // 4. Forward EOD to Client Modal
   const [forwardModalVisible, setForwardModalVisible] = useState(false);
@@ -348,7 +349,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
       if (res && res.success) {
         // Update request status to Assigned
-        await updateClientRequestStatusApi(selectedRequest.id, 'Assigned').catch(() => {});
+        await updateClientRequestStatusApi(selectedRequest.id, 'Assigned').catch(() => { });
 
         sweetAlert({
           title: 'Request Assigned!',
@@ -435,7 +436,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     { id: 'overview', label: 'Overview Dashboard', icon: 'grid' },
     { id: 'requests', label: 'Client Requests', icon: 'check-square', badge: stats.pendingRequests },
     { id: 'team', label: 'Team & EODs', icon: 'users' },
-    { id: 'sop', label: 'Standard Operating Procedures', icon: 'book-open' },
+    // { id: 'sop', label: 'Standard Operating Procedures', icon: 'book-open' },
   ];
 
   const ContainerComponent = onNavigateBack ? View : SafeAreaView;
@@ -561,7 +562,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={[styles.tabButton, activeTab === 'sop' && styles.tabButtonActive]}
             onPress={() => setActiveTab('sop')}
             activeOpacity={0.8}
@@ -570,7 +571,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             <Text style={[styles.tabButtonText, activeTab === 'sop' && styles.tabButtonTextActive]}>
               SOP
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* ======================================================== */}
@@ -736,10 +737,10 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                           isCompleted
                             ? styles.statusSuccess
                             : isForReview
-                            ? styles.statusReview
-                            : isAssigned
-                            ? styles.statusWorking
-                            : styles.statusPending,
+                              ? styles.statusReview
+                              : isAssigned
+                                ? styles.statusWorking
+                                : styles.statusPending,
                         ]}
                       >
                         <Text
@@ -748,10 +749,10 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                             isCompleted
                               ? styles.statusTextSuccess
                               : isForReview
-                              ? styles.statusTextReview
-                              : isAssigned
-                              ? styles.statusTextWorking
-                              : styles.statusTextPending,
+                                ? styles.statusTextReview
+                                : isAssigned
+                                  ? styles.statusTextWorking
+                                  : styles.statusTextPending,
                           ]}
                         >
                           {status}
@@ -1157,7 +1158,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                     </Text>
                     {matchingTaskSubmission.fileUrl ? (
                       <TouchableOpacity
-                        onPress={() => Linking.openURL(matchingTaskSubmission.fileUrl).catch(() => {})}
+                        onPress={() => Linking.openURL(matchingTaskSubmission.fileUrl).catch(() => { })}
                         style={{ marginTop: 6 }}
                       >
                         <Text style={{ color: '#2563eb', fontSize: 12, fontWeight: '700' }}>
@@ -1174,7 +1175,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
               </ScrollView>
 
               <TouchableOpacity
-                style={[styles.modalSaveBtn, { marginTop: 14 }]}
+                style={[styles.modalSaveBtn, { marginTop: 14, flex: 0, width: '100%' }]}
                 onPress={() => setViewReqModalVisible(false)}
               >
                 <Text style={styles.modalSaveText}>Close</Text>
@@ -1205,28 +1206,48 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             <Text style={styles.inputLabel}>Service: {selectedRequest?.service_type || 'Service'}</Text>
 
             <Text style={[styles.inputLabel, { marginTop: 10 }]}>Select Team Specialist *</Text>
-            <ScrollView style={{ maxHeight: 150, marginVertical: 4 }}>
-              {teamMembers.map((emp) => {
-                const isSelected = String(assigneeId) === String(emp.id);
-                return (
-                  <TouchableOpacity
-                    key={emp.id}
-                    style={[
-                      styles.empSelectCard,
-                      isSelected && styles.empSelectCardActive,
-                    ]}
-                    onPress={() => setAssigneeId(emp.id)}
-                  >
-                    <Text style={[styles.empSelectName, isSelected && { color: '#ffffff' }]}>
-                      👤 {emp.name}
-                    </Text>
-                    <Text style={[styles.empSelectDept, isSelected && { color: '#dbeafe' }]}>
-                      {emp.department} • {emp.tasksCount} active tasks
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.input, { justifyContent: 'center', backgroundColor: isDark ? '#1e293b' : '#f8fafc' }]}
+              onPress={() => setReqAssignDropdownOpen(!reqAssignDropdownOpen)}
+            >
+              <Text style={{ color: assigneeId ? themeColors.textPrimary : themeColors.textSecondary, fontSize: 13 }}>
+                {assigneeId
+                  ? `👤 ${teamMembers.find(e => String(e.id) === String(assigneeId))?.name || 'Selected Specialist'}`
+                  : '▼ Tap to select a specialist'}
+              </Text>
+            </TouchableOpacity>
+
+            {reqAssignDropdownOpen && (
+              <View style={{ borderWidth: 1, borderColor: themeColors.border, borderRadius: 8, marginTop: 4, backgroundColor: isDark ? '#1e293b' : '#ffffff' }}>
+                <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled={true}>
+                  {teamMembers.map((emp) => {
+                    const isSelected = String(assigneeId) === String(emp.id);
+                    return (
+                      <TouchableOpacity
+                        key={emp.id}
+                        style={[
+                          styles.empSelectCard,
+                          { marginHorizontal: 8, marginVertical: 4, elevation: 0 },
+                          isSelected && styles.empSelectCardActive,
+                        ]}
+                        onPress={() => {
+                          setAssigneeId(emp.id);
+                          setReqAssignDropdownOpen(false);
+                        }}
+                      >
+                        <Text style={[styles.empSelectName, isSelected && { color: '#ffffff' }]}>
+                          👤 {emp.name}
+                        </Text>
+                        <Text style={[styles.empSelectDept, isSelected && { color: '#dbeafe' }]}>
+                          {emp.department} • {emp.tasksCount} active tasks
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
 
             <Text style={styles.inputLabel}>Attach Note to Employee (Optional)</Text>
             <TextInput
@@ -1376,18 +1397,44 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
               {/* My Employee Profile Switch */}
               {onSwitchToEmployee && (
-                <TouchableOpacity
-                  style={[styles.drawerItem, { marginTop: 10, backgroundColor: isDark ? '#1e293b' : '#eff6ff' }]}
-                  onPress={() => {
-                    setIsDrawerOpen(false);
-                    onSwitchToEmployee();
-                  }}
-                >
-                  <AppIcon name="user" size={18} color="#2563eb" style={{ marginRight: 10 }} />
-                  <Text style={[styles.drawerItemLabel, { color: '#2563eb', fontWeight: '800' }]}>
-                    My Employee Profile &rarr;
-                  </Text>
-                </TouchableOpacity>
+                <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 16 }}>
+                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(37, 99, 235, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.3)' : 'rgba(37, 99, 235, 0.2)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <AppIcon name="user" size={16} color="#2563eb" style={{ marginRight: 8 }} />
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>TL Portal</Text>
+                    </View>
+                    <Switch
+                      value={true}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToEmployee();
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
+                      thumbColor={'#3b82f6'}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* Admin Portal Switch */}
+              {onSwitchToAdmin && (
+                <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(220, 38, 38, 0.1)' : 'rgba(220, 38, 38, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(220, 38, 38, 0.3)' : 'rgba(220, 38, 38, 0.2)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <AppIcon name="settings" size={16} color="#dc2626" style={{ marginRight: 8 }} />
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#dc2626' }}>IT Portal</Text>
+                    </View>
+                    <Switch
+                      value={false}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToAdmin();
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#fca5a5' }}
+                      thumbColor={'#f8fafc'}
+                    />
+                  </View>
+                </View>
               )}
 
               {/* Theme Toggle */}

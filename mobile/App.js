@@ -156,12 +156,12 @@ function MainAppContent() {
       console.warn('Device token registration failed on login (non-fatal):', tokenErr);
     }
 
-    const roleLower = (userObj.role || '').toLowerCase();
-    const dbRoleLower = (userObj.dbRole || '').toLowerCase();
-    const deptLower = (userObj.department || '').toLowerCase();
-    const isDnsAdmin = roleLower === 'dns manager' || deptLower === 'dns manager' || roleLower.includes('dns');
-    const isAdmin = userObj.role === 'admin' || roleLower.includes('admin') || roleLower.includes('superadmin') || isDnsAdmin;
-    const isLeader = roleLower.includes('leader') || roleLower === 'tl' || roleLower.includes('team lead') || dbRoleLower.includes('leader');
+    const roleLower = (userObj.role || '').toLowerCase().trim();
+    const dbRoleLower = (userObj.dbRole || '').toLowerCase().trim();
+    const deptLower = (userObj.department || '').toLowerCase().trim();
+    const isDnsAdmin = dbRoleLower === 'dns manager' || deptLower === 'dns manager' || dbRoleLower.includes('dns');
+    const isAdmin = dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management' || isDnsAdmin || dbRoleLower === 'it support' || deptLower === 'it support';
+    const isLeader = dbRoleLower.includes('leader') || dbRoleLower === 'tl' || dbRoleLower.includes('team lead');
 
     if (isAdmin) {
       setCurrentScreen('admin');
@@ -235,25 +235,37 @@ function MainAppContent() {
           <AdminDashboard
             user={currentUser}
             onLogout={handleLogout}
+            onSwitchToEmployee={() => setCurrentScreen('employee')}
           />
         );
-      case 'leader':
+      case 'leader': {
+        const roleL = (currentUser?.role || '').toLowerCase().trim();
+        const dbRoleL = (currentUser?.dbRole || '').toLowerCase().trim();
+        const deptL = (currentUser?.department || '').toLowerCase().trim();
+        const isDnsAdmin = dbRoleL === 'dns manager' || deptL === 'dns manager' || dbRoleL.includes('dns');
+        const isAdmin = dbRoleL === 'admin' || dbRoleL === 'superadmin' || dbRoleL === 'management' || isDnsAdmin || dbRoleL === 'it support' || deptL === 'it support';
         return (
           <LeaderDashboard
             user={currentUser}
             onLogout={handleLogout}
             onSwitchToEmployee={() => setCurrentScreen('employee')}
+            onSwitchToAdmin={isAdmin ? () => setCurrentScreen('admin') : undefined}
           />
         );
+      }
       case 'employee': {
-        const roleLower = (currentUser?.role || '').toLowerCase();
-        const dbRoleLower = (currentUser?.dbRole || '').toLowerCase();
-        const isLeader = roleLower.includes('leader') || roleLower === 'tl' || roleLower.includes('team lead') || dbRoleLower.includes('leader');
+        const roleLower = (currentUser?.role || '').toLowerCase().trim();
+        const dbRoleLower = (currentUser?.dbRole || '').toLowerCase().trim();
+        const deptLower = (currentUser?.department || '').toLowerCase().trim();
+        const isLeader = dbRoleLower.includes('leader') || dbRoleLower === 'tl' || dbRoleLower.includes('team lead');
+        const isDnsAdmin = dbRoleLower === 'dns manager' || deptLower === 'dns manager' || dbRoleLower.includes('dns');
+        const isAdmin = dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management' || isDnsAdmin || dbRoleLower === 'it support' || deptLower === 'it support';
         return (
           <EmployeeDashboard
             user={currentUser}
             onLogout={handleLogout}
             onSwitchToLeader={isLeader ? () => setCurrentScreen('leader') : undefined}
+            onSwitchToAdmin={isAdmin ? () => setCurrentScreen('admin') : undefined}
           />
         );
       }

@@ -468,7 +468,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
                 </TouchableOpacity>
 
                 {/* Quick Test Logins */}
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+                {/* <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
                   <TouchableOpacity
                     style={{ flex: 1, backgroundColor: '#eff6ff', paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#bfdbfe', alignItems: 'center' }}
                     onPress={() => {
@@ -503,7 +503,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
                   >
                     <Text style={{ fontSize: 12, fontWeight: '700', color: '#7c3aed' }}>👔 Team Lead</Text>
                   </TouchableOpacity>
-                </View>
+                </View> */}
               </View>
             )}
           </View>
