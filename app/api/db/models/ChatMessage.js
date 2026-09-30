@@ -41,8 +41,8 @@ export class ChatMessage {
   static async addMessage(msg) {
     const db = getPool();
     await db.execute(
-      `INSERT INTO chat_messages (id, senderId, senderName, receiverId, messageType, content, fileUrl, fileName, fileSize, timestamp)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO chat_messages (id, senderId, senderName, receiverId, messageType, content, fileUrl, fileName, fileSize, replyToMessageId, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         msg.id,
         msg.senderId,
@@ -53,6 +53,7 @@ export class ChatMessage {
         msg.fileUrl || null,
         msg.fileName || null,
         msg.fileSize || null,
+        msg.replyToMessageId || null,
         msg.timestamp
       ]
     );

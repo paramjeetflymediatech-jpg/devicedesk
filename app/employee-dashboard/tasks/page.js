@@ -329,12 +329,19 @@ export default function TaskBoardPage() {
     if (files && files.length > 0) {
       Swal.fire({
         title: "Uploading files...",
+        html: `<div style="margin-top: 10px;">
+                 <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-top: 15px;">
+                   <div id="swal-upload-progress" style="width: 0%; height: 100%; background: var(--accent-cyan); transition: width 0.2s;"></div>
+                 </div>
+                 <div id="swal-upload-text" style="text-align: right; font-size: 0.8rem; margin-top: 5px; color: var(--text-muted);">0%</div>
+               </div>`,
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        background: "#161b22",
+        color: "#f0f6fc",
         didOpen: () => {
           Swal.showLoading();
-        },
-        allowOutsideClick: false,
-        background: "#161b22",
-        color: "#f0f6fc"
+        }
       });
 
       try {
@@ -343,13 +350,48 @@ export default function TaskBoardPage() {
           formData.append("files", f);
         });
 
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData
+        const uploadData = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', '/api/upload', true);
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percentComplete = Math.round((event.loaded / event.total) * 100);
+              const bar = document.getElementById("swal-upload-progress");
+              const text = document.getElementById("swal-upload-text");
+              if (bar) bar.style.width = percentComplete + "%";
+              if (text) text.innerText = percentComplete + "%";
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                resolve(JSON.parse(xhr.responseText));
+              } catch (e) {
+                reject(new Error("Invalid JSON response from server"));
+              }
+            } else {
+              try {
+                const errData = JSON.parse(xhr.responseText);
+                reject(new Error(errData.error || "Upload failed with status " + xhr.status));
+              } catch (e) {
+                reject(new Error("Upload failed with status " + xhr.status));
+              }
+            }
+          };
+
+          xhr.onerror = () => {
+            reject(new Error("Network error occurred during upload."));
+          };
+
+          xhr.send(formData);
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Upload failed");
-        fileUrl = JSON.stringify(data.fileUrls);
+
+        if (!uploadData.success) {
+          throw new Error(uploadData.error || "Upload failed");
+        }
+        fileUrl = JSON.stringify(uploadData.fileUrls);
       } catch (err) {
         Swal.fire({ icon: "error", title: "Upload Failed", text: err.message, background: "#161b22", color: "#f0f6fc" });
         return;

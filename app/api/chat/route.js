@@ -12,7 +12,40 @@ export async function GET(request) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const chatId = searchParams.get('chatId');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const offset = (page - 1) * limit;
+
     const db = await getDbConnection();
+
+    // Specific Chat Pagination
+    if (chatId) {
+      let query = '';
+      let params = [];
+      if (chatId.startsWith('group_') || chatId.startsWith('dept_') || chatId === 'general') {
+        query = `SELECT * FROM chat_messages WHERE receiverId = ? ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`;
+        params = [chatId];
+      } else {
+        // Direct Message
+        query = `SELECT * FROM chat_messages WHERE (senderId = ? AND receiverId = ?) OR (senderId = ? AND receiverId = ?) ORDER BY timestamp DESC LIMIT ${limit} OFFSET ${offset}`;
+        params = [user.id, chatId, chatId, user.id];
+      }
+      
+      const [rows] = await db.execute(query, params);
+      
+      // Sanitize
+      const sanitizedRows = rows.map((row) => {
+        if (row.fileUrl && typeof row.fileUrl === 'string') {
+          row.fileUrl = row.fileUrl.replace(/(https?:\/\/storage\.flymediatech\.com\/uploads\/)+/g, 'https://storage.flymediatech.com/uploads/');
+        }
+        return row;
+      });
+      
+      // Reverse back to chronological order
+      return NextResponse.json({ success: true, messages: sanitizedRows.reverse(), page, limit });
+    }
     
     // 1. Fetch user's department
     const [empRows] = await db.execute(
@@ -331,6 +364,15 @@ export async function POST(request) {
           [messageId]
         );
 
+        // Auto Delete Media - Remove physical file if present
+        if (msg.fileUrl) {
+          try {
+            await deleteFile(msg.fileUrl);
+          } catch (fileErr) {
+            console.error("Failed to delete media file:", fileErr);
+          }
+        }
+
         return NextResponse.json({ success: true, messageId, deleteType: 'everyone', receiverId: msg.receiverId, senderId: msg.senderId });
       } else {
         // Delete for Self
@@ -357,7 +399,7 @@ export async function POST(request) {
     }
 
     // Default: Sending a Chat message
-    const { receiverId, messageType, content, fileUrl, fileName, fileSize } = body;
+    const { receiverId, messageType, content, fileUrl, fileName, fileSize, replyToMessageId } = body;
 
     if (!receiverId) {
       return NextResponse.json({ success: false, error: 'Receiver ID is required' }, { status: 400 });
@@ -418,6 +460,7 @@ export async function POST(request) {
       fileUrl: cleanFileUrl,
       fileName: fileName || null,
       fileSize: fileSize || null,
+      replyToMessageId: replyToMessageId || null,
       timestamp
     };
 
