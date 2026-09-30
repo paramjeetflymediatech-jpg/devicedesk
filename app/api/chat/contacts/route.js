@@ -76,21 +76,7 @@ export async function GET(request) {
       return NextResponse.json({ success: true, data: filtered });
     }
 
-    // 3. Team Leader -> Can see other Team Leaders, their own Team Members, and related Clients
-    if (userRole.includes('team leader') || userRole === 'tl') {
-      const filtered = allUsers.filter(u => {
-        const uRole = (u.role || '').toLowerCase();
-        const uDept = (u.department || '').toLowerCase();
 
-        const isOtherTL = uRole.includes('team leader') || uRole === 'tl';
-        const isMyTeamMember = uDept === userDept && !uRole.includes('admin') && !uRole.includes('client');
-        const isClient = uRole === 'client'; // For now, allow seeing all clients (or could filter by active project)
-        const isManagement = uRole === 'admin' || uRole === 'management';
-
-        return isOtherTL || isMyTeamMember || isClient || isManagement;
-      });
-      return NextResponse.json({ success: true, data: filtered });
-    }
 
     // 4. Team Member -> Can see all internal employees (except Clients)
     const filtered = allUsers.filter(u => {
