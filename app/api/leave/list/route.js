@@ -36,6 +36,7 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       requests: filteredRows,
+      data: filteredRows,
       summary: { total, pending, approved, rejected }
     });
   } catch (error) {

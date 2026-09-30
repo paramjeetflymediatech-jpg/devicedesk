@@ -60,12 +60,13 @@ function MainAppContent() {
           if (storedUser) {
             const userObj = JSON.parse(storedUser);
             setCurrentUser(userObj);
-            const roleLower = (userObj.role || '').toLowerCase();
-            const dbRoleLower = (userObj.dbRole || '').toLowerCase();
-            const deptLower = (userObj.department || '').toLowerCase();
-            const isDnsAdmin = roleLower === 'dns manager' || deptLower === 'dns manager' || roleLower.includes('dns');
-            const isAdmin = userObj.role === 'admin' || roleLower.includes('admin') || roleLower.includes('superadmin') || isDnsAdmin;
-            const isLeader = roleLower.includes('leader') || roleLower === 'tl' || roleLower.includes('team lead') || dbRoleLower.includes('leader');
+            const roleLower = (userObj.role || '').toLowerCase().trim();
+            const dbRoleLower = (userObj.dbRole || '').toLowerCase().trim();
+            const deptLower = (userObj.department || '').toLowerCase().trim();
+            const isHR = dbRoleLower === 'hr' || dbRoleLower.includes('hr') || roleLower.includes('hr') || deptLower === 'hr' || deptLower.includes('hr') || deptLower.includes('human resource');
+            const isDnsAdmin = roleLower === 'dns manager' || deptLower === 'dns manager' || roleLower.includes('dns') || dbRoleLower.includes('dns');
+            const isAdmin = userObj.role === 'admin' || roleLower.includes('admin') || roleLower.includes('superadmin') || dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management' || isDnsAdmin || dbRoleLower === 'it support' || deptLower === 'it support' || isHR;
+            const isLeader = roleLower.includes('leader') || roleLower === 'tl' || roleLower.includes('team lead') || dbRoleLower.includes('leader') || dbRoleLower === 'tl';
 
             if (isAdmin) {
               setCurrentScreen('admin');
@@ -159,9 +160,10 @@ function MainAppContent() {
     const roleLower = (userObj.role || '').toLowerCase().trim();
     const dbRoleLower = (userObj.dbRole || '').toLowerCase().trim();
     const deptLower = (userObj.department || '').toLowerCase().trim();
-    const isDnsAdmin = dbRoleLower === 'dns manager' || deptLower === 'dns manager' || dbRoleLower.includes('dns');
-    const isAdmin = dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management' || isDnsAdmin || dbRoleLower === 'it support' || deptLower === 'it support';
-    const isLeader = dbRoleLower.includes('leader') || dbRoleLower === 'tl' || dbRoleLower.includes('team lead');
+    const isHR = dbRoleLower === 'hr' || dbRoleLower.includes('hr') || roleLower.includes('hr') || deptLower === 'hr' || deptLower.includes('hr') || deptLower.includes('human resource');
+    const isDnsAdmin = dbRoleLower === 'dns manager' || deptLower === 'dns manager' || dbRoleLower.includes('dns') || roleLower.includes('dns');
+    const isAdmin = dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management' || roleLower.includes('admin') || isDnsAdmin || dbRoleLower === 'it support' || deptLower === 'it support' || isHR;
+    const isLeader = dbRoleLower.includes('leader') || dbRoleLower === 'tl' || dbRoleLower.includes('team lead') || roleLower.includes('leader') || roleLower === 'tl';
 
     if (isAdmin) {
       setCurrentScreen('admin');
@@ -242,8 +244,9 @@ function MainAppContent() {
         const roleL = (currentUser?.role || '').toLowerCase().trim();
         const dbRoleL = (currentUser?.dbRole || '').toLowerCase().trim();
         const deptL = (currentUser?.department || '').toLowerCase().trim();
-        const isDnsAdmin = dbRoleL === 'dns manager' || deptL === 'dns manager' || dbRoleL.includes('dns');
-        const isAdmin = dbRoleL === 'admin' || dbRoleL === 'superadmin' || dbRoleL === 'management' || isDnsAdmin || dbRoleL === 'it support' || deptL === 'it support';
+        const isHRL = dbRoleL === 'hr' || dbRoleL.includes('hr') || roleL.includes('hr') || deptL === 'hr' || deptL.includes('hr') || deptL.includes('human resource');
+        const isDnsAdmin = dbRoleL === 'dns manager' || deptL === 'dns manager' || dbRoleL.includes('dns') || roleL.includes('dns');
+        const isAdmin = dbRoleL === 'admin' || dbRoleL === 'superadmin' || dbRoleL === 'management' || roleL.includes('admin') || isDnsAdmin || dbRoleL === 'it support' || deptL === 'it support' || isHRL;
         return (
           <LeaderDashboard
             user={currentUser}
@@ -257,9 +260,10 @@ function MainAppContent() {
         const roleLower = (currentUser?.role || '').toLowerCase().trim();
         const dbRoleLower = (currentUser?.dbRole || '').toLowerCase().trim();
         const deptLower = (currentUser?.department || '').toLowerCase().trim();
-        const isLeader = dbRoleLower.includes('leader') || dbRoleLower === 'tl' || dbRoleLower.includes('team lead');
-        const isDnsAdmin = dbRoleLower === 'dns manager' || deptLower === 'dns manager' || dbRoleLower.includes('dns');
-        const isAdmin = dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management' || isDnsAdmin || dbRoleLower === 'it support' || deptLower === 'it support';
+        const isHR = dbRoleLower === 'hr' || dbRoleLower.includes('hr') || roleLower.includes('hr') || deptLower === 'hr' || deptLower.includes('hr') || deptLower.includes('human resource');
+        const isLeader = dbRoleLower.includes('leader') || dbRoleLower === 'tl' || dbRoleLower.includes('team lead') || roleLower.includes('leader') || roleLower === 'tl';
+        const isDnsAdmin = dbRoleLower === 'dns manager' || deptLower === 'dns manager' || dbRoleLower.includes('dns') || roleLower.includes('dns');
+        const isAdmin = dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management' || roleLower.includes('admin') || isDnsAdmin || dbRoleLower === 'it support' || deptLower === 'it support' || isHR;
         return (
           <EmployeeDashboard
             user={currentUser}
