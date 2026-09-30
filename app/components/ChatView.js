@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import { io } from "socket.io-client";
 import EmojiPicker from 'emoji-picker-react';
-import { FiPaperclip, FiCamera, FiMic, FiSend, FiMessageSquare, FiUsers, FiBriefcase, FiDownload, FiFile, FiCornerUpRight, FiX, FiMoreVertical, FiPlay, FiPause , FiMapPin , FiTrash2 , FiInfo, FiFolder, FiImage, FiLink, FiArrowLeft, FiEdit2, FiSmile, FiCheck } from "react-icons/fi";
+import { FiPaperclip, FiCamera, FiMic, FiSend, FiMessageSquare, FiUsers, FiBriefcase, FiDownload, FiFile, FiCornerUpRight, FiCornerUpLeft, FiX, FiMoreVertical, FiPlay, FiPause , FiMapPin , FiTrash2 , FiInfo, FiFolder, FiImage, FiLink, FiArrowLeft, FiEdit2, FiSmile, FiCheck } from "react-icons/fi";
 import { BiCheckDouble } from "react-icons/bi";
 
 export default function ChatView({ user }) {
