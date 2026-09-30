@@ -25,7 +25,8 @@ export async function GET(request) {
             name: o.custom_name || row.name,
             description: o.custom_description || row.description,
             billing_cycle: o.custom_billing_cycle || row.billing_cycle,
-            features: o.custom_features || row.features
+            features: o.custom_features || row.features,
+            hasOverride: true
           };
         }
         return row;
