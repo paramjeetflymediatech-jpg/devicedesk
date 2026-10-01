@@ -1,12 +1,16 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiMessageSquare, FiSend, FiUser } from 'react-icons/fi';
+import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX } from 'react-icons/fi';
 import Swal from 'sweetalert2';
+import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 
 export default function LeaderClientChatPage() {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState({});
+  const [attachments, setAttachments] = useState({}); // attachments[noteId] will be an array of files
+  const [uploadingNotes, setUploadingNotes] = useState({});
+  const [uploadStats, setUploadStats] = useState({});
 
   const fetchNotes = async () => {
     try {
@@ -21,30 +25,55 @@ export default function LeaderClientChatPage() {
 
   useEffect(() => {
     fetchNotes();
-    const interval = setInterval(fetchNotes, 3000);
+    // Increased polling interval to 15 seconds to reduce constant terminal logs
+    const interval = setInterval(fetchNotes, 15000);
     return () => clearInterval(interval);
   }, []);
 
   const handleReply = async (noteId) => {
     const reply = replyText[noteId];
-    if (!reply || !reply.trim()) return;
+    const noteAttachments = attachments[noteId] || [];
+    if ((!reply || !reply.trim()) && noteAttachments.length === 0) return;
 
     try {
+      let attachmentUrls = [];
+      if (noteAttachments.length > 0) {
+        setUploadingNotes(prev => ({...prev, [noteId]: true}));
+        try {
+          const urls = await uploadFilesWithProgress(noteAttachments, (stats) => {
+            setUploadStats(prev => ({...prev, [noteId]: stats}));
+          });
+          if (urls && urls.length > 0) {
+            attachmentUrls = urls;
+          }
+        } catch (error) {
+          setUploadingNotes(prev => ({...prev, [noteId]: false}));
+          setUploadStats(prev => ({...prev, [noteId]: null}));
+          throw new Error('Failed to upload file: ' + error.message);
+        }
+        setUploadingNotes(prev => ({...prev, [noteId]: false}));
+        setUploadStats(prev => ({...prev, [noteId]: null}));
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+
       const res = await fetch('/api/client-notes', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: noteId, tl_reply: reply })
+        body: JSON.stringify({ id: noteId, tl_reply: reply, tl_attachment: attachmentStr })
       });
       const data = await res.json();
       if (data.success) {
         Swal.fire('Success', 'Reply sent to client!', 'success');
         setReplyText(prev => ({...prev, [noteId]: ''}));
+        setAttachments(prev => ({...prev, [noteId]: []}));
         fetchNotes();
       } else {
         Swal.fire('Error', data.error || 'Failed to send reply', 'error');
       }
     } catch (err) {
-      Swal.fire('Error', 'Network error', 'error');
+      console.error(err);
+      Swal.fire('Error', 'Network or upload error', 'error');
     }
   };
 
@@ -84,11 +113,48 @@ export default function LeaderClientChatPage() {
               <div className="bg-slate-50 p-4 rounded-lg text-slate-800 whitespace-pre-wrap border border-slate-100 leading-relaxed">
                 {note.note}
               </div>
+              
+              {note.attachment && (() => {
+                let urls = [];
+                try {
+                  urls = JSON.parse(note.attachment);
+                  if (!Array.isArray(urls)) urls = [note.attachment];
+                } catch(e) {
+                  urls = [note.attachment];
+                }
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    {urls.map((url, idx) => (
+                      <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors w-fit">
+                        <FiPaperclip size={14} /> View Client Attachment {urls.length > 1 ? idx+1 : ''}
+                      </a>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {note.tl_reply ? (
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mt-2 shadow-sm">
                   <p className="text-xs font-bold text-blue-800 mb-1 uppercase tracking-wide">Your Reply</p>
                   <p className="text-blue-900 whitespace-pre-wrap leading-relaxed">{note.tl_reply}</p>
+                  {note.tl_attachment && (() => {
+                    let urls = [];
+                    try {
+                      urls = JSON.parse(note.tl_attachment);
+                      if (!Array.isArray(urls)) urls = [note.tl_attachment];
+                    } catch(e) {
+                      urls = [note.tl_attachment];
+                    }
+                    return (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {urls.map((url, idx) => (
+                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 bg-blue-100/50 hover:bg-blue-200 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors w-fit">
+                            <FiPaperclip size={14} /> View Your Attachment {urls.length > 1 ? idx+1 : ''}
+                          </a>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 mt-2">
@@ -98,13 +164,57 @@ export default function LeaderClientChatPage() {
                     onChange={(e) => setReplyText({...replyText, [note.id]: e.target.value})}
                     className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm min-h-[100px] shadow-sm transition-shadow"
                   />
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => handleReply(note.id)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all active:scale-95 shadow-md shadow-blue-200"
-                    >
-                      <FiSend /> Send Reply
-                    </button>
+                  <div className="flex flex-col gap-3">
+                    {attachments[note.id] && attachments[note.id].length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {attachments[note.id].map((file, idx) => (
+                          <span key={idx} className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded-md flex items-center gap-1 border border-blue-100 max-w-full">
+                            <span className="truncate max-w-[200px]">{file.name}</span>
+                            <FiX className="cursor-pointer text-blue-800 shrink-0 ml-1" onClick={() => {
+                              const newFiles = attachments[note.id].filter((_, i) => i !== idx);
+                              setAttachments({...attachments, [note.id]: newFiles});
+                            }} />
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <label className="cursor-pointer text-slate-500 hover:text-blue-600 transition-colors flex items-center gap-1 text-sm font-medium bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm shrink-0">
+                        <FiPaperclip size={16} /> Attach Files
+                        <input type="file" multiple className="hidden" onChange={(e) => {
+                          const files = Array.from(e.target.files);
+                          setAttachments({...attachments, [note.id]: [...(attachments[note.id] || []), ...files]});
+                        }} />
+                      </label>
+                      <button
+                        onClick={() => handleReply(note.id)}
+                        disabled={uploadingNotes[note.id]}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-blue-200 disabled:opacity-70 disabled:cursor-not-allowed min-w-[130px] w-full sm:w-auto"
+                      >
+                        {uploadingNotes[note.id] ? (
+                          <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Uploading...</>
+                        ) : (
+                          <><FiSend /> Send Reply</>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Upload Progress UI */}
+                    {uploadingNotes[note.id] && uploadStats[note.id] && (
+                      <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 mt-2 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-semibold text-slate-700 truncate max-w-[60%]">Uploading: {uploadStats[note.id].fileName}</span>
+                          <span className="text-sm font-bold text-blue-600">{uploadStats[note.id].percent}%</span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-2 mb-2 overflow-hidden">
+                          <div className="bg-blue-500 h-2 rounded-full transition-all duration-300 ease-out" style={{ width: `${uploadStats[note.id].percent}%` }}></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-slate-500 font-medium">
+                          <span>{uploadStats[note.id].uploadedMB} MB / {uploadStats[note.id].totalMB} MB</span>
+                          {uploadStats[note.id].speedMBps && <span>{uploadStats[note.id].speedMBps} MB/s</span>}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
