@@ -25,6 +25,8 @@ import {
   fetchEodReportsApi,
   updateClientRequestStatusApi,
   fetchEmployeesApi,
+  fetchAllClientNotesApi,
+  replyClientNoteApi,
 } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
 
@@ -62,6 +64,11 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const [teamMembers, setTeamMembers] = useState([]);
   const [tasksList, setTasksList] = useState([]);
   const [clientRequests, setClientRequests] = useState([]);
+  const [clientNotes, setClientNotes] = useState([]);
+  const [replyTextMap, setReplyTextMap] = useState({});
+  const [submittingReplyId, setSubmittingReplyId] = useState(null);
+  const [notesFilter, setNotesFilter] = useState('ALL'); // 'ALL' | 'UNREAD' | 'REPLIED'
+  const [notesSearch, setNotesSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'SUBMITTED' | 'PENDING'
   const [expandedEods, setExpandedEods] = useState({});
@@ -99,17 +106,19 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     try {
       setLoading(true);
 
-      const [empRes, taskRes, reqRes, eodRes] = await Promise.all([
+      const [empRes, taskRes, reqRes, eodRes, notesRes] = await Promise.all([
         fetchEmployeesApi().catch(() => ({ data: [] })),
         fetchTasksApi().catch(() => ({ data: [] })),
         fetchClientRequestsApi().catch(() => ({ data: [] })),
         fetchEodReportsApi().catch(() => ({ data: [] })),
+        fetchAllClientNotesApi().catch(() => ({ notes: [] })),
       ]);
 
       const allEmps = empRes?.data || [];
       const tasks = taskRes?.data || taskRes?.tasks || [];
       const allReqs = reqRes?.data || [];
       const eods = eodRes?.data || [];
+      const notes = notesRes?.notes || [];
 
       // Filter employees assigned under THIS team leader
       const myTeam = allEmps.filter(
@@ -151,6 +160,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       setTeamMembers(mappedMembers);
       setTasksList(tasks);
       setClientRequests(myRequests);
+      setClientNotes(notes);
     } catch (err) {
       console.error('Failed to load Leader Dashboard data:', err);
     } finally {
@@ -180,6 +190,10 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     const totalMembers = teamMembers.length;
     const submittedEODs = teamMembers.filter((m) => m.eodStatus === 'Submitted').length;
     const pendingEODs = totalMembers - submittedEODs;
+    const totalNotes = clientNotes.length;
+    const unreadNotes = clientNotes.filter(
+      (n) => (n.status || '').toLowerCase() === 'unread' || !n.tl_reply
+    ).length;
 
     return {
       totalRequests,
@@ -188,8 +202,10 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       totalMembers,
       submittedEODs,
       pendingEODs,
+      totalNotes,
+      unreadNotes,
     };
-  }, [clientRequests, teamMembers]);
+  }, [clientRequests, teamMembers, clientNotes]);
 
   // Filtered members
   const filteredMembers = useMemo(() => {
@@ -219,8 +235,70 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     });
   }, [clientRequests, searchQuery]);
 
+  // Filtered Client Notes
+  const filteredNotes = useMemo(() => {
+    return clientNotes.filter((n) => {
+      const q = (notesSearch || '').toLowerCase();
+      const client = String(n.client_id || '').toLowerCase();
+      const content = String(n.note || '').toLowerCase();
+      const reply = String(n.tl_reply || '').toLowerCase();
+      const matchSearch = client.includes(q) || content.includes(q) || reply.includes(q);
+      if (!matchSearch) return false;
+
+      const isUnread = (n.status || '').toLowerCase() === 'unread' || !n.tl_reply;
+      if (notesFilter === 'UNREAD') return isUnread;
+      if (notesFilter === 'REPLIED') return !isUnread;
+      return true;
+    });
+  }, [clientNotes, notesSearch, notesFilter]);
+
   const toggleEodExpand = (id) => {
     setExpandedEods((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Reply to Client Note
+  const handleSendClientReply = async (noteId) => {
+    const reply = replyTextMap[noteId];
+    if (!reply || !reply.trim()) {
+      sweetAlert({
+        title: 'Empty Reply',
+        text: 'Please type a reply before sending.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    setSubmittingReplyId(noteId);
+    try {
+      const res = await replyClientNoteApi({ id: noteId, tl_reply: reply.trim() });
+      if (res && res.success) {
+        sweetAlert({
+          title: 'Reply Sent',
+          text: 'Your response has been sent to the client!',
+          type: 'success',
+        });
+        setReplyTextMap((prev) => ({ ...prev, [noteId]: '' }));
+        // Refresh notes
+        const notesRes = await fetchAllClientNotesApi().catch(() => ({ notes: [] }));
+        if (notesRes?.notes) {
+          setClientNotes(notesRes.notes);
+        }
+      } else {
+        sweetAlert({
+          title: 'Error',
+          text: res?.error || 'Failed to send reply to client.',
+          type: 'error',
+        });
+      }
+    } catch (err) {
+      sweetAlert({
+        title: 'Error',
+        text: 'Network error sending reply.',
+        type: 'error',
+      });
+    } finally {
+      setSubmittingReplyId(null);
+    }
   };
 
   // 1. Submit Direct Task Assignment
@@ -435,6 +513,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const navMenuItems = [
     { id: 'overview', label: 'Overview Dashboard', icon: 'grid' },
     { id: 'requests', label: 'Client Requests', icon: 'check-square', badge: stats.pendingRequests },
+    { id: 'client-chat', label: 'Client Chat Room', icon: 'chat', badge: stats.unreadNotes },
     { id: 'team', label: 'Team & EODs', icon: 'users' },
     // { id: 'sop', label: 'Standard Operating Procedures', icon: 'book-open' },
   ];
@@ -552,6 +631,24 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'client-chat' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('client-chat')}
+            activeOpacity={0.8}
+          >
+            <AppIcon name="chat" size={14} color={activeTab === 'client-chat' ? '#ffffff' : themeColors.textSecondary} />
+            <Text style={[styles.tabButtonText, activeTab === 'client-chat' && styles.tabButtonTextActive]}>
+              Client Chat
+            </Text>
+            {stats.unreadNotes > 0 && (
+              <View style={[styles.tabBadge, activeTab === 'client-chat' ? styles.tabBadgeActive : styles.tabBadgeInactive]}>
+                <Text style={[styles.tabBadgeText, activeTab === 'client-chat' && { color: '#2563eb' }]}>
+                  {stats.unreadNotes}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.tabButton, activeTab === 'team' && styles.tabButtonActive]}
             onPress={() => setActiveTab('team')}
             activeOpacity={0.8}
@@ -561,17 +658,6 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
               Team ({stats.totalMembers})
             </Text>
           </TouchableOpacity>
-
-          {/* <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'sop' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('sop')}
-            activeOpacity={0.8}
-          >
-            <AppIcon name="book-open" size={14} color={activeTab === 'sop' ? '#ffffff' : themeColors.textSecondary} />
-            <Text style={[styles.tabButtonText, activeTab === 'sop' && styles.tabButtonTextActive]}>
-              SOP
-            </Text>
-          </TouchableOpacity> */}
         </View>
 
         {/* ======================================================== */}
@@ -579,7 +665,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         {/* ======================================================== */}
         {activeTab === 'overview' && (
           <View>
-            {/* 3 Metrics Cards (Matching Web Portal) */}
+            {/* 4 Metrics Cards (Matching Web Portal) */}
             <View style={styles.kpiGrid}>
               {/* Card 1: Total Client Requests */}
               <TouchableOpacity
@@ -599,7 +685,27 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 </View>
               </TouchableOpacity>
 
-              {/* Card 2: Active Team Members */}
+              {/* Card 2: Client Messages / Notes */}
+              <TouchableOpacity
+                style={styles.kpiCard}
+                onPress={() => setActiveTab('client-chat')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.kpiTopRow}>
+                  <Text style={styles.kpiCardTitle}>Client Messages</Text>
+                  <View style={[styles.kpiIconBox, { backgroundColor: '#8b5cf622' }]}>
+                    <AppIcon name="chat" size={16} color="#8b5cf6" />
+                  </View>
+                </View>
+                <View style={styles.kpiBottomRow}>
+                  <Text style={styles.kpiNumber}>{stats.totalNotes}</Text>
+                  <Text style={[styles.kpiActionLink, stats.unreadNotes > 0 && { color: '#d97706', fontWeight: '800' }]}>
+                    {stats.unreadNotes > 0 ? `${stats.unreadNotes} Unread &rarr;` : 'View &rarr;'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Card 3: Active Team Members */}
               <TouchableOpacity
                 style={styles.kpiCard}
                 onPress={() => setActiveTab('team')}
@@ -617,7 +723,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 </View>
               </TouchableOpacity>
 
-              {/* Card 3: EODs Submitted Today */}
+              {/* Card 4: EODs Submitted Today */}
               <TouchableOpacity
                 style={styles.kpiCard}
                 onPress={() => setActiveTab('team')}
@@ -974,6 +1080,189 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                         </TouchableOpacity>
                       )}
                     </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        {/* ======================================================== */}
+        {/* TAB 3: CLIENT MESSAGES & NOTES (TL CLIENT CHAT)           */}
+        {/* ======================================================== */}
+        {activeTab === 'client-chat' && (
+          <View>
+            {/* Header & Subtitle */}
+            <View style={styles.clientChatHeaderBox}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={styles.sectionHeading}>💬 Client Chat & Notes</Text>
+                  <Text style={styles.sectionSub}>Review client queries and send direct TL responses</Text>
+                </View>
+                <View style={styles.unreadCountPill}>
+                  <Text style={styles.unreadCountPillText}>{stats.unreadNotes} Pending</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Filter Pills & Search */}
+            <View style={styles.clientChatFilterContainer}>
+              <View style={styles.clientChatPillRow}>
+                {['ALL', 'UNREAD', 'REPLIED'].map((f) => (
+                  <TouchableOpacity
+                    key={f}
+                    style={[
+                      styles.filterPill,
+                      notesFilter === f && styles.filterPillActive,
+                    ]}
+                    onPress={() => setNotesFilter(f)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.filterPillText,
+                        notesFilter === f && styles.filterPillTextActive,
+                      ]}
+                    >
+                      {f === 'ALL' ? `All (${stats.totalNotes})` : f === 'UNREAD' ? `Unread (${stats.unreadNotes})` : `Replied (${stats.totalNotes - stats.unreadNotes})`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.searchBarContainer}>
+                <AppIcon name="search" size={15} color={themeColors.textSecondary} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search client ID or message..."
+                  placeholderTextColor={themeColors.textSecondary}
+                  value={notesSearch}
+                  onChangeText={setNotesSearch}
+                />
+                {notesSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setNotesSearch('')}>
+                    <AppIcon name="x" size={14} color={themeColors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* List of Client Notes */}
+            {filteredNotes.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <AppIcon name="chat" size={40} color={themeColors.textSecondary} />
+                <Text style={styles.emptyTitle}>No Client Messages Found</Text>
+                <Text style={styles.emptySub}>
+                  {notesSearch ? 'No notes matched your search filter.' : 'All client communication streams are up to date.'}
+                </Text>
+              </View>
+            ) : (
+              filteredNotes.map((note) => {
+                const isUnread = (note.status || '').toLowerCase() === 'unread' || !note.tl_reply;
+                const isSubmitting = submittingReplyId === note.id;
+
+                return (
+                  <View key={note.id} style={styles.clientNoteCard}>
+                    {/* Note Header */}
+                    <View style={styles.clientNoteHeader}>
+                      <View style={styles.clientNoteUserRow}>
+                        <View style={styles.clientAvatar}>
+                          <AppIcon name="user" size={16} color="#2563eb" />
+                        </View>
+                        <View>
+                          <Text style={styles.clientNoteTitle}>
+                            Client: <Text style={{ fontWeight: '800' }}>{note.client_id || 'Unknown Client'}</Text>
+                          </Text>
+                          <Text style={styles.clientNoteTime}>
+                            {note.created_at ? new Date(note.created_at).toLocaleString() : 'Recent'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View
+                        style={[
+                          styles.noteStatusBadge,
+                          isUnread ? styles.noteStatusUnread : styles.noteStatusReplied,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.noteStatusBadgeText,
+                            isUnread ? styles.noteStatusUnreadText : styles.noteStatusRepliedText,
+                          ]}
+                        >
+                          {isUnread ? 'Unread / Pending' : 'Replied'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Note Body with preserved whitespaces and newlines */}
+                    <View style={styles.clientNoteBody}>
+                      <Text style={styles.clientNoteText} selectable>
+                        {note.note}
+                      </Text>
+                    </View>
+
+                    {/* TL Reply Display or Reply Box */}
+                    {note.tl_reply && replyTextMap[note.id] === undefined ? (
+                      <View style={styles.tlReplyBox}>
+                        <View style={styles.tlReplyHeaderRow}>
+                          <Text style={styles.tlReplyHeading}>💼 TEAM LEADER REPLY</Text>
+                          <TouchableOpacity
+                            onPress={() => setReplyTextMap((prev) => ({ ...prev, [note.id]: note.tl_reply }))}
+                          >
+                            <Text style={styles.editReplyLink}>Edit Reply</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <Text style={styles.tlReplyText} selectable>
+                          {note.tl_reply}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.replyInputWrap}>
+                        <Text style={styles.replyInputLabel}>
+                          {note.tl_reply ? 'Update Reply to Client:' : 'Reply to Client:'}
+                        </Text>
+                        <TextInput
+                          style={styles.replyInput}
+                          placeholder="Type your response to the client here..."
+                          placeholderTextColor={themeColors.textSecondary}
+                          multiline
+                          numberOfLines={3}
+                          value={replyTextMap[note.id] || ''}
+                          onChangeText={(t) => setReplyTextMap((prev) => ({ ...prev, [note.id]: t }))}
+                        />
+                        <View style={styles.replyActionRow}>
+                          {note.tl_reply && (
+                            <TouchableOpacity
+                              style={styles.cancelEditBtn}
+                              onPress={() => setReplyTextMap((prev) => {
+                                const copy = { ...prev };
+                                delete copy[note.id];
+                                return copy;
+                              })}
+                            >
+                              <Text style={styles.cancelEditText}>Cancel</Text>
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity
+                            style={styles.sendReplyBtn}
+                            onPress={() => handleSendClientReply(note.id)}
+                            disabled={isSubmitting}
+                          >
+                            {isSubmitting ? (
+                              <ActivityIndicator size="small" color="#ffffff" />
+                            ) : (
+                              <>
+                                <AppIcon name="send" size={13} color="#ffffff" />
+                                <Text style={styles.sendReplyBtnText}>
+                                  {note.tl_reply ? 'Update Reply' : 'Send Reply'}
+                                </Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 );
               })
@@ -2248,6 +2537,219 @@ function getStyles(themeColors, isDark) {
       color: '#ffffff',
       fontSize: 10,
       fontWeight: '800',
+    },
+    // CLIENT CHAT / NOTES STYLES
+    clientChatHeaderBox: {
+      marginBottom: 12,
+    },
+    unreadCountPill: {
+      backgroundColor: '#fef3c7',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#fde68a',
+    },
+    unreadCountPillText: {
+      color: '#d97706',
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    clientChatFilterContainer: {
+      marginBottom: 14,
+      gap: 10,
+    },
+    clientChatPillRow: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    filterPill: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 20,
+      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+      borderWidth: 1,
+      borderColor: themeColors.border,
+    },
+    filterPillActive: {
+      backgroundColor: '#2563eb',
+      borderColor: '#2563eb',
+    },
+    filterPillText: {
+      fontSize: 11.5,
+      fontWeight: '600',
+      color: themeColors.textSecondary,
+    },
+    filterPillTextActive: {
+      color: '#ffffff',
+      fontWeight: '700',
+    },
+    clientNoteCard: {
+      backgroundColor: themeColors.cardBg,
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: themeColors.border,
+      marginBottom: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    clientNoteHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: themeColors.border,
+      paddingBottom: 10,
+      marginBottom: 10,
+    },
+    clientNoteUserRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      flex: 1,
+    },
+    clientAvatar: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: '#dbeafe',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    clientNoteTitle: {
+      fontSize: 13,
+      color: themeColors.textPrimary,
+    },
+    clientNoteTime: {
+      fontSize: 10.5,
+      color: themeColors.textSecondary,
+      marginTop: 2,
+    },
+    noteStatusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+      borderWidth: 1,
+    },
+    noteStatusUnread: {
+      backgroundColor: '#fffbeb',
+      borderColor: '#fef3c7',
+    },
+    noteStatusReplied: {
+      backgroundColor: '#f0fdf4',
+      borderColor: '#bbf7d0',
+    },
+    noteStatusBadgeText: {
+      fontSize: 10.5,
+      fontWeight: '700',
+    },
+    noteStatusUnreadText: {
+      color: '#d97706',
+    },
+    noteStatusRepliedText: {
+      color: '#16a34a',
+    },
+    clientNoteBody: {
+      backgroundColor: isDark ? '#1e293b88' : '#f8fafc',
+      padding: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: themeColors.border,
+      marginBottom: 10,
+    },
+    clientNoteText: {
+      fontSize: 13,
+      lineHeight: 19,
+      color: themeColors.textPrimary,
+    },
+    tlReplyBox: {
+      backgroundColor: isDark ? '#1e3a8a33' : '#eff6ff',
+      borderLeftWidth: 3.5,
+      borderLeftColor: '#2563eb',
+      padding: 12,
+      borderRadius: 8,
+      marginTop: 4,
+    },
+    tlReplyHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    tlReplyHeading: {
+      fontSize: 10.5,
+      fontWeight: '800',
+      color: '#2563eb',
+      letterSpacing: 0.5,
+    },
+    editReplyLink: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#2563eb',
+    },
+    tlReplyText: {
+      fontSize: 12.5,
+      lineHeight: 18,
+      color: isDark ? '#93c5fd' : '#1e3a8a',
+    },
+    replyInputWrap: {
+      borderTopWidth: 1,
+      borderTopColor: themeColors.border,
+      paddingTop: 10,
+      marginTop: 4,
+    },
+    replyInputLabel: {
+      fontSize: 11.5,
+      fontWeight: '700',
+      color: themeColors.textSecondary,
+      marginBottom: 6,
+    },
+    replyInput: {
+      borderWidth: 1,
+      borderColor: themeColors.border,
+      borderRadius: 8,
+      padding: 10,
+      fontSize: 12.5,
+      color: themeColors.textPrimary,
+      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+      textAlignVertical: 'top',
+      minHeight: 64,
+    },
+    replyActionRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+    },
+    cancelEditBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 6,
+      backgroundColor: isDark ? '#334155' : '#e2e8f0',
+    },
+    cancelEditText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: themeColors.textSecondary,
+    },
+    sendReplyBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: '#2563eb',
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 6,
+    },
+    sendReplyBtnText: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '700',
     },
   });
 }

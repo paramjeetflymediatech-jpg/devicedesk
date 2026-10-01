@@ -101,10 +101,23 @@ export async function getFcmToken() {
   return null;
 }
 
+let notificationHandler = null;
+
+/**
+ * Register a global listener for when a user taps a push notification
+ */
+export function onNotificationOpened(callback) {
+  notificationHandler = callback;
+}
+
 /**
  * Main initializer for Firebase Push Notifications setup
  */
-export async function setupPushNotifications() {
+export async function setupPushNotifications(onNotificationClick) {
+  if (onNotificationClick) {
+    notificationHandler = onNotificationClick;
+  }
+
   if (!isFirebaseReady()) {
     console.log('Push notifications: Firebase default app not initialized. Skipping listener configuration.');
     return;
@@ -120,23 +133,44 @@ export async function setupPushNotifications() {
     messagingInstance.onMessage(async remoteMessage => {
       console.log('A new FCM message arrived in foreground:', remoteMessage);
       
-      const type = remoteMessage.data?.type === 'ticket_raised' 
-        ? 'ticket_raised' 
-        : remoteMessage.data?.type === 'ticket_resolved' 
-        ? 'ticket_resolved' 
-        : 'notification';
-        
+      const type = remoteMessage.data?.type || 'notification';
       playTicketSound(type);
 
+      const title = remoteMessage.notification?.title || 'New Notification';
+      const body = remoteMessage.notification?.body || '';
+      const richImageUrl = remoteMessage.notification?.imageUrl || remoteMessage.data?.imageUrl || remoteMessage.data?.image || null;
+
+      // In foreground, if user is already chatting in that room, don't interrupt with an alert
+      if (type === 'chat' && remoteMessage.data?.chatId) {
+        // Subtle sound already played
+        return;
+      }
+
       Alert.alert(
-        remoteMessage.notification?.title || 'New Notification',
-        remoteMessage.notification?.body || 'You have new information regarding your devices.'
+        title,
+        body + (richImageUrl ? '\n[📷 Image Attached]' : ''),
+        [
+          { text: 'Dismiss', style: 'cancel' },
+          ...(remoteMessage.data && Object.keys(remoteMessage.data).length > 0
+            ? [{
+                text: 'View',
+                onPress: () => {
+                  if (notificationHandler) {
+                    notificationHandler(remoteMessage.data);
+                  }
+                },
+              }]
+            : [])
+        ]
       );
     });
 
     // 3. Handle when app is in background but still running, and user clicks notification
     messagingInstance.onNotificationOpenedApp(remoteMessage => {
       console.log('App opened from background by clicking notification:', remoteMessage);
+      if (remoteMessage?.data && notificationHandler) {
+        notificationHandler(remoteMessage.data);
+      }
     });
 
     // 4. Handle when app was completely closed/terminated, and user clicks notification to open it
@@ -145,6 +179,9 @@ export async function setupPushNotifications() {
       .then(remoteMessage => {
         if (remoteMessage) {
           console.log('App opened from terminated state by clicking notification:', remoteMessage);
+          if (remoteMessage?.data && notificationHandler) {
+            notificationHandler(remoteMessage.data);
+          }
         }
       });
   } catch (err) {

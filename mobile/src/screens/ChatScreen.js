@@ -122,6 +122,15 @@ export default function ChatScreen({ user, onBack }) {
 
     const chatMsgs = messages.filter(msg => {
       if (msg.deletedForEveryone) return false;
+      if (msg.deletedForUsers) {
+        let deletedList = [];
+        try {
+          deletedList = typeof msg.deletedForUsers === 'string' ? JSON.parse(msg.deletedForUsers) : msg.deletedForUsers;
+        } catch (e) {}
+        if (deletedList.map(id => String(id).toLowerCase()).includes(currentUserId)) {
+          return false;
+        }
+      }
       const sender = String(msg.senderId).toLowerCase();
       const receiver = String(msg.receiverId).toLowerCase();
 
@@ -859,7 +868,7 @@ export default function ChatScreen({ user, onBack }) {
 
     try {
       await fetch(`${getApiUrl()}/api/chat`, {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-user-id': String(user?.id || ''),
@@ -1027,7 +1036,7 @@ export default function ChatScreen({ user, onBack }) {
               } catch (sErr) {}
               try {
                 await fetch(`${getApiUrl()}/api/chat`, {
-                  method: 'DELETE',
+                  method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
                     'x-user-id': String(user?.id || ''),
@@ -1048,7 +1057,7 @@ export default function ChatScreen({ user, onBack }) {
             for (const msg of targets) {
               try {
                 await fetch(`${getApiUrl()}/api/chat`, {
-                  method: 'DELETE',
+                  method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
                     'x-user-id': String(user?.id || ''),
@@ -1083,7 +1092,7 @@ export default function ChatScreen({ user, onBack }) {
             } catch (sErr) {}
             try {
               await fetch(`${getApiUrl()}/api/chat`, {
-                method: 'DELETE',
+                method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   'x-user-id': String(user?.id || ''),
@@ -1100,7 +1109,7 @@ export default function ChatScreen({ user, onBack }) {
             setSelectedMessages([]);
             try {
               await fetch(`${getApiUrl()}/api/chat`, {
-                method: 'DELETE',
+                method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   'x-user-id': String(user?.id || ''),
@@ -1122,7 +1131,7 @@ export default function ChatScreen({ user, onBack }) {
             setSelectedMessages([]);
             try {
               await fetch(`${getApiUrl()}/api/chat`, {
-                method: 'DELETE',
+                method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   'x-user-id': String(user?.id || ''),
@@ -1280,6 +1289,15 @@ export default function ChatScreen({ user, onBack }) {
 
     let lastMsg = null;
     messages.forEach(msg => {
+      if (msg.deletedForUsers) {
+        let deletedList = [];
+        try {
+          deletedList = typeof msg.deletedForUsers === 'string' ? JSON.parse(msg.deletedForUsers) : msg.deletedForUsers;
+        } catch (e) {}
+        if (deletedList.map(id => String(id).toLowerCase()).includes(currentUserId)) {
+          return;
+        }
+      }
       let isMatch = false;
       if (targetId === 'general') {
         isMatch = msg.receiverId === 'general';
@@ -1425,11 +1443,43 @@ export default function ChatScreen({ user, onBack }) {
               <View style={styles.itemContent}>
                 <View style={styles.itemRow}>
                   <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>General Office Chat</Text>
+                  {getUnreadCount('general') > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadBadgeText}>{getUnreadCount('general')}</Text>
+                    </View>
+                  )}
                   {isPinned('general') && <AppIcon name="pin" size={14} color="#f59e0b" />}
                 </View>
                 <Text style={[styles.itemSub, { color: themeColors.textSecondary }]}>Company-wide channel</Text>
               </View>
             </TouchableOpacity>
+
+            {user?.department && (
+              <TouchableOpacity
+                style={[
+                  styles.chatItem,
+                  { backgroundColor: themeColors.cardBg, borderBottomColor: themeColors.border },
+                  activeChatId === `dept_${user.department}` && [styles.chatItemActive, { backgroundColor: isDark ? '#334155' : '#eff6ff', borderColor: isDark ? '#475569' : '#bfdbfe' }]
+                ]}
+                onPress={() => { setActiveChatId(`dept_${user.department}`); setShowActiveChat(true); }}
+              >
+                <View style={[styles.avatarBox, { backgroundColor: '#8b5cf6' }]}>
+                  <AppIcon name="briefcase" size={20} color="#ffffff" />
+                </View>
+                <View style={styles.itemContent}>
+                  <View style={styles.itemRow}>
+                    <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>{user.department} Team</Text>
+                    {getUnreadCount(`dept_${user.department}`) > 0 && (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadBadgeText}>{getUnreadCount(`dept_${user.department}`)}</Text>
+                      </View>
+                    )}
+                    {isPinned(`dept_${user.department}`) && <AppIcon name="pin" size={14} color="#f59e0b" />}
+                  </View>
+                  <Text style={[styles.itemSub, { color: themeColors.textSecondary }]}>Department channel</Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Custom Groups Section */}
             {sortedGroups.length > 0 && (
@@ -1539,9 +1589,9 @@ export default function ChatScreen({ user, onBack }) {
                   style={styles.backBtn}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
-                  <AppIcon name="close" size={20} color="#3b82f6" />
+                  <AppIcon name="close" size={20} color="#ffffff" />
                 </TouchableOpacity>
-                <Text style={{ color: '#e9edef', fontSize: 17, fontWeight: 'bold', marginLeft: 12 }}>
+                <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: 'bold', marginLeft: 12 }}>
                   {selectedMessages.length}
                 </Text>
               </View>
@@ -1554,7 +1604,7 @@ export default function ChatScreen({ user, onBack }) {
                     style={styles.headerActionBtn}
                     hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                   >
-                    <AppIcon name="pin" size={18} color={isMessagePinned(selectedMessages[0].id) ? '#f59e0b' : '#e9edef'} />
+                    <AppIcon name="pin" size={18} color={isMessagePinned(selectedMessages[0].id) ? '#f59e0b' : '#ffffff'} />
                   </TouchableOpacity>
                 )}
 
@@ -1564,7 +1614,7 @@ export default function ChatScreen({ user, onBack }) {
                   style={styles.headerActionBtn}
                   hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                 >
-                  <AppIcon name="file" size={18} color="#e9edef" />
+                  <AppIcon name="file" size={18} color="#ffffff" />
                 </TouchableOpacity>
 
                 {selectedMessages.length === 1 && (
@@ -1573,7 +1623,7 @@ export default function ChatScreen({ user, onBack }) {
                     style={styles.headerActionBtn}
                     hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                   >
-                    <AppIcon name="info" size={18} color="#e9edef" />
+                    <AppIcon name="info" size={18} color="#ffffff" />
                   </TouchableOpacity>
                 )}
 
@@ -1583,7 +1633,7 @@ export default function ChatScreen({ user, onBack }) {
                   style={styles.headerActionBtn}
                   activeOpacity={0.7}
                 >
-                  <AppIcon name="forward" size={18} color="#e9edef" />
+                  <AppIcon name="forward" size={18} color="#ffffff" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1813,36 +1863,36 @@ export default function ChatScreen({ user, onBack }) {
                                     handleOpenFile(msg.fileUrl, msg.fileName || 'Video.mp4');
                                   }
                                 }}
-                                style={styles.videoCard}
+                                style={[styles.videoCard, { backgroundColor: isOwn ? 'rgba(255,255,255,0.12)' : (isDark ? '#0f172a' : '#f1f5f9') }]}
                               >
                                 <View style={styles.videoThumbnailContainer}>
                                   <View style={styles.videoPlayBadge}>
                                     <AppIcon name="play" size={16} color="#ffffff" />
                                   </View>
                                 </View>
-                                <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                  <AppIcon name="video" size={14} color="#e9edef" />
-                                  <Text style={{ color: '#e9edef', fontSize: 12, fontWeight: 'bold' }} numberOfLines={1}>
+                                <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                  <AppIcon name="video" size={14} color={isOwn ? '#ffffff' : themeColors.textPrimary} />
+                                  <Text style={{ color: isOwn ? '#ffffff' : themeColors.textPrimary, fontSize: 12, fontWeight: 'bold', flex: 1 }} numberOfLines={1}>
                                     {msg.fileName || 'Video Attachment'}
                                   </Text>
                                 </View>
                               </TouchableOpacity>
                             ) : msg.messageType === 'audio' ? (
                               /* Voice Note Audio Player Render */
-                              <View style={styles.voiceNoteCard}>
+                              <View style={[styles.voiceNoteCard, { backgroundColor: isOwn ? 'rgba(255,255,255,0.12)' : (isDark ? '#0f172a' : '#f1f5f9') }]}>
                                 <TouchableOpacity
                                   onPress={() => handleTogglePlayAudio(msg)}
-                                  style={styles.voicePlayBtn}
+                                  style={[styles.voicePlayBtn, { backgroundColor: isOwn ? '#ffffff' : '#2563eb' }]}
                                 >
-                                  <AppIcon name={playingAudioId === msg.id ? 'pause' : 'play'} size={14} color="#ffffff" />
+                                  <AppIcon name={playingAudioId === msg.id ? 'pause' : 'play'} size={14} color={isOwn ? '#2563eb' : '#ffffff'} />
                                 </TouchableOpacity>
 
                                 <View style={{ flex: 1, marginLeft: 8 }}>
                                   {/* Waveform Graphic */}
-                                  <Text style={{ color: playingAudioId === msg.id ? '#3b82f6' : '#8696a0', fontSize: 12, letterSpacing: 2, fontWeight: 'bold' }}>
+                                  <Text style={{ color: playingAudioId === msg.id ? (isOwn ? '#93c5fd' : '#2563eb') : (isOwn ? '#bfdbfe' : themeColors.textSecondary), fontSize: 12, letterSpacing: 2, fontWeight: 'bold' }}>
                                     ıııılıılılıllıılıllı
                                   </Text>
-                                  <Text style={{ color: '#8696a0', fontSize: 10, marginTop: 2 }}>
+                                  <Text style={{ color: isOwn ? '#dbeafe' : themeColors.textSecondary, fontSize: 10, marginTop: 2 }}>
                                     {msg.content || 'Voice Note'}
                                   </Text>
                                 </View>
@@ -1851,14 +1901,21 @@ export default function ChatScreen({ user, onBack }) {
                               /* File / Attachment Card */
                               <TouchableOpacity
                                 onPress={() => handleOpenFile(msg.fileUrl, msg.fileName)}
-                                style={styles.fileCard}
+                                style={[
+                                  styles.fileCard,
+                                  {
+                                    backgroundColor: isOwn ? 'rgba(255, 255, 255, 0.15)' : (isDark ? '#0f172a' : '#f1f5f9'),
+                                    borderColor: isOwn ? 'rgba(255, 255, 255, 0.25)' : themeColors.border,
+                                    borderWidth: 1,
+                                  }
+                                ]}
                               >
-                                <AppIcon name="file" size={20} color="#3b82f6" style={{ marginRight: 8 }} />
+                                <AppIcon name="file" size={20} color={isOwn ? '#ffffff' : '#2563eb'} style={{ marginRight: 8 }} />
                                 <View style={{ flex: 1 }}>
-                                  <Text style={{ color: '#e9edef', fontSize: 13, fontWeight: 'bold' }} numberOfLines={1}>
+                                  <Text style={{ color: isOwn ? '#ffffff' : themeColors.textPrimary, fontSize: 13, fontWeight: 'bold' }} numberOfLines={1}>
                                     {msg.fileName || 'Attachment'}
                                   </Text>
-                                  <Text style={{ color: '#8696a0', fontSize: 10 }}>Tap to open file</Text>
+                                  <Text style={{ color: isOwn ? '#dbeafe' : themeColors.textSecondary, fontSize: 10, marginTop: 2 }}>Tap to open file</Text>
                                 </View>
                               </TouchableOpacity>
                             ) : (
@@ -1964,26 +2021,33 @@ export default function ChatScreen({ user, onBack }) {
       {/* FORWARD MODAL */}
       <Modal visible={showForwardModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Forward Message To...</Text>
+          <View style={[styles.modalContent, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+            <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Forward Message To...</Text>
 
             <TextInput
-              style={styles.searchInput}
+              style={[
+                styles.searchInput,
+                { backgroundColor: isDark ? '#0f172a' : '#f8fafc', color: themeColors.textPrimary, borderColor: themeColors.border, marginHorizontal: 0, marginBottom: 10 }
+              ]}
               placeholder="Search recipient..."
-              placeholderTextColor="#8b949e"
+              placeholderTextColor={themeColors.textSecondary}
               value={forwardSearchQuery}
               onChangeText={setForwardSearchQuery}
             />
 
-            <ScrollView style={{ maxHeight: 280, marginVertical: 10 }}>
+            <ScrollView style={{ maxHeight: 280, marginVertical: 6 }}>
               {/* General Office Chat Channel */}
               {'General Office Chat'.toLowerCase().includes(forwardSearchQuery.toLowerCase()) && (
                 <TouchableOpacity
-                  style={[styles.forwardItem, forwardTargetId === 'general' && styles.forwardItemActive]}
+                  style={[
+                    styles.forwardItem,
+                    { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: themeColors.border },
+                    forwardTargetId === 'general' && styles.forwardItemActive
+                  ]}
                   onPress={() => setForwardTargetId('general')}
                 >
-                  <Text style={styles.forwardName}>🏢 General Office Chat</Text>
-                  <Text style={styles.forwardSub}>Company-wide channel</Text>
+                  <Text style={[styles.forwardName, { color: themeColors.textPrimary }]}>🏢 General Office Chat</Text>
+                  <Text style={[styles.forwardSub, { color: themeColors.textSecondary }]}>Company-wide channel</Text>
                 </TouchableOpacity>
               )}
 
@@ -1991,11 +2055,15 @@ export default function ChatScreen({ user, onBack }) {
               {(groups || []).filter(g => g.name.toLowerCase().includes(forwardSearchQuery.toLowerCase())).map(g => (
                 <TouchableOpacity
                   key={g.id}
-                  style={[styles.forwardItem, forwardTargetId === g.id && styles.forwardItemActive]}
+                  style={[
+                    styles.forwardItem,
+                    { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: themeColors.border },
+                    forwardTargetId === g.id && styles.forwardItemActive
+                  ]}
                   onPress={() => setForwardTargetId(g.id)}
                 >
-                  <Text style={styles.forwardName}>👥 {g.name}</Text>
-                  <Text style={styles.forwardSub}>Group Chat Channel</Text>
+                  <Text style={[styles.forwardName, { color: themeColors.textPrimary }]}>👥 {g.name}</Text>
+                  <Text style={[styles.forwardSub, { color: themeColors.textSecondary }]}>Group Chat Channel</Text>
                 </TouchableOpacity>
               ))}
 
@@ -2003,18 +2071,22 @@ export default function ChatScreen({ user, onBack }) {
               {sortedEmployees.filter(e => e.name.toLowerCase().includes(forwardSearchQuery.toLowerCase())).map(e => (
                 <TouchableOpacity
                   key={e.id}
-                  style={[styles.forwardItem, forwardTargetId === e.id && styles.forwardItemActive]}
+                  style={[
+                    styles.forwardItem,
+                    { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: themeColors.border },
+                    forwardTargetId === e.id && styles.forwardItemActive
+                  ]}
                   onPress={() => setForwardTargetId(e.id)}
                 >
-                  <Text style={styles.forwardName}>👤 {e.name}</Text>
-                  <Text style={styles.forwardSub}>{e.role} • {e.department}</Text>
+                  <Text style={[styles.forwardName, { color: themeColors.textPrimary }]}>👤 {e.name}</Text>
+                  <Text style={[styles.forwardSub, { color: themeColors.textSecondary }]}>{e.role} • {e.department}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
               <TouchableOpacity onPress={() => setShowForwardModal(false)} style={styles.modalCancelBtn}>
-                <Text style={{ color: '#8b949e' }}>Cancel</Text>
+                <Text style={{ color: themeColors.textSecondary, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleConfirmForward}
@@ -2031,23 +2103,23 @@ export default function ChatScreen({ user, onBack }) {
       {/* CHAT DETAILS & MEDIA MODAL */}
       <Modal visible={showDetailsModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
+          <View style={[styles.modalContent, { maxHeight: '85%', backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={styles.modalTitle}>ℹ️ Conversation Details</Text>
+              <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>ℹ️ Conversation Details</Text>
               <TouchableOpacity onPress={() => setShowDetailsModal(false)} style={styles.modalCancelBtn}>
-                <Text style={{ color: '#8b949e', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+                <Text style={{ color: themeColors.textSecondary, fontSize: 16, fontWeight: 'bold' }}>✕</Text>
               </TouchableOpacity>
             </View>
 
             {/* Conversation Header Overview */}
-            <View style={{ alignItems: 'center', marginVertical: 10, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#30363d' }}>
-              <View style={[styles.avatarBox, { width: 50, height: 50, borderRadius: 12, backgroundColor: '#0284c7', marginBottom: 6 }]}>
+            <View style={{ alignItems: 'center', marginVertical: 10, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: themeColors.border }}>
+              <View style={[styles.avatarBox, { width: 52, height: 52, borderRadius: 26, backgroundColor: '#2563eb', marginBottom: 8 }]}>
                 <Text style={{ fontSize: 22, color: '#fff', fontWeight: 'bold' }}>
                   {activeChatTitle ? activeChatTitle.charAt(0).toUpperCase() : 'C'}
                 </Text>
               </View>
-              <Text style={{ color: '#f0f6fc', fontSize: 16, fontWeight: 'bold' }}>{activeChatTitle}</Text>
-              <Text style={{ color: '#8b949e', fontSize: 12, marginTop: 2 }}>
+              <Text style={{ color: themeColors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>{activeChatTitle}</Text>
+              <Text style={{ color: themeColors.textSecondary, fontSize: 12, marginTop: 3 }}>
                 {activeChatId === 'general'
                   ? 'Company-wide announcements'
                   : activeChatId.startsWith('dept_')
@@ -2063,7 +2135,7 @@ export default function ChatScreen({ user, onBack }) {
               const sharedData = getSharedMediaAndFiles();
               return (
                 <>
-                  <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#30363d', marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: themeColors.border, marginBottom: 12 }}>
                     {[
                       { key: 'info', label: 'ℹ️ Info' },
                       { key: 'media', label: `📸 Media (${sharedData.media.length})` },
@@ -2077,10 +2149,10 @@ export default function ChatScreen({ user, onBack }) {
                           paddingVertical: 8,
                           paddingHorizontal: 8,
                           borderBottomWidth: detailsTab === t.key ? 2 : 0,
-                          borderBottomColor: '#38bdf8',
+                          borderBottomColor: '#2563eb',
                         }}
                       >
-                        <Text style={{ fontSize: 11, fontWeight: 'bold', color: detailsTab === t.key ? '#38bdf8' : '#8b949e' }}>
+                        <Text style={{ fontSize: 11, fontWeight: 'bold', color: detailsTab === t.key ? '#2563eb' : themeColors.textSecondary }}>
                           {t.label}
                         </Text>
                       </TouchableOpacity>
@@ -2094,23 +2166,23 @@ export default function ChatScreen({ user, onBack }) {
                           const emp = employees.find(e => String(e.id).toLowerCase() === String(activeChatId).toLowerCase());
                           return (
                             <View style={{ gap: 8 }}>
-                              <Text style={{ color: '#8b949e', fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: '#c9d1d9' }}>Role:</Text> {emp?.role || 'Team Member'}</Text>
-                              <Text style={{ color: '#8b949e', fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: '#c9d1d9' }}>Department:</Text> {emp?.department || 'Operations'}</Text>
-                              <Text style={{ color: '#8b949e', fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: '#c9d1d9' }}>Email:</Text> {emp?.email || 'N/A'}</Text>
+                              <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>Role:</Text> {emp?.role || 'Team Member'}</Text>
+                              <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>Department:</Text> {emp?.department || 'Operations'}</Text>
+                              <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>Email:</Text> {emp?.email || 'N/A'}</Text>
                             </View>
                           );
                         })() : (
                           <View>
-                            <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#8b949e', textTransform: 'uppercase', marginBottom: 6 }}>
+                            <Text style={{ fontSize: 12, fontWeight: 'bold', color: themeColors.textSecondary, textTransform: 'uppercase', marginBottom: 6 }}>
                               Channel Members ({sortedEmployees.length})
                             </Text>
                             {sortedEmployees.slice(0, 8).map(e => (
                               <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
-                                <View style={[styles.avatarBox, { width: 24, height: 24, borderRadius: 6, backgroundColor: '#38bdf8', marginRight: 8 }]}>
+                                <View style={[styles.avatarBox, { width: 24, height: 24, borderRadius: 12, backgroundColor: '#38bdf8', marginRight: 8 }]}>
                                   <Text style={{ fontSize: 10, color: '#fff' }}>{e.name.charAt(0)}</Text>
                                 </View>
-                                <Text style={{ color: '#c9d1d9', fontSize: 12, flex: 1 }}>{e.name}</Text>
-                                <Text style={{ color: '#8b949e', fontSize: 10 }}>{e.role}</Text>
+                                <Text style={{ color: themeColors.textPrimary, fontSize: 12, flex: 1 }}>{e.name}</Text>
+                                <Text style={{ color: themeColors.textSecondary, fontSize: 10 }}>{e.role}</Text>
                               </View>
                             ))}
                           </View>
@@ -2120,16 +2192,16 @@ export default function ChatScreen({ user, onBack }) {
                         <TouchableOpacity
                           onPress={() => togglePinChat(activeChatId)}
                           style={{
-                            backgroundColor: isPinned(activeChatId) ? 'rgba(255, 215, 0, 0.15)' : '#21262d',
+                            backgroundColor: isPinned(activeChatId) ? 'rgba(245, 158, 11, 0.15)' : (isDark ? '#1e293b' : '#f1f5f9'),
                             borderWidth: 1,
-                            borderColor: isPinned(activeChatId) ? '#ffd700' : '#30363d',
+                            borderColor: isPinned(activeChatId) ? '#f59e0b' : themeColors.border,
                             padding: 10,
                             borderRadius: 8,
                             alignItems: 'center',
                             marginTop: 14,
                           }}
                         >
-                          <Text style={{ color: isPinned(activeChatId) ? '#ffd700' : '#c9d1d9', fontWeight: 'bold', fontSize: 13 }}>
+                          <Text style={{ color: isPinned(activeChatId) ? '#f59e0b' : themeColors.textPrimary, fontWeight: 'bold', fontSize: 13 }}>
                             {isPinned(activeChatId) ? '📍 Unpin Conversation' : '📌 Pin Conversation'}
                           </Text>
                         </TouchableOpacity>
@@ -2140,16 +2212,16 @@ export default function ChatScreen({ user, onBack }) {
                             setShowDetailsModal(false);
                           }}
                           style={{
-                            backgroundColor: 'rgba(248, 81, 73, 0.15)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.12)',
                             borderWidth: 1,
-                            borderColor: '#f85149',
+                            borderColor: '#ef4444',
                             padding: 10,
                             borderRadius: 8,
                             alignItems: 'center',
                             marginTop: 8,
                           }}
                         >
-                          <Text style={{ color: '#f87171', fontWeight: 'bold', fontSize: 13 }}>
+                          <Text style={{ color: '#ef4444', fontWeight: 'bold', fontSize: 13 }}>
                             🧹 Clear Chat Display
                           </Text>
                         </TouchableOpacity>
@@ -2161,7 +2233,7 @@ export default function ChatScreen({ user, onBack }) {
                         {sharedData.media.length === 0 ? (
                           <View style={{ alignItems: 'center', paddingVertical: 32 }}>
                             <Text style={{ fontSize: 36, marginBottom: 8 }}>🖼️</Text>
-                            <Text style={{ color: '#8b949e', fontSize: 13, fontStyle: 'italic' }}>No shared photos or videos yet.</Text>
+                            <Text style={{ color: themeColors.textSecondary, fontSize: 13, fontStyle: 'italic' }}>No shared photos or videos yet.</Text>
                           </View>
                         ) : (
                           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
@@ -2178,7 +2250,7 @@ export default function ChatScreen({ user, onBack }) {
                                 style={{
                                   width: 94,
                                   height: 94,
-                                  backgroundColor: '#111b21',
+                                  backgroundColor: isDark ? '#0f172a' : '#e2e8f0',
                                   borderRadius: 6,
                                   overflow: 'hidden',
                                   position: 'relative',
@@ -2196,7 +2268,7 @@ export default function ChatScreen({ user, onBack }) {
                                     );
                                   }
                                   return (
-                                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f2c34' }}>
+                                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: isDark ? '#1e293b' : '#cbd5e1' }}>
                                       <Text style={{ fontSize: 28 }}>
                                         {m.type === 'video' ? '🎥' : '🖼️'}
                                       </Text>
@@ -2218,12 +2290,12 @@ export default function ChatScreen({ user, onBack }) {
                     {detailsTab === 'docs' && (
                       <View>
                         {sharedData.docs.length === 0 ? (
-                          <Text style={{ color: '#8b949e', fontSize: 12, fontStyle: 'italic' }}>No shared documents or attachments yet.</Text>
+                          <Text style={{ color: themeColors.textSecondary, fontSize: 12, fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 }}>No shared documents or attachments yet.</Text>
                         ) : (
                           sharedData.docs.map(d => (
-                            <View key={d.id} style={{ padding: 8, backgroundColor: '#0d1117', borderRadius: 6, marginBottom: 6 }}>
-                              <Text style={{ color: '#38bdf8', fontSize: 12, fontWeight: 'bold' }}>📎 {d.fileName}</Text>
-                              <Text style={{ color: '#8b949e', fontSize: 10 }}>Sent by {d.senderName}</Text>
+                            <View key={d.id} style={{ padding: 10, backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: themeColors.border }}>
+                              <Text style={{ color: '#2563eb', fontSize: 12, fontWeight: 'bold' }}>📎 {d.fileName}</Text>
+                              <Text style={{ color: themeColors.textSecondary, fontSize: 10, marginTop: 2 }}>Sent by {d.senderName}</Text>
                             </View>
                           ))
                         )}
@@ -2233,12 +2305,12 @@ export default function ChatScreen({ user, onBack }) {
                     {detailsTab === 'links' && (
                       <View>
                         {sharedData.links.length === 0 ? (
-                          <Text style={{ color: '#8b949e', fontSize: 12, fontStyle: 'italic' }}>No shared links or URLs yet.</Text>
+                          <Text style={{ color: themeColors.textSecondary, fontSize: 12, fontStyle: 'italic', textAlign: 'center', paddingVertical: 20 }}>No shared links or URLs yet.</Text>
                         ) : (
                           sharedData.links.map(l => (
-                            <View key={l.id} style={{ padding: 8, backgroundColor: '#0d1117', borderRadius: 6, marginBottom: 6 }}>
-                              <Text style={{ color: '#38bdf8', fontSize: 12, textDecorationLine: 'underline' }}>🔗 {l.url}</Text>
-                              <Text style={{ color: '#8b949e', fontSize: 10 }}>Sent by {l.senderName}</Text>
+                            <View key={l.id} style={{ padding: 10, backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: themeColors.border }}>
+                              <Text style={{ color: '#2563eb', fontSize: 12, textDecorationLine: 'underline' }}>🔗 {l.url}</Text>
+                              <Text style={{ color: themeColors.textSecondary, fontSize: 10, marginTop: 2 }}>Sent by {l.senderName}</Text>
                             </View>
                           ))
                         )}
@@ -2251,7 +2323,7 @@ export default function ChatScreen({ user, onBack }) {
 
             <View style={{ marginTop: 12, alignItems: 'flex-end' }}>
               <TouchableOpacity onPress={() => setShowDetailsModal(false)} style={styles.modalCancelBtn}>
-                <Text style={{ color: '#8b949e', fontWeight: 'bold' }}>Close</Text>
+                <Text style={{ color: themeColors.textSecondary, fontWeight: 'bold' }}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2261,25 +2333,25 @@ export default function ChatScreen({ user, onBack }) {
       {/* MESSAGE INFO MODAL */}
       <Modal visible={showMessageInfoModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={styles.modalTitle}>ℹ️ Message Info</Text>
+              <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>ℹ️ Message Info</Text>
               <TouchableOpacity onPress={() => setShowMessageInfoModal(false)} style={styles.modalCancelBtn}>
-                <Text style={{ color: '#8b949e', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+                <Text style={{ color: themeColors.textSecondary, fontSize: 16, fontWeight: 'bold' }}>✕</Text>
               </TouchableOpacity>
             </View>
 
             {selectedMessages.length === 1 && selectedMessages[0] && (
               <View style={{ gap: 10, marginVertical: 10 }}>
-                <View style={{ backgroundColor: '#202c33', padding: 12, borderRadius: 10 }}>
-                  <Text style={{ color: '#e9edef', fontSize: 14 }}>{selectedMessages[0].content}</Text>
+                <View style={{ backgroundColor: isDark ? '#1e293b' : '#f1f5f9', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: themeColors.border }}>
+                  <Text style={{ color: themeColors.textPrimary, fontSize: 14 }}>{selectedMessages[0].content}</Text>
                 </View>
 
                 <View style={{ gap: 6, paddingHorizontal: 4 }}>
-                  <Text style={{ color: '#8696a0', fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: '#e9edef' }}>Sender:</Text> {selectedMessages[0].senderName}</Text>
-                  <Text style={{ color: '#8696a0', fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: '#e9edef' }}>Delivered Time:</Text> {new Date(selectedMessages[0].timestamp).toLocaleString()}</Text>
-                  <Text style={{ color: '#8696a0', fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: '#e9edef' }}>Status:</Text> Delivered ✓✓</Text>
-                  {selectedMessages[0].isEdited ? <Text style={{ color: '#8696a0', fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: '#e9edef' }}>Edited:</Text> Yes</Text> : null}
+                  <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>Sender:</Text> {selectedMessages[0].senderName}</Text>
+                  <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>Delivered Time:</Text> {new Date(selectedMessages[0].timestamp).toLocaleString()}</Text>
+                  <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>Status:</Text> Delivered ✓✓</Text>
+                  {selectedMessages[0].isEdited ? <Text style={{ color: themeColors.textSecondary, fontSize: 12 }}><Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>Edited:</Text> Yes</Text> : null}
                 </View>
               </View>
             )}
@@ -2776,19 +2848,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 2,
-    borderBottomColor: '#2563eb',
+    backgroundColor: '#0f172a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
     zIndex: 1000,
     elevation: 10,
   },
   selectedBubble: {
-    borderWidth: 1.5,
-    borderColor: '#2563eb',
-    backgroundColor: '#eff6ff',
+    borderWidth: 2,
+    borderColor: '#38bdf8',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
   },
   selectedRowWrapper: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
     borderRadius: 8,
     paddingVertical: 4,
   },

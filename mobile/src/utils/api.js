@@ -1008,7 +1008,9 @@ export async function fetchClientInvoicesApi(clientId) {
 }
 
 export async function fetchClientNotesApi(clientId) {
-  const url = `${currentApiUrl}/api/client-notes?client_id=${encodeURIComponent(clientId)}`;
+  const url = clientId 
+    ? `${currentApiUrl}/api/client-notes?client_id=${encodeURIComponent(clientId)}`
+    : `${currentApiUrl}/api/client-notes`;
   try {
     const response = await fetch(url, {
       method: 'GET',
@@ -1017,6 +1019,20 @@ export async function fetchClientNotesApi(clientId) {
     return await response.json();
   } catch (err) {
     console.error(`Fetch client notes failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function fetchAllClientNotesApi() {
+  const url = `${currentApiUrl}/api/client-notes`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch all client notes failed at ${url}:`, err);
     throw err;
   }
 }
@@ -1035,6 +1051,24 @@ export async function createClientNoteApi(data) {
     return await response.json();
   } catch (err) {
     console.error(`Create client note failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function replyClientNoteApi(data) {
+  const url = `${currentApiUrl}/api/client-notes`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Reply client note failed at ${url}:`, err);
     throw err;
   }
 }

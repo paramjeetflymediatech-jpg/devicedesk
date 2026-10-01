@@ -480,11 +480,13 @@ export async function POST(request) {
               : (content || 'Sent a message');
 
       if (!receiverId.startsWith('group_') && !receiverId.startsWith('dept_') && receiverId !== 'general') {
+        const previewImage = (messageType === 'image' && fileUrl && (fileUrl.startsWith('http://') || fileUrl.startsWith('https://'))) ? fileUrl : undefined;
         sendPushNotification(receiverId, notifTitle, notifBody, {
           type: 'chat',
           senderId: user.id,
           senderName: user.name,
           chatId: user.id,
+          ...(previewImage ? { imageUrl: previewImage } : {}),
         });
       }
     } catch (notifErr) {
@@ -496,4 +498,12 @@ export async function POST(request) {
     console.error('Send Chat API Error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
+}
+
+export async function PUT(request) {
+  return POST(request);
+}
+
+export async function DELETE(request) {
+  return POST(request);
 }

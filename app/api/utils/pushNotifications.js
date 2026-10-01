@@ -77,8 +77,14 @@ export async function sendPushNotificationToAdmins(title, body, data = {}) {
       return { success: true, mocked: true, tokensCount: tokens.length };
     }
 
+    const richImage = data.imageUrl || data.image || null;
+
     const message = {
-      notification: { title, body },
+      notification: {
+        title,
+        body,
+        ...(richImage ? { imageUrl: richImage } : {}),
+      },
       data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) : {},
       tokens: tokens,
       android: {
@@ -87,14 +93,18 @@ export async function sendPushNotificationToAdmins(title, body, data = {}) {
           sound: 'qt',
           defaultSound: true,
           channelId: 'high_importance_channel',
+          ...(richImage ? { imageUrl: richImage } : {}),
         },
       },
       apns: {
         payload: {
           aps: {
             sound: 'qt.mp3',
+            badge: 1,
+            'mutable-content': 1,
           },
         },
+        ...(richImage ? { fcm_options: { image: richImage } } : {}),
       },
     };
 
@@ -173,9 +183,15 @@ export async function sendPushNotification(userId, title, body, data = {}) {
       return { success: true, mocked: true, tokensCount: tokens.length };
     }
 
+    const richImage = data.imageUrl || data.image || null;
+
     // 3. Format message payload
     const message = {
-      notification: { title, body },
+      notification: {
+        title,
+        body,
+        ...(richImage ? { imageUrl: richImage } : {}),
+      },
       data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) : {},
       tokens: tokens,
       android: {
@@ -184,14 +200,18 @@ export async function sendPushNotification(userId, title, body, data = {}) {
           sound: 'qt',
           defaultSound: true,
           channelId: 'high_importance_channel',
+          ...(richImage ? { imageUrl: richImage } : {}),
         },
       },
       apns: {
         payload: {
           aps: {
             sound: 'qt.mp3',
+            badge: 1,
+            'mutable-content': 1,
           },
         },
+        ...(richImage ? { fcm_options: { image: richImage } } : {}),
       },
     };
 
