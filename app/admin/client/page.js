@@ -40,6 +40,17 @@ export default function ClientManagementPage() {
         setClientSpecificPackages(pkgs);
         const overridden = pkgs.find(p => p.hasOverride);
         if (overridden) {
+          let loadedFeatures = '';
+          if (Array.isArray(overridden.features)) {
+            if (overridden.features.length === 1 && typeof overridden.features[0] === 'string' && overridden.features[0].includes('<')) {
+              loadedFeatures = overridden.features[0];
+            } else {
+              loadedFeatures = '<ul>' + overridden.features.map(f => `<li>${f}</li>`).join('') + '</ul>';
+            }
+          } else {
+            loadedFeatures = overridden.features || '';
+          }
+
           setPricingForm({
             client_id: client.id,
             client_name: client.name,
@@ -48,7 +59,7 @@ export default function ClientManagementPage() {
             custom_name: overridden.name || '',
             custom_description: overridden.description || '',
             custom_billing_cycle: overridden.billing_cycle || 'Monthly',
-            custom_features: overridden.features || ''
+            custom_features: loadedFeatures
           });
         }
       }
@@ -725,7 +736,7 @@ export default function ClientManagementPage() {
                           if (selectedPkg.features.length === 1 && selectedPkg.features[0] && selectedPkg.features[0].includes('<')) {
                             newFeatures = selectedPkg.features[0];
                           } else {
-                            newFeatures = selectedPkg.features.map(f => `<p>${f}</p>`).join('');
+                            newFeatures = '<ul>' + selectedPkg.features.map(f => `<li>${f}</li>`).join('') + '</ul>';
                           }
                         } else {
                           newFeatures = selectedPkg.features;

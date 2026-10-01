@@ -300,10 +300,19 @@ export default function ChatView({ user }) {
     }
   };
 
+  const shouldAutoScrollRef = useRef(true);
+
   // Scroll to bottom when messages or active chat change
   useEffect(() => {
-    scrollToBottom();
+    if (shouldAutoScrollRef.current) {
+      scrollToBottom();
+      shouldAutoScrollRef.current = false;
+    }
   }, [messages, activeChatId]);
+
+  useEffect(() => {
+    shouldAutoScrollRef.current = true;
+  }, [activeChatId]);
 
   const scrollToBottom = () => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -368,6 +377,14 @@ export default function ChatView({ user }) {
 
     socket.on("receive-message", (message) => {
       console.log("Real-time message received:", message);
+      
+      if (scrollRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+        if (scrollHeight - scrollTop - clientHeight < 150) {
+          shouldAutoScrollRef.current = true;
+        }
+      }
+      
       setMessages(prev => {
         if (prev.some(m => m.id === message.id)) return prev;
         return [...prev, message];
@@ -417,7 +434,7 @@ export default function ChatView({ user }) {
       if (data.senderId === user.id) return;
       const isGroup = data.receiverId.startsWith('group_') || data.receiverId.startsWith('dept_') || data.receiverId === 'general';
       const room = isGroup ? data.receiverId : data.senderId;
-      const key = `${room}_${data.senderId}`;
+      const key = `${room}_${data.senderId}`.toLowerCase();
       setTypingUsers(prev => ({ ...prev, [key]: data.senderName }));
 
       // Automatically clear stuck typing status after 4 seconds
@@ -437,7 +454,7 @@ export default function ChatView({ user }) {
       if (data.senderId === user.id) return;
       const isGroup = data.receiverId.startsWith('group_') || data.receiverId.startsWith('dept_') || data.receiverId === 'general';
       const room = isGroup ? data.receiverId : data.senderId;
-      const key = `${room}_${data.senderId}`;
+      const key = `${room}_${data.senderId}`.toLowerCase();
       setTypingUsers(prev => {
         const newState = { ...prev };
         delete newState[key];
@@ -584,6 +601,13 @@ export default function ChatView({ user }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
+          if (scrollRef.current) {
+            const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+            if (scrollHeight - scrollTop - clientHeight < 150) {
+              shouldAutoScrollRef.current = true;
+            }
+          }
+          
           // Update messages if changed
           setMessages(prev => {
             if (JSON.stringify(prev) !== JSON.stringify(data.messages)) {
@@ -626,12 +650,17 @@ export default function ChatView({ user }) {
     setIsLoadingMore(true);
     
     try {
+      const scrollContainer = scrollRef.current;
+      const prevScrollHeight = scrollContainer ? scrollContainer.scrollHeight : 0;
+      
       const nextPage = chatPage + 1;
       const res = await fetch(`/api/chat?chatId=${encodeURIComponent(activeChatId)}&page=${nextPage}&limit=50`);
       const data = await res.json();
       
       if (res.ok && data.success) {
         if (data.messages && data.messages.length > 0) {
+          shouldAutoScrollRef.current = false;
+          
           setMessages(prev => {
             const newMessages = [...prev];
             // Only add messages that aren't already in state
@@ -644,6 +673,13 @@ export default function ChatView({ user }) {
             return newMessages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
           });
           setChatPage(nextPage);
+          
+          setTimeout(() => {
+            if (scrollRef.current) {
+              const newScrollHeight = scrollRef.current.scrollHeight;
+              scrollRef.current.scrollTop = newScrollHeight - prevScrollHeight;
+            }
+          }, 0);
         }
         
         if (!data.messages || data.messages.length < 50) {
@@ -674,6 +710,8 @@ export default function ChatView({ user }) {
     if (e) e.preventDefault();
     if (!messageText.trim()) return;
 
+    shouldAutoScrollRef.current = true;
+
     const payload = {
       receiverId: activeChatId,
       messageType: "text",
@@ -683,6 +721,18 @@ export default function ChatView({ user }) {
 
     setMessageText("");
     setReplyingToMessage(null);
+
+    // Immediately stop typing
+    if (socketRef.current && activeChatId) {
+      socketRef.current.emit("stop-typing", {
+        senderId: user.id,
+        receiverId: activeChatId
+      });
+      if (typingTimeoutRef.current[activeChatId]) {
+        clearTimeout(typingTimeoutRef.current[activeChatId]);
+        typingTimeoutRef.current[activeChatId] = null;
+      }
+    }
 
     try {
       const res = await fetch("/api/chat", {
@@ -1328,12 +1378,14 @@ export default function ChatView({ user }) {
     try {
       const mimeType = recordedBlob.type || "";
       const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("ogg") ? "ogg" : "webm";
-      const formData = new FormData();
-      formData.append("file", recordedBlob, `voice_note_${Date.now()}.${ext}`);
 
-      const uploadRes = await fetch("/api/upload", {
+      const uploadRes = await fetch("/api/upload_raw", {
         method: "POST",
-        body: formData
+        headers: {
+          "x-file-name": encodeURIComponent(`voice_note_${Date.now()}.${ext}`),
+          "Content-Type": "application/octet-stream"
+        },
+        body: recordedBlob
       });
 
       const uploadData = await uploadRes.json();
@@ -1454,12 +1506,13 @@ export default function ChatView({ user }) {
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", capturedBlob, `camera_${Date.now()}.jpg`);
-
-      const uploadRes = await fetch("/api/upload", {
+      const uploadRes = await fetch("/api/upload_raw", {
         method: "POST",
-        body: formData
+        headers: {
+          "x-file-name": encodeURIComponent(`camera_${Date.now()}.jpg`),
+          "Content-Type": "application/octet-stream"
+        },
+        body: capturedBlob
       });
 
       const uploadData = await uploadRes.json();
@@ -1544,12 +1597,12 @@ export default function ChatView({ user }) {
 
     try {
       setUploadProgress(0);
-      const formData = new FormData();
-      formData.append("file", file);
 
       const uploadData = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/upload', true);
+        xhr.open('POST', '/api/upload_raw', true);
+        xhr.setRequestHeader('x-file-name', encodeURIComponent(file.name));
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
 
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
@@ -1580,7 +1633,7 @@ export default function ChatView({ user }) {
           reject(new Error("Network error occurred during upload."));
         };
 
-        xhr.send(formData);
+        xhr.send(file);
       });
 
       if (!uploadData.success) {
@@ -2306,11 +2359,13 @@ export default function ChatView({ user }) {
     setMessageText(e.target.value);
     
     if (socketRef.current && activeChatId) {
-      socketRef.current.emit("typing", {
-        senderId: user.id,
-        senderName: user.name,
-        receiverId: activeChatId
-      });
+      if (!typingTimeoutRef.current[activeChatId]) {
+        socketRef.current.emit("typing", {
+          senderId: user.id,
+          senderName: user.name,
+          receiverId: activeChatId
+        });
+      }
       
       if (typingTimeoutRef.current[activeChatId]) {
         clearTimeout(typingTimeoutRef.current[activeChatId]);
@@ -2321,6 +2376,7 @@ export default function ChatView({ user }) {
           senderId: user.id,
           receiverId: activeChatId
         });
+        typingTimeoutRef.current[activeChatId] = null;
       }, 2000);
     }
   };
@@ -3024,6 +3080,7 @@ export default function ChatView({ user }) {
 
         {/* Messages Feed */}
         <div 
+          ref={scrollRef}
           onScroll={handleScroll}
           style={{
             flexGrow: 1,
@@ -3515,9 +3572,9 @@ export default function ChatView({ user }) {
                   }}>
                     <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: "600" }}>{uniqueTypers.length > 1 ? uniqueTypers.join(", ") : ""}</span>
                     <div style={{ display: "flex", gap: "4px", padding: "4px 2px" }}>
-                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both" }} />
-                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both", animationDelay: "-0.32s" }} />
-                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both", animationDelay: "-0.16s" }} />
+                      <span className="dot" style={{ display: "inline-block", width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both" }} />
+                      <span className="dot" style={{ display: "inline-block", width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both", animationDelay: "-0.32s" }} />
+                      <span className="dot" style={{ display: "inline-block", width: "6px", height: "6px", background: "var(--accent-cyan)", borderRadius: "50%", animation: "typing-bounce 1.4s infinite ease-in-out both", animationDelay: "-0.16s" }} />
                     </div>
                   </div>
                   <style>{`

@@ -12,6 +12,15 @@ export default function BookServicePage() {
     if (typeof window !== 'undefined') {
       const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
       if (user && user.id) clientId = user.id;
+
+      const params = new URLSearchParams(window.location.search);
+      const pkgName = params.get('pkg');
+      if (pkgName) {
+        setForm(prev => ({ 
+          ...prev, 
+          requirements: `Booking for package: ${pkgName}\n\nMy Requirements:\n` 
+        }));
+      }
     }
     setMyClientId(clientId);
   }, []);
