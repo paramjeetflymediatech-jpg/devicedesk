@@ -144,11 +144,23 @@ export default async function handler(req, res) {
     if (provider === 'sftp') {
       const sftp = new Client();
       try {
-        const host = getEnvVariable('WHM_SFTP_HOST', '2a00:1169:115:1590::');
+        const host = getEnvVariable('WHM_SFTP_HOST', '200.108.205.92.host.secureserver.net');
         const port = parseInt(getEnvVariable('WHM_SFTP_PORT', '22'));
         const username = getEnvVariable('WHM_SFTP_USER', 'storage');
         const password = getEnvVariable('WHM_SFTP_PASS', '1Sparsh@2@2@');
-        const config = { host, port, username, password, tryKeyboard: true, readyTimeout: 15000 };
+        const config = {
+          host,
+          port,
+          username,
+          password,
+          tryKeyboard: true,
+          readyTimeout: 30000,
+          keepaliveInterval: 10000,
+          keepaliveCountMax: 3,
+          retries: 2,
+          retry_factor: 2,
+          retry_min_delay: 1500
+        };
 
         const keyPath = getEnvVariable('WHM_SFTP_KEY_PATH');
         if (keyPath && keyPath !== 'uploads' && keyPath.trim() !== '') {
