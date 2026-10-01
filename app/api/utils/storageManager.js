@@ -43,20 +43,57 @@ export async function checkAuth(req) {
 
     // 1. Try reading cookie (Web App)
     try {
-      let authCookie = null;
-      if (req && req.cookies && typeof req.cookies.get === 'function') {
-        authCookie = req.cookies.get('devicedesk_auth_user');
-      } else {
-        const cookieStore = await cookies();
-        authCookie = cookieStore.get('devicedesk_auth_user');
+      let rawCookieValue = null;
+
+      if (req && req.cookies) {
+        if (typeof req.cookies.get === 'function') {
+          // Next.js App Router Request (NextRequest)
+          const c = req.cookies.get('devicedesk_auth_user');
+          rawCookieValue = c?.value || null;
+        } else if (typeof req.cookies === 'object') {
+          // Next.js Pages Router Request (NextApiRequest)
+          rawCookieValue = req.cookies['devicedesk_auth_user'] || null;
+        }
       }
 
-      if (authCookie && authCookie.value) {
-        const parsed = JSON.parse(decodeURIComponent(authCookie.value));
+      // Check raw Cookie header if not yet found
+      if (!rawCookieValue && req && req.headers) {
+        let cookieHeader = '';
+        if (typeof req.headers.get === 'function') {
+          cookieHeader = req.headers.get('cookie') || '';
+        } else if (typeof req.headers.cookie === 'string') {
+          cookieHeader = req.headers.cookie;
+        } else if (typeof req.headers['cookie'] === 'string') {
+          cookieHeader = req.headers['cookie'];
+        }
+        if (cookieHeader) {
+          const match = cookieHeader.match(/(?:^|;\s*)devicedesk_auth_user=([^;]*)/);
+          if (match) {
+            rawCookieValue = decodeURIComponent(match[1]);
+          }
+        }
+      }
+
+      // Fallback to next/headers cookies() only if no req provided (App Router server component context)
+      if (!rawCookieValue && !req) {
+        try {
+          const cookieStore = await cookies();
+          const c = cookieStore.get('devicedesk_auth_user');
+          rawCookieValue = c?.value || null;
+        } catch (e) {
+          // Ignore if called outside request scope
+        }
+      }
+
+      if (rawCookieValue) {
+        const decoded = typeof rawCookieValue === 'string' && rawCookieValue.startsWith('%') 
+          ? decodeURIComponent(rawCookieValue) 
+          : rawCookieValue;
+        const parsed = typeof decoded === 'object' ? decoded : JSON.parse(decoded);
         userId = parsed?.id || null;
       }
     } catch (e) {
-      console.warn("Failed to read auth cookie:", e);
+      // Quiet fail if cookie parsing fails
     }
 
     // 2. Try reading x-user-id header (Mobile App)
