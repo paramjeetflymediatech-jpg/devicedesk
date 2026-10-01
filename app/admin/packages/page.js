@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiBox, FiArrowLeft, FiPlus, FiTrash2, FiEdit2 } from 'react-icons/fi';
+import { FiBox, FiArrowLeft, FiPlus, FiTrash2, FiEdit2, FiEye } from 'react-icons/fi';
 import Pagination from '../../components/Pagination.js';
 
 export default function PackagesPage() {
@@ -14,6 +14,7 @@ export default function PackagesPage() {
   const [featuresText, setFeaturesText] = useState('');
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [viewingPackage, setViewingPackage] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [expandedDescs, setExpandedDescs] = useState({});
@@ -293,6 +294,9 @@ export default function PackagesPage() {
                     </ul>
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                    <button onClick={() => setViewingPackage(pkg)} style={{ background: 'none', border: 'none', color: 'var(--accent-green, #10b981)', cursor: 'pointer', padding: '6px', marginRight: '8px' }} title="View">
+                      <FiEye />
+                    </button>
                     <button onClick={() => handleEdit(pkg)} style={{ background: 'none', border: 'none', color: 'var(--accent-cyan, #06b6d4)', cursor: 'pointer', padding: '6px', marginRight: '8px' }} title="Edit">
                       <FiEdit2 />
                     </button>
@@ -323,6 +327,45 @@ export default function PackagesPage() {
           onPageSizeChange={(newSize) => { setPageSize(newSize); setCurrentPage(1); }}
           itemName="packages"
         />
+
+        {/* View Package Modal */}
+        {viewingPackage && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+            <div style={{ background: 'var(--bg-secondary, #1e293b)', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '500px', border: '1px solid var(--glass-border, rgba(255,255,255,0.1))' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700 }}>Package Details</h3>
+                <button onClick={() => setViewingPackage(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary, #94a3b8)', cursor: 'pointer', fontSize: '1.5rem' }}>&times;</button>
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ display: 'block', color: 'var(--text-secondary, #94a3b8)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Name</strong>
+                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{viewingPackage.name}</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <strong style={{ display: 'block', color: 'var(--text-secondary, #94a3b8)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Price</strong>
+                  <div style={{ fontSize: '1.1rem', color: 'var(--accent-green, #10b981)', fontWeight: 600 }}>₹{viewingPackage.price}</div>
+                </div>
+                <div>
+                  <strong style={{ display: 'block', color: 'var(--text-secondary, #94a3b8)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Billing Cycle</strong>
+                  <div style={{ fontSize: '1.1rem' }}>{viewingPackage.billing_cycle}</div>
+                </div>
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ display: 'block', color: 'var(--text-secondary, #94a3b8)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Description</strong>
+                <div style={{ fontSize: '0.95rem' }}>{viewingPackage.description || 'N/A'}</div>
+              </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <strong style={{ display: 'block', color: 'var(--text-secondary, #94a3b8)', fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '8px' }}>Features</strong>
+                <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '0.95rem' }}>
+                  {Array.isArray(viewingPackage.features) ? viewingPackage.features.map((f, i) => <li key={i} style={{ marginBottom: '4px' }}>{f}</li>) : <li>No features listed</li>}
+                </ul>
+              </div>
+              <div style={{ marginTop: '2rem', textAlign: 'right' }}>
+                <button onClick={() => setViewingPackage(null)} className="btn-primary" style={{ padding: '8px 24px', cursor: 'pointer' }}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

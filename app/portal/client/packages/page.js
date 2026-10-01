@@ -170,6 +170,12 @@ export default function PackagesPage() {
         </header>
 
         <main className="flex-1 p-4 md:p-8 w-full max-w-7xl mx-auto">
+          <style dangerouslySetInnerHTML={{__html: `
+            .ck-content ul { list-style: none; padding: 0; margin: 0; }
+            .ck-content li { position: relative; padding-left: 28px; margin-bottom: 1rem; color: #4b5563; font-weight: 500; }
+            .ck-content li::before { content: '✓'; position: absolute; left: 0; top: -1px; color: #22c55e; font-weight: bold; font-size: 1.1rem; }
+            .ck-content p { margin-bottom: 1rem; color: #4b5563; font-weight: 500; }
+          `}} />
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
@@ -285,10 +291,10 @@ export default function PackagesPage() {
                           )}
                           {activePackages.some(ap => ap.package_id === pkg.id && !ap.is_expired) ? (
                             <button
-                              disabled
-                              className="w-full py-4 px-6 bg-gray-100 text-gray-500 font-bold rounded-xl cursor-not-allowed border border-gray-200"
+                              onClick={() => router.push(`/portal/client/book-service?pkg=${encodeURIComponent(pkg.name)}`)}
+                              className="w-full py-4 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-indigo-200 flex justify-center items-center"
                             >
-                              Subscribed
+                              <FiEdit3 className="mr-2" /> Book Service
                             </button>
                           ) : (
                             <button
