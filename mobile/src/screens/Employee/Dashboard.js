@@ -96,6 +96,30 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
     dbRoleStr.includes('marketing') ||
     authorizedMarketingIds.includes(user?.id);
 
+  const isHRUser =
+    dbRoleStr === 'hr' ||
+    dbRoleStr.includes('hr') ||
+    roleStr.includes('hr') ||
+    deptStr === 'hr' ||
+    deptStr.includes('hr') ||
+    deptStr.includes('human resource');
+
+  const isAdminUser =
+    dbRoleStr === 'admin' ||
+    dbRoleStr === 'superadmin' ||
+    dbRoleStr === 'management' ||
+    roleStr.includes('admin');
+
+  const isITUser =
+    dbRoleStr === 'it support' ||
+    dbRoleStr === 'it' ||
+    deptStr.includes('it');
+
+  const isDnsUser =
+    dbRoleStr === 'dns manager' ||
+    deptStr === 'dns manager' ||
+    dbRoleStr.includes('dns');
+
   // Complaint form states
   const [category, setCategory] = useState('RAM/Speed');
   const [severity, setSeverity] = useState('Medium');
@@ -751,7 +775,7 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             </View>
 
             {/* Quick Action: Daily EOD & Work Submissions Banner */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[
                 styles.card,
                 {
@@ -776,7 +800,7 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
               <View style={{ backgroundColor: '#6366f1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
                 <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Submit EOD ➔</Text>
               </View>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             {/* Quick Action: Apply Leave Banner */}
             <TouchableOpacity
@@ -1030,8 +1054,36 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
         </TouchableOpacity>
       </View>
 
-      {/* Team Leader Return Switcher Banner */}
-      {onSwitchToLeader && (
+      {/* Return Switcher Banner (HR, Team Leader, or Admin/IT) */}
+      {onSwitchToAdmin && isHRUser ? (
+        <TouchableOpacity
+          style={[
+            styles.leaderSwitchBanner,
+            {
+              backgroundColor: isDark ? '#1e293b' : '#fdf2f8',
+              borderBottomColor: isDark ? '#831843' : '#fbcfe8',
+            },
+          ]}
+          onPress={onSwitchToAdmin}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+            <Text style={{ fontSize: 16 }}>💼</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#f472b6' : '#be185d' }}>
+                HR Portal Mode
+              </Text>
+              <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }} numberOfLines={1}>
+                You are currently viewing your Employee Portal
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.leaderSwitchBtnPill, { backgroundColor: '#db2777' }]}>
+            <Text style={styles.leaderSwitchBtnPillText}>HR Portal</Text>
+            <AppIcon name="arrow-right" size={12} color="#ffffff" />
+          </View>
+        </TouchableOpacity>
+      ) : onSwitchToLeader ? (
         <TouchableOpacity
           style={[
             styles.leaderSwitchBanner,
@@ -1059,7 +1111,37 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             <AppIcon name="arrow-right" size={12} color="#ffffff" />
           </View>
         </TouchableOpacity>
-      )}
+      ) : onSwitchToAdmin ? (
+        <TouchableOpacity
+          style={[
+            styles.leaderSwitchBanner,
+            {
+              backgroundColor: isDark ? '#1e293b' : (isITUser ? '#ecfeff' : '#eff6ff'),
+              borderBottomColor: isDark ? '#334155' : (isITUser ? '#a5f3fc' : '#bfdbfe'),
+            },
+          ]}
+          onPress={onSwitchToAdmin}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+            <Text style={{ fontSize: 16 }}>{isITUser ? '💻' : isDnsUser ? '🌐' : '🛡️'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#93c5fd' : (isITUser ? '#0e7490' : '#1d4ed8') }}>
+                {isITUser ? 'IT Support Mode' : isDnsUser ? 'DNS Manager Mode' : 'Admin Console Mode'}
+              </Text>
+              <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }} numberOfLines={1}>
+                You are currently viewing your Employee Portal
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.leaderSwitchBtnPill, isITUser && { backgroundColor: '#0891b2' }]}>
+            <Text style={styles.leaderSwitchBtnPillText}>
+              {isITUser ? 'IT Portal' : isDnsUser ? 'DNS Portal' : 'Admin Console'}
+            </Text>
+            <AppIcon name="arrow-right" size={12} color="#ffffff" />
+          </View>
+        </TouchableOpacity>
+      ) : null}
 
       {/* Content wrapper */}
       <View style={styles.content}>{renderContent()}</View>
@@ -1168,41 +1250,73 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             >
               {onSwitchToLeader && (
                 <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 16 }}>
-                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(37, 99, 235, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.3)' : 'rgba(37, 99, 235, 0.2)' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 16, marginRight: 8 }}>👔</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>TL Portal</Text>
+                  <TouchableOpacity
+                    style={{
+                      padding: 14,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(37, 99, 235, 0.35)' : '#bfdbfe',
+                    }}
+                    onPress={() => {
+                      setIsDrawerOpen(false);
+                      onSwitchToLeader();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 16 }}>👔</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>Team Leader Portal</Text>
                     </View>
-                    <Switch
-                      value={false}
-                      onValueChange={() => {
-                        setIsDrawerOpen(false);
-                        onSwitchToLeader();
-                      }}
-                      trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
-                      thumbColor={'#f8fafc'}
-                    />
-                  </View>
+                    <AppIcon name="arrow-right" size={14} color="#2563eb" />
+                  </TouchableOpacity>
                 </View>
               )}
 
               {onSwitchToAdmin && (
                 <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: onSwitchToLeader ? 0 : 16 }}>
-                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(220, 38, 38, 0.1)' : 'rgba(220, 38, 38, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(220, 38, 38, 0.3)' : 'rgba(220, 38, 38, 0.2)' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 16, marginRight: 8 }}>🛡️</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#dc2626' }}>IT Portal</Text>
+                  <TouchableOpacity
+                    style={{
+                      padding: 14,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: isDark
+                        ? (isHRUser ? 'rgba(236, 72, 153, 0.15)' : isITUser ? 'rgba(8, 145, 178, 0.15)' : 'rgba(37, 99, 235, 0.15)')
+                        : (isHRUser ? '#fdf2f8' : isITUser ? '#ecfeff' : '#eff6ff'),
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isDark
+                        ? (isHRUser ? 'rgba(236, 72, 153, 0.35)' : isITUser ? 'rgba(8, 145, 178, 0.35)' : 'rgba(37, 99, 235, 0.35)')
+                        : (isHRUser ? '#fbcfe8' : isITUser ? '#a5f3fc' : '#bfdbfe'),
+                    }}
+                    onPress={() => {
+                      setIsDrawerOpen(false);
+                      onSwitchToAdmin();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 16 }}>{isHRUser ? '💼' : isITUser ? '💻' : isDnsUser ? '🌐' : '🛡️'}</Text>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: '700',
+                          color: isHRUser ? '#db2777' : isITUser ? '#0891b2' : '#2563eb',
+                        }}
+                      >
+                        {isHRUser ? 'HR Administrator Portal' : isITUser ? 'IT Support Portal' : isDnsUser ? 'DNS Manager Portal' : 'Admin Console'}
+                      </Text>
                     </View>
-                    <Switch
-                      value={false}
-                      onValueChange={() => {
-                        setIsDrawerOpen(false);
-                        onSwitchToAdmin();
-                      }}
-                      trackColor={{ false: '#cbd5e1', true: '#fca5a5' }}
-                      thumbColor={'#f8fafc'}
+                    <AppIcon
+                      name="arrow-right"
+                      size={14}
+                      color={isHRUser ? '#db2777' : isITUser ? '#0891b2' : '#2563eb'}
                     />
-                  </View>
+                  </TouchableOpacity>
                 </View>
               )}
               {isMarketingUser && (
@@ -1221,17 +1335,6 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
-                  activeTab === 'eod' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('eod'); setIsDrawerOpen(false); }}
-              >
-                <AppIcon name="calendar" size={18} color="#6366f1" style={{ marginRight: 12 }} />
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Daily EOD & Deliverables</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
                   activeTab === 'apply-leave' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
                 ]}
                 onPress={() => { setActiveTab('apply-leave'); setIsDrawerOpen(false); }}
@@ -1243,56 +1346,12 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
-                  activeTab === 'attendance' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('attendance'); setIsDrawerOpen(false); }}
-              >
-                <AppIcon name="attendance" size={18} color="#2563eb" style={{ marginRight: 12 }} />
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Punch In / Out</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
                   activeTab === 'file-complaint' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
                 ]}
                 onPress={() => { setActiveTab('file-complaint'); setIsDrawerOpen(false); }}
               >
                 <AppIcon name="alert" size={18} color="#2563eb" style={{ marginRight: 12 }} />
                 <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>File Complaint Ticket</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'tasks' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('tasks'); setIsDrawerOpen(false); }}
-              >
-                <AppIcon name="tasks" size={18} color="#2563eb" style={{ marginRight: 12 }} />
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>My Assigned Tasks</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'records' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('records'); setIsDrawerOpen(false); }}
-              >
-                <AppIcon name="records" size={18} color="#2563eb" style={{ marginRight: 12 }} />
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>My Raised Tickets</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.drawerItem,
-                  activeTab === 'chat' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                ]}
-                onPress={() => { setActiveTab('chat'); setIsDrawerOpen(false); }}
-              >
-                <AppIcon name="chat" size={18} color="#2563eb" style={{ marginRight: 12 }} />
-                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Chat Workspace</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

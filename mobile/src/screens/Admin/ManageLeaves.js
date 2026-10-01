@@ -34,7 +34,7 @@ export default function ManageLeaves({ currentUser, onBack }) {
       const res = await fetch(`${baseUrl}/api/leave/list?status=ALL`);
       const data = await res.json();
       if (data.success) {
-        setLeaves(data.data || []);
+        setLeaves(data.requests || data.data || []);
       }
     } catch (err) {
       console.error('Failed to fetch leaves:', err);

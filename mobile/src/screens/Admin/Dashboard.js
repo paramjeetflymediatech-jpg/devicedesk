@@ -665,20 +665,41 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
             </Text>
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={() => {
-            sweetAlert({
-              title: 'Log Out',
-              text: 'Are you sure you want to log out of your session?',
-              type: 'warning',
-              showCancel: true,
-              onConfirm: onLogout,
-            });
-          }}
-        >
-          <Text style={styles.logoutBtnText}>Log Out 🚪</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {onSwitchToEmployee && (
+            <TouchableOpacity
+              style={[
+                styles.employeeSwitchPill,
+                {
+                  backgroundColor: isDark ? '#1e293b' : (isHRUser ? '#fdf2f8' : '#eff6ff'),
+                  borderColor: isDark ? '#3b82f6' : (isHRUser ? '#f472b6' : '#bfdbfe'),
+                }
+              ]}
+              onPress={onSwitchToEmployee}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 11 }}>👤</Text>
+              <Text style={[styles.employeeSwitchPillText, { color: isHRUser ? '#db2777' : '#2563eb' }]}>
+                Employee
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() => {
+              sweetAlert({
+                title: 'Log Out',
+                text: 'Are you sure you want to log out of your session?',
+                type: 'warning',
+                showCancel: true,
+                onConfirm: onLogout,
+              });
+            }}
+          >
+            <Text style={styles.logoutBtnText}>Log Out 🚪</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Content Area */}
@@ -703,9 +724,9 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
               </View>
               <Text style={[styles.drawerName, { color: themeColors.textPrimary }]}>{user.name || 'User'}</Text>
               <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]}>{user.email || 'user@devicedesk.com'}</Text>
-              <View style={{ backgroundColor: '#2563eb22', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'center', marginTop: 4 }}>
-                <Text style={{ fontSize: 10.5, color: '#2563eb', fontWeight: '700' }}>
-                  {isAdminUser ? 'Root Administrator' : isHRUser ? 'HR Specialist' : isITSupport ? 'IT Support' : isDnsManager ? 'DNS Manager' : 'Staff'}
+              <View style={{ backgroundColor: isHRUser ? '#ec489922' : '#2563eb22', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'center', marginTop: 4 }}>
+                <Text style={{ fontSize: 10.5, color: isHRUser ? '#ec4899' : '#2563eb', fontWeight: '700' }}>
+                  {isAdminUser ? 'Root Administrator' : isHRUser ? 'HR Administrator' : isITSupport ? 'IT Support' : isDnsManager ? 'DNS Manager' : 'Staff'}
                 </Text>
               </View>
             </View>
@@ -717,6 +738,31 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
               bounces={true}
               keyboardShouldPersistTaps="handled"
             >
+              {/* My Employee Portal Switch */}
+              {onSwitchToEmployee && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    {
+                      backgroundColor: isDark ? '#1e293b' : (isHRUser ? '#fdf2f8' : '#eff6ff'),
+                      borderColor: isDark ? '#334155' : (isHRUser ? '#fbcfe8' : '#bfdbfe'),
+                      borderWidth: 1,
+                      marginTop: 6,
+                      marginBottom: 8,
+                    }
+                  ]}
+                  onPress={() => {
+                    setIsDrawerOpen(false);
+                    onSwitchToEmployee();
+                  }}
+                >
+                  <Text style={styles.drawerItemIcon}>👤</Text>
+                  <Text style={[styles.drawerItemLabel, { color: isHRUser ? '#db2777' : '#2563eb', fontWeight: '800' }]}>
+                    My Employee Portal &rarr;
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {/* Overview Dashboard - Admin, IT Support, HR */}
               {(isAdminUser || isITSupport || isHRUser) && (
                 <TouchableOpacity
@@ -746,7 +792,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
               )}
 
               {/* Employees Directory / Teams - Admin, IT Support, HR */}
-              {(isAdminUser || isITSupport || isHRUser) && (
+              {(isAdminUser || isITSupport) && (
                 <TouchableOpacity
                   style={[
                     styles.drawerItem,
@@ -828,7 +874,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
               )}
 
               {/* Global Attendance - Admin, HR */}
-              {(isAdminUser || isHRUser) && (
+              {(isAdminUser ) && (
                 <TouchableOpacity
                   style={[
                     styles.drawerItem,
@@ -842,7 +888,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
               )}
 
               {/* Leave Applications - Admin, HR */}
-              {(isAdminUser || isHRUser) && (
+              {(isAdminUser ) && (
                 <TouchableOpacity
                   style={[
                     styles.drawerItem,
@@ -852,6 +898,20 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
                 >
                   <Text style={styles.drawerItemIcon}>🌴</Text>
                   <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Leave Applications</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Candidate Pool & Tests - Admin, HR */}
+              {(isAdminUser ) && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'candidates' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('candidates'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>🧑‍💼</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Candidate Pool & Tests</Text>
                 </TouchableOpacity>
               )}
 
@@ -869,19 +929,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
                 </TouchableOpacity>
               )}
 
-              {/* Candidate Pool & Tests - Admin, HR */}
-              {(isAdminUser || isHRUser) && (
-                <TouchableOpacity
-                  style={[
-                    styles.drawerItem,
-                    activeTab === 'candidates' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
-                  ]}
-                  onPress={() => { setActiveTab('candidates'); setIsDrawerOpen(false); }}
-                >
-                  <Text style={styles.drawerItemIcon}>🧑‍💼</Text>
-                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Candidate Pool & Tests</Text>
-                </TouchableOpacity>
-              )}
+
 
               {/* Work Submissions & EODs - Admin Only */}
               {isAdminUser && (
@@ -931,27 +979,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
                   </View>
                 </View>
               )}
-
-              {/* Employee Dashboard - Switch for Admin */}
-              {onSwitchToEmployee && (
-                <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: (isAdminUser || isTeamLeader) ? 0 : 16 }}>
-                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.2)' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 16, marginRight: 8 }}>👤</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#10b981' }}>Employee Portal</Text>
-                    </View>
-                    <Switch
-                      value={false}
-                      onValueChange={() => {
-                        setIsDrawerOpen(false);
-                        onSwitchToEmployee();
-                      }}
-                      trackColor={{ false: '#cbd5e1', true: '#6ee7b7' }}
-                      thumbColor={'#f8fafc'}
-                    />
-                  </View>
-                </View>
-              )}
+ 
 
               {/* Marketing Field Trips - Admin & Marketing */}
               {(isAdminUser || isMarketingRole) && (
@@ -1260,15 +1288,6 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
-              onPress={() => setActiveTab('chat')}
-            >
-              <Text style={styles.tabIcon}>💬</Text>
-              <Text style={[styles.tabLabel, activeTab === 'chat' && styles.tabLabelActive]}>
-                Chat
-              </Text>
-            </TouchableOpacity>
           </>
         ) : isDnsManager ? (
           <>
@@ -1395,6 +1414,19 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
   headerSub: {
     fontSize: 12,
     color: themeColors.textSecondary,
+  },
+  employeeSwitchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  employeeSwitchPillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
   },
   logoutBtn: {
     backgroundColor: themeColors.card,
