@@ -128,6 +128,15 @@ export default async function handler(req, res) {
 
     const buffer = Buffer.concat(chunks);
     const provider = String(getEnvVariable('STORAGE_PROVIDER', 'local')).toLowerCase().trim();
+    const rawSubfolder = req.headers['x-subfolder'] || req.headers['x-folder'] || 'chat';
+    const now = new Date();
+    const monthFolder = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    let subfolder = rawSubfolder ? String(rawSubfolder).replace(/^\/+|\/+$/g, '') : '';
+    if (!subfolder) {
+      subfolder = monthFolder;
+    } else if (!/\/\d{4}-\d{2}$|^\d{4}-\d{2}$/.test(subfolder)) {
+      subfolder = `${subfolder}/${monthFolder}`;
+    }
 
     let sftpSuccess = false;
     let fileUrl = '';
@@ -150,7 +159,10 @@ export default async function handler(req, res) {
         }
 
         await sftp.connect(config);
-        const remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
+        let remoteDir = getEnvVariable('WHM_SFTP_REMOTE_PATH', process.env.WHM_SFTP_REMOTE_PATH || '/uploads');
+        if (subfolder) {
+          remoteDir = `${remoteDir.replace(/\/$/, '')}/${subfolder.replace(/^\//, '')}`;
+        }
         const dirExists = await sftp.exists(remoteDir);
         if (!dirExists) await sftp.mkdir(remoteDir, true);
 
@@ -158,12 +170,27 @@ export default async function handler(req, res) {
         await sftp.put(buffer, remoteFilePath);
         sftpSuccess = true;
 
-        const baseUrl = process.env.WHM_SFTP_BASE_URL;
+        // Clean up any local copy if present on VPS
+        try {
+          const rootDir = process.cwd();
+          const cleanPaths = [
+            join(rootDir, 'public', 'uploads', subfolder.replace(/^\//, ''), uniqueFilename),
+            join(rootDir, 'public', 'uploads', subfolder.replace(/^\//, ''), fileName),
+            join(rootDir, 'public', 'uploads', uniqueFilename),
+            join(rootDir, 'public', 'uploads', fileName)
+          ];
+          for (const cp of cleanPaths) {
+            fs.unlink(cp).catch(() => {});
+          }
+        } catch (cleanErr) {}
+
+        const baseUrl = getEnvVariable('WHM_SFTP_BASE_URL', process.env.WHM_SFTP_BASE_URL || 'https://storage.flymediatech.com/uploads');
         if (baseUrl) {
           const cleanBase = baseUrl.replace(/\/$/, '');
-          fileUrl = `${cleanBase}/${uniqueFilename}`;
+          const folderPath = subfolder ? `/${subfolder.replace(/^\//, '')}` : '';
+          fileUrl = `${cleanBase}${folderPath}/${uniqueFilename}`;
         } else {
-          fileUrl = `/uploads/${uniqueFilename}`;
+          fileUrl = subfolder ? `/uploads/${subfolder.replace(/^\//, '')}/${uniqueFilename}` : `/uploads/${uniqueFilename}`;
         }
       } catch (err) {
         console.error('Raw SFTP Upload failed, falling back to local:', err.message);
@@ -173,11 +200,13 @@ export default async function handler(req, res) {
     }
 
     if (!sftpSuccess) {
-      const targetDir = join(process.cwd(), 'public', 'uploads');
+      const targetDir = subfolder 
+        ? join(process.cwd(), 'public', 'uploads', subfolder.replace(/^\//, ''))
+        : join(process.cwd(), 'public', 'uploads');
       await fs.mkdir(targetDir, { recursive: true });
       const localFilePath = join(targetDir, uniqueFilename);
       await fs.writeFile(localFilePath, buffer);
-      fileUrl = `/uploads/${uniqueFilename}`;
+      fileUrl = subfolder ? `/uploads/${subfolder.replace(/^\//, '')}/${uniqueFilename}` : `/uploads/${uniqueFilename}`;
     }
 
     return res.status(200).json({ success: true, fileUrls: [fileUrl] });

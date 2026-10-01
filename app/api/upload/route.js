@@ -7,13 +7,14 @@ const MAX_FILE_SIZE = 5000 * 1024 * 1024;
 export async function POST(request) {
   try {
     // 1. Session authentication and DB active status check
-    const user = await checkAuth();
+    const user = await checkAuth(request);
     if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized: Access Denied' }, { status: 401 });
     }
 
     const formData = await request.formData();
     const files = formData.getAll('files');
+    const folder = formData.get('folder') || formData.get('subfolder') || 'chat';
     const fileUrls = [];
 
     // Helper to process a single file upload safely
@@ -33,8 +34,8 @@ export async function POST(request) {
         throw new Error(`File size exceeds 5GB limit: "${file.name}"`);
       }
 
-      // Upload file (either locally or to WHM SFTP)
-      const uploadResult = await uploadFile(buffer, file.name);
+      // Upload file directly to WHM SFTP (or local fallback)
+      const uploadResult = await uploadFile(buffer, file.name, folder);
 
       // Determine return URL safely without duplicate prefixes
       let finalUrl = uploadResult;
@@ -43,13 +44,9 @@ export async function POST(request) {
         if (uploadResult.startsWith('http://') || uploadResult.startsWith('https://') || uploadResult.startsWith('/')) {
           finalUrl = uploadResult;
         } else {
-          const baseUrl = process.env.WHM_SFTP_BASE_URL;
-          if (baseUrl) {
-            const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-            finalUrl = `${cleanBaseUrl}/${uploadResult}`;
-          } else {
-            finalUrl = `/api/uploads/${uploadResult}`;
-          }
+          const baseUrl = process.env.WHM_SFTP_BASE_URL || 'https://storage.flymediatech.com/uploads';
+          const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+          finalUrl = `${cleanBaseUrl}/${uploadResult}`;
         }
       }
 

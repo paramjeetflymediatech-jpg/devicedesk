@@ -156,7 +156,17 @@ async function getSftpConfig() {
 }
 
 /**
- * Uploads a file buffer either locally or to remote SFTP storage under an optional subfolder.
+ * Returns the current year-month folder name in YYYY-MM format (e.g., '2026-10')
+ */
+export function getCurrentMonthFolder() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+/**
+ * Uploads a file buffer either locally or to remote SFTP storage under a month-wise subfolder.
  */
 export async function uploadFile(buffer, filename, subfolder = '') {
   if (!isSafeExtension(filename)) {
@@ -166,6 +176,15 @@ export async function uploadFile(buffer, filename, subfolder = '') {
   const uniqueFilename = sanitizeFilename(filename);
   const provider = String(getEnvVariable('STORAGE_PROVIDER', 'local')).toLowerCase().trim();
 
+  // Organize folders month-wise (e.g., 'chat/2026-10' or 'devicedesk/screenshots/2026-10')
+  const monthFolder = getCurrentMonthFolder();
+  let cleanSubfolder = subfolder ? String(subfolder).replace(/^\/+|\/+$/g, '') : '';
+  if (!cleanSubfolder) {
+    cleanSubfolder = monthFolder;
+  } else if (!/\/\d{4}-\d{2}$|^\d{4}-\d{2}$/.test(cleanSubfolder)) {
+    cleanSubfolder = `${cleanSubfolder}/${monthFolder}`;
+  }
+
   let sftpSuccess = false;
   if (provider === 'sftp') {
     const sftp = new Client();
@@ -173,9 +192,9 @@ export async function uploadFile(buffer, filename, subfolder = '') {
       const config = await getSftpConfig();
       await sftp.connect(config);
 
-      let remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
-      if (subfolder) {
-        remoteDir = `${remoteDir.replace(/\/$/, '')}/${subfolder.replace(/^\//, '')}`;
+      let remoteDir = getEnvVariable('WHM_SFTP_REMOTE_PATH', process.env.WHM_SFTP_REMOTE_PATH || '/uploads');
+      if (cleanSubfolder) {
+        remoteDir = `${remoteDir.replace(/\/$/, '')}/${cleanSubfolder}`;
       }
 
       const dirExists = await sftp.exists(remoteDir);
@@ -187,15 +206,33 @@ export async function uploadFile(buffer, filename, subfolder = '') {
       await sftp.put(buffer, remoteFilePath);
       sftpSuccess = true;
 
+      // Ensure no local disk copy is retained on VPS if upload to remote WHM was successful
+      try {
+        const rootDir = process['cwd']();
+        const cleanTargets = [
+          join(rootDir, 'public', 'uploads', cleanSubfolder, uniqueFilename),
+          join(rootDir, 'public', 'uploads', cleanSubfolder, filename),
+          join(rootDir, 'public', 'uploads', subfolder ? subfolder.replace(/^\//, '') : '', uniqueFilename),
+          join(rootDir, 'public', 'uploads', subfolder ? subfolder.replace(/^\//, '') : '', filename),
+          join(rootDir, 'public', 'uploads', uniqueFilename),
+          join(rootDir, 'public', 'uploads', filename),
+          join(rootDir, 'uploads', uniqueFilename),
+          join(rootDir, 'uploads', filename)
+        ];
+        for (const target of cleanTargets) {
+          fs.unlink(target).catch(() => {});
+        }
+      } catch (cleanErr) {}
+
       // Return full public URL if WHM_SFTP_BASE_URL is defined, else relative path
-      const baseUrl = process.env.WHM_SFTP_BASE_URL;
+      const baseUrl = getEnvVariable('WHM_SFTP_BASE_URL', process.env.WHM_SFTP_BASE_URL || 'https://storage.flymediatech.com/uploads');
       if (baseUrl) {
         const cleanBase = baseUrl.replace(/\/$/, '');
-        const folderPath = subfolder ? `/${subfolder.replace(/^\//, '')}` : '';
+        const folderPath = cleanSubfolder ? `/${cleanSubfolder}` : '';
         return `${cleanBase}${folderPath}/${uniqueFilename}`;
       }
 
-      return subfolder ? `/uploads/${subfolder.replace(/^\//, '')}/${uniqueFilename}` : uniqueFilename;
+      return cleanSubfolder ? `/uploads/${cleanSubfolder}/${uniqueFilename}` : uniqueFilename;
     } catch (err) {
       console.error('SFTP Upload failed, falling back to local:', err.message);
     } finally {
@@ -206,16 +243,16 @@ export async function uploadFile(buffer, filename, subfolder = '') {
   if (!sftpSuccess) {
     // Local storage fallback
     const rootDir = process['cwd']();
-    const targetDir = subfolder 
-      ? join(rootDir, 'public', 'uploads', subfolder.replace(/^\//, ''))
+    const targetDir = cleanSubfolder 
+      ? join(rootDir, 'public', 'uploads', cleanSubfolder)
       : join(rootDir, 'public', 'uploads');
 
     await fs.mkdir(targetDir, { recursive: true });
     const localFilePath = join(targetDir, uniqueFilename);
     await fs.writeFile(localFilePath, buffer);
 
-    if (subfolder) {
-      return `/uploads/${subfolder.replace(/^\//, '')}/${uniqueFilename}`;
+    if (cleanSubfolder) {
+      return `/uploads/${cleanSubfolder}/${uniqueFilename}`;
     }
     return `/uploads/${uniqueFilename}`;
   }
@@ -226,30 +263,31 @@ export async function uploadFile(buffer, filename, subfolder = '') {
  */
 export async function downloadFile(filename, subfolder = '') {
   const safeFilename = basename(filename);
-  const provider = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim();
+  const provider = String(getEnvVariable('STORAGE_PROVIDER', 'local')).toLowerCase().trim();
+  const currentMonth = getCurrentMonthFolder();
 
   // Auto-detect screenshots subfolder if filename starts with scr_
   if (!subfolder && safeFilename.startsWith('scr_')) {
-    subfolder = 'devicedesk/screenshots';
+    subfolder = `devicedesk/screenshots/${currentMonth}`;
   }
 
   // 1. FAST LOCAL CHECK FIRST: If file exists locally on disk, return it immediately without network delay
   const rootDir = process['cwd']();
-  const targetDir = subfolder 
-    ? join(rootDir, 'public', 'uploads', subfolder.replace(/^\//, ''))
-    : join(rootDir, 'uploads');
-  const localFilePath = join(targetDir, safeFilename);
+  const candidateLocalPaths = [
+    subfolder ? join(rootDir, 'public', 'uploads', subfolder.replace(/^\//, ''), safeFilename) : null,
+    subfolder ? join(rootDir, 'public', 'uploads', subfolder.replace(/^\//, ''), currentMonth, safeFilename) : null,
+    join(rootDir, 'public', 'uploads', 'chat', currentMonth, safeFilename),
+    join(rootDir, 'public', 'uploads', 'chat', safeFilename),
+    join(rootDir, 'public', 'uploads', 'devicedesk', 'screenshots', currentMonth, safeFilename),
+    join(rootDir, 'public', 'uploads', 'devicedesk', 'screenshots', safeFilename),
+    join(rootDir, 'public', 'uploads', safeFilename),
+    join(rootDir, 'uploads', safeFilename)
+  ].filter(Boolean);
 
-  try {
-    return await fs.readFile(localFilePath);
-  } catch (e) {
-    // Try root public/uploads/ or uploads/
+  for (const lPath of candidateLocalPaths) {
     try {
-      const rootPath = join(rootDir, 'public', 'uploads', safeFilename);
-      return await fs.readFile(rootPath);
-    } catch (errRoot) {
-      // Not found locally, proceed to remote SFTP if configured
-    }
+      return await fs.readFile(lPath);
+    } catch (e) {}
   }
 
   // 2. REMOTE SFTP CHECK (only if configured and file is not found locally)
@@ -259,44 +297,29 @@ export async function downloadFile(filename, subfolder = '') {
       const config = await getSftpConfig();
       await sftp.connect(config);
 
-      let remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
+      const baseRemoteDir = getEnvVariable('WHM_SFTP_REMOTE_PATH', process.env.WHM_SFTP_REMOTE_PATH || '/uploads');
+      let remoteDir = baseRemoteDir;
       if (subfolder) {
         remoteDir = `${remoteDir.replace(/\/$/, '')}/${subfolder.replace(/^\//, '')}`;
       }
 
-      let remoteFilePath = `${remoteDir.replace(/\/$/, '')}/${safeFilename}`;
-      let fileExists = await sftp.exists(remoteFilePath);
+      const remoteCandidates = [
+        `${remoteDir.replace(/\/$/, '')}/${safeFilename}`,
+        `${baseRemoteDir.replace(/\/$/, '')}/chat/${currentMonth}/${safeFilename}`,
+        `${baseRemoteDir.replace(/\/$/, '')}/chat/${safeFilename}`,
+        `${baseRemoteDir.replace(/\/$/, '')}/devicedesk/screenshots/${currentMonth}/${safeFilename}`,
+        `${baseRemoteDir.replace(/\/$/, '')}/devicedesk/screenshots/${safeFilename}`,
+        `${baseRemoteDir.replace(/\/$/, '')}/${currentMonth}/${safeFilename}`,
+        `${baseRemoteDir.replace(/\/$/, '')}/${safeFilename}`
+      ];
 
-      // Fallback Check 1: devicedesk/screenshots subfolder
-      if (!fileExists) {
-        const deviceDeskPath = `${(process.env.WHM_SFTP_REMOTE_PATH || '/uploads').replace(/\/$/, '')}/devicedesk/screenshots/${safeFilename}`;
-        if (await sftp.exists(deviceDeskPath)) {
-          remoteFilePath = deviceDeskPath;
-          fileExists = true;
-        }
-      }
-
-      // Fallback Check 2: legacy screenshots subfolder
-      if (!fileExists) {
-        const screenshotsPath = `${(process.env.WHM_SFTP_REMOTE_PATH || '/uploads').replace(/\/$/, '')}/screenshots/${safeFilename}`;
-        if (await sftp.exists(screenshotsPath)) {
-          remoteFilePath = screenshotsPath;
-          fileExists = true;
-        }
-      }
-
-      // Fallback Check 3: root uploads directory
-      if (!fileExists) {
-        const rootPath = `${(process.env.WHM_SFTP_REMOTE_PATH || '/uploads').replace(/\/$/, '')}/${safeFilename}`;
-        if (await sftp.exists(rootPath)) {
-          remoteFilePath = rootPath;
-          fileExists = true;
-        }
-      }
-
-      if (fileExists) {
-        const fileBuffer = await sftp.get(remoteFilePath);
-        return fileBuffer;
+      for (const rPath of remoteCandidates) {
+        try {
+          if (await sftp.exists(rPath)) {
+            const fileBuffer = await sftp.get(rPath);
+            return fileBuffer;
+          }
+        } catch (subErr) {}
       }
     } catch (sftpErr) {
       console.warn(`SFTP download notice for "${safeFilename}":`, sftpErr.message);
@@ -322,45 +345,65 @@ export async function deleteFile(fileUrlOrName) {
   try {
     const urlObj = new URL(fileUrlOrName, 'http://localhost');
     const pathParts = urlObj.pathname.split('/').filter(Boolean);
-    if (pathParts.length > 2) {
-      const lastFolder = pathParts[pathParts.length - 2];
-      if (lastFolder !== 'uploads') {
-        subfolder = lastFolder;
-      }
+    const uploadsIdx = pathParts.indexOf('uploads');
+    if (uploadsIdx !== -1 && pathParts.length > uploadsIdx + 2) {
+      subfolder = pathParts.slice(uploadsIdx + 1, pathParts.length - 1).join('/');
+    } else if (pathParts.length > 2) {
+      subfolder = pathParts.slice(0, pathParts.length - 1).join('/');
     }
   } catch (e) {}
 
   // Always cleanup local disk copies immediately if present
   try {
     const rootDir = process['cwd']();
+    const currentMonth = getCurrentMonthFolder();
     const pathsToUnlink = [
+      subfolder ? join(rootDir, 'public', 'uploads', subfolder, safeFilename) : null,
+      join(rootDir, 'public', 'uploads', 'chat', currentMonth, safeFilename),
+      join(rootDir, 'public', 'uploads', 'chat', safeFilename),
+      join(rootDir, 'public', 'uploads', 'devicedesk', 'screenshots', currentMonth, safeFilename),
       join(rootDir, 'public', 'uploads', 'devicedesk', 'screenshots', safeFilename),
       join(rootDir, 'public', 'uploads', 'screenshots', safeFilename),
       join(rootDir, 'public', 'uploads', safeFilename),
       join(rootDir, 'uploads', safeFilename)
-    ];
+    ].filter(Boolean);
+
     for (const p of pathsToUnlink) {
       fs.unlink(p).catch(() => {});
     }
   } catch (e) {}
 
   try {
-    const provider = String(process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim();
+    const provider = String(getEnvVariable('STORAGE_PROVIDER', 'local')).toLowerCase().trim();
     if (provider === 'sftp') {
       const sftp = new Client();
       try {
         const config = await getSftpConfig();
         await sftp.connect(config);
 
-        let remoteDir = process.env.WHM_SFTP_REMOTE_PATH || '/uploads';
+        const baseRemoteDir = getEnvVariable('WHM_SFTP_REMOTE_PATH', process.env.WHM_SFTP_REMOTE_PATH || '/uploads');
+        const currentMonth = getCurrentMonthFolder();
+        let remoteDir = baseRemoteDir;
         if (subfolder) {
-          remoteDir = `${remoteDir.replace(/\/$/, '')}/${subfolder}`;
+          remoteDir = `${remoteDir.replace(/\/$/, '')}/${subfolder.replace(/^\//, '')}`;
         }
 
-        const remoteFilePath = `${remoteDir.replace(/\/$/, '')}/${safeFilename}`;
-        const fileExists = await sftp.exists(remoteFilePath);
-        if (fileExists) {
-          await sftp.delete(remoteFilePath);
+        const candidatePaths = [
+          `${remoteDir.replace(/\/$/, '')}/${safeFilename}`,
+          `${baseRemoteDir.replace(/\/$/, '')}/chat/${currentMonth}/${safeFilename}`,
+          `${baseRemoteDir.replace(/\/$/, '')}/chat/${safeFilename}`,
+          `${baseRemoteDir.replace(/\/$/, '')}/devicedesk/screenshots/${currentMonth}/${safeFilename}`,
+          `${baseRemoteDir.replace(/\/$/, '')}/devicedesk/screenshots/${safeFilename}`,
+          `${baseRemoteDir.replace(/\/$/, '')}/${currentMonth}/${safeFilename}`,
+          `${baseRemoteDir.replace(/\/$/, '')}/${safeFilename}`
+        ];
+
+        for (const rPath of candidatePaths) {
+          try {
+            if (await sftp.exists(rPath)) {
+              await sftp.delete(rPath);
+            }
+          } catch (delSubErr) {}
         }
       } finally {
         await sftp.end();

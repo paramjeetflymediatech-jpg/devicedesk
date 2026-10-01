@@ -159,25 +159,42 @@ export async function POST(req) {
     const screenshotId = uuidv4();
     const fileName = `scr_${employeeId}_${Date.now()}_${screenshotId.slice(0, 8)}.${fileExtension}`;
 
-    // 1. Ensure local public/uploads/devicedesk/screenshots directory exists
-    const rootDir = process['cwd']();
-    const subfolderPath = path.join('devicedesk', 'screenshots');
-    const uploadDir = path.join(rootDir, 'public', 'uploads', subfolderPath);
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    // Upload directly via storageManager:
+    // When STORAGE_PROVIDER=sftp, fileBuffer is uploaded directly to WHM remote storage under devicedesk/screenshots/YYYY-MM/ without taking up VPS disk space.
+    // If remote upload fails or provider is local, it safely falls back to local storage.
+    let imageUrl = '';
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    try {
+      imageUrl = await uploadFile(fileBuffer, fileName, 'devicedesk/screenshots');
+    } catch (uploadErr) {
+      console.error('Storage upload error, applying emergency local fallback:', uploadErr.message);
+      const rootDir = process['cwd']();
+      const subfolderPath = path.join('devicedesk', 'screenshots', currentMonth);
+      const uploadDir = path.join(rootDir, 'public', 'uploads', subfolderPath);
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const fallbackPath = path.join(uploadDir, fileName);
+      await fs.promises.writeFile(fallbackPath, fileBuffer);
+      imageUrl = `/uploads/devicedesk/screenshots/${currentMonth}/${fileName}`;
     }
 
-    // 2. Save image binary directly to public/uploads/devicedesk/screenshots/
-    const filePath = path.join(uploadDir, fileName);
-    await fs.promises.writeFile(filePath, fileBuffer);
-
-    // 3. Sync to remote SFTP storage (or local fallback)
-    let imageUrl = `/uploads/devicedesk/screenshots/${fileName}`;
-    try {
-      const sftpUrl = await uploadFile(fileBuffer, fileName, 'devicedesk/screenshots');
-      if (sftpUrl) imageUrl = sftpUrl;
-    } catch (sftpErr) {
-      console.warn('SFTP sync notice:', sftpErr.message);
+    // If successfully uploaded to remote WHM storage, ensure any local screenshot copy is removed from VPS disk
+    if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
+      try {
+        const rootDir = process['cwd']();
+        const localCleanPaths = [
+          path.join(rootDir, 'public', 'uploads', 'devicedesk', 'screenshots', currentMonth, fileName),
+          path.join(rootDir, 'public', 'uploads', 'devicedesk', 'screenshots', fileName)
+        ];
+        for (const lp of localCleanPaths) {
+          if (fs.existsSync(lp)) {
+            await fs.promises.unlink(lp).catch(() => {});
+          }
+        }
+      } catch (cleanupErr) {}
     }
 
     // 4. Save screenshot record with explicit timestamp
