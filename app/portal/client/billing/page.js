@@ -213,46 +213,77 @@ export default function BillingPage() {
                   <p>No billing history found.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
-                        <th className="p-4 font-bold border-b border-gray-200">Date</th>
-                        <th className="p-4 font-bold border-b border-gray-200">Invoice ID</th>
-                        <th className="p-4 font-bold border-b border-gray-200">Package</th>
-                        <th className="p-4 font-bold border-b border-gray-200">Amount</th>
-                        <th className="p-4 font-bold border-b border-gray-200">Status</th>
-                        <th className="p-4 font-bold border-b border-gray-200 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
+                  <>
+                    {/* Desktop View */}
+                    <div className="hidden md:block overflow-x-auto w-full">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
+                            <th className="p-4 font-bold border-b border-gray-200">Date</th>
+                            <th className="p-4 font-bold border-b border-gray-200">Invoice ID</th>
+                            <th className="p-4 font-bold border-b border-gray-200">Package</th>
+                            <th className="p-4 font-bold border-b border-gray-200">Amount</th>
+                            <th className="p-4 font-bold border-b border-gray-200">Status</th>
+                            <th className="p-4 font-bold border-b border-gray-200 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {invoices.map((inv) => (
+                            <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="p-4 text-gray-600">
+                                {new Date(inv.created_at).toLocaleDateString()}
+                              </td>
+                              <td className="p-4 text-gray-800 font-medium">{inv.id}</td>
+                              <td className="p-4 text-gray-600">{inv.package_name || 'Custom Plan'}</td>
+                              <td className="p-4 text-gray-900 font-bold">₹{parseFloat(inv.amount).toFixed(2)}</td>
+                              <td className="p-4">
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                  inv.status === 'Paid' 
+                                    ? 'bg-green-100 text-green-700' 
+                                    : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {inv.status}
+                                </span>
+                              </td>
+                              <td className="p-4 text-right">
+                                {inv.status === 'Pending' && (
+                                  <span className="px-4 py-2 bg-gray-50 text-gray-600 font-bold rounded-lg text-sm italic">Offline Cash Payment</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile View */}
+                    <div className="md:hidden divide-y divide-gray-100">
                       {invoices.map((inv) => (
-                        <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="p-4 text-gray-600">
-                            {new Date(inv.created_at).toLocaleDateString()}
-                          </td>
-                          <td className="p-4 text-gray-800 font-medium">{inv.id}</td>
-                          <td className="p-4 text-gray-600">{inv.package_name || 'Custom Plan'}</td>
-                          <td className="p-4 text-gray-900 font-bold">₹{parseFloat(inv.amount).toFixed(2)}</td>
-                          <td className="p-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        <div key={inv.id} className="p-4 flex flex-col gap-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="text-sm font-bold text-gray-800">{inv.package_name || 'Custom Plan'}</p>
+                              <p className="text-xs text-gray-500 mt-1">{new Date(inv.created_at).toLocaleDateString()} • ID: {inv.id}</p>
+                            </div>
+                            <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-bold ${
                               inv.status === 'Paid' 
-                                ? 'bg-green-100 text-green-700' 
-                                : 'bg-yellow-100 text-yellow-700'
+                                ? 'bg-green-50 text-green-600 border border-green-200' 
+                                : 'bg-yellow-50 text-yellow-600 border border-yellow-200'
                             }`}>
                               {inv.status}
                             </span>
-                          </td>
-                          <td className="p-4 text-right">
+                          </div>
+                          
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="text-lg font-bold text-gray-900">₹{parseFloat(inv.amount).toFixed(2)}</span>
                             {inv.status === 'Pending' && (
-                              <span className="px-4 py-2 bg-gray-50 text-gray-600 font-bold rounded-lg text-sm italic">Offline Cash Payment</span>
+                              <span className="text-xs font-medium italic text-gray-500 bg-gray-50 px-2 py-1 rounded">Offline Cash</span>
                             )}
-                          </td>
-                        </tr>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                  </>
               )}
             </div>
           </div>

@@ -26,7 +26,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { client_id, note } = body;
+    const { client_id, note, attachment } = body;
 
     if (!client_id || !note) {
       return NextResponse.json({ success: false, error: 'client_id and note are required' }, { status: 400 });
@@ -35,8 +35,8 @@ export async function POST(request) {
     const db = await getDbConnection();
     const id = 'note_' + Date.now();
     await db.execute(
-      'INSERT INTO client_notes (id, client_id, note, status) VALUES (?, ?, ?, ?)',
-      [id, client_id, note, 'Unread']
+      'INSERT INTO client_notes (id, client_id, note, status, attachment) VALUES (?, ?, ?, ?, ?)',
+      [id, client_id, note, 'Unread', attachment || null]
     );
 
     return NextResponse.json({ success: true, message: 'Note added successfully', id });
@@ -48,13 +48,16 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, tl_reply } = await request.json();
+    const { id, tl_reply, tl_attachment } = await request.json();
     if (!id || !tl_reply) {
       return NextResponse.json({ success: false, error: 'id and tl_reply are required' }, { status: 400 });
     }
 
     const db = await getDbConnection();
-    await db.execute('UPDATE client_notes SET tl_reply = ?, status = ? WHERE id = ?', [tl_reply, 'Replied', id]);
+    await db.execute(
+      'UPDATE client_notes SET tl_reply = ?, status = ?, tl_attachment = ? WHERE id = ?', 
+      [tl_reply, 'Replied', tl_attachment || null, id]
+    );
 
     return NextResponse.json({ success: true, message: 'Reply sent' });
   } catch (err) {

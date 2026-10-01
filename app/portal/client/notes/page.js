@@ -1,15 +1,27 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiUser, FiSend, FiPlus } from 'react-icons/fi';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiUser, FiSend, FiPlus, FiPaperclip } from 'react-icons/fi';
 import Swal from 'sweetalert2';
+import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 
 export default function ClientNotesPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [myClientId, setMyClientId] = useState('');
   const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const [activePackages, setActivePackages] = useState([]);
+  const [selectedPackage, setSelectedPackage] = useState('General');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStats, setUploadStats] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentNotes = notes.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(notes.length / itemsPerPage);
 
   useEffect(() => {
     let clientId = 'emp_1789113315702'; // Fallback
@@ -23,10 +35,23 @@ export default function ClientNotesPage() {
   useEffect(() => {
     if (myClientId) {
       fetchNotes();
-      const interval = setInterval(fetchNotes, 3000);
+      fetchActivePackages(myClientId);
+      // Increased polling interval to 15 seconds to reduce constant terminal logs
+      const interval = setInterval(fetchNotes, 15000);
       return () => clearInterval(interval);
     }
   }, [myClientId]);
+
+  const fetchActivePackages = async (clientId) => {
+    try {
+      const res = await fetch(`/api/client-services/my-packages?clientId=${clientId}`);
+      const data = await res.json();
+      if (data.success) {
+        const pkgs = data.data.filter(p => !p.is_expired);
+        setActivePackages(pkgs);
+      }
+    } catch (err) {}
+  };
 
   const fetchNotes = async () => {
     if(notes.length === 0) setLoading(true);
@@ -45,25 +70,48 @@ export default function ClientNotesPage() {
 
   const handleAddNote = async (e) => {
     e.preventDefault();
-    if (!newNote.trim()) return;
+    if (!newNote.trim() && attachments.length === 0) return;
     
     setSubmitting(true);
     try {
+      let attachmentUrls = [];
+      if (attachments.length > 0) {
+        setIsUploading(true);
+        try {
+          const urls = await uploadFilesWithProgress(attachments, (stats) => {
+            setUploadStats(stats);
+          });
+          if (urls && urls.length > 0) {
+            attachmentUrls = urls;
+          }
+        } catch (error) {
+          setIsUploading(false);
+          setUploadStats(null);
+          throw new Error('Failed to upload file: ' + error.message);
+        }
+        setIsUploading(false);
+        setUploadStats(null);
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+      const finalNote = selectedPackage === 'General' ? newNote : `[${selectedPackage}] ${newNote}`;
       const res = await fetch('/api/client-notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: myClientId, note: newNote })
+        body: JSON.stringify({ client_id: myClientId, note: finalNote, attachment: attachmentStr })
       });
       const data = await res.json();
       if (data.success) {
         setNewNote('');
+        setAttachments([]);
         fetchNotes();
         Swal.fire('Success', 'Note added successfully', 'success');
       } else {
         Swal.fire('Error', data.error || 'Failed to add note', 'error');
       }
     } catch (err) {
-      Swal.fire('Error', 'Network error', 'error');
+      console.error(err);
+      Swal.fire('Error', 'Network or upload error', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -166,21 +214,74 @@ export default function ClientNotesPage() {
                 Add a Note
               </h3>
               <form onSubmit={handleAddNote} className="flex flex-col gap-4">
+                {activePackages.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Related Project / Service</label>
+                    <select 
+                      value={selectedPackage}
+                      onChange={(e) => setSelectedPackage(e.target.value)}
+                      className="w-full md:w-1/2 border-gray-300 rounded-xl shadow-sm p-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 border bg-gray-50 outline-none transition-all"
+                    >
+                      <option value="General">General (Not project specific)</option>
+                      {activePackages.map(pkg => (
+                        <option key={pkg.override_id} value={pkg.name}>{pkg.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <textarea 
                   value={newNote}
                   onChange={e => setNewNote(e.target.value)}
                   placeholder="Do you need anything else? Write a note here..."
                   className="w-full border-gray-300 rounded-xl shadow-sm p-4 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 border transition-shadow min-h-[120px]"
                 ></textarea>
-                <div className="flex justify-end">
-                  <button 
-                    type="submit" 
-                    disabled={submitting} 
-                    className="flex items-center gap-2 px-6 py-3 text-sm font-bold text-white bg-pink-600 rounded-xl hover:bg-pink-700 disabled:opacity-70 shadow-md shadow-pink-200 transition-all active:scale-95"
-                  >
-                    {submitting ? 'Adding...' : 'Add Note'}
-                    <FiPlus size={18} />
-                  </button>
+                <div className="flex flex-col gap-3 mt-3">
+                  {attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {attachments.map((file, idx) => (
+                        <span key={idx} className="text-xs text-pink-600 font-medium bg-pink-50 px-2 py-1 rounded-md flex items-center gap-1 border border-pink-100 max-w-full">
+                          <span className="truncate max-w-[200px]">{file.name}</span>
+                          <FiX className="cursor-pointer text-pink-800 shrink-0 ml-1" onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))} />
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <label className="cursor-pointer text-gray-500 hover:text-pink-600 transition-colors flex items-center gap-1 text-sm font-medium bg-gray-50 border border-gray-200 px-4 py-2 rounded-xl shadow-sm shrink-0">
+                      <FiPaperclip size={16} /> Attach Files
+                      <input type="file" multiple className="hidden" onChange={(e) => setAttachments([...attachments, ...Array.from(e.target.files)])} />
+                    </label>
+                    <button 
+                      type="submit" 
+                      disabled={submitting || isUploading} 
+                      className="flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold text-white bg-pink-600 rounded-xl hover:bg-pink-700 disabled:opacity-70 shadow-md shadow-pink-200 transition-all active:scale-95 w-full sm:w-auto min-w-[140px]"
+                    >
+                      {isUploading ? (
+                        <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Uploading...</>
+                      ) : submitting ? (
+                        'Saving...'
+                      ) : (
+                        <>Add Note <FiPlus size={18} /></>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Upload Progress UI */}
+                  {isUploading && uploadStats && (
+                    <div className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 mt-2 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-semibold text-gray-700 truncate max-w-[60%]">Uploading: {uploadStats.fileName}</span>
+                        <span className="text-sm font-bold text-pink-600">{uploadStats.percent}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-2 overflow-hidden">
+                        <div className="bg-pink-500 h-2 rounded-full transition-all duration-300 ease-out" style={{ width: `${uploadStats.percent}%` }}></div>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 font-medium">
+                        <span>{uploadStats.uploadedMB} MB / {uploadStats.totalMB} MB</span>
+                        {uploadStats.speedMBps && <span>{uploadStats.speedMBps} MB/s</span>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </form>
             </div>
@@ -199,7 +300,7 @@ export default function ClientNotesPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {notes.map(note => (
+              {currentNotes.map(note => (
                 <div key={note.id} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col gap-2">
                   <div className="flex justify-between items-start">
                     <span className="text-sm text-gray-400">{new Date(note.created_at).toLocaleString()}</span>
@@ -208,14 +309,72 @@ export default function ClientNotesPage() {
                     </span>
                   </div>
                   <p className="text-gray-800 whitespace-pre-wrap mb-2">{note.note}</p>
+                  
+                  {note.attachment && (() => {
+                    let urls = [];
+                    try {
+                      urls = JSON.parse(note.attachment);
+                      if (!Array.isArray(urls)) urls = [note.attachment];
+                    } catch(e) {
+                      urls = [note.attachment];
+                    }
+                    return (
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {urls.map((url, idx) => (
+                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-pink-600 bg-pink-50 border border-pink-100 hover:bg-pink-100 px-3 py-1.5 rounded-lg transition-colors">
+                            <FiPaperclip size={14} /> View Attachment {urls.length > 1 ? idx+1 : ''}
+                          </a>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
                   {note.tl_reply && (
                     <div className="mt-2 p-3 bg-pink-50 border-l-4 border-pink-500 rounded-r-lg">
                       <p className="text-xs font-bold text-pink-700 mb-1">Team Leader Reply:</p>
                       <p className="text-sm text-pink-900 whitespace-pre-wrap">{note.tl_reply}</p>
+                      {note.tl_attachment && (() => {
+                        let urls = [];
+                        try {
+                          urls = JSON.parse(note.tl_attachment);
+                          if (!Array.isArray(urls)) urls = [note.tl_attachment];
+                        } catch(e) {
+                          urls = [note.tl_attachment];
+                        }
+                        return (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {urls.map((url, idx) => (
+                              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-pink-700 bg-pink-100/50 border border-pink-200 hover:bg-pink-200 px-3 py-1.5 rounded-lg transition-colors">
+                                <FiPaperclip size={14} /> View TL Attachment {urls.length > 1 ? idx+1 : ''}
+                              </a>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
               ))}
+              
+              {totalPages > 1 && (
+                <div className="flex justify-between items-center py-4">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 text-sm border border-gray-200 rounded-xl bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm font-medium"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-500 font-medium">Page {currentPage} of {totalPages}</span>
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 text-sm border border-gray-200 rounded-xl bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm font-medium"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

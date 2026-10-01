@@ -18,6 +18,7 @@ export default function BookServicePage() {
       if (pkgName) {
         setForm(prev => ({ 
           ...prev, 
+          service_type: pkgName,
           requirements: `Booking for package: ${pkgName}\n\nMy Requirements:\n` 
         }));
       }
@@ -26,6 +27,31 @@ export default function BookServicePage() {
   }, []);
   const [requests, setRequests] = useState([]);
   const [form, setForm] = useState({ service_type: 'SEO', requirements: '' });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentRequests = requests.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(requests.length / itemsPerPage);
+
+  const [activePackages, setActivePackages] = useState([]);
+
+  const fetchActivePackages = async (clientId) => {
+    try {
+      const res = await fetch(`/api/client-services/my-packages?clientId=${clientId}`);
+      const data = await res.json();
+      if (data.success) {
+        const pkgs = data.data.filter(p => !p.is_expired);
+        setActivePackages(pkgs);
+        
+        const urlPkg = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('pkg') : null;
+        if (!urlPkg && pkgs.length > 0) {
+          setForm(prev => ({ ...prev, service_type: pkgs[0].name }));
+        }
+      }
+    } catch (err) {}
+  };
 
   const fetchRequests = async () => {
     try {
@@ -83,7 +109,12 @@ export default function BookServicePage() {
     });
   };
 
-  useEffect(() => { if (myClientId) fetchRequests(); }, [myClientId]);
+  useEffect(() => { 
+    if (myClientId) {
+      fetchRequests();
+      fetchActivePackages(myClientId);
+    }
+  }, [myClientId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -205,11 +236,19 @@ export default function BookServicePage() {
                     value={form.service_type}
                     onChange={(e) => setForm({ ...form, service_type: e.target.value })}
                   >
-                    <option value="SEO">SEO (Search Engine Optimization)</option>
-                    <option value="SMO">SMO (Social Media Graphics)</option>
-                    <option value="PAID Ads">PAID Ads (Google/Meta)</option>
-                    <option value="Website Development">Website Development</option>
-                    <option value="Other">Other Requirement</option>
+                    {activePackages.length > 0 ? (
+                      activePackages.map((pkg, idx) => (
+                        <option key={idx} value={pkg.name}>{pkg.name}</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="SEO">SEO (Search Engine Optimization)</option>
+                        <option value="SMO">SMO (Social Media Graphics)</option>
+                        <option value="PAID Ads">PAID Ads (Google/Meta)</option>
+                        <option value="Website Development">Website Development</option>
+                        <option value="Other">Other Requirement</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -237,48 +276,112 @@ export default function BookServicePage() {
                 {requests.length === 0 ? (
                   <div className="p-6 text-center text-gray-400 py-10">You haven't made any service requests yet.</div>
                 ) : (
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-50/50">
-                      <tr>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Service</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/3">Requirement</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned TL</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Status</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {requests.map(req => (
-                        <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.created_at).toLocaleDateString()}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">{req.service_type}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600 line-clamp-2">{req.requirements}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {req.tl_name ? (
-                              <span className="flex items-center gap-1 text-indigo-600 font-medium">
-                                <FiUser size={13} /> {req.tl_name}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 text-xs">Pending</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                  <>
+                    {/* Desktop View */}
+                    <div className="hidden md:block overflow-x-auto w-full">
+                      <table className="w-full text-left">
+                        <thead className="bg-gray-50/50">
+                          <tr>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Service</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/3">Requirement</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned TL</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Status</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {currentRequests.map(req => (
+                            <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.created_at).toLocaleDateString()}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">{req.service_type}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600 line-clamp-2">{req.requirements}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                {req.tl_name ? (
+                                  <span className="flex items-center gap-1 text-indigo-600 font-medium">
+                                    <FiUser size={13} /> {req.tl_name}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">Pending</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right">
+                                <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${req.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                                  {req.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right">
+                                {req.status === 'Completed' ? (
+                                  <button onClick={() => handleViewDelivery(req)} className="text-pink-600 hover:text-pink-800 text-sm font-medium transition-colors bg-pink-50 hover:bg-pink-100 px-3 py-1.5 rounded-lg">View Delivery</button>
+                                ) : (
+                                  <span className="text-gray-400 text-sm">-</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile View */}
+                    <div className="md:hidden divide-y divide-gray-100">
+                      {currentRequests.map(req => (
+                        <div key={req.id} className="p-4 flex flex-col gap-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="text-sm font-bold text-gray-800">{req.service_type}</p>
+                              <p className="text-xs text-gray-500 mt-1">{new Date(req.created_at).toLocaleDateString()}</p>
+                            </div>
                             <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${req.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
                               {req.status}
                             </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            {req.status === 'Completed' ? (
-                              <button onClick={() => handleViewDelivery(req)} className="text-pink-600 hover:text-pink-800 text-sm font-medium transition-colors bg-pink-50 hover:bg-pink-100 px-3 py-1.5 rounded-lg">View Delivery</button>
-                            ) : (
-                              <span className="text-gray-400 text-sm">-</span>
-                            )}
-                          </td>
-                        </tr>
+                          </div>
+                          
+                          <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100 line-clamp-3">
+                            {req.requirements}
+                          </div>
+
+                          <div className="flex justify-between items-center mt-1">
+                            <div className="text-xs">
+                              <span className="text-gray-500 block mb-1">Assigned TL:</span>
+                              {req.tl_name ? (
+                                <span className="flex items-center gap-1 text-indigo-600 font-medium">
+                                  <FiUser size={12} /> {req.tl_name}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 italic">Pending</span>
+                              )}
+                            </div>
+                            
+                            <div>
+                              {req.status === 'Completed' && (
+                                <button onClick={() => handleViewDelivery(req)} className="text-pink-600 hover:text-pink-800 font-semibold text-xs px-3 py-1.5 bg-pink-50 rounded-lg">View Delivery</button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                    {totalPages > 1 && (
+                      <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 bg-gray-50/30">
+                        <button 
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                          disabled={currentPage === 1}
+                          className="px-3 py-1.5 text-sm border border-gray-200 rounded bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-sm text-gray-500 font-medium">Page {currentPage} of {totalPages}</span>
+                        <button 
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-1.5 text-sm border border-gray-200 rounded bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

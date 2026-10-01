@@ -8,6 +8,12 @@ export default function ClientDashboard() {
   const [activePackages, setActivePackages] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentRequests = requests.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(requests.length / itemsPerPage);
   
   const getClientId = () => {
     let clientId = 'emp_1789113315702'; // Fallback
@@ -154,47 +160,57 @@ export default function ClientDashboard() {
 
         <main className="flex-1 p-4 md:p-8 w-full max-w-7xl mx-auto">
           {activeTab === 'overview' && (
-            <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-6 md:space-y-8">
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex items-start space-x-4">
-                  <div className="w-12 h-12 shrink-0 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-1">Welcome back</h2>
+                <p className="text-gray-500 text-sm">Overview of your active subscriptions and recent project submissions.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white p-5 rounded-lg border border-gray-200 flex items-center space-x-4">
+                  <div className="w-10 h-10 rounded bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
                     <FiActivity />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 font-medium mb-1">Active Subscriptions</p>
-                    <p className="text-3xl font-bold text-gray-900">{loading ? '-' : activePackages.length}</p>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Active Subscriptions</p>
+                    <p className="text-2xl font-bold text-gray-900">{loading ? '-' : activePackages.length}</p>
                   </div>
                 </div>
                 
-                <div className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex items-start space-x-4">
-                  <div className="w-12 h-12 shrink-0 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                <div className="bg-white p-5 rounded-lg border border-gray-200 flex items-center space-x-4">
+                  <div className="w-10 h-10 rounded bg-amber-50 text-amber-600 flex items-center justify-center text-lg">
                     <FiClock />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 font-medium mb-1">Pending Approvals</p>
-                    <p className="text-3xl font-bold text-gray-900">{loading ? '-' : requests.filter(r => r.status === 'Pending').length}</p>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Pending Approvals</p>
+                    <p className="text-2xl font-bold text-gray-900">{loading ? '-' : requests.filter(r => r.status === 'Pending').length}</p>
                   </div>
                 </div>
               </div>
 
               {activePackages.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="p-6 border-b border-gray-50">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center">
-                      <FiActivity className="mr-2 text-pink-500" /> Current Package Status
-                    </h3>
-                  </div>
-                  <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">Current Package Status</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {activePackages.map(pkg => (
-                      <div key={pkg.override_id} className="border border-gray-100 rounded-xl p-4 bg-gray-50/50 flex justify-between items-center">
-                        <div>
-                          <p className="font-bold text-gray-800">{pkg.name}</p>
-                          <p className="text-sm text-gray-500">{pkg.billing_cycle}</p>
+                      <div key={pkg.override_id} className="border border-gray-200 rounded-lg p-4 bg-gray-50 flex flex-col justify-between">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h4 className="text-base font-semibold text-gray-800">{pkg.name}</h4>
+                            <p className="text-xs text-gray-500 mt-1">{pkg.billing_cycle}</p>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${pkg.is_expired ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                            {pkg.is_expired ? 'Expired' : 'Active'}
+                          </span>
                         </div>
-                        <div className={`text-right text-sm font-semibold ${pkg.is_expired ? 'text-red-600' : 'text-green-600'}`}>
-                          {pkg.is_expired ? 'Expired' : 'Active'} <br/>
-                          <span className="font-normal text-gray-500 text-xs">Until: {pkg.valid_until_formatted}</span>
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                          <div className="text-gray-500 text-xs">
+                            Valid until: <span className="font-medium text-gray-800">{pkg.valid_until_formatted}</span>
+                          </div>
+                          <button onClick={() => window.location.href = `/portal/client/book-service?pkg=${encodeURIComponent(pkg.name)}`} className="text-pink-600 hover:text-pink-700 text-sm font-medium transition-colors">
+                            Book Service
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -202,42 +218,47 @@ export default function ClientDashboard() {
                 </div>
               )}
 
-              <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 overflow-hidden">
-                <div className="p-6 border-b border-gray-50">
-                   <h3 className="text-lg font-bold text-gray-800">Recent Submissions for Review</h3>
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50">
+                   <div>
+                     <h3 className="text-lg font-semibold text-gray-800">Recent Submissions</h3>
+                   </div>
+                   <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                     <FiEdit3 className="mr-2" /> New Request
+                   </button>
                 </div>
-                <div className="overflow-x-auto w-full">
-                  <table className="w-full text-left min-w-[600px]">
-                    <thead className="bg-gray-50/50">
+                {/* Desktop View */}
+                <div className="hidden md:block overflow-x-auto w-full">
+                  <table className="w-full text-left">
+                    <thead className="bg-white">
                       <tr>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Project Phase</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Project Phase</th>
+                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Status</th>
+                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200 text-right">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-gray-200">
                       {requests.length === 0 ? (
                         <tr>
-                          <td colSpan="3" className="px-6 py-8 text-center text-gray-500">
+                          <td colSpan="3" className="px-6 py-10 text-center text-gray-500 text-sm">
                             No recent submissions found.
                           </td>
                         </tr>
                       ) : (
-                        requests.map(req => (
-                          <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
+                        currentRequests.map(req => (
+                          <tr key={req.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4">
                                <p className="text-sm font-medium text-gray-800">{req.service_type || 'Service Request'}</p>
                                <p className="text-xs text-gray-500 mt-1">{new Date(req.created_at).toLocaleString()}</p>
                             </td>
                             <td className="px-6 py-4">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${req.status === 'Pending' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
-                                 <span className={`w-2 h-2 rounded-full mr-2 ${req.status === 'Pending' ? 'bg-amber-500' : 'bg-blue-500'}`}></span>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${req.status === 'Pending' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
                                  {req.status}
                               </span>
                             </td>
-                            <td className="px-6 py-4">
-                              <button onClick={() => window.location.href = '/portal/client/book-service'} className="text-pink-600 hover:text-pink-800 text-sm font-semibold transition-colors">
-                                 View Request &rarr;
+                            <td className="px-6 py-4 text-right">
+                              <button onClick={() => window.location.href = '/portal/client/book-service'} className="text-pink-600 hover:text-pink-700 text-sm font-medium transition-colors">
+                                 View Details
                               </button>
                             </td>
                           </tr>
@@ -246,6 +267,53 @@ export default function ClientDashboard() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Mobile View */}
+                <div className="md:hidden divide-y divide-gray-100">
+                  {requests.length === 0 ? (
+                    <div className="px-6 py-10 text-center text-gray-500 text-sm">
+                      No recent submissions found.
+                    </div>
+                  ) : (
+                    currentRequests.map(req => (
+                      <div key={req.id} className="p-4 flex flex-col gap-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{req.service_type || 'Service Request'}</p>
+                            <p className="text-xs text-gray-500 mt-1">{new Date(req.created_at).toLocaleString()}</p>
+                          </div>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${req.status === 'Pending' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                             {req.status}
+                          </span>
+                        </div>
+                        <div className="flex justify-end mt-2">
+                          <button onClick={() => window.location.href = '/portal/client/book-service'} className="text-pink-600 hover:text-pink-700 text-sm font-medium transition-colors">
+                             View Details
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-600">Page {currentPage} of {totalPages}</span>
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
