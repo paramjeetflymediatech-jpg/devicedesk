@@ -16,9 +16,11 @@ import LeaderDashboard from './src/screens/Leader/LeaderDashboard';
 import { setupPushNotifications, getFcmToken } from './src/utils/notifications';
 import { getOrCreateDeviceId, registerDeviceToken, deregisterDeviceToken, fetchMarketingAttendance } from './src/utils/api';
 import { startBackgroundTracking, stopBackgroundTracking } from './src/utils/backgroundLocation';
+import { initSocket, disconnectSocket, onSocketEvent } from './src/utils/socketService';
+import { processOfflineQueue } from './src/utils/offlineQueue';
 
 import SweetAlertModal from './src/components/SweetAlertModal';
-import { sweetAlertRef } from './src/utils/sweetAlert';
+import { sweetAlertRef, sweetAlert } from './src/utils/sweetAlert';
 
 import { ThemeProvider, useTheme } from './src/utils/ThemeContext';
 
@@ -47,8 +49,9 @@ function MainAppContent() {
           console.warn('Failed to load cache:', err);
         }
         
-        // 3. Perform background sync from the Next.js server
+        // 3. Process pending offline actions & perform sync
         try {
+          await processOfflineQueue();
           await syncWithServer();
         } catch (err) {
           console.warn('Initial server sync failed:', err);
@@ -60,6 +63,14 @@ function MainAppContent() {
           if (storedUser) {
             const userObj = JSON.parse(storedUser);
             setCurrentUser(userObj);
+            
+            // Connect to real-time socket
+            try {
+              initSocket(userObj);
+            } catch (sockErr) {
+              console.warn('Socket initialization error on startup:', sockErr);
+            }
+
             const roleLower = (userObj.role || '').toLowerCase().trim();
             const dbRoleLower = (userObj.dbRole || '').toLowerCase().trim();
             const deptLower = (userObj.department || '').toLowerCase().trim();
@@ -128,8 +139,8 @@ function MainAppContent() {
       setTick(t => t + 1);
     });
 
-    // Start background sync polling every 5 seconds
-    const intervalId = setInterval(syncWithServer, 5000);
+    // Start background sync polling every 6 seconds
+    const intervalId = setInterval(syncWithServer, 6000);
 
     return () => {
       unsubscribe();
@@ -143,6 +154,13 @@ function MainAppContent() {
       await AsyncStorage.setItem('@currentUser', JSON.stringify(userObj));
     } catch (err) {
       console.error('Failed to persist user session:', err);
+    }
+
+    // Connect to real-time socket
+    try {
+      initSocket(userObj);
+    } catch (sockErr) {
+      console.warn('Socket connection error on login:', sockErr);
     }
 
     // Register device token upon successful login
@@ -179,11 +197,17 @@ function MainAppContent() {
   };
 
   const handleLogout = async () => {
-    // 0. Stop background tracking service if active
+    // 0. Stop background tracking service & disconnect socket
     try {
       await stopBackgroundTracking();
     } catch (err) {
       console.warn('Stop background tracking on logout error (non-fatal):', err);
+    }
+
+    try {
+      disconnectSocket();
+    } catch (sockErr) {
+      console.warn('Socket disconnect error (non-fatal):', sockErr);
     }
 
     // 1. Get tokens & deviceId to deregister on server

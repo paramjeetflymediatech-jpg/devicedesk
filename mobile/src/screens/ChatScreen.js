@@ -19,12 +19,24 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Clipboard from '@react-native-clipboard/clipboard';
 import SoundPlayer from 'react-native-sound-player';
 import { getEmployees, getSystems, subscribe } from '../store/store';
 import { getApiUrl, fetchMarketingAuthorizations, resolveSafeImageUri } from '../utils/api';
+import { 
+  initSocket, 
+  onSocketEvent, 
+  sendSocketMessage, 
+  editSocketMessage, 
+  deleteSocketMessage, 
+  sendSocketTyping, 
+  sendSocketStopTyping, 
+  sendSocketMessagesRead 
+} from '../utils/socketService';
 import { pick } from '@react-native-documents/picker';
 import { launchCamera } from 'react-native-image-picker';
 import { useTheme } from '../utils/ThemeContext';
+import { sweetAlert } from '../utils/sweetAlert';
 import AppIcon from '../components/AppIcon';
 
 export default function ChatScreen({ user, onBack }) {
@@ -36,6 +48,9 @@ export default function ChatScreen({ user, onBack }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [onlineUsersList, setOnlineUsersList] = useState([]);
+  const [lastSeenMap, setLastSeenMap] = useState({});
+  const [typingUsers, setTypingUsers] = useState({});
 
   // Back Button Handler
   useEffect(() => {
@@ -335,7 +350,7 @@ export default function ChatScreen({ user, onBack }) {
     };
   }, [isRecording]);
 
-  // Load messages from server
+  // Load messages from server & setup real-time socket events
   const fetchMessages = async () => {
     try {
       const baseUrl = getApiUrl();
@@ -358,9 +373,83 @@ export default function ChatScreen({ user, onBack }) {
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 3000);
-    return () => clearInterval(interval);
-  }, []);
+
+    // Socket.io Real-time event listeners
+    if (user?.id) {
+      initSocket(user);
+
+      const unsubMsg = onSocketEvent('receive-message', (newMsg) => {
+        setMessages(prev => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+        if (String(newMsg.senderId).toLowerCase() !== String(user.id).toLowerCase()) {
+          try {
+            SoundPlayer.playSoundFile('notification', 'mp3');
+          } catch (e) {}
+        }
+      });
+
+      const unsubEdit = onSocketEvent('message-edited', (data) => {
+        setMessages(prev => prev.map(m => m.id === data.messageId ? { ...m, content: data.content, isEdited: 1, editedAt: data.editedAt } : m));
+      });
+
+      const unsubDel = onSocketEvent('message-deleted', (data) => {
+        setMessages(prev => prev.map(m => {
+          if (m.id === data.messageId) {
+            if (data.deleteType === 'everyone') {
+              return { ...m, deletedForEveryone: 1 };
+            }
+          }
+          return m;
+        }));
+      });
+
+      const unsubOnline = onSocketEvent('online-users', (users) => {
+        if (Array.isArray(users)) {
+          setOnlineUsersList(users.map(u => String(u).toLowerCase()));
+        }
+      });
+
+      const unsubLastSeen = onSocketEvent('last-seen', (map) => {
+        if (map) {
+          const normalised = {};
+          Object.entries(map).forEach(([k, v]) => { normalised[String(k).toLowerCase()] = v; });
+          setLastSeenMap(prev => ({ ...prev, ...normalised }));
+        }
+      });
+
+      const unsubTyping = onSocketEvent('typing', (data) => {
+        if (data && data.senderId) {
+          setTypingUsers(prev => ({ ...prev, [String(data.senderId).toLowerCase()]: data.senderName || 'Someone' }));
+        }
+      });
+
+      const unsubStopTyping = onSocketEvent('stop-typing', (data) => {
+        if (data && data.senderId) {
+          setTypingUsers(prev => {
+            const next = { ...prev };
+            delete next[String(data.senderId).toLowerCase()];
+            return next;
+          });
+        }
+      });
+
+      // Periodic backup fetch (every 10s rather than intense 3s polling)
+      const interval = setInterval(fetchMessages, 10000);
+
+      return () => {
+        unsubMsg();
+        unsubEdit();
+        unsubDel();
+        unsubOnline();
+        unsubLastSeen();
+        unsubTyping();
+        unsubStopTyping();
+        clearInterval(interval);
+      };
+    }
+  }, [user]);
 
   // Pin Chat helper
   const isPinned = (chatId) => pinnedChats.includes(String(chatId).toLowerCase());
@@ -380,13 +469,27 @@ export default function ChatScreen({ user, onBack }) {
   };
 
   // Clear Chat Display helper
-  const handleClearChatDisplay = async () => {
-    const nowIso = new Date().toISOString();
-    const updated = { ...clearedChats, [String(activeChatId).toLowerCase()]: nowIso };
-    setClearedChats(updated);
-    try {
-      await AsyncStorage.setItem(`devicedesk_cleared_chats_${user?.id}`, JSON.stringify(updated));
-    } catch (e) {}
+  const handleClearChatDisplay = () => {
+    Alert.alert(
+      'Clear Chat',
+      'Are you sure you want to clear all messages from this chat view?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Chat',
+          style: 'destructive',
+          onPress: async () => {
+            const nowIso = new Date().toISOString();
+            const updated = { ...clearedChats, [String(activeChatId).toLowerCase()]: nowIso };
+            setClearedChats(updated);
+            try {
+              await AsyncStorage.setItem(`devicedesk_cleared_chats_${user?.id}`, JSON.stringify(updated));
+            } catch (e) {}
+            setShowDetailsModal(false);
+          },
+        },
+      ]
+    );
   };
 
   // Get active messages filtered for user & cleared timestamp
@@ -495,7 +598,7 @@ export default function ChatScreen({ user, onBack }) {
     setShowUploadConfirmModal(false);
     setUploading(true);
 
-    const caption = uploadCaption.trim();
+    const caption = uploadCaption || '';
 
     try {
       // 1. Upload files to server /api/upload
@@ -548,6 +651,9 @@ export default function ChatScreen({ user, onBack }) {
         };
 
         setMessages(prev => [...prev, newMsg]);
+        try {
+          sendSocketMessage(newMsg);
+        } catch (sErr) {}
 
         try {
           await fetch(`${getApiUrl()}/api/chat`, {
@@ -580,6 +686,9 @@ export default function ChatScreen({ user, onBack }) {
         };
 
         setMessages(prev => [...prev, newMsg]);
+        try {
+          sendSocketMessage(newMsg);
+        } catch (sErr) {}
 
         try {
           await fetch(`${getApiUrl()}/api/chat`, {
@@ -704,20 +813,24 @@ export default function ChatScreen({ user, onBack }) {
 
   // Send Message
   const handleSendMessage = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText || inputText.length === 0) return;
 
     const newMsg = {
       id: `msg_${Date.now()}`,
       senderId: user?.id || 'anonymous',
       senderName: user?.name || 'User',
       receiverId: activeChatId,
-      content: inputText.trim(),
+      content: inputText,
       messageType: 'text',
       timestamp: new Date().toISOString(),
     };
 
     setMessages(prev => [...prev, newMsg]);
     setInputText('');
+    try {
+      sendSocketStopTyping(activeChatId);
+      sendSocketMessage(newMsg);
+    } catch (sErr) {}
 
     try {
       await fetch(`${getApiUrl()}/api/chat`, {
@@ -733,10 +846,16 @@ export default function ChatScreen({ user, onBack }) {
 
   // Edit Message
   const handleSaveEdit = async (msgId) => {
-    if (!editingText.trim()) return;
-    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, content: editingText.trim(), isEdited: 1 } : m));
+    if (!editingText || editingText.length === 0) return;
+    const editedAt = new Date().toISOString();
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, content: editingText, isEdited: 1 } : m));
     setEditingMessageId(null);
+    const contentToSave = editingText;
     setEditingText('');
+
+    try {
+      editSocketMessage({ messageId: msgId, senderId: user?.id, receiverId: activeChatId, content: contentToSave, editedAt });
+    } catch (sErr) {}
 
     try {
       await fetch(`${getApiUrl()}/api/chat`, {
@@ -745,7 +864,7 @@ export default function ChatScreen({ user, onBack }) {
           'Content-Type': 'application/json',
           'x-user-id': String(user?.id || ''),
         },
-        body: JSON.stringify({ messageId: msgId, content: editingText.trim(), action: 'editMessage' }),
+        body: JSON.stringify({ messageId: msgId, content: contentToSave, action: 'editMessage' }),
       });
     } catch (e) {}
   };
@@ -784,10 +903,98 @@ export default function ChatScreen({ user, onBack }) {
 
   const isMessagePinned = (msgId) => pinnedMessages.includes(msgId);
 
-  // Copy Message Content
-  const handleCopyMessage = (msg) => {
-    if (!msg || !msg.content) return;
-    Alert.alert('Message Copied', 'Message content copied to clipboard.');
+  // Helper to render formatted message content with clickable URLs and forwarded tag
+  const renderMessageContent = (content, isOwn) => {
+    if (!content) return null;
+
+    const isForwarded = content.startsWith('<FiCornerUpRight /> Forwarded') || content.startsWith('Forwarded:\n') || content.startsWith('Forwarded: ') || content.startsWith('↪️ Forwarded\n') || content.startsWith('↪️ Forwarded:');
+    const displayContent = content
+      .replace(/^<FiCornerUpRight \/> Forwarded\n?/, '')
+      .replace(/^Forwarded:\n?/, '')
+      .replace(/^Forwarded: /, '')
+      .replace(/^↪️ Forwarded\n?/, '')
+      .replace(/^↪️ Forwarded: ?/, '');
+
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = displayContent.split(urlRegex);
+    const textColor = isOwn ? '#ffffff' : (isDark ? '#f8fafc' : '#0f172a');
+    const linkColor = isOwn ? '#bae6fd' : (isDark ? '#38bdf8' : '#0284c7');
+
+    return (
+      <View>
+        {isForwarded && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 4 }}>
+            <AppIcon name="forward" size={12} color={isOwn ? '#bfdbfe' : '#06b6d4'} />
+            <Text style={{ fontSize: 11, color: isOwn ? '#bfdbfe' : '#06b6d4', fontStyle: 'italic', fontWeight: '600' }}>
+              Forwarded
+            </Text>
+          </View>
+        )}
+        <Text style={[styles.msgText, { color: textColor }]} selectable={true}>
+          {parts.map((part, i) => {
+            if (part.match(urlRegex)) {
+              return (
+                <Text
+                  key={i}
+                  onPress={() => Linking.openURL(part)}
+                  style={{
+                    color: linkColor,
+                    textDecorationLine: 'underline',
+                    fontWeight: '600',
+                  }}
+                >
+                  {part}
+                </Text>
+              );
+            }
+            return <Text key={i} style={{ color: textColor }}>{part}</Text>;
+          })}
+        </Text>
+      </View>
+    );
+  };
+
+  // Copy Message Content (supports single or multiple selected messages)
+  const handleCopyMessage = (msgOrList) => {
+    const list = Array.isArray(msgOrList) 
+      ? msgOrList 
+      : (msgOrList ? [msgOrList] : selectedMessages);
+    
+    const validMsgs = (list || []).filter(m => m && (m.content || m.fileUrl || m.fileName));
+    if (validMsgs.length === 0) return;
+
+    let textToCopy = '';
+    if (validMsgs.length === 1) {
+      const single = validMsgs[0];
+      const raw = single.content || single.fileUrl || single.fileName || '';
+      textToCopy = raw
+        .replace(/^<FiCornerUpRight \/> Forwarded\n?/, '')
+        .replace(/^Forwarded:\n?/, '')
+        .replace(/^Forwarded: /, '')
+        .replace(/^↪️ Forwarded\n?/, '')
+        .replace(/^↪️ Forwarded: ?/, '');
+    } else {
+      textToCopy = validMsgs
+        .map(m => {
+          const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+          const name = m.senderName || (String(m.senderId).toLowerCase() === String(user?.id || '').toLowerCase() ? 'You' : 'User');
+          const content = (m.content || m.fileUrl || m.fileName || `[${m.messageType || 'file'}]`)
+            .replace(/^<FiCornerUpRight \/> Forwarded\n?/, '')
+            .replace(/^Forwarded:\n?/, '')
+            .replace(/^Forwarded: /, '')
+            .replace(/^↪️ Forwarded\n?/, '')
+            .replace(/^↪️ Forwarded: ?/, '');
+          return `[${time}] ${name}: ${content}`;
+        })
+        .join('\n');
+    }
+
+    try {
+      Clipboard.setString(textToCopy);
+      sweetAlert.info('Copied', validMsgs.length === 1 ? 'Message copied to clipboard' : `${validMsgs.length} messages copied to clipboard`);
+    } catch (e) {
+      console.warn('Clipboard copy error:', e);
+    }
     setSelectedMessages([]);
   };
 
@@ -796,14 +1003,43 @@ export default function ChatScreen({ user, onBack }) {
     if (selectedMessages.length === 0) return;
     const targets = [...selectedMessages];
 
+    if (targets.length === 1) {
+      handleDeleteMessage(targets[0]);
+      return;
+    }
+
     Alert.alert(
       'Delete Messages',
-      `Delete ${targets.length} selected message${targets.length > 1 ? 's' : ''}?`,
+      `Delete ${targets.length} selected messages?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Delete for Everyone',
           style: 'destructive',
+          onPress: async () => {
+            const targetIds = targets.map(m => m.id);
+            setMessages(prev => prev.map(m => targetIds.includes(m.id) ? { ...m, deletedForEveryone: 1 } : m));
+            setSelectedMessages([]);
+
+            for (const msg of targets) {
+              try {
+                deleteSocketMessage({ messageId: msg.id, senderId: user?.id, receiverId: activeChatId, deleteType: 'everyone' });
+              } catch (sErr) {}
+              try {
+                await fetch(`${getApiUrl()}/api/chat`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-id': String(user?.id || ''),
+                  },
+                  body: JSON.stringify({ messageId: msg.id, action: 'deleteMessage', deleteType: 'everyone' }),
+                });
+              } catch (e) {}
+            }
+          },
+        },
+        {
+          text: 'Delete for Me',
           onPress: async () => {
             const targetIds = targets.map(m => m.id);
             setMessages(prev => prev.filter(m => !targetIds.includes(m.id)));
@@ -817,7 +1053,7 @@ export default function ChatScreen({ user, onBack }) {
                     'Content-Type': 'application/json',
                     'x-user-id': String(user?.id || ''),
                   },
-                  body: JSON.stringify({ messageId: msg.id, action: 'deleteMessage', deleteType: 'everyone' }),
+                  body: JSON.stringify({ messageId: msg.id, action: 'deleteMessage', deleteType: 'self' }),
                 });
               } catch (e) {}
             }
@@ -841,6 +1077,10 @@ export default function ChatScreen({ user, onBack }) {
           style: 'destructive',
           onPress: async () => {
             setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, deletedForEveryone: 1 } : m));
+            setSelectedMessages([]);
+            try {
+              deleteSocketMessage({ messageId: msg.id, senderId: user?.id, receiverId: activeChatId, deleteType: 'everyone' });
+            } catch (sErr) {}
             try {
               await fetch(`${getApiUrl()}/api/chat`, {
                 method: 'DELETE',
@@ -857,6 +1097,7 @@ export default function ChatScreen({ user, onBack }) {
           text: 'Delete for Me',
           onPress: async () => {
             setMessages(prev => prev.filter(m => m.id !== msg.id));
+            setSelectedMessages([]);
             try {
               await fetch(`${getApiUrl()}/api/chat`, {
                 method: 'DELETE',
@@ -878,6 +1119,7 @@ export default function ChatScreen({ user, onBack }) {
           style: 'destructive',
           onPress: async () => {
             setMessages(prev => prev.filter(m => m.id !== msg.id));
+            setSelectedMessages([]);
             try {
               await fetch(`${getApiUrl()}/api/chat`, {
                 method: 'DELETE',
@@ -1230,6 +1472,7 @@ export default function ChatScreen({ user, onBack }) {
             {sortedEmployees.map(emp => {
               const lastInfo = getLastMessageInfo(emp.id);
               const unread = getUnreadCount(emp.id);
+              const isEmpOnline = onlineUsersList.includes(String(emp.id).toLowerCase());
               return (
                 <TouchableOpacity
                   key={emp.id}
@@ -1244,6 +1487,19 @@ export default function ChatScreen({ user, onBack }) {
                     <Text style={styles.avatarText}>
                       {emp.name ? emp.name.charAt(0).toUpperCase() : 'U'}
                     </Text>
+                    {isEmpOnline && (
+                      <View style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        right: 0,
+                        width: 12,
+                        height: 12,
+                        borderRadius: 6,
+                        backgroundColor: '#10b981',
+                        borderWidth: 2,
+                        borderColor: themeColors.cardBg || '#ffffff'
+                      }} />
+                    )}
                   </View>
                   <View style={styles.itemContent}>
                     <View style={styles.itemRow}>
@@ -1291,36 +1547,34 @@ export default function ChatScreen({ user, onBack }) {
               </View>
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                {/* Single Selection Only Options */}
+                {/* Pin single message */}
                 {selectedMessages.length === 1 && (
-                  <>
-                    <TouchableOpacity
-                      onPress={() => handleTogglePinMessage(selectedMessages[0])}
-                      style={styles.headerActionBtn}
-                      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-                    >
-                      <AppIcon name="pin" size={18} color={isMessagePinned(selectedMessages[0].id) ? '#f59e0b' : '#e9edef'} />
-                    </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleTogglePinMessage(selectedMessages[0])}
+                    style={styles.headerActionBtn}
+                    hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                  >
+                    <AppIcon name="pin" size={18} color={isMessagePinned(selectedMessages[0].id) ? '#f59e0b' : '#e9edef'} />
+                  </TouchableOpacity>
+                )}
 
-                    {/* Copy Message - ONLY SHOW FOR TEXT MESSAGES */}
-                    {(!selectedMessages[0].messageType || selectedMessages[0].messageType === 'text') && (
-                      <TouchableOpacity
-                        onPress={() => handleCopyMessage(selectedMessages[0])}
-                        style={styles.headerActionBtn}
-                        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-                      >
-                        <AppIcon name="file" size={18} color="#e9edef" />
-                      </TouchableOpacity>
-                    )}
+                {/* Copy Message Button (works for single or multiple selection) */}
+                <TouchableOpacity
+                  onPress={() => handleCopyMessage(selectedMessages)}
+                  style={styles.headerActionBtn}
+                  hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                >
+                  <AppIcon name="file" size={18} color="#e9edef" />
+                </TouchableOpacity>
 
-                    <TouchableOpacity
-                      onPress={() => setShowMessageInfoModal(true)}
-                      style={styles.headerActionBtn}
-                      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-                    >
-                      <AppIcon name="info" size={18} color="#e9edef" />
-                    </TouchableOpacity>
-                  </>
+                {selectedMessages.length === 1 && (
+                  <TouchableOpacity
+                    onPress={() => setShowMessageInfoModal(true)}
+                    style={styles.headerActionBtn}
+                    hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                  >
+                    <AppIcon name="info" size={18} color="#e9edef" />
+                  </TouchableOpacity>
                 )}
 
                 {/* Multiple & Single Selection Options: Forward & Delete */}
@@ -1349,6 +1603,19 @@ export default function ChatScreen({ user, onBack }) {
               </TouchableOpacity>
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={[styles.roomTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{activeChatTitle}</Text>
+                {typingUsers[String(activeChatId).toLowerCase()] ? (
+                  <Text style={{ fontSize: 11, color: '#10b981', fontStyle: 'italic' }}>
+                    ✍️ {typingUsers[String(activeChatId).toLowerCase()]} is typing...
+                  </Text>
+                ) : onlineUsersList.includes(String(activeChatId).toLowerCase()) ? (
+                  <Text style={{ fontSize: 11, color: '#10b981', fontWeight: '500' }}>
+                    🟢 Online
+                  </Text>
+                ) : lastSeenMap[String(activeChatId).toLowerCase()] ? (
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary }}>
+                    Last seen {new Date(lastSeenMap[String(activeChatId).toLowerCase()]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                ) : null}
               </View>
               <TouchableOpacity onPress={() => togglePinChat(activeChatId)} style={styles.headerActionBtn}>
                 <AppIcon name="pin" size={18} color={isPinned(activeChatId) ? '#f59e0b' : themeColors.textPrimary} />
@@ -1423,8 +1690,8 @@ export default function ChatScreen({ user, onBack }) {
                         style={[
                           styles.msgBubble,
                           isOwn
-                            ? [styles.ownBubble, { backgroundColor: isDark ? '#1e3a8a' : '#eff6ff', borderColor: isDark ? '#1d4ed8' : '#bfdbfe' }]
-                            : [styles.otherBubble, { backgroundColor: isDark ? '#1e293b' : '#ffffff', borderColor: themeColors.border }],
+                            ? [styles.ownBubble, { backgroundColor: isDark ? '#1d4ed8' : '#2563eb', borderColor: isDark ? '#1e40af' : '#1d4ed8' }]
+                            : [styles.otherBubble, { backgroundColor: isDark ? '#1e293b' : '#ffffff', borderColor: isDark ? '#334155' : '#e2e8f0' }],
                           isSelected && styles.selectedBubble,
                         ]}
                       >
@@ -1492,9 +1759,9 @@ export default function ChatScreen({ user, onBack }) {
                                     </View>
 
                                     {msg.content ? (
-                                      <Text style={[styles.msgText, { color: themeColors.textPrimary, marginTop: 6 }]}>
-                                        {msg.content}
-                                      </Text>
+                                      <View style={{ marginTop: 6 }}>
+                                        {renderMessageContent(msg.content, isOwn)}
+                                      </View>
                                     ) : null}
 
                                     {/* View All Media Files Button */}
@@ -1595,20 +1862,18 @@ export default function ChatScreen({ user, onBack }) {
                                 </View>
                               </TouchableOpacity>
                             ) : (
-                              /* Standard Text Message */
-                              <Text style={[styles.msgText, { color: themeColors.textPrimary }]}>
-                                {msg.content}
-                              </Text>
+                              /* Standard Text Message with clickable links and forwarded badge */
+                              renderMessageContent(msg.content, isOwn)
                             )}
 
                             {/* Bottom Info Bar (Time + Checkmarks + Pin Indicator) */}
                             <View style={styles.bubbleFooter}>
-                              {isMessagePinned(msg.id) && <AppIcon name="pin" size={12} color="#f59e0b" style={{ marginRight: 4 }} />}
-                              {msg.isEdited ? <Text style={styles.editedTag}>edited • </Text> : null}
-                              <Text style={[isOwn ? styles.ownMsgTime : styles.otherMsgTime, { color: themeColors.textSecondary }]}>
+                              {isMessagePinned(msg.id) && <AppIcon name="pin" size={12} color={isOwn ? '#fde047' : '#f59e0b'} style={{ marginRight: 4 }} />}
+                              {msg.isEdited ? <Text style={[styles.editedTag, { color: isOwn ? '#bfdbfe' : '#8696a0' }]}>edited • </Text> : null}
+                              <Text style={[isOwn ? styles.ownMsgTime : styles.otherMsgTime, { color: isOwn ? '#dbeafe' : themeColors.textSecondary }]}>
                                 {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                               </Text>
-                              {isOwn && <Text style={styles.checkTicks}>  ✓✓</Text>}
+                              {isOwn && <Text style={[styles.checkTicks, { color: '#dbeafe' }]}>  ✓✓</Text>}
                             </View>
                           </>
                         )}
@@ -1669,10 +1934,19 @@ export default function ChatScreen({ user, onBack }) {
                   placeholder="Type a message..."
                   placeholderTextColor={themeColors.textSecondary}
                   value={inputText}
-                  onChangeText={setInputText}
+                  multiline={true}
+                  textAlignVertical="center"
+                  onChangeText={(text) => {
+                    setInputText(text);
+                    if (text.length > 0) {
+                      try { sendSocketTyping(activeChatId, user?.name); } catch (e) {}
+                    } else {
+                      try { sendSocketStopTyping(activeChatId); } catch (e) {}
+                    }
+                  }}
                 />
 
-                {inputText.trim().length > 0 ? (
+                {inputText && inputText.length > 0 ? (
                   <TouchableOpacity onPress={handleSendMessage} style={styles.sendBtn}>
                     <AppIcon name="send" size={18} color="#ffffff" />
                   </TouchableOpacity>
@@ -2596,9 +2870,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
   },
   ownBubble: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#2563eb',
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: '#1d4ed8',
     borderTopRightRadius: 2,
   },
   otherBubble: {
