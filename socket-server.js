@@ -259,6 +259,31 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Real-time GPS Location streaming for Marketing Team
+  socket.on('marketing-location-update', (data) => {
+    if (!data || !data.employeeId) return;
+    // Broadcast live coordinates to managers & admin monitors
+    io.to('marketing_monitors').emit('marketing-live-location', data);
+    socket.broadcast.emit('marketing-live-location', data);
+  });
+
+  // Real-time IT Support Ticket alert
+  socket.on('ticket-created', (ticket) => {
+    if (!ticket) return;
+    io.emit('ticket-alert', ticket);
+  });
+
+  socket.on('ticket-updated', (ticket) => {
+    if (!ticket) return;
+    io.emit('ticket-updated', ticket);
+  });
+
+  // Real-time EOD submission notification
+  socket.on('eod-submitted', (eod) => {
+    if (!eod) return;
+    io.emit('eod-alert', eod);
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
     if (socket.userId) {

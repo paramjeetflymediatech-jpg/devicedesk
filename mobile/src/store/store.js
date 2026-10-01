@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchFromDb, postToDb } from '../utils/api';
+import { enqueueAction, processOfflineQueue } from '../utils/offlineQueue';
+import { emitTicketCreated, emitTicketUpdated } from '../utils/socketService';
 
 const SYSTEMS_KEY = 'devicedesk_systems';
 const EMPLOYEES_KEY = 'devicedesk_employees';
@@ -68,6 +70,14 @@ export async function loadCache() {
 // Background sync from MySQL database via Next.js backend
 export async function syncWithServer() {
   try {
+    // 1. Process pending offline items first
+    try {
+      await processOfflineQueue();
+    } catch (qErr) {
+      console.warn('[Store] Offline queue process warning:', qErr);
+    }
+
+    // 2. Sync latest data from database
     const serverDb = await fetchFromDb();
 
     dbCache.systems = serverDb.systems || [];
@@ -95,12 +105,23 @@ export async function syncWithServer() {
   }
 }
 
-// Post updates to server
+// Post updates to server with offline queue fallback
 async function postToServer(action, data) {
   try {
     await postToDb(action, data);
   } catch (err) {
-    console.error(`Failed to post action ${action} to server db:`, err);
+    console.warn(`[Store] Failed to post action ${action} to server db (queuing offline):`, err?.message || err);
+    try {
+      await enqueueAction({
+        type: action,
+        endpoint: '/api/db',
+        method: 'POST',
+        payload: { action, data },
+        description: `DB Sync (${action})`,
+      });
+    } catch (queueErr) {
+      console.error('[Store] Failed to enqueue action offline:', queueErr);
+    }
   }
 }
 
@@ -432,6 +453,9 @@ export function createTicket(employeeId, systemId, category, description, severi
   };
   tickets.push(newTicket);
   saveTickets(tickets);
+  try {
+    emitTicketCreated(newTicket);
+  } catch (e) {}
   return newTicket;
 }
 
@@ -442,6 +466,9 @@ export function startTicketWork(ticketId) {
     tickets[index].status = 'In Progress';
     tickets[index].startedAt = new Date().toISOString();
     saveTickets(tickets);
+    try {
+      emitTicketUpdated(tickets[index]);
+    } catch (e) {}
     return tickets[index];
   }
   return null;
@@ -459,6 +486,9 @@ export function resolveTicket(ticketId, notes = '') {
       ticket.startedAt = ticket.createdAt;
     }
     saveTickets(tickets);
+    try {
+      emitTicketUpdated(ticket);
+    } catch (e) {}
     return ticket;
   }
   return null;

@@ -15,6 +15,7 @@ import {
 import { useTheme } from '../../utils/ThemeContext';
 import { fetchMarketingAttendance, fetchMarketingAuthorizations, fetchMarketingLocationLogs } from '../../utils/api';
 import { getEmployees, subscribe } from '../../store/store';
+import { onSocketEvent } from '../../utils/socketService';
 import AppIcon from '../../components/AppIcon';
 
 export default function ManageMarketing({ currentUser, onBack }) {
@@ -39,6 +40,49 @@ export default function ManageMarketing({ currentUser, onBack }) {
     });
     return () => unsub();
   }, []);
+
+  // Real-time GPS stream listener over Socket.io
+  useEffect(() => {
+    const unsubLocation = onSocketEvent('marketing-live-location', (data) => {
+      if (!data) return;
+      // 1. Update live trail logs if modal for this trip is currently open
+      if (selectedTripModal && selectedTripModal.id === data.attendanceId) {
+        setModalTrailLogs((prev) => {
+          const alreadyHas = prev.some(
+            (log) => Math.abs(log.latitude - data.latitude) < 0.00001 && Math.abs(log.longitude - data.longitude) < 0.00001
+          );
+          if (alreadyHas) return prev;
+          return [
+            ...prev,
+            {
+              id: `live_${Date.now()}`,
+              latitude: data.latitude,
+              longitude: data.longitude,
+              accuracy: data.accuracy,
+              created_at: data.timestamp || new Date().toISOString(),
+            },
+          ];
+        });
+      }
+
+      // 2. Update active coordinate on attendance record in real-time
+      setAttendanceRecords((prev) =>
+        prev.map((rec) => {
+          if (rec.id === data.attendanceId || (String(rec.employee_id) === String(data.employeeId) && rec.status === 'Checked In')) {
+            return {
+              ...rec,
+              latitude: data.latitude,
+              longitude: data.longitude,
+              last_active_time: data.timestamp || new Date().toISOString(),
+            };
+          }
+          return rec;
+        })
+      );
+    });
+
+    return () => unsubLocation();
+  }, [selectedTripModal]);
 
   const loadData = useCallback(async (isSilent = false) => {
     try {

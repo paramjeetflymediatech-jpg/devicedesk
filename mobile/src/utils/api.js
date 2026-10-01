@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { enqueueAction } from './offlineQueue';
+import { emitEODSubmitted } from './socketService';
 
 const API_URL_KEY = 'devicedesk_api_url';
 
@@ -220,6 +222,15 @@ export async function fetchAttendanceRecords(employeeId, month, status = 'ALL', 
 
 export async function postAttendancePunch(employeeId, employeeName, action, breakType = '', remarks = '', latitude = null, longitude = null) {
   const url = `${currentApiUrl}/api/attendance/punch`;
+  const bodyPayload = {
+    employeeId,
+    employeeName,
+    action,
+    breakType,
+    remarks,
+    latitude,
+    longitude,
+  };
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -227,21 +238,25 @@ export async function postAttendancePunch(employeeId, employeeName, action, brea
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        employeeId,
-        employeeName,
-        action,
-        breakType,
-        remarks,
-        latitude,
-        longitude,
-      }),
+      body: JSON.stringify(bodyPayload),
     });
     const data = await response.json();
     return data;
   } catch (err) {
-    console.error(`Post attendance punch failed at ${url}:`, err);
-    throw err;
+    console.warn(`Post attendance punch failed at ${url} (queuing offline):`, err.message);
+    try {
+      await enqueueAction({
+        type: 'attendance_punch',
+        endpoint: '/api/attendance/punch',
+        method: 'POST',
+        payload: bodyPayload,
+        description: `Attendance Punch (${action})`,
+      });
+      return { success: true, offline: true, message: 'Saved offline. Will sync automatically when connection restores.' };
+    } catch (qErr) {
+      console.error('Failed to queue punch offline:', qErr);
+      throw err;
+    }
   }
 }
 
@@ -281,6 +296,14 @@ export async function autoCloseAttendanceApi() {
 
 export async function applyLeaveRequest({ employeeId, employeeName, leaveType, fromDate, toDate, reason }) {
   const url = `${currentApiUrl}/api/leave/apply`;
+  const bodyPayload = {
+    employeeId,
+    employeeName,
+    leaveType,
+    fromDate,
+    toDate,
+    reason,
+  };
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -288,20 +311,25 @@ export async function applyLeaveRequest({ employeeId, employeeName, leaveType, f
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        employeeId,
-        employeeName,
-        leaveType,
-        fromDate,
-        toDate,
-        reason,
-      }),
+      body: JSON.stringify(bodyPayload),
     });
     const data = await response.json();
     return data;
   } catch (err) {
-    console.error(`Apply leave request failed at ${url}:`, err);
-    throw err;
+    console.warn(`Apply leave request failed at ${url} (queuing offline):`, err.message);
+    try {
+      await enqueueAction({
+        type: 'leave_application',
+        endpoint: '/api/leave/apply',
+        method: 'POST',
+        payload: bodyPayload,
+        description: `Leave Application (${leaveType})`,
+      });
+      return { success: true, offline: true, message: 'Leave request saved offline. Will sync when reconnected.' };
+    } catch (qErr) {
+      console.error('Failed to queue leave request offline:', qErr);
+      throw err;
+    }
   }
 }
 
@@ -754,10 +782,29 @@ export async function createWorkSubmissionApi(data) {
       },
       body: JSON.stringify(data)
     });
-    return await response.json();
+    const result = await response.json();
+    try {
+      emitEODSubmitted(data);
+    } catch (sErr) {}
+    return result;
   } catch (err) {
-    console.error(`Create work submission failed at ${url}:`, err);
-    throw err;
+    console.warn(`Create work submission failed at ${url} (queuing offline):`, err.message);
+    try {
+      await enqueueAction({
+        type: 'eod_submission',
+        endpoint: '/api/work-submissions',
+        method: 'POST',
+        payload: data,
+        description: `EOD Submission (${data?.title || 'Daily Report'})`,
+      });
+      try {
+        emitEODSubmitted(data);
+      } catch (sErr) {}
+      return { success: true, offline: true, message: 'Work report saved offline. Will sync once connected.' };
+    } catch (qErr) {
+      console.error('Failed to queue work submission offline:', qErr);
+      throw err;
+    }
   }
 }
 

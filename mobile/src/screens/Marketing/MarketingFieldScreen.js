@@ -27,6 +27,7 @@ import {
   startBackgroundTracking,
   stopBackgroundTracking,
 } from '../../utils/backgroundLocation';
+import { emitMarketingLocation } from '../../utils/socketService';
 import AppIcon from '../../components/AppIcon';
 import AttendanceWidget from '../../components/AttendanceWidget';
 
@@ -364,6 +365,21 @@ export default function MarketingFieldScreen({ user, onBack }) {
       try {
         const coords = await getCurrentLocation();
         if (coords && coords.latitude && coords.longitude && isMounted) {
+          // Send to socket for real-time manager stream
+          try {
+            emitMarketingLocation({
+              employeeId: employeeId,
+              employeeName: user?.name,
+              attendanceId: activeTrip.id,
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              accuracy: coords.accuracy,
+              address: fromAddress || '',
+              timestamp: new Date().toISOString(),
+            });
+          } catch (sErr) {}
+
+          // Post to persistent database
           await postMarketingLocationLog({
             employee_id: employeeId,
             attendance_id: activeTrip.id,
