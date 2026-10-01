@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import Client from 'ssh2-sftp-client';
-import mysql from 'mysql2/promise';
+import { checkAuth, isSafeExtension, sanitizeFilename } from '../../app/api/utils/storageManager.js';
 
 export const config = {
   api: {
@@ -9,66 +9,6 @@ export const config = {
     externalResolver: true,
   },
 };
-
-const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'xlsx', 'xls', 'csv', 'docx', 'txt', 'mp4', 'webm', 'ogg', 'mov', 'm4v', 'avi', 'mkv', 'mp3', 'wav', 'm4a', 'aac', 'caf', '3gp', 'amr', 'psd', 'zip', 'rar'];
-
-function isSafeExtension(filename) {
-  if (!filename) return false;
-  const parts = filename.split('.');
-  if (parts.length < 2) return false;
-  const ext = parts.pop().toLowerCase();
-  return ALLOWED_EXTENSIONS.includes(ext);
-}
-
-function sanitizeFilename(filename) {
-  if (!filename) return '';
-  const parts = filename.split('.');
-  const ext = parts.pop().toLowerCase();
-  const base = parts.join('.');
-  const cleanBase = base.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const uniqueToken = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  return `${uniqueToken}_${cleanBase}.${ext}`;
-}
-
-async function getDbConnection() {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'devicedesk'
-  });
-}
-
-async function checkAuth(req) {
-  try {
-    let userId = null;
-    const authCookie = req.cookies['devicedesk_auth_user'];
-    if (authCookie) {
-      const parsed = JSON.parse(decodeURIComponent(authCookie));
-      userId = parsed?.id || null;
-    }
-
-    if (!userId) {
-      userId = req.headers['x-user-id'] || req.headers['authorization'];
-    }
-
-    if (!userId) return null;
-
-    const db = await getDbConnection();
-    const [rows] = await db.execute(
-      'SELECT id, name, email, role, department, status FROM employees WHERE id = ? OR LOWER(email) = LOWER(?) LIMIT 1',
-      [userId, String(userId).toLowerCase()]
-    );
-    await db.end();
-
-    if (rows.length === 0) return null;
-    if (rows[0].status && rows[0].status.toLowerCase() !== 'active') return null;
-    return rows[0];
-  } catch (err) {
-    console.error('Raw session authentication check failed:', err);
-    return null;
-  }
-}
 
 function getEnvVariable(key, fallback = '') {
   if (process.env[key] && process.env[key].trim() !== '') {

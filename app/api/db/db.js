@@ -5,14 +5,40 @@ import { initialSystems, initialEmployees, initialTickets, initialDepartments } 
 // Coerce undefined → null so MySQL2 doesn't throw "undefined bind param"
 const n = v => (v === undefined ? null : v);
 
+function getDbEnv(key, fallback = '') {
+  if (process.env[key] && process.env[key].trim() !== '') {
+    return process.env[key].trim();
+  }
+  try {
+    const fsSync = require('fs');
+    const pathSync = require('path');
+    const envPath = pathSync.resolve(process.cwd(), '.env.local');
+    if (fsSync.existsSync(envPath)) {
+      const content = fsSync.readFileSync(envPath, 'utf8');
+      const lines = content.split('\n');
+      for (const line of lines) {
+        const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+        if (match && match[1] === key) {
+          let val = match[2] || '';
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          return val.trim();
+        }
+      }
+    }
+  } catch (e) {}
+  return fallback;
+}
+
 export function getPool() {
   if (!global.mysqlPool) {
     global.mysqlPool = mysql.createPool({
-      host:     process.env.DB_HOST || 'localhost',
-      port:     parseInt(process.env.DB_PORT || '3306'),
-      user:     process.env.DB_USER || 'root',
-      password: process.env.DB_PASS || 'root',
-      database: process.env.DB_NAME || 'system_tracking',
+      host:     getDbEnv('DB_HOST', 'localhost'),
+      port:     parseInt(getDbEnv('DB_PORT', '3306')),
+      user:     getDbEnv('DB_USER', 'root'),
+      password: getDbEnv('DB_PASS', getDbEnv('DB_PASSWORD', 'Root@123')),
+      database: getDbEnv('DB_NAME', 'system_tracking'),
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0
