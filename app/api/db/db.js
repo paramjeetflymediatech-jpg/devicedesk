@@ -906,7 +906,6 @@ async function initializeDatabase(db) {
     await db.execute(`
       INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status)
       VALUES 
-        ('emp_tl', 'Team Leader', 'leader@devicedesk.com', ?, 'Team Leader', 'Development', 20, 'Active'),
         ('admin', 'Administrator', 'admin@devicedesk.com', ?, 'Admin', 'Management', 20, 'Active')
       ON DUPLICATE KEY UPDATE status='Active'
     `, [defaultPassHash, defaultPassHash]);
