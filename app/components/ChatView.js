@@ -1620,12 +1620,17 @@ export default function ChatView({ user }) {
               reject(new Error("Invalid JSON response from server"));
             }
           } else {
+            let errorMsg = `Upload failed with status ${xhr.status}`;
+            if (xhr.status === 413) {
+              errorMsg = "File size exceeds server upload limit (HTTP 413 Payload Too Large).";
+            }
             try {
               const errData = JSON.parse(xhr.responseText);
-              reject(new Error(errData.error || "Upload failed with status " + xhr.status));
-            } catch (e) {
-              reject(new Error("Upload failed with status " + xhr.status));
-            }
+              if (errData && errData.error) {
+                errorMsg = errData.error;
+              }
+            } catch (e) {}
+            reject(new Error(errorMsg));
           }
         };
 
@@ -1904,10 +1909,21 @@ export default function ChatView({ user }) {
     return false;
   };
 
+  const isClientUser = (emp) => {
+    if (!emp) return false;
+    const r = (emp.role || '').toLowerCase().trim();
+    const d = (emp.department || '').toLowerCase().trim();
+    const id = String(emp.id || '').toLowerCase().trim();
+    return r === 'client' || r.includes('client') || d === 'client' || d.includes('client') || id.startsWith('client_');
+  };
+
   const isEmployeeVisibleInChat = (emp) => {
     if (!emp) return false;
     if (String(emp.id).toLowerCase() === String(user?.id || "").toLowerCase()) return false;
     if (isUserBlocked(emp.id) || isUserBlockingMe(emp.id)) return false;
+
+    // Never show Client users in internal chat user list
+    if (isClientUser(emp)) return false;
 
     const currentUserIsMarketing = isMarketingMember(user);
     const targetIsMarketing = isMarketingMember(emp);

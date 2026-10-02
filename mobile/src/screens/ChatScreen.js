@@ -290,9 +290,20 @@ export default function ChatScreen({ user, onBack }) {
     return false;
   };
 
+  const isClientUser = (emp) => {
+    if (!emp) return false;
+    const r = (emp.role || '').toLowerCase().trim();
+    const d = (emp.department || '').toLowerCase().trim();
+    const id = String(emp.id || '').toLowerCase().trim();
+    return r === 'client' || r.includes('client') || d === 'client' || d.includes('client') || id.startsWith('client_');
+  };
+
   const isEmployeeVisibleInChat = (emp) => {
     if (!emp) return false;
     if (String(emp.id).toLowerCase() === String(user?.id || '').toLowerCase()) return false;
+
+    // Never show Client users in mobile internal chat user list
+    if (isClientUser(emp)) return false;
 
     const currentUserIsMarketing = isMarketingMember(user);
     const targetIsMarketing = isMarketingMember(emp);

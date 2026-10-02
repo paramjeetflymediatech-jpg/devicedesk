@@ -6,6 +6,7 @@ import { checkAuth, isSafeExtension, sanitizeFilename } from '../../app/api/util
 export const config = {
   api: {
     bodyParser: false,
+    responseLimit: false,
     externalResolver: true,
   },
 };
