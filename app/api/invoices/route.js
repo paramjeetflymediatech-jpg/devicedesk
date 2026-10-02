@@ -11,13 +11,38 @@ export async function GET(request) {
     }
 
     const db = await getDbConnection();
-    const [rows] = await db.query(`
-      SELECT i.*, p.name as package_name 
-      FROM invoices i 
-      LEFT JOIN packages p ON i.package_id = p.id 
-      WHERE i.client_id = ? 
-      ORDER BY i.created_at DESC
-    `, [clientId]);
+
+    // Ensure columns exist on older DB schemas
+    try {
+      await db.execute('ALTER TABLE invoices ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    } catch (e) {}
+    try {
+      await db.execute('ALTER TABLE invoices ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+    } catch (e) {}
+    try {
+      await db.execute('ALTER TABLE invoices ADD COLUMN transaction_id VARCHAR(100) DEFAULT NULL');
+    } catch (e) {}
+
+    let rows = [];
+    try {
+      const [result] = await db.query(`
+        SELECT i.*, p.name as package_name 
+        FROM invoices i 
+        LEFT JOIN packages p ON i.package_id = p.id 
+        WHERE i.client_id = ? 
+        ORDER BY i.created_at DESC
+      `, [clientId]);
+      rows = result;
+    } catch (queryErr) {
+      const [result] = await db.query(`
+        SELECT i.*, p.name as package_name 
+        FROM invoices i 
+        LEFT JOIN packages p ON i.package_id = p.id 
+        WHERE i.client_id = ? 
+        ORDER BY i.id DESC
+      `, [clientId]);
+      rows = result;
+    }
 
     return NextResponse.json({ success: true, invoices: rows });
   } catch (error) {

@@ -788,6 +788,16 @@ async function initializeDatabase(db) {
     await db.execute(`ALTER TABLE domains ADD COLUMN card_details VARCHAR(255) DEFAULT NULL`);
   } catch (err) {}
 
+  try {
+    await db.execute(`ALTER TABLE invoices ADD COLUMN transaction_id VARCHAR(100) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE invoices ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE invoices ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`);
+  } catch (err) {}
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS domains (
       id VARCHAR(100) PRIMARY KEY,
