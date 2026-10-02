@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { FiArrowLeft, FiMapPin } from "react-icons/fi";
+import { FiArrowLeft, FiMapPin, FiTrash2 } from "react-icons/fi";
+import Swal from "sweetalert2";
 
 export default function AdminMarketingSlugPage() {
   const params = useParams();
@@ -11,7 +12,7 @@ export default function AdminMarketingSlugPage() {
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchAttendance = () => {
     fetch(`/api/marketing/attendance?employee_id=${encodeURIComponent(slug)}`)
       .then((r) => r.json())
       .then((d) => {
@@ -20,7 +21,54 @@ export default function AdminMarketingSlugPage() {
         }
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchAttendance();
   }, [slug]);
+
+  const handleDeleteTrip = async (tripId) => {
+    const confirm = await Swal.fire({
+      title: "Delete Trip Record?",
+      text: "Are you sure you want to permanently delete this field trip record and its GPS path? This cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, Delete Record"
+    });
+
+    if (confirm.isConfirmed) {
+      try {
+        const res = await fetch(`/api/marketing/attendance?id=${encodeURIComponent(tripId)}`, {
+          method: "DELETE"
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({
+            icon: "success",
+            title: "Deleted!",
+            text: "Trip record deleted successfully.",
+            timer: 1500,
+            showConfirmButton: false
+          });
+          setAttendance((prev) => prev.filter((t) => t.id !== tripId));
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Delete Failed",
+            text: data.error || "Failed to delete record."
+          });
+        }
+      } catch (err) {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: err.message || "Server error while deleting."
+        });
+      }
+    }
+  };
 
   if (loading) return <div style={{ minHeight: "100vh", background: "var(--bg-primary, #0f172a)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>Loading Marketing Tracking...</div>;
 
@@ -47,6 +95,7 @@ export default function AdminMarketingSlugPage() {
                     <th>Check-Out</th>
                     <th>GPS Pin</th>
                     <th>Status</th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -74,6 +123,28 @@ export default function AdminMarketingSlugPage() {
                         <span className={`status-tag ${a.status === "Checked In" ? "inprogress" : "resolved"}`}>
                           {a.status || "Checked Out"}
                         </span>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTrip(a.id)}
+                          title="Delete Record (Superadmin)"
+                          style={{
+                            background: "rgba(239, 68, 68, 0.12)",
+                            border: "1px solid rgba(239, 68, 68, 0.3)",
+                            color: "#ef4444",
+                            padding: "6px 10px",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "0.75rem",
+                            fontWeight: 700
+                          }}
+                        >
+                          <FiTrash2 size={13} /> Delete
+                        </button>
                       </td>
                     </tr>
                   ))}

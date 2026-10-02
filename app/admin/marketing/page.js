@@ -136,6 +136,49 @@ export default function AdminMarketingOverview() {
     }
   };
 
+  const handleDeleteTrip = async (tripId, empName) => {
+    const confirm = await Swal.fire({
+      title: 'Delete Trip Record?',
+      text: `Are you sure you want to permanently delete this field trip record${empName ? ` for ${empName}` : ''}? All recorded GPS waypoints will be removed.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete Record'
+    });
+
+    if (confirm.isConfirmed) {
+      try {
+        const res = await fetch(`/api/marketing/attendance?id=${encodeURIComponent(tripId)}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Trip Deleted',
+            text: 'Trip record has been removed permanently.',
+            timer: 1500,
+            showConfirmButton: false
+          });
+          setAttendance(prev => prev.filter(t => t.id !== tripId));
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'Delete Failed',
+            text: data.error || 'Failed to delete trip record.'
+          });
+        }
+      } catch (err) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: err.message || 'Server error while deleting.'
+        });
+      }
+    }
+  };
+
   // KPI Calculations
   const activeTrips = useMemo(() => attendance.filter(a => a.status === 'Checked In'), [attendance]);
   const completedTrips = useMemo(() => attendance.filter(a => a.status !== 'Checked In'), [attendance]);
@@ -657,6 +700,19 @@ export default function AdminMarketingOverview() {
                           <FiExternalLink size={13} /> Pin
                         </a>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTrip(trip.id, empName)}
+                        title="Delete Trip Record (Superadmin)"
+                        className="p-2 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/15 transition-colors"
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.2)'
+                        }}
+                      >
+                        <FiTrash2 size={14} />
+                      </button>
                     </div>
                   </div>
                 );
@@ -725,7 +781,7 @@ export default function AdminMarketingOverview() {
                   <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Check-Out</th>
                   <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Distance</th>
                   <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Status</th>
-                  <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Trail</th>
+                  <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y text-xs" style={{ borderColor: 'var(--glass-border, rgba(255, 255, 255, 0.05))' }}>
@@ -762,18 +818,33 @@ export default function AdminMarketingOverview() {
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openTrailModal(a)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors"
-                          style={{
-                            background: 'rgba(6, 182, 212, 0.1)',
-                            color: '#06b6d4',
-                            border: '1px solid rgba(6, 182, 212, 0.25)'
-                          }}
-                        >
-                          <FiMapPin size={11} /> Trail
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openTrailModal(a)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors"
+                            style={{
+                              background: 'rgba(6, 182, 212, 0.1)',
+                              color: '#06b6d4',
+                              border: '1px solid rgba(6, 182, 212, 0.25)'
+                            }}
+                          >
+                            <FiMapPin size={11} /> Trail
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTrip(a.id, emp?.name || a.employee_name || a.employee_id)}
+                            title="Delete Record (Superadmin)"
+                            className="p-1.5 rounded-lg text-xs font-semibold inline-flex items-center text-red-400 hover:text-red-300 hover:bg-red-500/15 transition-colors"
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.08)',
+                              border: '1px solid rgba(239, 68, 68, 0.2)'
+                            }}
+                          >
+                            <FiTrash2 size={12} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

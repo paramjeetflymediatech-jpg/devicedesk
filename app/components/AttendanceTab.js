@@ -1131,27 +1131,80 @@ export default function AttendanceTab({ user, mode }) {
                       </td>
                       <td style={{ padding: "14px 16px", textAlign: "right" }}>
                         {isAdmin && (
-                          <button
-                            onClick={() => {
-                              const isVirtual = r.isVirtual || (r.id && r.id.startsWith('virtual_'));
-                              setRegData({
-                                recordId: isVirtual ? "" : r.id,
-                                employeeId: r.employeeId,
-                                employeeName: r.employeeName,
-                                date: r.date,
-                                punchInTime: r.punchInTime ? r.punchInTime.substring(0, 16) : "",
-                                punchOutTime: r.punchOutTime ? r.punchOutTime.substring(0, 16) : "",
-                                status: r.status === 'Absent' ? 'Present' : r.status,
-                                reason: "",
-                                remarks: r.remarks || "",
-                              });
-                              setShowRegModal(true);
-                            }}
-                            className="btn-secondary"
-                            style={{ padding: "4px 10px", fontSize: "0.75rem" }}
-                          >
-                            {r.status === 'Absent' ? 'Regularize' : 'Edit'}
-                          </button>
+                          <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
+                            <button
+                              onClick={() => {
+                                const isVirtual = r.isVirtual || (r.id && r.id.startsWith('virtual_'));
+                                setRegData({
+                                  recordId: isVirtual ? "" : r.id,
+                                  employeeId: r.employeeId,
+                                  employeeName: r.employeeName,
+                                  date: r.date,
+                                  punchInTime: r.punchInTime ? r.punchInTime.substring(0, 16) : "",
+                                  punchOutTime: r.punchOutTime ? r.punchOutTime.substring(0, 16) : "",
+                                  status: r.status === 'Absent' ? 'Present' : r.status,
+                                  reason: "",
+                                  remarks: r.remarks || "",
+                                });
+                                setShowRegModal(true);
+                              }}
+                              className="btn-secondary"
+                              style={{ padding: "4px 10px", fontSize: "0.75rem" }}
+                            >
+                              {r.status === 'Absent' ? 'Regularize' : 'Edit'}
+                            </button>
+
+                            {!(r.isVirtual || (r.id && r.id.startsWith('virtual_'))) && (
+                              <button
+                                onClick={async () => {
+                                  const confirm = await Swal.fire({
+                                    title: "Delete Attendance Record?",
+                                    text: `Delete attendance log for ${r.employeeName} on ${r.date}? This cannot be undone.`,
+                                    icon: "warning",
+                                    showCancelButton: true,
+                                    confirmButtonColor: "#ef4444",
+                                    cancelButtonColor: "#64748b",
+                                    confirmButtonText: "Yes, Delete Record"
+                                  });
+                                  if (confirm.isConfirmed) {
+                                    try {
+                                      const res = await fetch(`/api/attendance/list?id=${encodeURIComponent(r.id)}`, {
+                                        method: "DELETE"
+                                      });
+                                      const d = await res.json();
+                                      if (d.success) {
+                                        Swal.fire({
+                                          icon: "success",
+                                          title: "Deleted",
+                                          text: "Attendance record deleted.",
+                                          timer: 1500,
+                                          showConfirmButton: false
+                                        });
+                                        fetchLogs();
+                                      } else {
+                                        Swal.fire({ icon: "error", title: "Failed", text: d.error || d.message || "Failed to delete" });
+                                      }
+                                    } catch (err) {
+                                      Swal.fire({ icon: "error", title: "Error", text: err.message || "Server error" });
+                                    }
+                                  }
+                                }}
+                                title="Delete Record (Superadmin)"
+                                style={{
+                                  background: "rgba(239, 68, 68, 0.12)",
+                                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                                  color: "#ef4444",
+                                  padding: "4px 8px",
+                                  borderRadius: "6px",
+                                  cursor: "pointer",
+                                  fontSize: "0.75rem",
+                                  fontWeight: 600
+                                }}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>

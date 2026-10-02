@@ -830,8 +830,8 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
               </View>
             </TouchableOpacity>
 
-            {/* Quick Action: Marketing Field Trips Banner */}
-            {/* {isMarketingUser && (
+            {/* Quick Action: Marketing Field Trips & Live GPS Radar */}
+            {isMarketingUser && (
               <TouchableOpacity
                 style={[
                   styles.card,
@@ -843,22 +843,26 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                     justifyContent: 'space-between',
                     padding: 14,
                     marginBottom: 16,
-                  }
+                  },
                 ]}
                 onPress={() => setActiveTab('marketing-trips')}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                   <Text style={{ fontSize: 24, marginRight: 12 }}>🚗</Text>
                   <View>
-                    <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>Marketing Field Trips</Text>
-                    <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>Log starting point, destination & live GPS</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>
+                      Marketing Field Trips & Live Radar
+                    </Text>
+                    <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>
+                      Rapido / Taxi-style GPS route planner & live tracking
+                    </Text>
                   </View>
                 </View>
                 <View style={{ backgroundColor: '#0891b2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
-                  <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Field Trips ➔</Text>
+                  <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Live Radar ➔</Text>
                 </View>
               </TouchableOpacity>
-            )} */}
+            )}
 
             {/* Attendance Punch Section */}
             <AttendanceWidget user={user} />

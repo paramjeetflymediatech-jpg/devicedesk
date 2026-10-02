@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { pick } from '@react-native-documents/picker';
 import Video from 'react-native-video';
 import AppIcon from '../../components/AppIcon';
+import MarketingFieldScreen from '../Marketing/MarketingFieldScreen';
 import { useTheme } from '../../utils/ThemeContext';
 import {
   fetchTasksApi,
@@ -623,10 +624,19 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     { id: 'requests', label: 'Client Requests', icon: 'check-square', badge: stats.pendingRequests },
     { id: 'client-chat', label: 'Client Chat Room', icon: 'chat', badge: stats.unreadNotes },
     { id: 'team', label: 'Team & EODs', icon: 'users' },
-    // { id: 'sop', label: 'Standard Operating Procedures', icon: 'book-open' },
+    { id: 'marketing-trips', label: 'Field Trips & GPS Radar', icon: 'navigation' },
   ];
 
   const ContainerComponent = onNavigateBack ? View : SafeAreaView;
+
+  if (activeTab === 'marketing-trips') {
+    return (
+      <ContainerComponent style={styles.container} edges={onNavigateBack ? undefined : ['top', 'left', 'right']}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <MarketingFieldScreen user={user} onBack={() => setActiveTab('overview')} />
+      </ContainerComponent>
+    );
+  }
 
   return (
     <ContainerComponent style={styles.container} edges={onNavigateBack ? undefined : ['top', 'left', 'right']}>

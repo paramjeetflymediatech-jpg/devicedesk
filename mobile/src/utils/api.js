@@ -447,6 +447,36 @@ export async function checkOutMarketingTrip({ employee_id, attendance_id, latitu
   }
 }
 
+export async function deleteMarketingTripRecord(id) {
+  const url = `${currentApiUrl}/api/marketing/attendance?id=${encodeURIComponent(id)}`;
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers,
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Delete marketing trip failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function deleteAttendanceRecord(id) {
+  const url = `${currentApiUrl}/api/attendance/list?id=${encodeURIComponent(id)}`;
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers,
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Delete attendance record failed at ${url}:`, err);
+    throw err;
+  }
+}
+
 export async function fetchMarketingAuthorizations() {
   const url = `${currentApiUrl}/api/marketing/authorizations`;
   try {

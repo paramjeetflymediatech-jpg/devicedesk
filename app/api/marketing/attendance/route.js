@@ -273,3 +273,52 @@ export async function GET(request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const user = await checkAuth(request);
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id') || searchParams.get('attendance_id');
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Trip / Attendance ID is required.' }, { status: 400 });
+    }
+
+    const userRole = (user?.role || user?.dbRole || '').toLowerCase();
+    const isAdminOrSuperadmin =
+      userRole.includes('admin') ||
+      userRole.includes('superadmin') ||
+      userRole.includes('management');
+
+    if (user && !isAdminOrSuperadmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Only Superadmin or Admin can delete records.' },
+        { status: 403 }
+      );
+    }
+
+    const db = await getDbConnection();
+    await ensureMarketingAttendanceTable(db);
+
+    // 1. Delete associated waypoint GPS logs
+    try {
+      await db.execute(`DELETE FROM marketing_location_logs WHERE attendance_id = ?`, [id]);
+    } catch (e) {}
+
+    // 2. Delete the trip / attendance record
+    const [result] = await db.execute(`DELETE FROM marketing_attendance WHERE id = ?`, [id]);
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json({ success: false, error: 'Record not found or already deleted.' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Trip record and all associated GPS logs deleted successfully.',
+    });
+  } catch (err) {
+    console.error('Delete Marketing Attendance Error:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+

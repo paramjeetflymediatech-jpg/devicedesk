@@ -20,6 +20,7 @@ import {
   fetchMarketingAttendance,
   checkInMarketingTrip,
   checkOutMarketingTrip,
+  deleteMarketingTripRecord,
   postMarketingLocationLog,
   getOrCreateDeviceId,
 } from '../../utils/api';
@@ -30,6 +31,7 @@ import {
 import { emitMarketingLocation } from '../../utils/socketService';
 import AppIcon from '../../components/AppIcon';
 import AttendanceWidget from '../../components/AttendanceWidget';
+import LiveExecutiveTrackerScreen from './LiveExecutiveTrackerScreen';
 
 // Haversine distance in KM
 function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
@@ -89,6 +91,7 @@ export default function MarketingFieldScreen({ user, onBack }) {
   const [attendanceList, setAttendanceList] = useState([]);
   const [activeTrip, setActiveTrip] = useState(null);
   const [waypointCount, setWaypointCount] = useState(0);
+  const [selectedTrackerTrip, setSelectedTrackerTrip] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -565,6 +568,61 @@ export default function MarketingFieldScreen({ user, onBack }) {
     });
   };
 
+  const dbRole = (user?.dbRole || user?.role || '').toLowerCase();
+  const isSuperAdminOrAdmin =
+    dbRole.includes('admin') ||
+    dbRole.includes('superadmin') ||
+    dbRole.includes('management');
+
+  const handleDeleteTrip = (tripId) => {
+    sweetAlert({
+      title: 'Delete Field Trip?',
+      text: 'Permanently remove this trip and its recorded GPS coordinates?',
+      type: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Delete',
+      onConfirm: async () => {
+        try {
+          const res = await deleteMarketingTripRecord(tripId);
+          if (res && res.success) {
+            sweetAlert({
+              title: 'Deleted! 🗑️',
+              text: 'Trip record has been deleted.',
+              type: 'success',
+            });
+            if (activeTrip?.id === tripId) {
+              setActiveTrip(null);
+            }
+            loadData();
+          } else {
+            sweetAlert({
+              title: 'Delete Failed',
+              text: res?.error || 'Could not delete record.',
+              type: 'error',
+            });
+          }
+        } catch (e) {
+          sweetAlert({
+            title: 'Error',
+            text: e.message || 'Server error while deleting.',
+            type: 'error',
+          });
+        }
+      },
+    });
+  };
+
+  if (selectedTrackerTrip) {
+    return (
+      <LiveExecutiveTrackerScreen
+        trip={selectedTrackerTrip}
+        executive={user}
+        user={user}
+        onBack={() => setSelectedTrackerTrip(null)}
+      />
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Top Header */}
@@ -676,37 +734,49 @@ export default function MarketingFieldScreen({ user, onBack }) {
             </View>
 
             {/* Action Buttons */}
-            <View style={styles.activeBtnRow}>
+            <View style={{ gap: 10 }}>
               <TouchableOpacity
-                style={[styles.mapNavBtn, { backgroundColor: '#0284c7' }]}
-                onPress={() =>
-                  openNavigationMap(
-                    activeTrip.check_in_latitude,
-                    activeTrip.check_in_longitude,
-                    activeTrip.dest_latitude,
-                    activeTrip.dest_longitude,
-                    activeTrip.to_location
-                  )
-                }
+                style={[styles.mapNavBtn, { backgroundColor: '#f59e0b' }]}
+                onPress={() => setSelectedTrackerTrip(activeTrip)}
               >
-                <AppIcon name="navigation" size={16} color="#ffffff" />
-                <Text style={styles.mapNavBtnText}>Open Navigation</Text>
+                <Text style={{ fontSize: 16 }}>🚗</Text>
+                <Text style={[styles.mapNavBtnText, { color: '#ffffff', fontWeight: '800' }]}>
+                  Open Live Taxi / Rapido Radar Tracker
+                </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.checkOutBtn, submitting && styles.btnDisabled]}
-                onPress={handleCheckOut}
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <>
-                    <AppIcon name="check-circle" size={16} color="#ffffff" />
-                    <Text style={styles.checkOutBtnText}>Check Out (Finish)</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              <View style={styles.activeBtnRow}>
+                <TouchableOpacity
+                  style={[styles.mapNavBtn, { backgroundColor: '#0284c7' }]}
+                  onPress={() =>
+                    openNavigationMap(
+                      activeTrip.check_in_latitude,
+                      activeTrip.check_in_longitude,
+                      activeTrip.dest_latitude,
+                      activeTrip.dest_longitude,
+                      activeTrip.to_location
+                    )
+                  }
+                >
+                  <AppIcon name="navigation" size={16} color="#ffffff" />
+                  <Text style={styles.mapNavBtnText}>Turn-by-Turn GPS</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.checkOutBtn, submitting && styles.btnDisabled]}
+                  onPress={handleCheckOut}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <>
+                      <AppIcon name="check-circle" size={16} color="#ffffff" />
+                      <Text style={styles.checkOutBtnText}>Check Out</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         ) : null}
@@ -1023,22 +1093,88 @@ export default function MarketingFieldScreen({ user, onBack }) {
                   </Text>
 
                   {item.check_in_latitude && item.check_in_longitude ? (
-                    <TouchableOpacity
-                      style={styles.gpsLink}
-                      onPress={() =>
-                        openNavigationMap(
-                          item.check_in_latitude,
-                          item.check_in_longitude,
-                          item.dest_latitude,
-                          item.dest_longitude,
-                          item.to_location
-                        )
-                      }
-                    >
-                      <AppIcon name="map-pin" size={12} color="#06b6d4" />
-                      <Text style={styles.gpsLinkText}>View GPS Route</Text>
-                    </TouchableOpacity>
-                  ) : null}
+                    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                      <TouchableOpacity
+                        style={[
+                          styles.gpsLink,
+                          {
+                            backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
+                            borderColor: '#f59e0b',
+                            borderWidth: 1,
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 6,
+                          },
+                        ]}
+                        onPress={() => setSelectedTrackerTrip(item)}
+                      >
+                        <Text style={{ fontSize: 11 }}>🚗</Text>
+                        <Text style={[styles.gpsLinkText, { color: '#d97706', fontWeight: '800' }]}>
+                          Live Radar Map
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.gpsLink}
+                        onPress={() =>
+                          openNavigationMap(
+                            item.check_in_latitude,
+                            item.check_in_longitude,
+                            item.dest_latitude,
+                            item.dest_longitude,
+                            item.to_location
+                          )
+                        }
+                      >
+                        <AppIcon name="map-pin" size={12} color="#06b6d4" />
+                        <Text style={styles.gpsLinkText}>GPS Route</Text>
+                      </TouchableOpacity>
+
+                      {isSuperAdminOrAdmin && (
+                        <TouchableOpacity
+                          style={[
+                            styles.gpsLink,
+                            {
+                              backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+                              borderColor: '#ef4444',
+                              borderWidth: 1,
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
+                              borderRadius: 6,
+                            },
+                          ]}
+                          onPress={() => handleDeleteTrip(item.id)}
+                        >
+                          <AppIcon name="trash-2" size={12} color="#ef4444" />
+                          <Text style={[styles.gpsLinkText, { color: '#ef4444', fontWeight: '800' }]}>
+                            Delete
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : (
+                    isSuperAdminOrAdmin && (
+                      <TouchableOpacity
+                        style={[
+                          styles.gpsLink,
+                          {
+                            backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+                            borderColor: '#ef4444',
+                            borderWidth: 1,
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 6,
+                          },
+                        ]}
+                        onPress={() => handleDeleteTrip(item.id)}
+                      >
+                        <AppIcon name="trash-2" size={12} color="#ef4444" />
+                        <Text style={[styles.gpsLinkText, { color: '#ef4444', fontWeight: '800' }]}>
+                          Delete
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  )}
                 </View>
               </View>
             ))

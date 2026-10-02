@@ -189,3 +189,37 @@ export async function GET(request) {
     return NextResponse.json({ success: false, message: error.message || 'Server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Attendance record ID is required.' }, { status: 400 });
+    }
+
+    const pool = getPool();
+
+    // 1. Delete associated logs if any
+    try {
+      await pool.execute(`DELETE FROM attendance_logs WHERE record_id = ? OR attendance_id = ?`, [id, id]);
+    } catch (e) {}
+
+    // 2. Delete attendance record
+    const [result] = await pool.execute(`DELETE FROM attendance_records WHERE id = ?`, [id]);
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json({ success: false, error: 'Record not found or already deleted.' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Attendance record deleted successfully.',
+    });
+  } catch (err) {
+    console.error('Delete Attendance Record Error:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+

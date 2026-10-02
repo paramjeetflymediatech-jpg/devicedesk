@@ -13,7 +13,13 @@ import {
   Modal,
 } from 'react-native';
 import { useTheme } from '../../utils/ThemeContext';
-import { fetchMarketingAttendance, fetchMarketingAuthorizations, fetchMarketingLocationLogs } from '../../utils/api';
+import {
+  fetchMarketingAttendance,
+  fetchMarketingAuthorizations,
+  fetchMarketingLocationLogs,
+  deleteMarketingTripRecord,
+} from '../../utils/api';
+import { sweetAlert } from '../../utils/sweetAlert';
 import { getEmployees, subscribe } from '../../store/store';
 import { onSocketEvent } from '../../utils/socketService';
 import AppIcon from '../../components/AppIcon';
@@ -157,6 +163,44 @@ export default function ManageMarketing({ currentUser, onBack }) {
     });
     Linking.openURL(url).catch(() => {
       Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`);
+    });
+  };
+
+  const handleDeleteTrip = (tripId, empName = 'Staff') => {
+    sweetAlert({
+      title: 'Delete Trip Record?',
+      text: `Are you sure you want to permanently delete this field trip for ${empName}? All recorded GPS waypoints will be removed.`,
+      type: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Delete',
+      onConfirm: async () => {
+        try {
+          const res = await deleteMarketingTripRecord(tripId);
+          if (res?.success) {
+            sweetAlert({
+              title: 'Deleted!',
+              text: 'Trip record has been removed.',
+              type: 'success',
+            });
+            if (selectedTripModal?.id === tripId) {
+              setSelectedTripModal(null);
+            }
+            loadData();
+          } else {
+            sweetAlert({
+              title: 'Delete Failed',
+              text: res?.error || 'Could not delete record.',
+              type: 'error',
+            });
+          }
+        } catch (e) {
+          sweetAlert({
+            title: 'Error',
+            text: e.message || 'Server error',
+            type: 'error',
+          });
+        }
+      },
     });
   };
 
@@ -721,7 +765,17 @@ export default function ManageMarketing({ currentUser, onBack }) {
                         ) : null}
                       </View>
 
-                      <Text style={[styles.viewDetailsText, { color: themeColors.primary }]}>Details →</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <TouchableOpacity
+                          style={[styles.gpsBadge, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2', borderColor: '#ef4444', borderWidth: 1 }]}
+                          onPress={() => handleDeleteTrip(item.id, empName)}
+                        >
+                          <AppIcon name="trash-2" size={12} color="#ef4444" />
+                          <Text style={[styles.gpsBadgeText, { color: '#ef4444', fontWeight: '700' }]}>Delete</Text>
+                        </TouchableOpacity>
+
+                        <Text style={[styles.viewDetailsText, { color: themeColors.primary }]}>Details →</Text>
+                      </View>
                     </View>
                   </TouchableOpacity>
                 );
@@ -1057,6 +1111,14 @@ export default function ManageMarketing({ currentUser, onBack }) {
                     ) : null}
                   </View>
                 </View>
+
+                <TouchableOpacity
+                  style={[styles.modalCloseFullBtn, { backgroundColor: '#ef4444', marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+                  onPress={() => handleDeleteTrip(selectedTripModal.id, selectedTripModal.employee_name || selectedTripModal.employee_id)}
+                >
+                  <AppIcon name="trash-2" size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                  <Text style={[styles.modalCloseFullBtnText, { color: '#ffffff', fontWeight: '800' }]}>Delete Field Trip Record</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.modalCloseFullBtn, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}
