@@ -19,7 +19,6 @@ import Svg, {
   Rect,
   Line,
   G,
-  Text as SvgText,
   Defs,
   LinearGradient,
   Stop,
@@ -30,18 +29,36 @@ import { onSocketEvent, offSocketEvent } from '../../utils/socketService';
 import { getApiUrl, deleteMarketingTripRecord } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Safe Time Formatter
+function safeFormatTime(dateVal, fallback = 'Recently') {
+  if (!dateVal) return fallback;
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return fallback;
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch (e) {
+    return fallback;
+  }
+}
 
 // Haversine distance in KM
 function getHaversineKm(lat1, lon1, lat2, lon2) {
   if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
+  if (isNaN(nLat1) || isNaN(nLon1) || isNaN(nLat2) || isNaN(nLon2)) return 0;
+
   const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
+  const dLon = ((nLon2 - nLon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
+    Math.cos((nLat1 * Math.PI) / 180) *
+      Math.cos((nLat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
@@ -63,25 +80,22 @@ export default function LiveExecutiveTrackerScreen({
   const [refreshing, setRefreshing] = useState(false);
 
   // Live Location & Telemetry
-  const [currentLat, setCurrentLat] = useState(
-    trip?.current_latitude || trip?.check_in_latitude || 28.6139
-  );
-  const [currentLng, setCurrentLng] = useState(
-    trip?.current_longitude || trip?.check_in_longitude || 77.2090
-  );
+  const initialLat = Number(trip?.current_latitude) || Number(trip?.check_in_latitude) || 28.6139;
+  const initialLng = Number(trip?.current_longitude) || Number(trip?.check_in_longitude) || 77.2090;
+
+  const [currentLat, setCurrentLat] = useState(initialLat);
+  const [currentLng, setCurrentLng] = useState(initialLng);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [calculatedSpeedKmH, setCalculatedSpeedKmH] = useState(0);
 
   // Map Zoom / Pan state
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [activeViewTab, setActiveViewTab] = useState('map'); // 'map' | 'trail' | 'info'
 
   // Pulse animation for vehicle marker
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const radarAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.25,
@@ -94,16 +108,10 @@ export default function LiveExecutiveTrackerScreen({
           useNativeDriver: true,
         }),
       ])
-    ).start();
-
-    Animated.loop(
-      Animated.timing(radarAnim, {
-        toValue: 1,
-        duration: 2000,
-        useNativeDriver: true,
-      })
-    ).start();
-  }, [pulseAnim, radarAnim]);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
 
   // Fetch Full Waypoint Route History
   const fetchTrailData = async (isSilent = false) => {
@@ -121,9 +129,13 @@ export default function LiveExecutiveTrackerScreen({
         setWaypoints(data.data);
         const latest = data.data[data.data.length - 1];
         if (latest && latest.latitude && latest.longitude) {
-          setCurrentLat(Number(latest.latitude));
-          setCurrentLng(Number(latest.longitude));
-          setLastUpdate(new Date(latest.recorded_at || Date.now()));
+          const latNum = Number(latest.latitude);
+          const lngNum = Number(latest.longitude);
+          if (isFinite(latNum) && isFinite(lngNum)) {
+            setCurrentLat(latNum);
+            setCurrentLng(lngNum);
+            setLastUpdate(new Date(latest.recorded_at || Date.now()));
+          }
         }
       }
     } catch (e) {
@@ -154,12 +166,14 @@ export default function LiveExecutiveTrackerScreen({
           const newLat = Number(data.latitude);
           const newLng = Number(data.longitude);
 
+          if (!isFinite(newLat) || !isFinite(newLng)) return;
+
           // Calculate instant approximate speed
           const distKm = getHaversineKm(currentLat, currentLng, newLat, newLng);
           const timeElapsedSec = (new Date() - lastUpdate) / 1000;
           if (timeElapsedSec > 1 && distKm > 0.005) {
             const speed = (distKm / (timeElapsedSec / 3600)).toFixed(0);
-            setCalculatedSpeedKmH(Math.min(120, Number(speed)));
+            setCalculatedSpeedKmH(Math.min(120, Number(speed) || 0));
           }
 
           setCurrentLat(newLat);
@@ -182,40 +196,56 @@ export default function LiveExecutiveTrackerScreen({
 
     const unsub = onSocketEvent('marketing-location-update', handleLocationUpdate);
     return () => {
-      unsub();
+      if (unsub) unsub();
     };
   }, [activeTrip?.id, currentLat, currentLng, lastUpdate]);
 
   // Coordinates Bounds for SVG Map Projection
-  const startLat = Number(activeTrip?.check_in_latitude || currentLat);
-  const startLng = Number(activeTrip?.check_in_longitude || currentLng);
-  const destLat = Number(activeTrip?.dest_latitude || currentLat + 0.02);
-  const destLng = Number(activeTrip?.dest_longitude || currentLng + 0.02);
+  const startLat = Number(activeTrip?.check_in_latitude) || Number(currentLat) || 28.6139;
+  const startLng = Number(activeTrip?.check_in_longitude) || Number(currentLng) || 77.2090;
+  const destLat = Number(activeTrip?.dest_latitude) || (startLat + 0.015);
+  const destLng = Number(activeTrip?.dest_longitude) || (startLng + 0.015);
+
+  const validWaypoints = useMemo(() => {
+    return (waypoints || []).filter(
+      (w) => w && isFinite(Number(w.latitude)) && isFinite(Number(w.longitude)) && Number(w.latitude) !== 0 && Number(w.longitude) !== 0
+    );
+  }, [waypoints]);
 
   // Compute bounding box
-  const allCoords = [
-    { lat: startLat, lng: startLng },
-    { lat: destLat, lng: destLng },
-    { lat: currentLat, lng: currentLng },
-    ...waypoints.map((w) => ({ lat: Number(w.latitude), lng: Number(w.longitude) })),
-  ].filter((c) => !isNaN(c.lat) && !isNaN(c.lng));
+  const allCoords = useMemo(() => {
+    return [
+      { lat: startLat, lng: startLng },
+      { lat: destLat, lng: destLng },
+      { lat: Number(currentLat) || startLat, lng: Number(currentLng) || startLng },
+      ...validWaypoints.map((w) => ({ lat: Number(w.latitude), lng: Number(w.longitude) })),
+    ].filter((c) => isFinite(c.lat) && isFinite(c.lng));
+  }, [startLat, startLng, destLat, destLng, currentLat, currentLng, validWaypoints]);
 
-  const minLat = Math.min(...allCoords.map((c) => c.lat)) - 0.004 / zoomLevel;
-  const maxLat = Math.max(...allCoords.map((c) => c.lat)) + 0.004 / zoomLevel;
-  const minLng = Math.min(...allCoords.map((c) => c.lng)) - 0.004 / zoomLevel;
-  const maxLng = Math.max(...allCoords.map((c) => c.lng)) + 0.004 / zoomLevel;
+  const lats = allCoords.map((c) => c.lat);
+  const lngs = allCoords.map((c) => c.lng);
 
-  const latSpan = maxLat - minLat || 0.01;
-  const lngSpan = maxLng - minLng || 0.01;
+  const minLat = (lats.length > 0 ? Math.min(...lats) : 28.60) - 0.005 / (zoomLevel || 1);
+  const maxLat = (lats.length > 0 ? Math.max(...lats) : 28.63) + 0.005 / (zoomLevel || 1);
+  const minLng = (lngs.length > 0 ? Math.min(...lngs) : 77.20) - 0.005 / (zoomLevel || 1);
+  const maxLng = (lngs.length > 0 ? Math.max(...lngs) : 77.23) + 0.005 / (zoomLevel || 1);
 
-  // Project GPS to Map View Coordinates (0 to 360 x 0 to 340)
-  const MAP_W = SCREEN_WIDTH - 32;
+  const latSpan = Math.max(0.002, maxLat - minLat);
+  const lngSpan = Math.max(0.002, maxLng - minLng);
+
+  // Project GPS to Map View Coordinates
+  const MAP_W = Math.max(280, SCREEN_WIDTH - 32);
   const MAP_H = 320;
 
   const projectToMap = (lat, lng) => {
-    const x = ((lng - minLng) / lngSpan) * (MAP_W - 60) + 30;
-    const y = MAP_H - (((lat - minLat) / latSpan) * (MAP_H - 60) + 30);
-    return { x, y };
+    const validLat = typeof lat === 'number' && isFinite(lat) ? lat : startLat;
+    const validLng = typeof lng === 'number' && isFinite(lng) ? lng : startLng;
+    const x = ((validLng - minLng) / lngSpan) * (MAP_W - 60) + 30;
+    const y = MAP_H - (((validLat - minLat) / latSpan) * (MAP_H - 60) + 30);
+    return {
+      x: isFinite(x) ? Math.max(15, Math.min(MAP_W - 15, x)) : MAP_W / 2,
+      y: isFinite(y) ? Math.max(15, Math.min(MAP_H - 15, y)) : MAP_H / 2,
+    };
   };
 
   const startPt = projectToMap(startLat, startLng);
@@ -224,16 +254,16 @@ export default function LiveExecutiveTrackerScreen({
 
   // Build SVG Path from Waypoints
   const pathD = useMemo(() => {
-    if (waypoints.length < 2) {
-      return `M ${startPt.x} ${startPt.y} Q ${(startPt.x + destPt.x) / 2 + 20} ${
-        (startPt.y + destPt.y) / 2 - 20
-      } ${destPt.x} ${destPt.y}`;
+    if (validWaypoints.length < 2) {
+      const midX = (startPt.x + destPt.x) / 2 + 15;
+      const midY = (startPt.y + destPt.y) / 2 - 15;
+      return `M ${startPt.x.toFixed(1)} ${startPt.y.toFixed(1)} Q ${midX.toFixed(1)} ${midY.toFixed(1)} ${destPt.x.toFixed(1)} ${destPt.y.toFixed(1)}`;
     }
-    return waypoints.reduce((acc, wp, idx) => {
+    return validWaypoints.reduce((acc, wp, idx) => {
       const pt = projectToMap(Number(wp.latitude), Number(wp.longitude));
-      return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
+      return idx === 0 ? `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}` : `${acc} L ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
     }, '');
-  }, [waypoints, startPt, destPt, minLat, maxLat, minLng, maxLng]);
+  }, [validWaypoints, startPt, destPt, minLat, maxLat, minLng, maxLng]);
 
   // Trip Distance Calculations
   const totalEstimatedKm = Number(
@@ -384,7 +414,7 @@ export default function LiveExecutiveTrackerScreen({
               { color: themeColors.textSecondary },
             ]}
           >
-            Live GPS Tracking • Updated {lastUpdate.toLocaleTimeString()}
+            Live GPS Tracking • Updated {safeFormatTime(lastUpdate)}
           </Text>
         </View>
 
@@ -470,7 +500,7 @@ export default function LiveExecutiveTrackerScreen({
             </View>
 
             {/* SVG Interactive Map Area */}
-            <View style={{ width: MAP_W, height: MAP_H, overflow: 'hidden' }}>
+            <View style={{ width: MAP_W, height: MAP_H, overflow: 'hidden', position: 'relative' }}>
               <Svg width={MAP_W} height={MAP_H}>
                 <Defs>
                   <LinearGradient
@@ -555,7 +585,7 @@ export default function LiveExecutiveTrackerScreen({
                 />
 
                 {/* Waypoint History Dots */}
-                {waypoints.map((wp, i) => {
+                {validWaypoints.map((wp, i) => {
                   const p = projectToMap(
                     Number(wp.latitude),
                     Number(wp.longitude)
@@ -572,7 +602,7 @@ export default function LiveExecutiveTrackerScreen({
                   );
                 })}
 
-                {/* 🟢 ORIGIN PIN */}
+                {/* 🟢 ORIGIN PIN SVG CIRCLES */}
                 <G>
                   <Circle
                     cx={startPt.x}
@@ -588,19 +618,9 @@ export default function LiveExecutiveTrackerScreen({
                     stroke="#ffffff"
                     strokeWidth="2"
                   />
-                  <SvgText
-                    x={startPt.x}
-                    y={startPt.y - 12}
-                    fill="#10b981"
-                    fontSize="10"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                  >
-                    START
-                  </SvgText>
                 </G>
 
-                {/* 🔴 DESTINATION PIN */}
+                {/* 🔴 DESTINATION PIN SVG CIRCLES */}
                 <G>
                   <Circle
                     cx={destPt.x}
@@ -616,19 +636,9 @@ export default function LiveExecutiveTrackerScreen({
                     stroke="#ffffff"
                     strokeWidth="2"
                   />
-                  <SvgText
-                    x={destPt.x}
-                    y={destPt.y - 14}
-                    fill="#ef4444"
-                    fontSize="10"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                  >
-                    DROP
-                  </SvgText>
                 </G>
 
-                {/* 🟡 MOVING VEHICLE / EXECUTIVE LIVE PIN */}
+                {/* 🟡 MOVING VEHICLE PIN SVG CIRCLE */}
                 <G>
                   <Circle
                     cx={currPt.x}
@@ -644,18 +654,21 @@ export default function LiveExecutiveTrackerScreen({
                     stroke="#ffffff"
                     strokeWidth="2.5"
                   />
-                  <SvgText
-                    x={currPt.x}
-                    y={currPt.y + 4}
-                    fill="#ffffff"
-                    fontSize="10"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                  >
-                    🚗
-                  </SvgText>
                 </G>
               </Svg>
+
+              {/* OVERLAY HTML/REACT NATIVE LABELS (Crash-proof on all Android versions) */}
+              <View style={[styles.mapMarkerOverlay, { left: Math.max(0, startPt.x - 22), top: Math.max(0, startPt.y - 24) }]}>
+                <Text style={styles.startPinLabel}>START</Text>
+              </View>
+
+              <View style={[styles.mapMarkerOverlay, { left: Math.max(0, destPt.x - 20), top: Math.max(0, destPt.y - 24) }]}>
+                <Text style={styles.dropPinLabel}>DROP</Text>
+              </View>
+
+              <Animated.View style={[styles.mapMarkerOverlay, { left: Math.max(0, currPt.x - 10), top: Math.max(0, currPt.y - 10), transform: [{ scale: pulseAnim }] }]}>
+                <Text style={{ fontSize: 13 }}>🚗</Text>
+              </Animated.View>
             </View>
 
             {/* Bottom Overlay: Direct Navigation Button */}
@@ -665,7 +678,7 @@ export default function LiveExecutiveTrackerScreen({
                   📍 {currentLat.toFixed(5)}°, {currentLng.toFixed(5)}°
                 </Text>
                 <Text style={styles.mapTrailCountText}>
-                  {waypoints.length} GPS Waypoints Recorded
+                  {validWaypoints.length} GPS Waypoints Recorded
                 </Text>
               </View>
 
@@ -806,10 +819,7 @@ export default function LiveExecutiveTrackerScreen({
                     {activeTrip?.from_location || 'GPS Starting Position'}
                   </Text>
                   <Text style={styles.timelineTime}>
-                    Checked In:{' '}
-                    {activeTrip?.check_in_at
-                      ? new Date(activeTrip.check_in_at).toLocaleTimeString()
-                      : 'Recently'}
+                    Checked In: {safeFormatTime(activeTrip?.check_in_at)}
                   </Text>
                 </View>
               </View>
@@ -869,7 +879,7 @@ export default function LiveExecutiveTrackerScreen({
                   { color: themeColors.textPrimary },
                 ]}
               >
-                📍 GPS Breadcrumb Log ({waypoints.length} Points)
+                📍 GPS Breadcrumb Log ({validWaypoints.length} Points)
               </Text>
               <TouchableOpacity
                 onPress={() => fetchTrailData(false)}
@@ -885,13 +895,13 @@ export default function LiveExecutiveTrackerScreen({
                 color="#3b82f6"
                 style={{ padding: 20 }}
               />
-            ) : waypoints.length === 0 ? (
+            ) : validWaypoints.length === 0 ? (
               <Text style={styles.emptyTrailText}>
                 Collecting initial GPS satellite coordinates...
               </Text>
             ) : (
               <View style={{ gap: 8, marginTop: 10 }}>
-                {waypoints
+                {validWaypoints
                   .slice(-5)
                   .reverse()
                   .map((wp, idx) => (
@@ -918,7 +928,7 @@ export default function LiveExecutiveTrackerScreen({
                             {Number(wp.longitude).toFixed(5)}°
                           </Text>
                           <Text style={styles.trailItemTime}>
-                            {new Date(wp.recorded_at).toLocaleTimeString()}
+                            {safeFormatTime(wp.recorded_at)}
                           </Text>
                         </View>
                       </View>
@@ -1034,6 +1044,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginTop: -2,
+  },
+  mapMarkerOverlay: {
+    position: 'absolute',
+    zIndex: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startPinLabel: {
+    backgroundColor: '#10b981',
+    color: '#ffffff',
+    fontSize: 8,
+    fontWeight: '900',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  dropPinLabel: {
+    backgroundColor: '#ef4444',
+    color: '#ffffff',
+    fontSize: 8,
+    fontWeight: '900',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    overflow: 'hidden',
   },
   mapFooterBar: {
     backgroundColor: 'rgba(15, 23, 42, 0.92)',
