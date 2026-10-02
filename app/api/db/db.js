@@ -563,6 +563,8 @@ async function initializeDatabase(db) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  try { await db.execute(`ALTER TABLE marketing_location_logs ADD COLUMN recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS marketing_visits (
       id VARCHAR(100) PRIMARY KEY,
@@ -626,6 +628,7 @@ async function initializeDatabase(db) {
   try { await db.execute(`ALTER TABLE client_notes ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_notes ADD COLUMN attachment TEXT DEFAULT NULL`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_notes ADD COLUMN tl_attachment TEXT DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_notes ADD COLUMN replied_by_name VARCHAR(150) DEFAULT NULL`); } catch (err) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS work_submissions (
@@ -903,7 +906,6 @@ async function initializeDatabase(db) {
     await db.execute(`
       INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status)
       VALUES 
-        ('emp_tl', 'Team Leader', 'leader@devicedesk.com', ?, 'Team Leader', 'Development', 20, 'Active'),
         ('admin', 'Administrator', 'admin@devicedesk.com', ?, 'Admin', 'Management', 20, 'Active')
       ON DUPLICATE KEY UPDATE status='Active'
     `, [defaultPassHash, defaultPassHash]);

@@ -5,10 +5,12 @@ import Swal from 'sweetalert2';
 import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 
-export default function LeaderClientChatPage() {
+export default function AdminClientNotesPage() {
   const { user } = useAuth();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const notesPerPage = 10;
   const [replyText, setReplyText] = useState({});
   const [attachments, setAttachments] = useState({}); // attachments[noteId] will be an array of files
   const [uploadingNotes, setUploadingNotes] = useState({});
@@ -68,7 +70,7 @@ export default function LeaderClientChatPage() {
       const res = await fetch('/api/client-notes', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: noteId, tl_reply: reply, tl_attachment: attachmentStr, replied_by_name: user?.name || 'Team Leader' })
+        body: JSON.stringify({ id: noteId, tl_reply: reply, tl_attachment: attachmentStr, replied_by_name: user?.name || 'Admin' })
       });
       const data = await res.json();
       if (data.success) {
@@ -85,32 +87,38 @@ export default function LeaderClientChatPage() {
     }
   };
 
+  const indexOfLastNote = currentPage * notesPerPage;
+  const indexOfFirstNote = indexOfLastNote - notesPerPage;
+  const currentNotes = notes.slice(indexOfFirstNote, indexOfLastNote);
+  const totalPages = Math.ceil(notes.length / notesPerPage);
+
   if (loading) return <div className="p-8 text-center text-slate-500">Loading client messages...</div>;
 
   return (
-    <div className="flex-1 p-6 bg-slate-50/50 min-h-screen">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-        <FiMessageSquare className="text-blue-600" />
-        Client Messages & Notes
-      </h1>
+    <div className="page-container p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <FiMessageSquare style={{ color: 'var(--accent-cyan)' }} /> Client Messages & Notes
+        </h1>
+      </div>
       
       {notes.length === 0 ? (
-        <div className="bg-white p-12 rounded-xl border border-slate-200 text-center text-slate-500 shadow-sm max-w-4xl">
-          <FiMessageSquare className="text-4xl mx-auto mb-3 text-slate-300" />
+        <div style={{ background: 'var(--glass-bg)', padding: '3rem', borderRadius: '12px', border: '1px solid var(--glass-border)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <FiMessageSquare size={48} style={{ margin: '0 auto 12px', color: 'var(--text-muted)' }} />
           No client messages found yet.
         </div>
       ) : (
-        <div className="grid gap-6 max-w-4xl">
-          {notes.map(note => (
-            <div key={note.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
-              <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+        <div className="grid gap-6">
+          {currentNotes.map(note => (
+            <div key={note.id} className="flex flex-col gap-4" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+              <div className="flex justify-between items-start ">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
                     <FiUser />
                   </div>
                   <div>
-                    <p className="font-bold text-slate-800">Client ID: {note.client_id}</p>
-                    <p className="text-xs text-slate-500">{new Date(note.created_at).toLocaleString()}</p>
+                    <p style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>Client ID: {note.client_id}</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{new Date(note.created_at).toLocaleString()}</p>
                   </div>
                 </div>
                 <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${note.status === 'Unread' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
@@ -118,7 +126,7 @@ export default function LeaderClientChatPage() {
                 </span>
               </div>
               
-              <div className="bg-slate-50 p-4 rounded-lg text-slate-800 whitespace-pre-wrap border border-slate-100 leading-relaxed">
+              <div style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', border: '1px solid var(--glass-border)', lineHeight: '1.6' }}>
                 {note.note}
               </div>
               
@@ -137,7 +145,7 @@ export default function LeaderClientChatPage() {
                         key={idx}
                         type="button"
                         onClick={() => setPreviewAttachmentUrl(url)}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 hover:shadow-sm px-3 py-1.5 rounded-lg border border-blue-100 transition-all w-fit"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--accent-cyan)', background: 'rgba(6, 182, 212, 0.1)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.2)' }}
                       >
                         <FiPaperclip size={14} /> View Client Attachment {urls.length > 1 ? idx+1 : ''}
                       </button>
@@ -147,12 +155,12 @@ export default function LeaderClientChatPage() {
               })()}
 
               {note.tl_reply ? (
-                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mt-2 shadow-sm">
-                  <p className="text-xs font-bold text-blue-800 mb-1 uppercase tracking-wide flex items-center gap-2">
+                <div style={{ background: 'rgba(168, 85, 247, 0.05)', borderLeft: '4px solid #a855f7', padding: '1rem', borderRadius: '0 8px 8px 0', marginTop: '8px' }}>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#a855f7', marginBottom: '4px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span>{note.replied_by_name ? `Reply from ${note.replied_by_name}` : 'Your Reply'}</span>
-                    <span className="text-[10px] bg-blue-100 px-2 py-0.5 rounded text-blue-600">Replied</span>
+                    <span style={{ fontSize: '0.6rem', background: 'rgba(168, 85, 247, 0.15)', padding: '2px 6px', borderRadius: '4px', color: '#a855f7' }}>Replied</span>
                   </p>
-                  <p className="text-blue-900 whitespace-pre-wrap leading-relaxed">{note.tl_reply}</p>
+                  <p style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{note.tl_reply}</p>
                   {note.tl_attachment && (() => {
                     let urls = [];
                     try {
@@ -168,7 +176,7 @@ export default function LeaderClientChatPage() {
                             key={idx}
                             type="button"
                             onClick={() => setPreviewAttachmentUrl(url)}
-                            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-100/60 hover:bg-blue-200 hover:shadow-sm px-3 py-1.5 rounded-lg border border-blue-200 transition-all w-fit"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 'bold', color: '#a855f7', background: 'rgba(168, 85, 247, 0.1)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(168, 85, 247, 0.2)' }}
                           >
                             <FiPaperclip size={14} /> View Your Attachment {urls.length > 1 ? idx+1 : ''}
                           </button>
@@ -178,12 +186,12 @@ export default function LeaderClientChatPage() {
                   })()}
                 </div>
               ) : (
-                <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 mt-2">
+                <div className="flex flex-col gap-3 pt-4 mt-2" style={{ borderTop: '1px solid var(--glass-border)' }}>
                   <textarea
                     placeholder="Type your reply to the client..."
                     value={replyText[note.id] || ''}
                     onChange={(e) => setReplyText({...replyText, [note.id]: e.target.value})}
-                    className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm min-h-[100px] shadow-sm transition-shadow"
+                    className="w-full p-4 text-sm outline-none transition-shadow" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '12px', minHeight: '100px', color: 'var(--text-primary)' }}
                   />
                   <div className="flex flex-col gap-3">
                     {attachments[note.id] && attachments[note.id].length > 0 && (
@@ -200,7 +208,7 @@ export default function LeaderClientChatPage() {
                       </div>
                     )}
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      <label className="cursor-pointer text-slate-500 hover:text-blue-600 transition-colors flex items-center gap-1 text-sm font-medium bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm shrink-0">
+                      <label className="cursor-pointer flex items-center gap-1 text-sm font-medium shrink-0 transition-colors" style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--glass-border)', padding: '8px 16px', borderRadius: '12px' }}>
                         <FiPaperclip size={16} /> Attach Files
                         <input type="file" multiple className="hidden" onChange={(e) => {
                           const files = Array.from(e.target.files);
@@ -210,7 +218,7 @@ export default function LeaderClientChatPage() {
                       <button
                         onClick={() => handleReply(note.id)}
                         disabled={uploadingNotes[note.id]}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-blue-200 disabled:opacity-70 disabled:cursor-not-allowed min-w-[130px] w-full sm:w-auto"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-70 disabled:cursor-not-allowed" style={{ background: 'var(--accent-cyan)', color: '#fff', border: 'none', minWidth: '130px' }}
                       >
                         {uploadingNotes[note.id] ? (
                           <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Uploading...</>
