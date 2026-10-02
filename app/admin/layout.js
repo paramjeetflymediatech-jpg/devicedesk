@@ -183,6 +183,7 @@ export default function AdminLayout({ children }) {
         { name: "Packages", path: "/admin/packages", icon: <FiBox /> },
         { name: "Subscriptions", path: "/admin/subscriptions", icon: <FiList /> },
         { name: "Client Requests", path: "/admin/client-requests", icon: <FiList /> },
+        { name: "Client Notes", path: "/admin/client-notes", icon: <FiMessageSquare /> },
         { name: "Management Overview", path: "/admin/management-overview", icon: <FiActivity /> }
       ]
     },

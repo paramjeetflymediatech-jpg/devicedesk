@@ -48,15 +48,15 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, tl_reply, tl_attachment } = await request.json();
+    const { id, tl_reply, tl_attachment, replied_by_name } = await request.json();
     if (!id || !tl_reply) {
       return NextResponse.json({ success: false, error: 'id and tl_reply are required' }, { status: 400 });
     }
 
     const db = await getDbConnection();
     await db.execute(
-      'UPDATE client_notes SET tl_reply = ?, status = ?, tl_attachment = ? WHERE id = ?', 
-      [tl_reply, 'Replied', tl_attachment || null, id]
+      'UPDATE client_notes SET tl_reply = ?, status = ?, tl_attachment = ?, replied_by_name = ? WHERE id = ?', 
+      [tl_reply, 'Replied', tl_attachment || null, replied_by_name || 'Admin', id]
     );
 
     return NextResponse.json({ success: true, message: 'Reply sent' });
