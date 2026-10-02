@@ -42,8 +42,11 @@ export default function TeamAndEODsPage() {
         
         const mappedMembers = members.map(m => {
           const mTasks = tasksList.filter(t => t.assignedTo === m.id && t.status !== 'Completed');
-          const today = new Date().toISOString().split('T')[0];
-          const mEods = eodList.filter(e => e.employee_id === m.id && (e.submitted_at || '').startsWith(today));
+          const today = new Date().toLocaleDateString();
+          const mEods = eodList.filter(e => {
+            if (!e.submitted_at) return false;
+            return e.employee_id === m.id && new Date(e.submitted_at).toLocaleDateString() === today;
+          });
           const latestEod = mEods.length > 0 ? mEods[0] : null;
 
           return {
