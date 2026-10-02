@@ -194,6 +194,7 @@ export default function EmployeeTasks({ currentUser }) {
           body: formData,
           headers: {
             'Accept': 'application/json',
+            'x-user-id': String(currentUser?.id || '')
           }
         });
 

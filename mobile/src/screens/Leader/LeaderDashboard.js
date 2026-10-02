@@ -363,7 +363,10 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
           method: 'POST',
           body: formData,
-          headers: { 'Accept': 'application/json' },
+          headers: { 
+            'Accept': 'application/json',
+            'x-user-id': String(user?.id || '')
+          },
         });
         const uploadData = await uploadRes.json();
         if (uploadRes.ok && uploadData.success && uploadData.fileUrls) {

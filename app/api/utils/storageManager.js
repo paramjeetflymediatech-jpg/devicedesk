@@ -115,6 +115,17 @@ export async function checkAuth(req) {
       [userId, String(userId).toLowerCase()]
     );
     if (rows.length === 0) {
+      // Fallback: Check if user exists in clients table if present
+      try {
+        const [clientRows] = await db.execute(
+          'SELECT id, name, email, "client" as role, "Client" as department, "Active" as status FROM clients WHERE id = ? OR client_id = ? OR LOWER(email) = LOWER(?) LIMIT 1',
+          [userId, userId, String(userId).toLowerCase()]
+        );
+        if (clientRows.length > 0) {
+          return clientRows[0];
+        }
+      } catch (cErr) {}
+
       console.log('checkAuth failed: User not found in DB for ID/Email:', userId);
       return null;
     }

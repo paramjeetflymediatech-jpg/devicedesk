@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Clipboard from '@react-native-clipboard/clipboard';
 import SoundPlayer from 'react-native-sound-player';
+import { startAudioRecording, stopAudioRecording, cancelAudioRecording } from '../utils/audioRecorder';
 import { getEmployees, getSystems, subscribe } from '../store/store';
 import { getApiUrl, fetchMarketingAuthorizations, resolveSafeImageUri } from '../utils/api';
 import { 
@@ -221,7 +222,12 @@ export default function ChatScreen({ user, onBack }) {
       setPlayingAudioId(null);
     } else {
       setPlayingAudioId(msg.id);
-      const audioUrl = msg.fileUrl || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+      let audioUrl = msg.fileUrl || msg.content;
+      if (audioUrl) {
+        if (!audioUrl.startsWith('http://') && !audioUrl.startsWith('https://') && !audioUrl.startsWith('file://')) {
+          audioUrl = resolveSafeImageUri(audioUrl) || audioUrl;
+        }
+      }
       try {
         await SoundPlayer.playUrl(audioUrl);
       } catch (e) {
@@ -229,7 +235,7 @@ export default function ChatScreen({ user, onBack }) {
       }
       setTimeout(() => {
         setPlayingAudioId(prev => (prev === msg.id ? null : prev));
-      }, 7000);
+      }, 15000);
     }
   };
 
@@ -645,6 +651,7 @@ export default function ChatScreen({ user, onBack }) {
           body: formData,
           headers: {
             'Accept': 'application/json',
+            'x-user-id': String(user?.id || ''),
           },
         });
         const uploadData = await uploadRes.json();
@@ -736,14 +743,76 @@ export default function ChatScreen({ user, onBack }) {
     }
   };
 
+  // Start Voice Recording
+  const handleStartRecording = async () => {
+    try {
+      await startAudioRecording();
+      setIsRecording(true);
+      setRecordTime(0);
+    } catch (err) {
+      Alert.alert('Microphone Access', err.message || 'Microphone access is required to record voice notes.');
+    }
+  };
+
+  // Cancel Voice Recording
+  const handleCancelRecording = async () => {
+    setIsRecording(false);
+    setRecordTime(0);
+    try {
+      await cancelAudioRecording();
+    } catch (e) {}
+  };
+
   // Handle Send Voice Note
   const handleSendVoiceNote = async () => {
     setIsRecording(false);
     const mins = Math.floor(recordTime / 60);
     const secs = recordTime % 60;
     const durStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    setRecordTime(0);
 
-    const defaultAudioUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+    let recordedAudioPath = null;
+    try {
+      recordedAudioPath = await stopAudioRecording();
+    } catch (e) {
+      console.warn('Error stopping audio recording:', e);
+    }
+
+    if (!recordedAudioPath) {
+      Alert.alert('Voice Note', 'Could not capture audio from microphone.');
+      return;
+    }
+
+    setUploading(true);
+    let remoteAudioUrl = null;
+    try {
+      const formData = new FormData();
+      const fileUri = recordedAudioPath;
+      formData.append('files', {
+        uri: Platform.OS === 'android' ? (fileUri.startsWith('file://') ? fileUri : `file://${fileUri}`) : fileUri.replace('file://', ''),
+        type: 'audio/mp4',
+        name: `voice_note_${Date.now()}.m4a`
+      });
+
+      const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+          'x-user-id': String(user?.id || ''),
+        },
+      });
+      const uploadData = await uploadRes.json();
+      if (uploadRes.ok && uploadData.success && uploadData.fileUrls && uploadData.fileUrls.length > 0) {
+        remoteAudioUrl = uploadData.fileUrls[0];
+      }
+    } catch (uploadErr) {
+      console.warn('Voice note upload error:', uploadErr);
+    } finally {
+      setUploading(false);
+    }
+
+    const finalAudioUrl = remoteAudioUrl || (recordedAudioPath.startsWith('file://') ? recordedAudioPath : `file://${recordedAudioPath}`);
 
     const newMsg = {
       id: `msg_${Date.now()}`,
@@ -752,12 +821,16 @@ export default function ChatScreen({ user, onBack }) {
       receiverId: activeChatId,
       content: `🎙️ Voice Note (${durStr})`,
       messageType: 'audio',
-      fileUrl: defaultAudioUrl,
-      fileName: `Voice Note (${durStr}).mp3`,
+      fileUrl: finalAudioUrl,
+      fileName: `Voice Note (${durStr}).m4a`,
       timestamp: new Date().toISOString(),
     };
 
     setMessages(prev => [...prev, newMsg]);
+    try {
+      sendSocketMessage(newMsg);
+    } catch (sErr) {}
+
     try {
       await fetch(`${getApiUrl()}/api/chat`, {
         method: 'POST',
@@ -1845,55 +1918,82 @@ export default function ChatScreen({ user, onBack }) {
                                   </View>
                                 );
                               })()
-                            ) : msg.messageType === 'image' && (msg.fileUrl || msg.content?.startsWith('file:') || msg.content?.startsWith('http')) ? (
+                            ) : msg.messageType === 'image' && (msg.fileUrl || msg.content?.startsWith('file:') || msg.content?.startsWith('http') || msg.fileName) ? (
                               (() => {
-                                const resolvedSingleImg = resolveSafeImageUri(msg.fileUrl || msg.content);
+                                const rawTarget = msg.fileUrl || (msg.content?.startsWith('http') || msg.content?.startsWith('file:') ? msg.content : '');
+                                const resolvedSingleImg = resolveSafeImageUri(rawTarget);
+                                const captionText = msg.content && !msg.content.startsWith('http') && !msg.content.startsWith('file:') && msg.content !== '📷 Photo'
+                                  ? msg.content.replace(/^📷 Photo\n?/, '')
+                                  : '';
                                 if (!resolvedSingleImg) {
                                   return (
                                     <View style={[styles.chatMediaImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#1f2c34', borderRadius: 8, padding: 12 }]}>
                                       <AppIcon name="image" size={28} color="#8696a0" />
                                       <Text style={{ color: '#8696a0', fontSize: 11, marginTop: 4 }}>📷 Photo</Text>
+                                      {captionText ? <Text style={{ color: isOwn ? '#ffffff' : themeColors.textPrimary, marginTop: 4 }}>{captionText}</Text> : null}
                                     </View>
                                   );
                                 }
                                 return (
-                                  <TouchableOpacity
-                                    onPress={() => setActiveImageUrl(resolvedSingleImg)}
-                                    style={{ marginBottom: 4 }}
-                                    activeOpacity={0.85}
-                                  >
-                                    <Image
-                                      source={{ uri: resolvedSingleImg }}
-                                      style={styles.chatMediaImage}
-                                      resizeMode="cover"
-                                    />
-                                  </TouchableOpacity>
+                                  <View>
+                                    <TouchableOpacity
+                                      onPress={() => setActiveImageUrl(resolvedSingleImg)}
+                                      style={{ marginBottom: 4 }}
+                                      activeOpacity={0.85}
+                                    >
+                                      <Image
+                                        source={{ uri: resolvedSingleImg }}
+                                        style={styles.chatMediaImage}
+                                        resizeMode="cover"
+                                      />
+                                    </TouchableOpacity>
+                                    {captionText ? (
+                                      <View style={{ marginTop: 2, paddingHorizontal: 4 }}>
+                                        {renderMessageContent(captionText, isOwn)}
+                                      </View>
+                                    ) : null}
+                                  </View>
                                 );
                               })()
                             ) : msg.messageType === 'video' ? (
                               /* Video Attachment Card */
-                              <TouchableOpacity
-                                onPress={() => {
-                                  if (msg.fileUrl) {
-                                    setActiveVideoUrl(msg.fileUrl);
-                                  } else {
-                                    handleOpenFile(msg.fileUrl, msg.fileName || 'Video.mp4');
-                                  }
-                                }}
-                                style={[styles.videoCard, { backgroundColor: isOwn ? 'rgba(255,255,255,0.12)' : (isDark ? '#0f172a' : '#f1f5f9') }]}
-                              >
-                                <View style={styles.videoThumbnailContainer}>
-                                  <View style={styles.videoPlayBadge}>
-                                    <AppIcon name="play" size={16} color="#ffffff" />
+                              (() => {
+                                const captionText = msg.content && !msg.content.startsWith('http') && !msg.content.startsWith('file:') && msg.content !== '🎥 Video'
+                                  ? msg.content.replace(/^🎥 Video\n?/, '')
+                                  : '';
+                                return (
+                                  <View>
+                                    <TouchableOpacity
+                                      onPress={() => {
+                                        const resolvedVid = resolveSafeImageUri(msg.fileUrl) || msg.fileUrl;
+                                        if (resolvedVid) {
+                                          setActiveVideoUrl(resolvedVid);
+                                        } else {
+                                          handleOpenFile(msg.fileUrl, msg.fileName || 'Video.mp4');
+                                        }
+                                      }}
+                                      style={[styles.videoCard, { backgroundColor: isOwn ? 'rgba(255,255,255,0.12)' : (isDark ? '#0f172a' : '#f1f5f9') }]}
+                                    >
+                                      <View style={styles.videoThumbnailContainer}>
+                                        <View style={styles.videoPlayBadge}>
+                                          <AppIcon name="play" size={16} color="#ffffff" />
+                                        </View>
+                                      </View>
+                                      <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <AppIcon name="video" size={14} color={isOwn ? '#ffffff' : themeColors.textPrimary} />
+                                        <Text style={{ color: isOwn ? '#ffffff' : themeColors.textPrimary, fontSize: 12, fontWeight: 'bold', flex: 1 }} numberOfLines={1}>
+                                          {msg.fileName || 'Video Attachment'}
+                                        </Text>
+                                      </View>
+                                    </TouchableOpacity>
+                                    {captionText ? (
+                                      <View style={{ marginTop: 4, paddingHorizontal: 4 }}>
+                                        {renderMessageContent(captionText, isOwn)}
+                                      </View>
+                                    ) : null}
                                   </View>
-                                </View>
-                                <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                  <AppIcon name="video" size={14} color={isOwn ? '#ffffff' : themeColors.textPrimary} />
-                                  <Text style={{ color: isOwn ? '#ffffff' : themeColors.textPrimary, fontSize: 12, fontWeight: 'bold', flex: 1 }} numberOfLines={1}>
-                                    {msg.fileName || 'Video Attachment'}
-                                  </Text>
-                                </View>
-                              </TouchableOpacity>
+                                );
+                              })()
                             ) : msg.messageType === 'audio' ? (
                               /* Voice Note Audio Player Render */
                               <View style={[styles.voiceNoteCard, { backgroundColor: isOwn ? 'rgba(255,255,255,0.12)' : (isDark ? '#0f172a' : '#f1f5f9') }]}>
@@ -1981,7 +2081,7 @@ export default function ChatScreen({ user, onBack }) {
                 </View>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <TouchableOpacity onPress={() => setIsRecording(false)} style={{ padding: 6 }}>
+                  <TouchableOpacity onPress={handleCancelRecording} style={{ padding: 6 }}>
                     <AppIcon name="trash" size={20} color="#ef4444" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleSendVoiceNote} style={styles.sendBtn}>
@@ -2025,7 +2125,7 @@ export default function ChatScreen({ user, onBack }) {
                     <AppIcon name="send" size={18} color="#ffffff" />
                   </TouchableOpacity>
                 ) : (
-                  <TouchableOpacity onPress={() => setIsRecording(true)} style={[styles.sendBtn, { backgroundColor: '#3b82f6' }]}>
+                  <TouchableOpacity onPress={handleStartRecording} style={[styles.sendBtn, { backgroundColor: '#3b82f6' }]}>
                     <AppIcon name="mic" size={18} color="#ffffff" />
                   </TouchableOpacity>
                 )}
