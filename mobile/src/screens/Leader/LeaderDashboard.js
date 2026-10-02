@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { pick } from '@react-native-documents/picker';
+import Video from 'react-native-video';
 import AppIcon from '../../components/AppIcon';
 import { useTheme } from '../../utils/ThemeContext';
 import {
@@ -74,7 +75,23 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
   const [previewError, setPreviewError] = useState(false);
 
+  // Audio player state & ref
+  const audioPlayerRef = useRef(null);
+  const [audioPaused, setAudioPaused] = useState(false);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioLoading, setAudioLoading] = useState(true);
+
+  const formatAudioTime = (seconds) => {
+    if (!seconds || isNaN(seconds) || seconds < 0) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
   const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
+  const isVideoUrl = (url) => typeof url === 'string' && /\.(mp4|webm|mov|ogg|mkv|3gp|avi)($|\?)/i.test(url);
+  const isAudioUrl = (url) => typeof url === 'string' && /\.(mp3|wav|ogg|m4a|aac|flac)($|\?)/i.test(url);
 
   const handleOpenAttachment = (url) => {
     if (!url) {
@@ -82,13 +99,19 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       return;
     }
     setPreviewError(false);
-    if (isImageUrl(url)) {
-      setPreviewAttachmentUrl(url);
-    } else {
-      Linking.openURL(url).catch(() => {
-        sweetAlert({ title: 'File Missing', text: 'Could not open file URL. The attachment could not be found.', type: 'error' });
-      });
-    }
+    setAudioPaused(false);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
+    setAudioLoading(true);
+    setPreviewAttachmentUrl(url);
+  };
+
+  const handleClosePreview = () => {
+    setPreviewAttachmentUrl(null);
+    setPreviewError(false);
+    setAudioPaused(true);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
   };
   const [notesFilter, setNotesFilter] = useState('ALL'); // 'ALL' | 'UNREAD' | 'REPLIED'
   const [notesSearch, setNotesSearch] = useState('');
@@ -1973,10 +1996,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         visible={!!previewAttachmentUrl}
         transparent
         animationType="fade"
-        onRequestClose={() => {
-          setPreviewAttachmentUrl(null);
-          setPreviewError(false);
-        }}
+        onRequestClose={handleClosePreview}
       >
         <View style={{
           flex: 1,
@@ -2020,16 +2040,13 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 justifyContent: 'center',
                 alignItems: 'center'
               }}
-              onPress={() => {
-                setPreviewAttachmentUrl(null);
-                setPreviewError(false);
-              }}
+              onPress={handleClosePreview}
             >
               <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Image Display or Error Fallback */}
+          {/* Media Display or Error Fallback */}
           {previewError ? (
             <View style={{ width: '100%', height: '70%', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
               <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
@@ -2053,7 +2070,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Try Direct Link ↗</Text>
               </TouchableOpacity>
             </View>
-          ) : previewAttachmentUrl ? (
+          ) : isImageUrl(previewAttachmentUrl) ? (
             <View style={{ width: '100%', height: '80%', justifyContent: 'center', alignItems: 'center' }}>
               <Image
                 source={{ uri: previewAttachmentUrl }}
@@ -2061,6 +2078,183 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 resizeMode="contain"
                 onError={() => setPreviewError(true)}
               />
+            </View>
+          ) : isVideoUrl(previewAttachmentUrl) ? (
+            <View style={{ width: '100%', height: '80%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' }}>
+              <Video
+                source={{ uri: previewAttachmentUrl }}
+                style={{ width: '100%', height: '100%' }}
+                controls={true}
+                resizeMode="contain"
+                paused={false}
+                onError={() => setPreviewError(true)}
+              />
+            </View>
+          ) : isAudioUrl(previewAttachmentUrl) ? (
+            <View style={{ width: '100%', maxWidth: 350, backgroundColor: 'rgba(30, 41, 59, 0.95)', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 16, elevation: 10 }}>
+              {/* Background Video engine powering audio */}
+              <Video
+                ref={audioPlayerRef}
+                source={{ uri: previewAttachmentUrl }}
+                style={{ width: 0, height: 0, position: 'absolute' }}
+                paused={audioPaused}
+                playInBackground={false}
+                playWhenInactive={false}
+                ignoreSilentSwitch="ignore"
+                onLoad={(data) => {
+                  setAudioLoading(false);
+                  setAudioDuration(data.duration || 0);
+                }}
+                onProgress={(data) => {
+                  setAudioCurrentTime(data.currentTime || 0);
+                }}
+                onEnd={() => {
+                  setAudioPaused(true);
+                  setAudioCurrentTime(audioDuration);
+                }}
+                onError={() => {
+                  setAudioLoading(false);
+                  setPreviewError(true);
+                }}
+              />
+
+              {/* Glowing Icon Header */}
+              <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(59, 130, 246, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 14, borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.4)' }}>
+                <Text style={{ fontSize: 34 }}>🎙️</Text>
+              </View>
+
+              <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '800', marginBottom: 4, textAlign: 'center' }}>
+                Audio Recording
+              </Text>
+              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, marginBottom: 20, textAlign: 'center', paddingHorizontal: 10 }} numberOfLines={1}>
+                {previewAttachmentUrl.split('/').pop()}
+              </Text>
+
+              {/* Interactive Progress Bar */}
+              <View style={{ width: '100%', height: 18, justifyContent: 'center', marginBottom: 4 }}>
+                <View style={{ width: '100%', height: 6, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 3, overflow: 'hidden' }}>
+                  <View
+                    style={{
+                      height: '100%',
+                      backgroundColor: '#3b82f6',
+                      borderRadius: 3,
+                      width: `${audioDuration > 0 ? Math.min(100, (audioCurrentTime / audioDuration) * 100) : 0}%`
+                    }}
+                  />
+                </View>
+              </View>
+
+              {/* Time Indicators */}
+              <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
+                <Text style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: 12, fontWeight: '700' }}>
+                  {formatAudioTime(audioCurrentTime)}
+                </Text>
+                <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, fontWeight: '600' }}>
+                  {audioLoading ? 'Loading...' : formatAudioTime(audioDuration)}
+                </Text>
+              </View>
+
+              {/* Audio Controls Row */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+                {/* Replay Button */}
+                <TouchableOpacity
+                  style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
+                  onPress={() => {
+                    audioPlayerRef.current?.seek(0);
+                    setAudioCurrentTime(0);
+                    setAudioPaused(false);
+                  }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 17 }}>↺</Text>
+                </TouchableOpacity>
+
+                {/* Rewind 10s */}
+                <TouchableOpacity
+                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
+                  onPress={() => {
+                    const newTime = Math.max(0, audioCurrentTime - 10);
+                    audioPlayerRef.current?.seek(newTime);
+                    setAudioCurrentTime(newTime);
+                  }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>-10s</Text>
+                </TouchableOpacity>
+
+                {/* Main Play / Pause Button */}
+                <TouchableOpacity
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: 30,
+                    backgroundColor: '#2563eb',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    shadowColor: '#2563eb',
+                    shadowOpacity: 0.5,
+                    shadowRadius: 8,
+                    elevation: 6
+                  }}
+                  onPress={() => {
+                    if (audioCurrentTime >= audioDuration && audioDuration > 0) {
+                      audioPlayerRef.current?.seek(0);
+                      setAudioCurrentTime(0);
+                      setAudioPaused(false);
+                    } else {
+                      setAudioPaused(!audioPaused);
+                    }
+                  }}
+                >
+                  {audioLoading ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <AppIcon name={audioPaused ? 'play' : 'pause'} size={24} color="#ffffff" />
+                  )}
+                </TouchableOpacity>
+
+                {/* Forward 10s */}
+                <TouchableOpacity
+                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
+                  onPress={() => {
+                    if (audioDuration > 0) {
+                      const newTime = Math.min(audioDuration, audioCurrentTime + 10);
+                      audioPlayerRef.current?.seek(newTime);
+                      setAudioCurrentTime(newTime);
+                    }
+                  }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>+10s</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : previewAttachmentUrl ? (
+            <View style={{ width: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 16, padding: 24 }}>
+              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(59, 130, 246, 0.25)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ fontSize: 30 }}>📄</Text>
+              </View>
+              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: 'bold', marginBottom: 6 }}>
+                Document Attachment
+              </Text>
+              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, textAlign: 'center', marginBottom: 20, maxWidth: 260 }} numberOfLines={2}>
+                {previewAttachmentUrl.split('/').pop()}
+              </Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#2563eb',
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  shadowColor: '#2563eb',
+                  shadowOpacity: 0.3,
+                  shadowRadius: 6,
+                  elevation: 4
+                }}
+                onPress={() => Linking.openURL(previewAttachmentUrl).catch(() => {})}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Open / Download File ↗</Text>
+              </TouchableOpacity>
             </View>
           ) : null}
         </View>
