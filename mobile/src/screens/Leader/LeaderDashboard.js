@@ -13,9 +13,11 @@ import {
   Image,
   Switch,
   Linking,
+  Platform,
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { pick } from '@react-native-documents/picker';
 import AppIcon from '../../components/AppIcon';
 import { useTheme } from '../../utils/ThemeContext';
 import {
@@ -27,6 +29,7 @@ import {
   fetchEmployeesApi,
   fetchAllClientNotesApi,
   replyClientNoteApi,
+  getApiUrl,
 } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
 
@@ -66,7 +69,27 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const [clientRequests, setClientRequests] = useState([]);
   const [clientNotes, setClientNotes] = useState([]);
   const [replyTextMap, setReplyTextMap] = useState({});
+  const [replyAttachmentsMap, setReplyAttachmentsMap] = useState({});
   const [submittingReplyId, setSubmittingReplyId] = useState(null);
+  const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
+  const [previewError, setPreviewError] = useState(false);
+
+  const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
+
+  const handleOpenAttachment = (url) => {
+    if (!url) {
+      sweetAlert({ title: 'Attachment Missing', text: 'No attachment found for this item.', type: 'info' });
+      return;
+    }
+    setPreviewError(false);
+    if (isImageUrl(url)) {
+      setPreviewAttachmentUrl(url);
+    } else {
+      Linking.openURL(url).catch(() => {
+        sweetAlert({ title: 'File Missing', text: 'Could not open file URL. The attachment could not be found.', type: 'error' });
+      });
+    }
+  };
   const [notesFilter, setNotesFilter] = useState('ALL'); // 'ALL' | 'UNREAD' | 'REPLIED'
   const [notesSearch, setNotesSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -256,13 +279,44 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     setExpandedEods((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Pick Reply Attachments
+  const handlePickReplyAttachment = async (noteId) => {
+    try {
+      const res = await pick({
+        type: ['*/*'],
+        allowMultiSelection: true,
+      });
+      if (res && res.length > 0) {
+        const oversized = res.some(f => (f.size || f.fileSize || 0) > 100 * 1024 * 1024);
+        if (oversized) {
+          sweetAlert({ title: 'File Too Large', text: 'Selected files must be less than or equal to 100MB.', type: 'warning' });
+          return;
+        }
+        setReplyAttachmentsMap(prev => ({
+          ...prev,
+          [noteId]: [...(prev[noteId] || []), ...res]
+        }));
+      }
+    } catch (e) {
+      // User cancelled
+    }
+  };
+
+  const handleRemoveReplyAttachment = (noteId, index) => {
+    setReplyAttachmentsMap(prev => ({
+      ...prev,
+      [noteId]: (prev[noteId] || []).filter((_, i) => i !== index)
+    }));
+  };
+
   // Reply to Client Note
   const handleSendClientReply = async (noteId) => {
     const reply = replyTextMap[noteId];
-    if (!reply || !reply.trim()) {
+    const noteAttachments = replyAttachmentsMap[noteId] || [];
+    if ((!reply || !reply.trim()) && noteAttachments.length === 0) {
       sweetAlert({
         title: 'Empty Reply',
-        text: 'Please type a reply before sending.',
+        text: 'Please type a reply or attach a file before sending.',
         type: 'warning',
       });
       return;
@@ -270,14 +324,45 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
     setSubmittingReplyId(noteId);
     try {
-      const res = await replyClientNoteApi({ id: noteId, tl_reply: reply.trim() });
+      let attachmentUrls = [];
+      if (noteAttachments.length > 0) {
+        const formData = new FormData();
+        noteAttachments.forEach((file) => {
+          const fileUri = file.uri || '';
+          formData.append('files', {
+            uri: Platform.OS === 'android' ? fileUri : fileUri.replace('file://', ''),
+            type: file.type || 'application/octet-stream',
+            name: file.name || `file_${Date.now()}`
+          });
+        });
+
+        const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+          method: 'POST',
+          body: formData,
+          headers: { 'Accept': 'application/json' },
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadRes.ok && uploadData.success && uploadData.fileUrls) {
+          attachmentUrls = uploadData.fileUrls;
+        } else {
+          throw new Error(uploadData?.error || 'Failed to upload attachments');
+        }
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+      const res = await replyClientNoteApi({
+        id: noteId,
+        tl_reply: reply ? reply.trim() : 'Attachment attached',
+        tl_attachment: attachmentStr
+      });
       if (res && res.success) {
         sweetAlert({
           title: 'Reply Sent',
-          text: 'Your response has been sent to the client!',
+          text: 'Your response and attachments have been sent to the client!',
           type: 'success',
         });
         setReplyTextMap((prev) => ({ ...prev, [noteId]: '' }));
+        setReplyAttachmentsMap((prev) => ({ ...prev, [noteId]: [] }));
         // Refresh notes
         const notesRes = await fetchAllClientNotesApi().catch(() => ({ notes: [] }));
         if (notesRes?.notes) {
@@ -293,7 +378,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     } catch (err) {
       sweetAlert({
         title: 'Error',
-        text: 'Network error sending reply.',
+        text: err.message || 'Network error sending reply.',
         type: 'error',
       });
     } finally {
@@ -1202,6 +1287,42 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       </Text>
                     </View>
 
+                    {/* Client Attachments */}
+                    {note.attachment && (() => {
+                      let urls = [];
+                      try {
+                        urls = JSON.parse(note.attachment);
+                        if (!Array.isArray(urls)) urls = [note.attachment];
+                      } catch(e) {
+                        urls = [note.attachment];
+                      }
+                      return (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                          {urls.map((url, idx) => (
+                            <TouchableOpacity
+                              key={idx}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                                paddingHorizontal: 10,
+                                paddingVertical: 6,
+                                borderRadius: 8,
+                                borderWidth: 1,
+                                borderColor: isDark ? '#3b82f6' : '#bfdbfe',
+                                gap: 5
+                              }}
+                              onPress={() => handleOpenAttachment(url)}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: isDark ? '#93c5fd' : '#2563eb' }}>
+                                📎 Client Attachment {urls.length > 1 ? idx + 1 : ''}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      );
+                    })()}
+
                     {/* TL Reply Display or Reply Box */}
                     {note.tl_reply && replyTextMap[note.id] === undefined ? (
                       <View style={styles.tlReplyBox}>
@@ -1216,6 +1337,42 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                         <Text style={styles.tlReplyText} selectable>
                           {note.tl_reply}
                         </Text>
+
+                        {/* TL Reply Attachments */}
+                        {note.tl_attachment && (() => {
+                          let urls = [];
+                          try {
+                            urls = JSON.parse(note.tl_attachment);
+                            if (!Array.isArray(urls)) urls = [note.tl_attachment];
+                          } catch(e) {
+                            urls = [note.tl_attachment];
+                          }
+                          return (
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                              {urls.map((url, idx) => (
+                                <TouchableOpacity
+                                  key={idx}
+                                  style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    backgroundColor: isDark ? '#0f172a' : '#f0fdf4',
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 6,
+                                    borderRadius: 8,
+                                    borderWidth: 1,
+                                    borderColor: isDark ? '#22c55e' : '#bbf7d0',
+                                    gap: 5
+                                  }}
+                                  onPress={() => handleOpenAttachment(url)}
+                                >
+                                  <Text style={{ fontSize: 11, fontWeight: '700', color: isDark ? '#86efac' : '#16a34a' }}>
+                                    📎 View Your Attachment {urls.length > 1 ? idx + 1 : ''}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          );
+                        })()}
                       </View>
                     ) : (
                       <View style={styles.replyInputWrap}>
@@ -1231,7 +1388,57 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                           value={replyTextMap[note.id] || ''}
                           onChangeText={(t) => setReplyTextMap((prev) => ({ ...prev, [note.id]: t }))}
                         />
+
+                        {/* Selected Attachments List for this Note */}
+                        {replyAttachmentsMap[note.id] && replyAttachmentsMap[note.id].length > 0 && (
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                            {replyAttachmentsMap[note.id].map((att, idx) => (
+                              <View key={idx} style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: 8,
+                                borderWidth: 1,
+                                borderColor: isDark ? '#3b82f6' : '#bfdbfe',
+                                gap: 6,
+                                maxWidth: '100%'
+                              }}>
+                                <Text style={{ fontSize: 11, color: isDark ? '#93c5fd' : '#1d4ed8', maxWidth: 160 }} numberOfLines={1}>
+                                  📎 {att.name || `File ${idx + 1}`}
+                                </Text>
+                                <TouchableOpacity onPress={() => handleRemoveReplyAttachment(note.id, idx)}>
+                                  <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: 'bold' }}>✕</Text>
+                                </TouchableOpacity>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
                         <View style={styles.replyActionRow}>
+                          <TouchableOpacity
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                              paddingHorizontal: 12,
+                              paddingVertical: 8,
+                              borderRadius: 8,
+                              borderWidth: 1,
+                              borderColor: isDark ? '#475569' : '#cbd5e1',
+                              gap: 5,
+                              marginRight: 'auto'
+                            }}
+                            onPress={() => handlePickReplyAttachment(note.id)}
+                            disabled={isSubmitting}
+                          >
+                            <Text style={{ color: isDark ? '#f8fafc' : '#334155', fontSize: 12, fontWeight: '600' }}>
+                              📎 Attach Files
+                            </Text>
+                          </TouchableOpacity>
+
                           {note.tl_reply && (
                             <TouchableOpacity
                               style={styles.cancelEditBtn}
@@ -1760,6 +1967,104 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           </View>
         </View>
       )}
+
+      {/* ATTACHMENT FULLSCREEN VIEWER MODAL */}
+      <Modal
+        visible={!!previewAttachmentUrl}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setPreviewAttachmentUrl(null);
+          setPreviewError(false);
+        }}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.94)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 16
+        }}>
+          {/* Top Bar with Open In Browser & Close Buttons */}
+          <View style={{
+            position: 'absolute',
+            top: Platform.OS === 'ios' ? 50 : 25,
+            left: 20,
+            right: 20,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            zIndex: 10
+          }}>
+            <TouchableOpacity
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6
+              }}
+              onPress={() => previewAttachmentUrl && Linking.openURL(previewAttachmentUrl).catch(() => {})}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Open External ↗</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                justifyContent: 'center',
+                alignItems: 'center'
+              }}
+              onPress={() => {
+                setPreviewAttachmentUrl(null);
+                setPreviewError(false);
+              }}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Image Display or Error Fallback */}
+          {previewError ? (
+            <View style={{ width: '100%', height: '70%', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+                <AppIcon name="warning" size={32} color="#ef4444" />
+              </View>
+              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>No Attachment Found</Text>
+              <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13, textAlign: 'center', marginBottom: 20, lineHeight: 18, maxWidth: 280 }}>
+                The attachment file could not be found or failed to load from the server.
+              </Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.25)'
+                }}
+                onPress={() => previewAttachmentUrl && Linking.openURL(previewAttachmentUrl).catch(() => {})}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Try Direct Link ↗</Text>
+              </TouchableOpacity>
+            </View>
+          ) : previewAttachmentUrl ? (
+            <View style={{ width: '100%', height: '80%', justifyContent: 'center', alignItems: 'center' }}>
+              <Image
+                source={{ uri: previewAttachmentUrl }}
+                style={{ width: '100%', height: '100%', borderRadius: 8 }}
+                resizeMode="contain"
+                onError={() => setPreviewError(true)}
+              />
+            </View>
+          ) : null}
+        </View>
+      </Modal>
     </ContainerComponent>
   );
 }
