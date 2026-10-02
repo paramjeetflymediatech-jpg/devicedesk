@@ -2897,8 +2897,15 @@ export default function Home() {
           )}
 
           {/* ================= VIEW: CHAT ================= */}
-          {currentView === "chat" && !isITSupport && (
-            <div className="page-section active" style={{ height: "calc(100vh - 150px)", padding: 0 }}>
+          {!isITSupport && (
+            <div 
+              className="page-section active" 
+              style={{ 
+                height: "calc(100vh - 150px)", 
+                padding: 0, 
+                display: currentView === "chat" ? "block" : "none" 
+              }}
+            >
               <ChatView user={user} />
             </div>
           )}

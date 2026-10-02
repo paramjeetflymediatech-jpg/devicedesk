@@ -57,13 +57,13 @@ export default async function handler(req, res) {
 
     const chunks = [];
     let totalSize = 0;
-    const MAX_SIZE = 2 * 1024 * 1024 * 1024;
+    const MAX_SIZE = 100 * 1024 * 1024; // 100 MB Limit
 
     for await (const chunk of req) {
       chunks.push(chunk);
       totalSize += chunk.length;
       if (totalSize > MAX_SIZE) {
-         return res.status(413).json({ error: 'File size exceeds 2GB maximum' });
+         return res.status(413).json({ error: 'File size exceeds 100MB maximum limit.' });
       }
     }
 

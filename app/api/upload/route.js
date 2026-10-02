@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { uploadFile, checkAuth, isSafeExtension } from '../utils/storageManager.js';
 
-// Max file size: 5000MB (5GB)
-const MAX_FILE_SIZE = 5000 * 1024 * 1024;
+// Max file size: 100MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 export async function POST(request) {
   try {
@@ -31,7 +31,7 @@ export async function POST(request) {
 
       // Validate file size
       if (buffer.length > MAX_FILE_SIZE) {
-        throw new Error(`File size exceeds 5GB limit: "${file.name}"`);
+        throw new Error(`File size exceeds 100MB limit: "${file.name}"`);
       }
 
       // Upload file directly to WHM SFTP (or local fallback)

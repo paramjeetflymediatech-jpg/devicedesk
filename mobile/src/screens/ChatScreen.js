@@ -558,6 +558,12 @@ export default function ChatScreen({ user, onBack }) {
         allowMultiSelection: true,
       });
       if (res && res.length > 0) {
+        const oversized = res.some(f => (f.size || f.fileSize || 0) > 100 * 1024 * 1024);
+        if (oversized) {
+          Alert.alert("File Too Large", "Selected files must be less than or equal to 100MB.");
+          return;
+        }
+
         const formattedList = res.map(file => {
           const fileType = file.type || '';
           const isImage = fileType.startsWith('image');

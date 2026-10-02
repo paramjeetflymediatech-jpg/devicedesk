@@ -1577,6 +1577,20 @@ export default function ChatView({ user }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Strict 100MB limit check
+    if (file.size > 100 * 1024 * 1024) {
+      Swal.fire({
+        icon: "error",
+        title: "File Too Large",
+        text: `The selected file (${formatBytes(file.size)}) exceeds the maximum allowed limit of 100MB. Please choose a file under 100MB.`,
+        background: "#161b22",
+        color: "#f0f6fc",
+        confirmButtonColor: "var(--accent-cyan)"
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     // Show preview modal before sending
     const isImage = file.type.startsWith('image/');
     const previewUrl = isImage ? URL.createObjectURL(file) : null;
