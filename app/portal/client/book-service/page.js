@@ -258,8 +258,20 @@ export default function BookServicePage() {
 
         <main className="flex-1 p-4 md:p-8 w-full max-w-7xl mx-auto">
           <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-2">Tell Us Your Requirements</h3>
+            {activePackages.length === 0 ? (
+              <div className="bg-rose-50 border-2 border-rose-200 p-8 rounded-2xl shadow-sm mb-6 flex flex-col items-center justify-center text-center">
+                <div className="w-20 h-20 bg-white shadow-sm text-rose-500 rounded-full flex items-center justify-center mb-5">
+                  <FiCreditCard size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Please Buy Package First</h3>
+                <p className="text-gray-600 mb-6 max-w-md">You need an active package subscription to book services. Please buy a package first as per your requirement.</p>
+                <a href="/portal/client/packages" className="bg-pink-600 text-white px-8 py-3 rounded-xl font-semibold shadow-md hover:bg-pink-700 transition-colors inline-block">
+                  View Packages
+                </a>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h3 className="text-lg font-bold text-gray-800 mb-2">Tell Us Your Requirements</h3>
               <p className="text-sm text-gray-500 mb-6">Select a service from the dropdown and describe exactly what you need. Our team will get back to you shortly.</p>
               
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -313,6 +325,7 @@ export default function BookServicePage() {
                 </div>
               </form>
             </div>
+            )}
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="p-6 border-b border-gray-50"><h3 className="text-lg font-bold text-gray-800">Your Recent Requests</h3></div>
