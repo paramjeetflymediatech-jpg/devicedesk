@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiList, FiCheck, FiX, FiUser } from 'react-icons/fi';
+import { FiList, FiCheck, FiX, FiUser, FiEye } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 
 export default function ClientRequestsPage() {
@@ -9,6 +9,7 @@ export default function ClientRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [editingReqId, setEditingReqId] = useState(null);
   const [selectedTlId, setSelectedTlId] = useState('');
+  const [selectedReq, setSelectedReq] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -101,7 +102,20 @@ export default function ClientRequestsPage() {
               {requests.map(req => (
                 <tr key={req.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                   <td style={{ padding: '16px', color: 'var(--text-primary)', fontWeight: '600' }}>{req.client_name || req.clientId}</td>
-                  <td style={{ padding: '16px', color: 'var(--text-secondary)', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={req.requirements}>{req.service_type}: {req.requirements}</td>
+                  <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {req.service_type}: {req.requirements}
+                      </span>
+                      <button 
+                        onClick={() => setSelectedReq(req)}
+                        style={{ color: 'var(--accent-blue)', background: 'rgba(59, 130, 246, 0.1)', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}
+                        title="View Full Requirement"
+                      >
+                        <FiEye size={16} />
+                      </button>
+                    </div>
+                  </td>
                   <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>{new Date(req.created_at).toLocaleDateString()}</td>
                   <td style={{ padding: '16px' }}>
                     {editingReqId === req.id ? (
@@ -142,6 +156,45 @@ export default function ClientRequestsPage() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Modal for viewing full requirement */}
+      {selectedReq && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', width: '100%', maxWidth: '600px',
+            border: '1px solid var(--glass-border)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            position: 'relative'
+          }}>
+            <button 
+              onClick={() => setSelectedReq(null)}
+              style={{ position: 'absolute', top: '16px', right: '16px', color: 'var(--text-secondary)', fontSize: '1.2rem', background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              <FiX />
+            </button>
+            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+              Requirement Details
+            </h2>
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '4px' }}>Client:</p>
+              <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{selectedReq.client_name || selectedReq.clientId}</p>
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '4px' }}>Service Type:</p>
+              <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{selectedReq.service_type}</p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '4px' }}>Full Requirement:</p>
+              <div style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+                {selectedReq.requirements}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
