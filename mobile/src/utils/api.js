@@ -6,8 +6,8 @@ import { emitEODSubmitted } from './socketService';
 const API_URL_KEY = 'devicedesk_api_url';
 
 // Default URLs: 10.0.2.2 for Android Emulator, localhost for iOS simulator
-// const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
+const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+// const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
 
 let currentApiUrl = DEFAULT_URL;
 

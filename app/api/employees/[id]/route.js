@@ -158,21 +158,21 @@ export async function DELETE(request, { params }) {
     // If it's a client, delete client-specific data
     if (existing[0].role && existing[0].role.toLowerCase() === 'client') {
       await db.execute('DELETE FROM client_details WHERE client_id = ?', [id]).catch(() => {});
-      await db.execute('DELETE FROM client_package_overrides WHERE clientId = ?', [id]).catch(() => {});
-      await db.execute('DELETE FROM client_notes WHERE clientId = ?', [id]).catch(() => {});
-      await db.execute('DELETE FROM client_seo_reports WHERE clientId = ?', [id]).catch(() => {});
-      await db.execute('DELETE FROM client_smo_requests WHERE clientId = ?', [id]).catch(() => {});
-      await db.execute('DELETE FROM client_paid_ads WHERE clientId = ?', [id]).catch(() => {});
+      await db.execute('DELETE FROM client_package_overrides WHERE client_id = ?', [id]).catch(() => {});
+      await db.execute('DELETE FROM client_notes WHERE client_id = ?', [id]).catch(() => {});
+      await db.execute('DELETE FROM client_seo_reports WHERE client_id = ?', [id]).catch(() => {});
+      await db.execute('DELETE FROM client_smo_requests WHERE client_id = ?', [id]).catch(() => {});
+      await db.execute('DELETE FROM client_paid_ads WHERE client_id = ?', [id]).catch(() => {});
       await db.execute('DELETE FROM service_requests WHERE clientId = ?', [id]).catch(() => {});
       
       // Delete associated projects and their project_departments mapping
-      const [projects] = await db.query('SELECT id FROM projects WHERE clientId = ?', [id]);
+      const [projects] = await db.query('SELECT id FROM projects WHERE client_id = ?', [id]);
       for (const proj of projects) {
-        await db.execute('DELETE FROM project_departments WHERE projectId = ?', [proj.id]).catch(() => {});
+        await db.execute('DELETE FROM project_departments WHERE project_id = ?', [proj.id]).catch(() => {});
       }
-      await db.execute('DELETE FROM projects WHERE clientId = ?', [id]).catch(() => {});
+      await db.execute('DELETE FROM projects WHERE client_id = ?', [id]).catch(() => {});
       
-      await db.execute('DELETE FROM invoices WHERE clientId = ?', [id]).catch(() => {});
+      await db.execute('DELETE FROM invoices WHERE client_id = ?', [id]).catch(() => {});
     }
 
     // Delete employee record
