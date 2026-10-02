@@ -620,6 +620,8 @@ async function initializeDatabase(db) {
   
   try { await db.execute(`ALTER TABLE client_notes ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_notes ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_notes ADD COLUMN attachment TEXT DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_notes ADD COLUMN tl_attachment TEXT DEFAULT NULL`); } catch (err) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS work_submissions (
@@ -740,6 +742,8 @@ async function initializeDatabase(db) {
       note TEXT NOT NULL,
       tl_reply TEXT DEFAULT NULL,
       status VARCHAR(50) DEFAULT 'Unread',
+      attachment TEXT DEFAULT NULL,
+      tl_attachment TEXT DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
