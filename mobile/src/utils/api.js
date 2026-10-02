@@ -6,8 +6,8 @@ import { emitEODSubmitted } from './socketService';
 const API_URL_KEY = 'devicedesk_api_url';
 
 // Default URLs: 10.0.2.2 for Android Emulator, localhost for iOS simulator
-const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-// const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
+// const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
 
 let currentApiUrl = DEFAULT_URL;
 
@@ -1292,6 +1292,24 @@ export async function updateClientRequestStatusApi(id, status) {
     return await response.json();
   } catch (err) {
     console.error(`Update client request status failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateClientRequestApi(payload) {
+  const url = `${currentApiUrl}/api/client-services/requests`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update client request failed at ${url}:`, err);
     throw err;
   }
 }

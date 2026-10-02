@@ -23,6 +23,7 @@ import { sweetAlert } from '../../utils/sweetAlert';
 import { getEmployees, subscribe } from '../../store/store';
 import { onSocketEvent } from '../../utils/socketService';
 import AppIcon from '../../components/AppIcon';
+import LiveExecutiveTrackerScreen from '../Marketing/LiveExecutiveTrackerScreen';
 
 export default function ManageMarketing({ currentUser, onBack }) {
   const { themeColors, isDark } = useTheme();
@@ -37,6 +38,7 @@ export default function ManageMarketing({ currentUser, onBack }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState('ALL');
   const [selectedTripModal, setSelectedTripModal] = useState(null);
+  const [selectedTrackerTrip, setSelectedTrackerTrip] = useState(null);
   const [modalTrailLogs, setModalTrailLogs] = useState([]);
   const [loadingTrail, setLoadingTrail] = useState(false);
 
@@ -292,6 +294,22 @@ export default function ManageMarketing({ currentUser, onBack }) {
     const remMins = mins % 60;
     return `${hrs}h ${remMins}m ago`;
   };
+
+  // If a specific trip is selected for live taxi radar tracking
+  if (selectedTrackerTrip) {
+    const emp = employees.find((e) => e.id === selectedTrackerTrip.employee_id);
+    return (
+      <LiveExecutiveTrackerScreen
+        trip={selectedTrackerTrip}
+        executive={emp}
+        user={currentUser}
+        onBack={() => {
+          setSelectedTrackerTrip(null);
+          loadData(true);
+        }}
+      />
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -586,32 +604,59 @@ export default function ManageMarketing({ currentUser, onBack }) {
                       </View>
                     ) : null}
 
-                    {/* Live GPS Map Button */}
-                    <View style={styles.liveCardFooter}>
-                      <View style={styles.gpsCoordinatesBox}>
-                        <AppIcon name="map-pin" size={14} color="#10b981" />
-                        <Text style={[styles.gpsCoordinatesText, { color: themeColors.textSecondary }]}>
-                          {hasGps
-                            ? `${Number(trip.check_in_latitude).toFixed(4)}°, ${Number(trip.check_in_longitude).toFixed(4)}°`
-                            : 'GPS not captured'}
-                        </Text>
+                    {/* Live GPS Actions */}
+                    <View style={[styles.liveCardFooter, { flexDirection: 'column', gap: 10, alignItems: 'stretch' }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={styles.gpsCoordinatesBox}>
+                          <AppIcon name="map-pin" size={14} color="#10b981" />
+                          <Text style={[styles.gpsCoordinatesText, { color: themeColors.textSecondary }]}>
+                            {hasGps
+                              ? `${Number(trip.current_latitude || trip.check_in_latitude).toFixed(4)}°, ${Number(trip.current_longitude || trip.check_in_longitude).toFixed(4)}°`
+                              : 'GPS not captured'}
+                          </Text>
+                        </View>
+
+                        {hasGps ? (
+                          <TouchableOpacity
+                            style={[styles.openMapBtn, { backgroundColor: isDark ? '#1e293b' : '#f1f5f9', paddingHorizontal: 10, paddingVertical: 6 }]}
+                            onPress={() =>
+                              openMapPin(
+                                trip.current_latitude || trip.check_in_latitude,
+                                trip.current_longitude || trip.check_in_longitude,
+                                `${empName} - Trip to ${trip.to_location || ''}`
+                              )
+                            }
+                          >
+                            <AppIcon name="navigation" size={12} color={themeColors.primary} />
+                            <Text style={[styles.openMapBtnText, { color: themeColors.primary, fontSize: 11 }]}>Google Maps</Text>
+                          </TouchableOpacity>
+                        ) : null}
                       </View>
 
-                      {hasGps ? (
-                        <TouchableOpacity
-                          style={styles.openMapBtn}
-                          onPress={() =>
-                            openMapPin(
-                              trip.check_in_latitude,
-                              trip.check_in_longitude,
-                              `${empName} - Trip to ${trip.to_location || ''}`
-                            )
-                          }
-                        >
-                          <AppIcon name="navigation" size={14} color="#ffffff" />
-                          <Text style={styles.openMapBtnText}>Track on Live Map</Text>
-                        </TouchableOpacity>
-                      ) : null}
+                      {/* Primary Live Route & Radar Inspector Button */}
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: '#10b981',
+                          paddingVertical: 11,
+                          paddingHorizontal: 14,
+                          borderRadius: 14,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                          shadowColor: '#10b981',
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 4,
+                          elevation: 3,
+                        }}
+                        onPress={() => setSelectedTrackerTrip(trip)}
+                      >
+                        <AppIcon name="compass" size={16} color="#ffffff" />
+                        <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 13 }}>
+                          🚗 Check Live Route & Radar
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 );
@@ -765,7 +810,15 @@ export default function ManageMarketing({ currentUser, onBack }) {
                         ) : null}
                       </View>
 
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <TouchableOpacity
+                          style={[styles.gpsBadge, { backgroundColor: isDark ? 'rgba(6, 182, 212, 0.15)' : '#e0f2fe', borderColor: '#06b6d4', borderWidth: 1 }]}
+                          onPress={() => setSelectedTrackerTrip(item)}
+                        >
+                          <AppIcon name="compass" size={12} color="#06b6d4" />
+                          <Text style={[styles.gpsBadgeText, { color: '#06b6d4', fontWeight: '700' }]}>Radar</Text>
+                        </TouchableOpacity>
+
                         <TouchableOpacity
                           style={[styles.gpsBadge, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2', borderColor: '#ef4444', borderWidth: 1 }]}
                           onPress={() => handleDeleteTrip(item.id, empName)}
@@ -1078,6 +1131,19 @@ export default function ManageMarketing({ currentUser, onBack }) {
                 <View style={styles.modalFieldGroup}>
                   <Text style={[styles.modalFieldLabel, { color: themeColors.textSecondary }]}>QUICK MAP ACTIONS</Text>
                   <View style={{ gap: 8 }}>
+                    {/* Live Taxi Radar View */}
+                    <TouchableOpacity
+                      style={[styles.modalMapBtn, { backgroundColor: '#06b6d4', shadowColor: '#06b6d4', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 }]}
+                      onPress={() => {
+                        const tripToTrack = selectedTripModal;
+                        setSelectedTripModal(null);
+                        setSelectedTrackerTrip(tripToTrack);
+                      }}
+                    >
+                      <AppIcon name="compass" size={16} color="#ffffff" />
+                      <Text style={[styles.modalMapBtnText, { fontWeight: '800' }]}>🚗 Open Live Route & Radar Screen</Text>
+                    </TouchableOpacity>
+
                     {selectedTripModal.check_in_latitude && selectedTripModal.check_in_longitude ? (
                       <TouchableOpacity
                         style={styles.modalMapBtn}

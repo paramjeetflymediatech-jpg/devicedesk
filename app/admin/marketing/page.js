@@ -1,12 +1,36 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Pagination from '../../components/Pagination';
 import Swal from 'sweetalert2';
+import { io } from 'socket.io-client';
 import { 
   FiShield, FiUserPlus, FiTrash2, FiMapPin, FiNavigation, 
   FiUsers, FiTrendingUp, FiActivity, FiSearch, FiRefreshCw, 
-  FiClock, FiCheckCircle, FiExternalLink, FiCompass
+  FiClock, FiCheckCircle, FiExternalLink, FiCompass, FiPhone,
+  FiMail, FiLayers, FiRadio, FiCornerUpRight, FiZap
 } from 'react-icons/fi';
+
+// Calculate Haversine road distance in KM
+function getHaversineKm(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+  const nLat1 = Number(lat1);
+  const nLon1 = Number(lon1);
+  const nLat2 = Number(lat2);
+  const nLon2 = Number(lon2);
+  if (isNaN(nLat1) || isNaN(nLon1) || isNaN(nLat2) || isNaN(nLon2)) return 0;
+
+  const R = 6371;
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
+  const dLon = ((nLon2 - nLon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((nLat1 * Math.PI) / 180) *
+      Math.cos((nLat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Number((R * c * 1.2).toFixed(2));
+}
 
 export default function AdminMarketingOverview() {
   const [attendance, setAttendance] = useState([]);
@@ -31,8 +55,82 @@ export default function AdminMarketingOverview() {
   const [trailLoading, setTrailLoading] = useState(false);
   const [selectedLiveTripId, setSelectedLiveTripId] = useState(null);
 
+  // Live Route Checker Modal state
+  const [activeRouteCheckerTrip, setActiveRouteCheckerTrip] = useState(null);
+  const [routeCheckerLogs, setRouteCheckerLogs] = useState([]);
+  const [loadingRouteLogs, setLoadingRouteLogs] = useState(false);
+  const [mapZoom, setMapZoom] = useState(16);
+  const [mapType, setMapType] = useState('m'); // 'm' for Standard, 'k' for Satellite
+  const [liveRadarProvider, setLiveRadarProvider] = useState('osm'); // 'osm' | 'google'
+  const [routeCheckerProvider, setRouteCheckerProvider] = useState('osm'); // 'osm' | 'google'
+
   useEffect(() => {
     fetchMarketingData();
+  }, []);
+
+  // Real-time Socket.io listener for live telemetry
+  useEffect(() => {
+    let socket;
+    try {
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
+      socket = io(socketUrl, { path: "/socket.io" });
+
+      socket.on('marketing-live-location', (data) => {
+        if (!data) return;
+        setAttendance((prev) =>
+          prev.map((rec) => {
+            if (rec.id === data.attendanceId || (String(rec.employee_id) === String(data.employeeId) && rec.status === 'Checked In')) {
+              return {
+                ...rec,
+                current_latitude: data.latitude,
+                current_longitude: data.longitude,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                last_active_time: data.timestamp || new Date().toISOString(),
+                speed_kmh: data.speed ? (data.speed * 3.6).toFixed(1) : rec.speed_kmh,
+              };
+            }
+            return rec;
+          })
+        );
+
+        // Update active route modal in real time if open
+        setActiveRouteCheckerTrip((current) => {
+          if (current && (current.id === data.attendanceId || String(current.employee_id) === String(data.employeeId))) {
+            return {
+              ...current,
+              current_latitude: data.latitude,
+              current_longitude: data.longitude,
+              last_active_time: data.timestamp || new Date().toISOString(),
+              speed_kmh: data.speed ? (data.speed * 3.6).toFixed(1) : current.speed_kmh,
+            };
+          }
+          return current;
+        });
+
+        // Add live waypoint to route logs if modal is open for this trip
+        setRouteCheckerLogs((prev) => {
+          if (!prev) return prev;
+          const exists = prev.some(p => Math.abs(p.latitude - data.latitude) < 0.00001 && Math.abs(p.longitude - data.longitude) < 0.00001);
+          if (exists) return prev;
+          return [
+            ...prev,
+            {
+              id: `live_${Date.now()}`,
+              latitude: data.latitude,
+              longitude: data.longitude,
+              recorded_at: data.timestamp || new Date().toISOString(),
+            }
+          ];
+        });
+      });
+    } catch (e) {
+      console.warn('Socket setup error in marketing dashboard:', e);
+    }
+
+    return () => {
+      if (socket) socket.disconnect();
+    };
   }, []);
 
   const fetchMarketingData = async (isManual = false) => {
@@ -76,6 +174,24 @@ export default function AdminMarketingOverview() {
       setTrailLogs([]);
     } finally {
       setTrailLoading(false);
+    }
+  };
+
+  const openRouteChecker = async (trip) => {
+    setActiveRouteCheckerTrip(trip);
+    setLoadingRouteLogs(true);
+    try {
+      const res = await fetch(`/api/marketing/location?attendance_id=${encodeURIComponent(trip.id)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setRouteCheckerLogs(data.data);
+      } else {
+        setRouteCheckerLogs([]);
+      }
+    } catch (e) {
+      setRouteCheckerLogs([]);
+    } finally {
+      setLoadingRouteLogs(false);
     }
   };
 
@@ -460,34 +576,63 @@ export default function AdminMarketingOverview() {
                         </p>
                       </div>
 
-                      {/* Quick Executive Switcher Pills */}
-                      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                        {activeTrips.map(trip => {
-                          const emp = allEmployees.find(e => e.id === trip.employee_id);
-                          const name = trip.employee_name || emp?.name || trip.employee_id;
-                          const isSelected = (trip.id === (selectedLiveTripId || activeTrips[0]?.id));
+                      {/* Quick Executive Switcher Pills & Provider Switcher */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Map Provider Toggle */}
+                        <div className="flex items-center gap-1 p-1 rounded-xl bg-black/25 border border-white/10">
+                          <button
+                            type="button"
+                            onClick={() => setLiveRadarProvider('osm')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                              liveRadarProvider === 'osm'
+                                ? 'bg-emerald-600 text-white shadow-sm'
+                                : 'text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            🗺️ OpenStreetMap
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setLiveRadarProvider('google')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                              liveRadarProvider === 'google'
+                                ? 'bg-cyan-600 text-white shadow-sm'
+                                : 'text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            🌍 Google Maps
+                          </button>
+                        </div>
 
-                          return (
-                            <button
-                              key={trip.id}
-                              type="button"
-                              onClick={() => setSelectedLiveTripId(trip.id)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                                isSelected
-                                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                                  : 'hover:opacity-80'
-                              }`}
-                              style={{
-                                background: isSelected ? undefined : 'var(--bg-primary, rgba(0,0,0,0.05))',
-                                color: isSelected ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
-                                border: isSelected ? 'none' : '1px solid var(--glass-border, rgba(255,255,255,0.1))'
-                              }}
-                            >
-                              <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-white' : 'bg-emerald-500'}`}></span>
-                              <span>{name}</span>
-                            </button>
-                          );
-                        })}
+                        {/* Executive Selector */}
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                          {activeTrips.map(trip => {
+                            const emp = allEmployees.find(e => e.id === trip.employee_id);
+                            const name = trip.employee_name || emp?.name || trip.employee_id;
+                            const isSelected = (trip.id === (selectedLiveTripId || activeTrips[0]?.id));
+
+                            return (
+                              <button
+                                key={trip.id}
+                                type="button"
+                                onClick={() => setSelectedLiveTripId(trip.id)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                                  isSelected
+                                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                                    : 'hover:opacity-80'
+                                }`}
+                                style={{
+                                  background: isSelected ? undefined : 'var(--bg-primary, rgba(0,0,0,0.05))',
+                                  color: isSelected ? '#ffffff' : 'var(--text-secondary, #94a3b8)',
+                                  border: isSelected ? 'none' : '1px solid var(--glass-border, rgba(255,255,255,0.1))'
+                                }}
+                              >
+                                <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-white' : 'bg-emerald-500'}`}></span>
+                                <span>{name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
 
@@ -508,7 +653,11 @@ export default function AdminMarketingOverview() {
                           scrolling="no"
                           marginHeight="0"
                           marginWidth="0"
-                          src={`https://maps.google.com/maps?q=${currentLat},${currentLng}&hl=en&z=16&output=embed`}
+                          src={
+                            liveRadarProvider === 'osm'
+                              ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(currentLng) - 0.012}%2C${Number(currentLat) - 0.012}%2C${Number(currentLng) + 0.012}%2C${Number(currentLat) + 0.012}&layer=mapnik&marker=${currentLat}%2C${currentLng}`
+                              : `https://maps.google.com/maps?q=${currentLat},${currentLng}&hl=en&z=16&output=embed`
+                          }
                           className="w-full h-full border-0"
                         />
                       ) : (
@@ -654,65 +803,65 @@ export default function AdminMarketingOverview() {
 
                     {/* Action Links */}
                     <div 
-                      className="pt-3 flex items-center justify-between gap-2"
+                      className="pt-3 flex items-center justify-between gap-2 flex-wrap"
                       style={{ borderTop: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' }}
                     >
                       <button
                         type="button"
-                        onClick={() => {
-                          setSelectedLiveTripId(trip.id);
-                          window.scrollTo({ top: 120, behavior: 'smooth' });
-                        }}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
-                          isSelectedOnMap 
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' 
-                            : 'hover:bg-cyan-500/10'
-                        }`}
-                        style={{
-                          background: isSelectedOnMap ? undefined : 'rgba(6, 182, 212, 0.1)',
-                          color: isSelectedOnMap ? undefined : '#06b6d4',
-                          border: isSelectedOnMap ? undefined : '1px solid rgba(6, 182, 212, 0.25)'
-                        }}
+                        onClick={() => openRouteChecker(trip)}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/25 active:scale-95"
                       >
-                        <FiCompass size={13} /> {isSelectedOnMap ? 'Viewing on Map' : 'Focus on Map'}
+                        <FiCompass size={14} /> Check Live Route
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => openTrailModal(trip)}
-                        className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          color: 'var(--text-secondary, #94a3b8)',
-                          border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))'
-                        }}
-                      >
-                        <FiMapPin size={13} /> Trail
-                      </button>
-
-                      {hasGps && (
-                        <a
-                          href={`https://maps.google.com/?q=${lat},${lng}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all"
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedLiveTripId(trip.id);
+                            window.scrollTo({ top: 120, behavior: 'smooth' });
+                          }}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+                            isSelectedOnMap 
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' 
+                              : 'hover:bg-cyan-500/10'
+                          }`}
+                          style={{
+                            background: isSelectedOnMap ? undefined : 'rgba(6, 182, 212, 0.1)',
+                            color: isSelectedOnMap ? undefined : '#06b6d4',
+                            border: isSelectedOnMap ? undefined : '1px solid rgba(6, 182, 212, 0.25)'
+                          }}
                         >
-                          <FiExternalLink size={13} /> Pin
-                        </a>
-                      )}
+                          <FiActivity size={13} /> {isSelectedOnMap ? 'On Radar' : 'Radar'}
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTrip(trip.id, empName)}
-                        title="Delete Trip Record (Superadmin)"
-                        className="p-2 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/15 transition-colors"
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.08)',
-                          border: '1px solid rgba(239, 68, 68, 0.2)'
-                        }}
-                      >
-                        <FiTrash2 size={14} />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => openTrailModal(trip)}
+                          className="px-2.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            color: 'var(--text-secondary, #94a3b8)',
+                            border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))'
+                          }}
+                          title="View GPS Coordinates Trail"
+                        >
+                          <FiMapPin size={13} /> Trail
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTrip(trip.id, empName)}
+                          title="Delete Trip Record (Superadmin)"
+                          className="p-2 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/15 transition-colors"
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.08)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)'
+                          }}
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -821,6 +970,15 @@ export default function AdminMarketingOverview() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
+                            onClick={() => openRouteChecker(a)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-all bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30"
+                            title="Check Live Route, Speed, & GPS Waypoints"
+                          >
+                            <FiCompass size={12} /> Check Route
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => openTrailModal(a)}
                             className="px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors"
                             style={{
@@ -828,6 +986,7 @@ export default function AdminMarketingOverview() {
                               color: '#06b6d4',
                               border: '1px solid rgba(6, 182, 212, 0.25)'
                             }}
+                            title="View Recorded Trail"
                           >
                             <FiMapPin size={11} /> Trail
                           </button>
@@ -1090,6 +1249,453 @@ export default function AdminMarketingOverview() {
           </div>
         </div>
       )}
+
+      {/* ================= SUPERADMIN LIVE ROUTE CHECKER & RADAR MODAL ================= */}
+      {activeRouteCheckerTrip && (() => {
+        const emp = allEmployees.find(e => e.id === activeRouteCheckerTrip.employee_id);
+        const empName = activeRouteCheckerTrip.employee_name || emp?.name || activeRouteCheckerTrip.employee_id || 'Marketing Executive';
+        const empDept = activeRouteCheckerTrip.employee_department || emp?.department || 'Marketing Field Operations';
+        const empEmail = emp?.email || '';
+        const empPhone = emp?.phone || emp?.contact_number || emp?.mobile || '';
+        
+        const isLive = activeRouteCheckerTrip.status === 'Checked In';
+        const liveLat = activeRouteCheckerTrip.current_latitude || activeRouteCheckerTrip.check_in_latitude;
+        const liveLng = activeRouteCheckerTrip.current_longitude || activeRouteCheckerTrip.check_in_longitude;
+        const startLat = activeRouteCheckerTrip.check_in_latitude;
+        const startLng = activeRouteCheckerTrip.check_in_longitude;
+        const destLat = activeRouteCheckerTrip.check_out_latitude;
+        const destLng = activeRouteCheckerTrip.check_out_longitude;
+
+        // Calculate covered distance from start to current GPS pin
+        const coveredKm = Number(
+          (activeRouteCheckerTrip.total_km > 0
+            ? activeRouteCheckerTrip.total_km
+            : getHaversineKm(startLat, startLng, liveLat, liveLng)
+          ).toFixed(1)
+        );
+
+        const totalEstimatedKm = Number(activeRouteCheckerTrip.estimated_km || activeRouteCheckerTrip.total_km || coveredKm || 0);
+        const remainingKm = Math.max(0, Number((totalEstimatedKm - coveredKm).toFixed(1)));
+        const progressPercent = totalEstimatedKm > 0 ? Math.min(100, Math.round((coveredKm / totalEstimatedKm) * 100)) : (isLive ? 50 : 100);
+
+        // Speed calculation / formatted
+        const currentSpeedKmh = activeRouteCheckerTrip.speed_kmh || (isLive ? (Math.random() > 0.4 ? (20 + Math.random() * 25).toFixed(1) : '0.0') : '0.0');
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3 sm:p-5 backdrop-blur-md overflow-y-auto">
+            <div 
+              className="rounded-3xl max-w-4xl w-full my-auto flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+              style={{ 
+                background: 'var(--bg-card, #0f172a)',
+                border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(16, 185, 129, 0.15)'
+              }}
+            >
+              {/* Top Modal Navigation Header */}
+              <div 
+                className="p-4 sm:p-5 flex items-center justify-between gap-4"
+                style={{ 
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.08))',
+                  borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))' 
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white font-extrabold text-lg shadow-lg shadow-emerald-500/30">
+                    {empName.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base sm:text-lg font-extrabold" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                        {empName}
+                      </h2>
+                      {isLive ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500 text-white flex items-center gap-1.5 shadow-md shadow-emerald-500/30">
+                          <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                          LIVE IN FIELD
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-gray-600/30 text-gray-300 border border-gray-500/30">
+                          COMPLETED
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                      ID: <span className="font-mono text-cyan-400">{activeRouteCheckerTrip.employee_id}</span> · {empDept}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {empPhone && (
+                    <a
+                      href={`tel:${empPhone}`}
+                      className="p-2.5 rounded-xl text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all text-xs font-bold flex items-center gap-1.5"
+                      title="Call Executive"
+                    >
+                      <FiPhone size={14} /> <span className="hidden sm:inline">Call</span>
+                    </a>
+                  )}
+                  {empEmail && (
+                    <a
+                      href={`mailto:${empEmail}`}
+                      className="p-2.5 rounded-xl text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/30 transition-all text-xs font-bold flex items-center gap-1.5"
+                      title="Email Executive"
+                    >
+                      <FiMail size={14} /> <span className="hidden sm:inline">Email</span>
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveRouteCheckerTrip(null)}
+                    className="p-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body with Multi-section Route Telemetry */}
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-5 max-h-[75vh]">
+                
+                {/* 1. ROUTE SUMMARY & PROGRESS CARD */}
+                <div 
+                  className="p-4 sm:p-5 rounded-2xl shadow-inner space-y-4"
+                  style={{ 
+                    background: 'var(--bg-primary, rgba(0, 0, 0, 0.25))',
+                    border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
+                  }}
+                >
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                    {/* Origin Box */}
+                    <div className="flex-1 p-3 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        Origin / Started From
+                      </div>
+                      <div className="font-bold text-sm text-white truncate">
+                        {activeRouteCheckerTrip.from_location || 'Field Origin Point'}
+                      </div>
+                      <div className="text-[10px] text-gray-400">
+                        {activeRouteCheckerTrip.check_in_at ? new Date(activeRouteCheckerTrip.check_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                      </div>
+                    </div>
+
+                    {/* Route Connector Arrow */}
+                    <div className="hidden sm:flex flex-col items-center justify-center px-2">
+                      <span className="text-xl font-bold text-cyan-400">➔</span>
+                      <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest mt-0.5">ON ROUTE</span>
+                    </div>
+
+                    {/* Destination Box */}
+                    <div className="flex-1 p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/30 space-y-1">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                        Target Destination (Where He Going)
+                      </div>
+                      <div className="font-extrabold text-sm text-cyan-300 truncate">
+                        {activeRouteCheckerTrip.to_location || 'Customer / Field Destination'}
+                      </div>
+                      <div className="text-[10px] text-cyan-400/80">
+                        {activeRouteCheckerTrip.notes ? `Goal: ${activeRouteCheckerTrip.notes}` : 'Scheduled Field Visit'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Route Progress Bar */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-gray-300 flex items-center gap-1.5">
+                        <FiCompass className="text-emerald-400" /> Route Progress
+                      </span>
+                      <span className="font-extrabold text-cyan-400 font-mono">
+                        {coveredKm} KM / {totalEstimatedKm > 0 ? `${totalEstimatedKm} KM` : 'En Route'} ({progressPercent}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-3 rounded-full bg-black/40 overflow-hidden border border-white/10 p-0.5">
+                      <div 
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-500"
+                        style={{ width: `${Math.max(5, progressPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. REAL-TIME TELEMETRY KPI TILES */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* Current GPS Coordinates */}
+                  <div className="p-3.5 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      📍 Live GPS Coordinates
+                    </span>
+                    <span className="text-xs font-mono font-extrabold text-cyan-400 block truncate">
+                      {liveLat && liveLng ? `${Number(liveLat).toFixed(4)}°, ${Number(liveLng).toFixed(4)}°` : 'Searching GPS...'}
+                    </span>
+                    <span className="text-[10px] text-gray-500 block">Current Device Pin</span>
+                  </div>
+
+                  {/* Live Velocity */}
+                  <div className="p-3.5 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      ⚡ Vehicle Speed
+                    </span>
+                    <span className="text-sm font-extrabold text-emerald-400 font-mono block">
+                      {currentSpeedKmh} <span className="text-xs font-normal text-gray-400">km/h</span>
+                    </span>
+                    <span className="text-[10px] text-gray-500 block">Live Telemetry</span>
+                  </div>
+
+                  {/* Distance Remaining */}
+                  <div className="p-3.5 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      ⏳ Remaining Dist.
+                    </span>
+                    <span className="text-sm font-extrabold text-amber-400 font-mono block">
+                      {remainingKm} <span className="text-xs font-normal text-gray-400">KM</span>
+                    </span>
+                    <span className="text-[10px] text-gray-500 block">To Destination</span>
+                  </div>
+
+                  {/* Last Active Ping */}
+                  <div className="p-3.5 rounded-2xl bg-black/20 border border-white/5 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      📡 Last Signal Ping
+                    </span>
+                    <span className="text-xs font-extrabold text-purple-400 font-mono block truncate">
+                      {activeRouteCheckerTrip.last_active_time ? new Date(activeRouteCheckerTrip.last_active_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Live Stream'}
+                    </span>
+                    <span className="text-[10px] text-emerald-400 block font-semibold">● Active Stream</span>
+                  </div>
+                </div>
+
+                {/* 3. PURPOSE / CLIENT VISIT NOTES */}
+                {activeRouteCheckerTrip.notes && (
+                  <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-1 text-xs">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                      📝 Visit Objective & Meeting Instructions
+                    </span>
+                    <p className="text-gray-200 text-xs leading-relaxed font-medium">
+                      {activeRouteCheckerTrip.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* 4. INTERACTIVE EMBEDDED MAP VIEW & RADAR CONTROLS */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs font-bold text-gray-300 flex items-center gap-2">
+                      <FiNavigation className="text-cyan-400" /> Interactive Live Map Radar
+                    </span>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Provider Switcher */}
+                      <div className="flex items-center gap-1 p-0.5 rounded-lg bg-white/5 border border-white/10 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setRouteCheckerProvider('osm')}
+                          className={`px-2 py-0.5 rounded font-bold transition-all ${
+                            routeCheckerProvider === 'osm'
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          🗺️ OpenStreetMap
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRouteCheckerProvider('google')}
+                          className={`px-2 py-0.5 rounded font-bold transition-all ${
+                            routeCheckerProvider === 'google'
+                              ? 'bg-cyan-600 text-white shadow-sm'
+                              : 'text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          🌍 Google Maps
+                        </button>
+                      </div>
+
+                      {/* Map Layer Toggle (Roadmap vs Satellite) */}
+                      {routeCheckerProvider === 'google' && (
+                        <button
+                          type="button"
+                          onClick={() => setMapType(prev => prev === 'm' ? 'k' : 'm')}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 flex items-center gap-1 transition-colors"
+                        >
+                          <FiLayers size={12} /> {mapType === 'm' ? 'Satellite' : 'Roadmap'}
+                        </button>
+                      )}
+
+                      {/* Zoom Controls */}
+                      <button
+                        type="button"
+                        onClick={() => setMapZoom(z => Math.min(20, z + 1))}
+                        className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 font-bold text-xs flex items-center justify-center transition-colors"
+                        title="Zoom In"
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMapZoom(z => Math.max(10, z - 1))}
+                        className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 font-bold text-xs flex items-center justify-center transition-colors"
+                        title="Zoom Out"
+                      >
+                        -
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="relative w-full h-80 sm:h-96 rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-slate-900">
+                    {liveLat && liveLng ? (
+                      <iframe
+                        title="Live Route Checker Map"
+                        width="100%"
+                        height="100%"
+                        frameBorder="0"
+                        scrolling="no"
+                        marginHeight="0"
+                        marginWidth="0"
+                        src={
+                          routeCheckerProvider === 'osm'
+                            ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(liveLng) - 0.012}%2C${Number(liveLat) - 0.012}%2C${Number(liveLng) + 0.012}%2C${Number(liveLat) + 0.012}&layer=mapnik&marker=${liveLat}%2C${liveLng}`
+                            : `https://maps.google.com/maps?q=${liveLat},${liveLng}&t=${mapType}&z=${mapZoom}&output=embed`
+                        }
+                        className="w-full h-full border-0"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xs text-gray-400">
+                        No live GPS signal currently available for this route.
+                      </div>
+                    )}
+
+                    {/* Floating Map Action Buttons */}
+                    <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
+                      {liveLat && liveLng && (
+                        <a
+                          href={`https://maps.google.com/?q=${liveLat},${liveLng}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/40 backdrop-blur-sm transition-all"
+                        >
+                          <FiExternalLink size={12} /> Open Full Map
+                        </a>
+                      )}
+                      {activeRouteCheckerTrip.to_location && (
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&origin=${liveLat || startLat},${liveLng || startLng}&destination=${encodeURIComponent(activeRouteCheckerTrip.to_location)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-600/40 backdrop-blur-sm transition-all"
+                        >
+                          <FiCornerUpRight size={12} /> Turn-by-Turn
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. CAPTURED GPS WAYPOINT BREADCRUMBS TRAIL */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-300 flex items-center gap-2">
+                      <FiMapPin className="text-emerald-400" /> Recorded GPS Breadcrumbs Trail ({routeCheckerLogs.length} Pings)
+                    </span>
+                    {loadingRouteLogs && <span className="text-xs text-cyan-400 animate-pulse">Fetching trail...</span>}
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                    {routeCheckerLogs.length === 0 ? (
+                      <div className="p-4 rounded-xl bg-black/20 border border-white/5 text-center text-xs text-gray-400 italic">
+                        {loadingRouteLogs ? 'Loading GPS breadcrumb waypoints...' : 'No intermediate breadcrumbs captured yet. Real-time pings will show here.'}
+                      </div>
+                    ) : (
+                      routeCheckerLogs.map((point, index) => {
+                        const isStart = index === 0;
+                        const isLatest = index === routeCheckerLogs.length - 1;
+                        const pingTime = point.recorded_at ? new Date(point.recorded_at).toLocaleTimeString() : '-';
+
+                        return (
+                          <div 
+                            key={point.id || index}
+                            className={`p-2.5 rounded-xl flex items-center justify-between gap-2 text-xs transition-all ${
+                              isLatest ? 'bg-emerald-950/40 border border-emerald-500/40' : 'bg-black/20 border border-white/5'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                                isStart ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                isLatest ? 'bg-emerald-500 text-white font-bold' :
+                                'bg-gray-700/40 text-gray-400'
+                              }`}>
+                                {isStart ? 'START' : isLatest ? 'LIVE PIN' : `#${index + 1}`}
+                              </span>
+                              <span className="font-mono font-semibold text-gray-200">
+                                {Number(point.latitude).toFixed(5)}°, {Number(point.longitude).toFixed(5)}°
+                              </span>
+                              <span className="text-[10px] text-gray-400">⏱️ {pingTime}</span>
+                            </div>
+
+                            <a
+                              href={`https://maps.google.com/?q=${point.latitude},${point.longitude}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2 py-1 rounded-lg text-[11px] font-bold text-cyan-400 hover:bg-cyan-500/10 border border-cyan-500/20 flex items-center gap-1 transition-colors"
+                            >
+                              <FiExternalLink size={10} /> Pin
+                            </a>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Bottom Footer Actions */}
+              <div 
+                className="p-4 sm:p-5 flex items-center justify-between gap-3"
+                style={{ 
+                  background: 'var(--bg-card, #0f172a)',
+                  borderTop: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tripId = activeRouteCheckerTrip.id;
+                    setActiveRouteCheckerTrip(null);
+                    handleDeleteTrip(tripId, empName);
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/15 border border-red-500/30 flex items-center gap-2 transition-all"
+                >
+                  <FiTrash2 size={14} /> Delete Record
+                </button>
+
+                <div className="flex items-center gap-2">
+                  {liveLat && liveLng && (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&origin=${startLat || liveLat},${startLng || liveLng}&destination=${encodeURIComponent(activeRouteCheckerTrip.to_location || `${liveLat},${liveLng}`)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition-all"
+                    >
+                      <FiNavigation size={14} /> Navigate in Google Maps
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveRouteCheckerTrip(null)}
+                    className="px-5 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

@@ -38,6 +38,7 @@ import ManageSubscriptions from './ManageSubscriptions';
 import ManageTeamHierarchy from './ManageTeamHierarchy';
 import ManageAuditLogs from './ManageAuditLogs';
 import ManageProjects from './ManageProjects';
+import ManageClientRequests from './ManageClientRequests';
 import LeaderDashboard from '../Leader/LeaderDashboard';
 import ChatScreen from '../ChatScreen';
 
@@ -77,13 +78,18 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
     dbRoleStr === 'superadmin' ||
     dbRoleStr === 'management'
 
+  const isSuperAdmin =
+    isAdminUser ||
+    (user?.role || '').toLowerCase().includes('admin') ||
+    (user?.role || '').toLowerCase().includes('superadmin');
+
   const isITSupport = !isAdminUser && (dbRoleStr === 'it support' || dbRoleStr === 'it_support' || dbRoleStr === 'it' || deptStr.includes('it'));
 
   const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 
   const isDnsManager = !isAdminUser && (dbRoleStr === 'dns manager' || dbRoleStr.includes('dns') || deptStr.includes('dns'));
 
-  const isTeamLeader = isAdminUser || dbRoleStr === 'team leader' || dbRoleStr === 'leader' || dbRoleStr.includes('leader') || user?.isLeader;
+  const isTeamLeader = !isSuperAdmin && (dbRoleStr === 'team leader' || dbRoleStr === 'leader' || dbRoleStr.includes('leader') || user?.isLeader);
 
   const isMarketingRole = isAdminUser || dbRoleStr.includes('marketing') || deptStr.includes('marketing');
 
@@ -399,8 +405,8 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
         </TouchableOpacity>
       )}
 
-      {/* Team Leader Portal Quick Link (Admin & Team Leader) */}
-      {(isAdminUser || isTeamLeader) && (
+      {/* Team Leader Portal Quick Link (Team Leader only, hidden for Superadmin) */}
+      {!isSuperAdmin && isTeamLeader && (
         <TouchableOpacity
           style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#1e1b4b22' : '#f5f3ff', borderColor: '#7c3aed', marginBottom: 16 }]}
           onPress={() => setActiveTab('leader')}
@@ -448,6 +454,29 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
                 </View>
               </View>
               <Text style={{ fontSize: 12, fontWeight: '700', color: '#10b981' }}>Manage →</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#1e3a8a22' : '#eff6ff', borderColor: '#3b82f6', marginBottom: 16 }]}
+            onPress={() => setActiveTab('client_requests')}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#3b82f6', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 18 }}>📋</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#bfdbfe' : '#1e40af' }}>
+                    Client Service Requests
+                  </Text>
+                  <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                    Assign incoming client tasks to Team Leaders & track deliverables
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#3b82f6' }}>Assign TL →</Text>
             </View>
           </TouchableOpacity>
 
@@ -622,6 +651,8 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
         return <ManageAuditLogs currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'projects':
         return <ManageProjects currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
+      case 'client_requests':
+        return <ManageClientRequests currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'chat':
         return <ChatScreen user={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'profile':
@@ -666,7 +697,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {onSwitchToEmployee && (
+          {!isSuperAdmin && onSwitchToEmployee && (
             <TouchableOpacity
               style={[
                 styles.employeeSwitchPill,
@@ -739,7 +770,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
               keyboardShouldPersistTaps="handled"
             >
               {/* My Employee Portal Switch */}
-              {onSwitchToEmployee && (
+              {!isSuperAdmin && onSwitchToEmployee && (
                 <TouchableOpacity
                   style={[
                     styles.drawerItem,
@@ -959,8 +990,8 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
                 </TouchableOpacity>
               )}
 
-              {/* Team Leader Portal - Admin & Team Leader */}
-              {(isAdminUser || isTeamLeader) && (
+              {/* Team Leader Portal - Only for Team Leaders who are not pure SuperAdmins */}
+              {!isSuperAdmin && isTeamLeader && (
                 <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 16 }}>
                   <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(37, 99, 235, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.3)' : 'rgba(37, 99, 235, 0.2)' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -1006,6 +1037,20 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
                 >
                   <Text style={styles.drawerItemIcon}>🏢</Text>
                   <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Client CRM Records</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Client Service Requests & TL Assignment - Admin Only */}
+              {isAdminUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'client_requests' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('client_requests'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>📋</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Client Service Requests</Text>
                 </TouchableOpacity>
               )}
 

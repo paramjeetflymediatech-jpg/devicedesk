@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Image,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
@@ -90,6 +91,8 @@ export default function LiveExecutiveTrackerScreen({
 
   // Map Zoom / Pan state
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [mapMode, setMapMode] = useState('street'); // 'street' | 'satellite' | 'radar'
+  const [imageError, setImageError] = useState(false);
 
   // Pulse animation for vehicle marker
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -465,7 +468,7 @@ export default function LiveExecutiveTrackerScreen({
               },
             ]}
           >
-            {/* Map Top Status Pill */}
+            {/* Map Top Status Pill & Controls */}
             <View style={styles.mapOverlayHeader}>
               <View style={styles.taxiStatusBadge}>
                 <Text style={{ fontSize: 12 }}>🚗</Text>
@@ -476,8 +479,25 @@ export default function LiveExecutiveTrackerScreen({
                 </Text>
               </View>
 
-              {/* Zoom Controls */}
+              {/* Layer & Zoom Controls */}
               <View style={styles.mapControlsRow}>
+                {/* Map Style Switcher */}
+                <TouchableOpacity
+                  style={[
+                    styles.zoomBtn,
+                    { width: 'auto', paddingHorizontal: 7 },
+                    mapMode === 'street' && { backgroundColor: '#10b981' },
+                  ]}
+                  onPress={() => {
+                    setImageError(false);
+                    setMapMode(mapMode === 'street' ? 'satellite' : mapMode === 'satellite' ? 'radar' : 'street');
+                  }}
+                >
+                  <Text style={[styles.zoomBtnText, { fontSize: 10, fontWeight: '800' }]}>
+                    {mapMode === 'street' ? '🗺️ Street' : mapMode === 'satellite' ? '🛰️ Sat' : '📡 Radar'}
+                  </Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.zoomBtn}
                   onPress={() => setZoomLevel((z) => Math.min(2.5, z + 0.3))}
@@ -499,9 +519,31 @@ export default function LiveExecutiveTrackerScreen({
               </View>
             </View>
 
-            {/* SVG Interactive Map Area */}
-            <View style={{ width: MAP_W, height: MAP_H, overflow: 'hidden', position: 'relative' }}>
-              <Svg width={MAP_W} height={MAP_H}>
+            {/* Interactive Map Area with Street Tiles & SVG Overlay */}
+            <View style={{ width: MAP_W, height: MAP_H, overflow: 'hidden', position: 'relative', borderRadius: 16 }}>
+              {/* High-Resolution Street Map / Satellite Layer */}
+              {mapMode !== 'radar' && !imageError && (
+                <Image
+                  source={{
+                    uri:
+                      mapMode === 'satellite'
+                        ? `https://static-maps.yandex.ru/1.x/?ll=${currentLng},${currentLat}&z=${Math.min(18, Math.max(10, Math.round(15 + (zoomLevel - 1) * 2)))}&l=sat&size=650,380`
+                        : `https://staticmap.openstreetmap.de/staticmap.php?center=${currentLat},${currentLng}&zoom=${Math.min(18, Math.max(10, Math.round(15 + (zoomLevel - 1) * 2)))}&size=650x380&maptype=mapnik`,
+                  }}
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    width: MAP_W,
+                    height: MAP_H,
+                    opacity: isDark ? (mapMode === 'satellite' ? 0.75 : 0.88) : 0.95,
+                  }}
+                  resizeMode="cover"
+                  onError={() => setImageError(true)}
+                />
+              )}
+
+              <Svg width={MAP_W} height={MAP_H} style={{ position: 'absolute', left: 0, top: 0 }}>
                 <Defs>
                   <LinearGradient
                     id="routeGradient"

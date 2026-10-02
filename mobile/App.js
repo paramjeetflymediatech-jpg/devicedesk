@@ -256,14 +256,22 @@ function MainAppContent() {
             onNavigateToLogin={() => setCurrentScreen('login')}
           />
         );
-      case 'admin':
+      case 'admin': {
+        const dbRoleA = `${currentUser?.dbRole || currentUser?.role || ''}`.toLowerCase().trim();
+        const isSuperAdminA =
+          dbRoleA === 'admin' ||
+          dbRoleA === 'superadmin' ||
+          dbRoleA === 'management' ||
+          `${currentUser?.role || ''}`.toLowerCase().includes('admin') ||
+          `${currentUser?.role || ''}`.toLowerCase().includes('superadmin');
         return (
           <AdminDashboard
             user={currentUser}
             onLogout={handleLogout}
-            onSwitchToEmployee={() => setCurrentScreen('employee')}
+            onSwitchToEmployee={!isSuperAdminA ? () => setCurrentScreen('employee') : undefined}
           />
         );
+      }
       case 'leader': {
         const roleL = (currentUser?.role || '').toLowerCase().trim();
         const dbRoleL = (currentUser?.dbRole || '').toLowerCase().trim();
