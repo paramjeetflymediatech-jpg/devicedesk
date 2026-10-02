@@ -10,6 +10,33 @@ export default function ClientRequestsPage() {
   const [editingReqId, setEditingReqId] = useState(null);
   const [selectedTlId, setSelectedTlId] = useState('');
   const [selectedReq, setSelectedReq] = useState(null);
+  const [deliveryFiles, setDeliveryFiles] = useState([]);
+
+  useEffect(() => {
+    if (selectedReq) {
+      setDeliveryFiles([]);
+      fetch('/api/tasks')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const matchingTask = data.data.find(t => t.project_id === selectedReq.id);
+            if (matchingTask && matchingTask.fileUrl) {
+              try {
+                const parsedUrls = JSON.parse(matchingTask.fileUrl);
+                if (Array.isArray(parsedUrls)) {
+                  setDeliveryFiles(parsedUrls);
+                } else if (typeof parsedUrls === 'string') {
+                  setDeliveryFiles([parsedUrls]);
+                }
+              } catch (e) {
+                setDeliveryFiles([matchingTask.fileUrl]);
+              }
+            }
+          }
+        })
+        .catch(err => console.error("Error fetching tasks:", err));
+    }
+  }, [selectedReq]);
 
   useEffect(() => {
     fetchData();
@@ -196,7 +223,7 @@ export default function ClientRequestsPage() {
             </div>
             {(selectedReq.attachment || selectedReq.file_url || selectedReq.fileUrl) && (
               <div style={{ marginTop: '16px' }}>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '4px' }}>Attachment:</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '4px' }}>Client Attachment:</p>
                 <div style={{ padding: '12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }}>
                   <a 
                     href={selectedReq.attachment || selectedReq.file_url || selectedReq.fileUrl} 
@@ -204,8 +231,28 @@ export default function ClientRequestsPage() {
                     rel="noopener noreferrer"
                     style={{ color: 'var(--accent-blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500' }}
                   >
-                    View Attachment
+                    View Client Attachment
                   </a>
+                </div>
+              </div>
+            )}
+            
+            {deliveryFiles.length > 0 && (
+              <div style={{ marginTop: '16px' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '4px' }}>Delivery Attachments (Proofs):</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {deliveryFiles.map((file, idx) => (
+                    <div key={idx} style={{ padding: '12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }}>
+                      <a 
+                        href={file} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style={{ color: 'var(--accent-blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500' }}
+                      >
+                        View Proof Attachment {deliveryFiles.length > 1 ? idx + 1 : ''}
+                      </a>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

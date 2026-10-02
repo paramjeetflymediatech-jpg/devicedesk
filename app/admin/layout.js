@@ -441,7 +441,7 @@ export default function AdminLayout({ children }) {
       </div>
 
       {/* Main Container Wrapper */}
-      <div className="main-wrapper" style={{ marginLeft: isCollapsed ? '80px' : '260px', width: isCollapsed ? 'calc(100% - 80px)' : 'calc(100% - 260px)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+      <div className={`main-wrapper ${isCollapsed ? 'collapsed' : ''}`} style={{ transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
         {/* Top Header */}
         <header className="top-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <button className="hamburger-btn" onClick={(e) => { e.stopPropagation(); setMobileMenuOpen(true); }} aria-label="Open menu">
@@ -619,6 +619,51 @@ export default function AdminLayout({ children }) {
       <style jsx global>{`
         .dropdown-link-btn:hover {
           background: rgba(255, 255, 255, 0.05) !important;
+        }
+        .main-wrapper {
+          margin-left: 260px;
+          width: calc(100% - 260px);
+        }
+        .main-wrapper.collapsed {
+          margin-left: 80px;
+          width: calc(100% - 80px);
+        }
+        @media (max-width: 768px) {
+          .main-wrapper, .main-wrapper.collapsed {
+            margin-left: 0 !important;
+            width: 100% !important;
+            padding: 10px !important;
+          }
+          /* Make all tables automatically responsive without wrappers */
+          table {
+            display: block !important;
+            width: 100% !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            white-space: nowrap;
+          }
+          thead, tbody, tr, th, td {
+            /* Keep normal table layout within the scrollable block */
+          }
+          
+          /* Fix flex headers to wrap instead of squish */
+          .flex.justify-between.items-center {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+          }
+          
+          /* Handle search bar and filter layouts */
+          .flex.items-center.gap-3,
+          .flex.items-center.gap-4 {
+            flex-wrap: wrap !important;
+          }
+          
+          /* Handle modal responsiveness */
+          .swal2-popup {
+            width: 95% !important;
+            padding: 15px !important;
+          }
         }
       `}</style>
     </div>

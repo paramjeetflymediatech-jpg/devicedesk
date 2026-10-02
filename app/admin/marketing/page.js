@@ -189,7 +189,7 @@ export default function AdminMarketingOverview() {
       >
         <div>
           <h1 
-            className="text-2xl sm:text-3xl font-extrabold flex items-center gap-3"
+            className="text-2xl sm:text-3xl font-extrabold flex items-center gap-3 flex-wrap"
             style={{ color: 'var(--text-primary, #f8fafc)' }}
           >
             <span className="p-2.5 rounded-2xl border flex items-center justify-center" style={{ background: 'rgba(6, 182, 212, 0.12)', borderColor: 'rgba(6, 182, 212, 0.3)', color: '#06b6d4' }}>
@@ -550,7 +550,7 @@ export default function AdminMarketingOverview() {
                           className="flex items-center justify-between pb-3"
                           style={{ borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' }}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-wrap">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-extrabold text-sm uppercase shadow-md shadow-emerald-500/20">
                               {empName.charAt(0)}
                             </div>
@@ -960,7 +960,7 @@ export default function AdminMarketingOverview() {
                         border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
                       }}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <span
                           className={`px-2.5 py-0.5 rounded-lg font-extrabold uppercase text-[10px] ${
                             isFirst

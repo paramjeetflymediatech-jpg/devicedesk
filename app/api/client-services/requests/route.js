@@ -30,7 +30,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { clientId, service_type, requirements } = await request.json();
+    const { clientId, service_type, requirements, attachment } = await request.json();
     if (!clientId || !service_type || !requirements) {
       return NextResponse.json({ success: false, error: 'Missing fields' }, { status: 400 });
     }
@@ -40,9 +40,9 @@ export async function POST(request) {
     const now = new Date().toISOString();
 
     await db.query(
-      `INSERT INTO service_requests (id, clientId, service_type, requirements, status, created_at)
-       VALUES (?, ?, ?, ?, 'Pending', ?)`,
-      [id, clientId, service_type, requirements, now]
+      `INSERT INTO service_requests (id, clientId, service_type, requirements, status, created_at, attachment)
+       VALUES (?, ?, ?, ?, 'Pending', ?, ?)`,
+      [id, clientId, service_type, requirements, now, attachment || null]
     );
 
     // Notify Management (Admins & Management)
