@@ -477,13 +477,20 @@ export default function ClientNotesPage() {
                       onError={() => setPreviewError(true)}
                     />
                   ) : isAudioUrl(previewAttachmentUrl) ? (
-                    <audio
-                      controls
-                      autoPlay
-                      src={previewAttachmentUrl}
-                      className="w-full max-w-md"
-                      onError={() => setPreviewError(true)}
-                    />
+                    <div className="flex flex-col items-center justify-center p-6 w-full max-w-md bg-slate-800/70 border border-slate-700 rounded-2xl shadow-xl">
+                      <div className="w-16 h-16 rounded-full bg-pink-500/20 text-pink-400 flex items-center justify-center mb-3">
+                        <span className="text-3xl">🎙️</span>
+                      </div>
+                      <p className="font-semibold text-base text-white mb-1">Audio Recording</p>
+                      <p className="text-xs text-slate-400 mb-4 max-w-xs truncate">{previewAttachmentUrl.split('/').pop()}</p>
+                      <audio
+                        controls
+                        autoPlay
+                        src={previewAttachmentUrl}
+                        className="w-full"
+                        onError={() => setPreviewError(true)}
+                      />
+                    </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center p-8 text-center text-slate-300">
                       <FiPaperclip size={48} className="text-pink-500 mb-3" />
