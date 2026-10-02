@@ -194,6 +194,21 @@ export default function ClientRequestsPage() {
                 {selectedReq.requirements}
               </div>
             </div>
+            {(selectedReq.attachment || selectedReq.file_url || selectedReq.fileUrl) && (
+              <div style={{ marginTop: '16px' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '4px' }}>Attachment:</p>
+                <div style={{ padding: '12px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }}>
+                  <a 
+                    href={selectedReq.attachment || selectedReq.file_url || selectedReq.fileUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ color: 'var(--accent-blue)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500' }}
+                  >
+                    View Attachment
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
