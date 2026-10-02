@@ -68,7 +68,24 @@ export default function ClientPortalLayout({ children }) {
 
   // While checking, show a blank or loading state for restricted routes to avoid flicker
   if (loading && isRestricted) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500 font-medium">Checking access...</div>;
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-50 overflow-hidden w-screen h-screen">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-pink-100 rounded-full blur-3xl opacity-60"></div>
+        <div className="z-10 flex flex-col items-center animate-in fade-in zoom-in duration-500">
+          <div className="relative flex items-center justify-center w-20 h-20 mb-6">
+            <svg className="absolute w-full h-full text-pink-200 animate-spin" viewBox="0 0 100 100" style={{ animationDuration: '3s' }}>
+              <circle cx="50" cy="50" r="45" fill="none" strokeWidth="2" stroke="currentColor" strokeDasharray="60 40" strokeLinecap="round" />
+            </svg>
+            <svg className="absolute w-14 h-14 text-pink-600 animate-spin" viewBox="0 0 100 100" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}>
+              <circle cx="50" cy="50" r="40" fill="none" strokeWidth="4" stroke="currentColor" strokeDasharray="30 70" strokeLinecap="round" />
+            </svg>
+            <div className="w-3 h-3 bg-pink-600 rounded-full animate-pulse shadow-lg shadow-pink-500/50"></div>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 tracking-tight mb-2">Preparing Your Workspace</h2>
+          <p className="text-sm font-medium text-gray-500">Securely loading your client dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;

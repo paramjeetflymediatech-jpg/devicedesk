@@ -213,6 +213,18 @@ export default function ClientNotesPage() {
 
         <main className="flex-1 p-4 md:p-8 w-full max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
           
+          {activePackages.length === 0 ? (
+            <div className="bg-rose-50 border-2 border-rose-200 p-8 rounded-2xl shadow-sm mb-6 flex flex-col items-center justify-center text-center">
+              <div className="w-20 h-20 bg-white shadow-sm text-rose-500 rounded-full flex items-center justify-center mb-5">
+                <FiCreditCard size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">Please Buy Package First</h3>
+              <p className="text-gray-600 mb-6 max-w-md">You need an active package subscription to write notes to management. Please buy a package first as per your requirement.</p>
+              <a href="/portal/client/packages" className="bg-pink-600 text-white px-8 py-3 rounded-xl font-semibold shadow-md hover:bg-pink-700 transition-colors inline-block">
+                View Packages
+              </a>
+            </div>
+          ) : (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden relative">
             <div className="p-6 md:p-8 flex flex-col gap-6">
               <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -292,6 +304,7 @@ export default function ClientNotesPage() {
               </form>
             </div>
           </div>
+          )}
 
           <h3 className="text-lg font-bold text-gray-800 pt-4">Your Past Notes</h3>
           

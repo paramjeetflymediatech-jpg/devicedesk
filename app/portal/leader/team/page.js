@@ -42,8 +42,11 @@ export default function TeamAndEODsPage() {
         
         const mappedMembers = members.map(m => {
           const mTasks = tasksList.filter(t => t.assignedTo === m.id && t.status !== 'Completed');
-          const today = new Date().toISOString().split('T')[0];
-          const mEods = eodList.filter(e => e.employee_id === m.id && (e.submitted_at || '').startsWith(today));
+          const today = new Date().toLocaleDateString();
+          const mEods = eodList.filter(e => {
+            if (!e.submitted_at) return false;
+            return e.employee_id === m.id && new Date(e.submitted_at).toLocaleDateString() === today;
+          });
           const latestEod = mEods.length > 0 ? mEods[0] : null;
 
           return {
@@ -51,6 +54,7 @@ export default function TeamAndEODsPage() {
             name: m.name,
             role: m.department || 'Specialist',
             tasks: mTasks.length,
+            activeTasksList: mTasks,
             eodStatus: latestEod ? latestEod.status : 'Pending',
             lastEOD: latestEod ? latestEod.report_text : null,
             eodId: latestEod ? latestEod.id : null
@@ -194,7 +198,7 @@ export default function TeamAndEODsPage() {
                 <div className="flex-1">
                   {member.lastEOD ? (
                     <div className="bg-slate-50 border border-slate-100 p-4 rounded-md">
-                      <p className="text-sm text-slate-700 leading-relaxed">{member.lastEOD}</p>
+                      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-40">{member.lastEOD}</p>
                     </div>
                   ) : (
                     <div className="h-full flex items-center justify-center bg-slate-50/50 border border-dashed border-slate-200 rounded-md p-6">
@@ -202,6 +206,20 @@ export default function TeamAndEODsPage() {
                     </div>
                   )}
                 </div>
+                
+                {member.activeTasksList && member.activeTasksList.length > 0 && (
+                  <div className="mt-4">
+                    <h5 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Active Tasks</h5>
+                    <div className="flex flex-col gap-2 max-h-32 overflow-y-auto pr-2">
+                      {member.activeTasksList.map(task => (
+                        <div key={task.id} className="bg-blue-50 border border-blue-100 p-2.5 rounded-md flex justify-between items-center">
+                          <span className="text-xs font-medium text-blue-900 truncate flex-1" title={task.title}>{task.title}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-200 text-blue-800 ml-2 whitespace-nowrap">{task.status || 'In Progress'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="mt-6 flex flex-wrap gap-3 pt-4 border-t border-slate-100">
                    <button onClick={() => handleAssignClick(member)} className="text-sm bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-md hover:bg-slate-50 transition-colors font-medium">Assign Task</button>
