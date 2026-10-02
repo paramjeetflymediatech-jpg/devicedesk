@@ -159,6 +159,9 @@ async function initializeDatabase(db) {
   try {
     await db.execute(`ALTER TABLE service_requests ADD COLUMN assigned_tl_id VARCHAR(50) DEFAULT NULL`);
   } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE service_requests ADD COLUMN attachment TEXT DEFAULT NULL`);
+  } catch (err) {}
 
   try {
     await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN assigned_tl_id VARCHAR(50) DEFAULT NULL`);
@@ -252,6 +255,7 @@ async function initializeDatabase(db) {
       clientId VARCHAR(50) NOT NULL,
       service_type VARCHAR(100) NOT NULL,
       requirements TEXT,
+      attachment TEXT DEFAULT NULL,
       status VARCHAR(50) DEFAULT 'Pending',
       created_at VARCHAR(50) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

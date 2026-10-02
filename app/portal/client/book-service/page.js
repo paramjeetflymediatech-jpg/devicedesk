@@ -26,7 +26,8 @@ export default function BookServicePage() {
     setMyClientId(clientId);
   }, []);
   const [requests, setRequests] = useState([]);
-  const [form, setForm] = useState({ service_type: 'SEO', requirements: '' });
+  const [form, setForm] = useState({ service_type: 'SEO', requirements: '', file: null });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -119,19 +120,52 @@ export default function BookServicePage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.requirements.trim()) return;
+    setIsSubmitting(true);
     try {
+      let attachmentUrl = null;
+      if (form.file) {
+        const formData = new FormData();
+        formData.append('file', form.file);
+        formData.append('folder', 'client-requests');
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const uploadData = await uploadRes.json();
+        
+        if (!uploadData.success) {
+          setIsSubmitting(false);
+          Swal.fire('Error', uploadData.error || 'Failed to upload attachment.', 'error');
+          return;
+        }
+        
+        if (uploadData.success && uploadData.fileUrls?.length > 0) {
+          attachmentUrl = uploadData.fileUrls[0];
+        }
+      }
+
       const res = await fetch('/api/client-services/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: myClientId, ...form })
+        body: JSON.stringify({ 
+          clientId: myClientId, 
+          service_type: form.service_type, 
+          requirements: form.requirements,
+          attachment: attachmentUrl
+        })
       });
       const data = await res.json();
       if (data.success) {
-        setForm({ ...form, requirements: "" });
+        setForm({ ...form, requirements: "", file: null });
         fetchRequests();
         Swal.fire('Success', 'Requirement submitted successfully!', 'success');
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', 'Failed to submit request', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const SidebarContent = () => (
@@ -262,9 +296,19 @@ export default function BookServicePage() {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Attach File (Optional)</label>
+                  <input
+                    type="file"
+                    className="w-full p-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all bg-gray-50 text-sm"
+                    onChange={(e) => setForm({ ...form, file: e.target.files[0] })}
+                  />
+                  {form.file && <p className="text-xs text-pink-600 mt-1">Selected: {form.file.name}</p>}
+                </div>
+
                 <div className="flex justify-end pt-2">
-                  <button type="submit" className="flex items-center px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-lg shadow-sm transition-colors">
-                    <FiSend className="mr-2" /> Book Requirement
+                  <button type="submit" disabled={isSubmitting} className="flex items-center px-6 py-3 bg-pink-600 hover:bg-pink-700 disabled:bg-pink-400 text-white font-semibold rounded-lg shadow-sm transition-colors">
+                    <FiSend className="mr-2" /> {isSubmitting ? 'Submitting...' : 'Book Requirement'}
                   </button>
                 </div>
               </form>
