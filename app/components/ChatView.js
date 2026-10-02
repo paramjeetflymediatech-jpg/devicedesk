@@ -17,6 +17,7 @@ export default function ChatView({ user }) {
   const [messageText, setMessageText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [activeUpload, setActiveUpload] = useState(null); // { id, fileName, fileSize, progress, statusText, targetChatId, targetChatName }
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [gifSearchQuery, setGifSearchQuery] = useState("");
@@ -179,6 +180,19 @@ export default function ChatView({ user }) {
       }
     }
   }, []);
+
+  // Prevent accidental page refresh / tab close while uploading large files
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (uploading || activeUpload) {
+        e.preventDefault();
+        e.returnValue = "A file is currently uploading to the server. If you leave or refresh, the upload will be cancelled.";
+        return e.returnValue;
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [uploading, activeUpload]);
 
   // Update read timestamp when room changes
   // Update read timestamp when room changes or new messages arrive
@@ -1593,6 +1607,22 @@ export default function ChatView({ user }) {
       return;
     }
 
+    const targetChatId = activeChatId;
+    let targetName = "General Desk";
+    if (targetChatId === "general") targetName = "General Desk";
+    else if (String(targetChatId).startsWith("dept_")) targetName = `${targetChatId.replace("dept_", "")} Department`;
+    else if (String(targetChatId).startsWith("group_")) targetName = groups.find(g => g.id === targetChatId)?.name || "Group Chat";
+    else targetName = employees.find(e => e.id === targetChatId)?.name || "Direct Message";
+
+    setActiveUpload({
+      id: `upload-${Date.now()}`,
+      fileName: file.name,
+      fileSize: formatBytes(file.size),
+      progress: 0,
+      statusText: "Uploading to server (0%)...",
+      targetChatId,
+      targetChatName: targetName
+    });
     setUploading(true);
 
     try {
@@ -1608,6 +1638,10 @@ export default function ChatView({ user }) {
           if (event.lengthComputable) {
             const percentComplete = Math.round((event.loaded / event.total) * 100);
             setUploadProgress(percentComplete);
+            const statusText = percentComplete >= 100
+              ? "Saving file ... Please wait."
+              : `Uploading (${percentComplete}%)...`;
+            setActiveUpload(prev => prev ? { ...prev, progress: percentComplete, statusText } : null);
           }
         };
 
@@ -1615,6 +1649,7 @@ export default function ChatView({ user }) {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const resData = JSON.parse(xhr.responseText);
+              setActiveUpload(prev => prev ? { ...prev, progress: 100, statusText: "Finalizing message in chat..." } : null);
               resolve(resData);
             } catch (e) {
               reject(new Error("Invalid JSON response from server"));
@@ -1659,7 +1694,7 @@ export default function ChatView({ user }) {
       }
 
       const payload = {
-        receiverId: activeChatId,
+        receiverId: targetChatId,
         messageType,
         fileUrl,
         fileName: file.name,
@@ -1694,6 +1729,8 @@ export default function ChatView({ user }) {
       Swal.fire("Error", err.message || "File upload failed. Ensure the format is supported.", "error");
     } finally {
       setUploading(false);
+      setActiveUpload(null);
+      setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -3094,6 +3131,56 @@ export default function ChatView({ user }) {
           </div>
         </div>
 
+        {/* Active Upload Global Progress Notification Banner */}
+        {activeUpload && (
+          <div style={{
+            background: "linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))",
+            backdropFilter: "blur(12px)",
+            borderBottom: "1px solid rgba(0, 242, 254, 0.3)",
+            padding: "10px 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+            zIndex: 20
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+              <div className="spinner" style={{ 
+                width: "18px", height: "18px", 
+                border: "2px solid rgba(0,242,254,0.3)", 
+                borderTopColor: "var(--accent-cyan)", 
+                borderRadius: "50%", 
+                animation: "spin 1s linear infinite", 
+                flexShrink: 0 
+              }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "0.85rem", fontWeight: "600", color: "#f0f6fc", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <span>Uploading to <strong style={{ color: "var(--accent-cyan)" }}>{activeUpload.targetChatName}</strong>:</span>
+                  <span style={{ color: "#e2e8f0", maxWidth: "220px", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{activeUpload.fileName}</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>({activeUpload.fileSize})</span>
+                </div>
+                <div style={{ fontSize: "0.75rem", color: activeUpload.progress >= 100 ? "#fbbf24" : "var(--text-secondary)", marginTop: "2px", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>{activeUpload.statusText || `${activeUpload.progress}%`}</span>
+                  <span style={{ opacity: 0.7 }}>• Please keep this tab open</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ width: "130px", marginLeft: "16px", flexShrink: 0 }}>
+              <div style={{ width: "100%", height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
+                <div style={{ 
+                  width: `${activeUpload.progress}%`, 
+                  height: "100%", 
+                  background: activeUpload.progress >= 100 ? "#fbbf24" : "linear-gradient(90deg, #00f2fe, #4facfe)", 
+                  transition: "width 0.2s" 
+                }} />
+              </div>
+              <div style={{ fontSize: "0.7rem", textAlign: "right", color: activeUpload.progress >= 100 ? "#fbbf24" : "var(--accent-cyan)", fontWeight: "bold", marginTop: "2px" }}>
+                {activeUpload.progress}%
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Messages Feed */}
         <div 
           ref={scrollRef}
@@ -3532,32 +3619,56 @@ export default function ChatView({ user }) {
             ))
           )}
 
-          {uploading && (
+          {activeUpload && String(activeUpload.targetChatId).toLowerCase() === String(activeChatId).toLowerCase() && (
             <div style={{ display: "flex", justifyContent: "flex-end", width: "100%", marginTop: "10px" }}>
               <div style={{
-                maxWidth: "70%",
-                minWidth: "150px",
-                background: "var(--accent-cyan)",
+                maxWidth: "340px",
+                width: "100%",
+                background: "linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9))",
+                border: "1px solid rgba(0, 242, 254, 0.35)",
                 color: "#fff",
                 padding: "12px 14px",
                 borderRadius: "14px 14px 0px 14px",
-                boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                boxShadow: "0 4px 15px rgba(0,0,0,0.3)",
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "center",
                 gap: "8px"
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.9rem", fontWeight: "600" }}>
-                  <span className="spinner" style={{ width: "16px", height: "16px", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 1s linear infinite", display: "inline-block" }} />
-                  Uploading...
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{ 
+                    width: "36px", height: "36px", borderRadius: "8px", 
+                    background: "rgba(0, 242, 254, 0.15)", 
+                    display: "flex", alignItems: "center", justifyContent: "center", 
+                    fontSize: "1.2rem", color: "var(--accent-cyan)", flexShrink: 0 
+                  }}>
+                    <FiFile />
+                  </div>
+                  <div style={{ minWidth: 0, flexGrow: 1 }}>
+                    <div style={{ fontSize: "0.85rem", fontWeight: "600", color: "#f0f6fc", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                      {activeUpload.fileName}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                      {activeUpload.fileSize}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ width: "100%", height: "6px", background: "rgba(255,255,255,0.3)", borderRadius: "3px", overflow: "hidden" }}>
-                  <div style={{ width: `${uploadProgress}%`, height: "100%", background: "#fff", transition: "width 0.2s" }} />
+
+                <div style={{ width: "100%", height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
+                  <div style={{ 
+                    width: `${activeUpload.progress}%`, 
+                    height: "100%", 
+                    background: activeUpload.progress >= 100 ? "#fbbf24" : "linear-gradient(90deg, #00f2fe, #4facfe)", 
+                    transition: "width 0.2s" 
+                  }} />
                 </div>
-                <span style={{ fontSize: "0.75rem", alignSelf: "flex-end", fontWeight: "bold" }}>{uploadProgress}%</span>
-                <style>{`
-                  @keyframes spin { 100% { transform: rotate(360deg); } }
-                `}</style>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.75rem" }}>
+                  <span style={{ color: activeUpload.progress >= 100 ? "#fbbf24" : "var(--accent-cyan)", display: "flex", alignItems: "center", gap: "5px" }}>
+                    <span className="spinner" style={{ width: "10px", height: "10px", border: "1.5px solid rgba(255,255,255,0.3)", borderTopColor: "currentColor", borderRadius: "50%", animation: "spin 1s linear infinite", display: "inline-block" }} />
+                    {activeUpload.statusText || `${activeUpload.progress}%`}
+                  </span>
+                  <span style={{ fontWeight: "bold", color: "#e2e8f0" }}>{activeUpload.progress}%</span>
+                </div>
               </div>
             </div>
           )}
