@@ -9,6 +9,8 @@ export default function AdminClientNotesPage() {
   const { user } = useAuth();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const notesPerPage = 10;
   const [replyText, setReplyText] = useState({});
   const [attachments, setAttachments] = useState({}); // attachments[noteId] will be an array of files
   const [uploadingNotes, setUploadingNotes] = useState({});
@@ -85,6 +87,11 @@ export default function AdminClientNotesPage() {
     }
   };
 
+  const indexOfLastNote = currentPage * notesPerPage;
+  const indexOfFirstNote = indexOfLastNote - notesPerPage;
+  const currentNotes = notes.slice(indexOfFirstNote, indexOfLastNote);
+  const totalPages = Math.ceil(notes.length / notesPerPage);
+
   if (loading) return <div className="p-8 text-center text-slate-500">Loading client messages...</div>;
 
   return (
@@ -102,7 +109,7 @@ export default function AdminClientNotesPage() {
         </div>
       ) : (
         <div className="grid gap-6">
-          {notes.map(note => (
+          {currentNotes.map(note => (
             <div key={note.id} className="flex flex-col gap-4" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
               <div className="flex justify-between items-start ">
                 <div className="flex items-center gap-3">
