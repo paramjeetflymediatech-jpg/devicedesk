@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX } from 'react-icons/fi';
+import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 
@@ -11,6 +11,12 @@ export default function LeaderClientChatPage() {
   const [attachments, setAttachments] = useState({}); // attachments[noteId] will be an array of files
   const [uploadingNotes, setUploadingNotes] = useState({});
   const [uploadStats, setUploadStats] = useState({});
+  const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
+  const [previewError, setPreviewError] = useState(false);
+
+  const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
+  const isVideoUrl = (url) => typeof url === 'string' && /\.(mp4|webm|mov|ogg)($|\?)/i.test(url);
+  const isAudioUrl = (url) => typeof url === 'string' && /\.(mp3|wav|ogg|m4a)($|\?)/i.test(url);
 
   const fetchNotes = async () => {
     try {
@@ -125,9 +131,14 @@ export default function LeaderClientChatPage() {
                 return (
                   <div className="flex flex-wrap gap-2">
                     {urls.map((url, idx) => (
-                      <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-100 transition-colors w-fit">
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setPreviewAttachmentUrl(url)}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 hover:shadow-sm px-3 py-1.5 rounded-lg border border-blue-100 transition-all w-fit"
+                      >
                         <FiPaperclip size={14} /> View Client Attachment {urls.length > 1 ? idx+1 : ''}
-                      </a>
+                      </button>
                     ))}
                   </div>
                 );
@@ -148,9 +159,14 @@ export default function LeaderClientChatPage() {
                     return (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {urls.map((url, idx) => (
-                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 bg-blue-100/50 hover:bg-blue-200 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors w-fit">
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setPreviewAttachmentUrl(url)}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-100/60 hover:bg-blue-200 hover:shadow-sm px-3 py-1.5 rounded-lg border border-blue-200 transition-all w-fit"
+                          >
                             <FiPaperclip size={14} /> View Your Attachment {urls.length > 1 ? idx+1 : ''}
-                          </a>
+                          </button>
                         ))}
                       </div>
                     );
@@ -220,6 +236,106 @@ export default function LeaderClientChatPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Attachment Preview Modal / Lightbox */}
+      {previewAttachmentUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="relative max-w-4xl w-full max-h-[90vh] bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 bg-slate-800/80 border-b border-slate-700">
+              <span className="text-sm font-semibold text-slate-200 truncate max-w-[60%]">
+                Attachment Preview
+              </span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewAttachmentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white transition-colors"
+                >
+                  <FiExternalLink size={13} /> Open in New Tab
+                </a>
+                <a
+                  href={previewAttachmentUrl}
+                  download
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white transition-colors"
+                >
+                  <FiDownload size={13} /> Download
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewAttachmentUrl(null);
+                    setPreviewError(false);
+                  }}
+                  className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors ml-1"
+                >
+                  <FiX size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center min-h-[300px]">
+              {previewError ? (
+                <div className="flex flex-col items-center justify-center p-8 text-center text-slate-300">
+                  <div className="w-16 h-16 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center mb-3">
+                    <FiAlertCircle size={32} />
+                  </div>
+                  <p className="font-bold text-lg text-white mb-1">No Attachment Found</p>
+                  <p className="text-xs text-slate-400 mb-4 max-w-sm">The attachment file could not be found or failed to load from the server.</p>
+                  <p className="text-[11px] text-slate-500 font-mono bg-slate-800/80 px-3 py-1.5 rounded-lg max-w-xs break-all mb-4">{previewAttachmentUrl}</p>
+                  <a
+                    href={previewAttachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white transition-colors"
+                  >
+                    <FiExternalLink size={14} /> Try Direct Link
+                  </a>
+                </div>
+              ) : isImageUrl(previewAttachmentUrl) ? (
+                <img
+                  src={previewAttachmentUrl}
+                  alt="Attachment Preview"
+                  className="max-w-full max-h-[72vh] object-contain rounded-lg shadow"
+                  onError={() => setPreviewError(true)}
+                />
+              ) : isVideoUrl(previewAttachmentUrl) ? (
+                <video
+                  controls
+                  autoPlay
+                  src={previewAttachmentUrl}
+                  className="max-w-full max-h-[72vh] rounded-lg shadow"
+                  onError={() => setPreviewError(true)}
+                />
+              ) : isAudioUrl(previewAttachmentUrl) ? (
+                <audio
+                  controls
+                  autoPlay
+                  src={previewAttachmentUrl}
+                  className="w-full max-w-md"
+                  onError={() => setPreviewError(true)}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center text-slate-300">
+                  <FiPaperclip size={48} className="text-blue-500 mb-3" />
+                  <p className="font-semibold text-base mb-1">Document Attachment</p>
+                  <p className="text-xs text-slate-400 mb-4 max-w-xs break-all">{previewAttachmentUrl}</p>
+                  <a
+                    href={previewAttachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow transition-colors"
+                  >
+                    Open / Download Document
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
