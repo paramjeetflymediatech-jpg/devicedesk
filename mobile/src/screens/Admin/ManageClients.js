@@ -757,12 +757,17 @@ export default function ManageClients({ currentUser, onBack }) {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { maxWidth: 380 }]}>
             <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
                 <AppIcon name="key" size={18} color="#d97706" />
                 <Text style={[styles.modalTitle, { color: '#d97706' }]}>Reset Client Password</Text>
               </View>
-              <TouchableOpacity onPress={() => setShowResetModal(false)}>
-                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              <TouchableOpacity
+                style={styles.modalCloseCircleBtn}
+                onPress={() => setShowResetModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -817,8 +822,13 @@ export default function ManageClients({ currentUser, onBack }) {
                   Pricing: {pricingForm.client_name}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setShowPricingModal(false)}>
-                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              <TouchableOpacity
+                style={styles.modalCloseCircleBtn}
+                onPress={() => setShowPricingModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -956,8 +966,13 @@ export default function ManageClients({ currentUser, onBack }) {
                   Packages: {selectedClient?.company_name || selectedClient?.name}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setShowPackagesModal(false)}>
-                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              <TouchableOpacity
+                style={styles.modalCloseCircleBtn}
+                onPress={() => setShowPackagesModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -969,7 +984,7 @@ export default function ManageClients({ currentUser, onBack }) {
                 </Text>
               </View>
             ) : (
-              <ScrollView style={{ maxHeight: 440 }} showsVerticalScrollIndicator={true}>
+              <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={true}>
                 {clientPackages.length === 0 ? (
                   <View style={{ padding: 30, alignItems: 'center' }}>
                     <Text style={{ fontSize: 32, marginBottom: 8 }}>📦</Text>
@@ -1029,12 +1044,16 @@ export default function ManageClients({ currentUser, onBack }) {
               </ScrollView>
             )}
 
-            <TouchableOpacity
-              style={[styles.modalSaveBtn, { marginTop: 14, backgroundColor: '#0284c7' }]}
-              onPress={() => setShowPackagesModal(false)}
-            >
-              <Text style={styles.modalSaveText}>Close</Text>
-            </TouchableOpacity>
+            {/* Bottom Close Action Button */}
+            <View style={{ marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: themeColors.border }}>
+              <TouchableOpacity
+                style={[styles.modalCloseFooterBtn, { backgroundColor: '#0284c7' }]}
+                onPress={() => setShowPackagesModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalCloseFooterText}>✕ Close Packages</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1053,8 +1072,13 @@ export default function ManageClients({ currentUser, onBack }) {
                     {selectedClient.company_name || selectedClient.name}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => setShowDetailsModal(false)}>
-                  <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+                <TouchableOpacity
+                  style={styles.modalCloseCircleBtn}
+                  onPress={() => setShowDetailsModal(false)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalCloseText}>✕</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1098,7 +1122,7 @@ export default function ManageClients({ currentUser, onBack }) {
                   </Text>
                 </View>
               ) : (
-                <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={true}>
+                <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={true}>
                   {/* TAB: PROFILE */}
                   {servicesTab === 'profile' && (
                     <View style={{ gap: 6 }}>
@@ -1274,12 +1298,16 @@ export default function ManageClients({ currentUser, onBack }) {
                 </ScrollView>
               )}
 
-              <TouchableOpacity
-                style={[styles.modalSaveBtn, { marginTop: 14, backgroundColor: '#6366f1' }]}
-                onPress={() => setShowDetailsModal(false)}
-              >
-                <Text style={styles.modalSaveText}>Close</Text>
-              </TouchableOpacity>
+              {/* Bottom Close Action Button */}
+              <View style={{ marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: themeColors.border }}>
+                <TouchableOpacity
+                  style={[styles.modalCloseFooterBtn, { backgroundColor: '#6366f1' }]}
+                  onPress={() => setShowDetailsModal(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.modalCloseFooterText}>✕ Close Services & Profile</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -1293,8 +1321,13 @@ export default function ManageClients({ currentUser, onBack }) {
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>➕ Add New Corporate Client</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              <TouchableOpacity
+                style={styles.modalCloseCircleBtn}
+                onPress={() => setShowAddModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -1426,8 +1459,13 @@ export default function ManageClients({ currentUser, onBack }) {
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>✏️ Edit Client Profile</Text>
-              <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              <TouchableOpacity
+                style={styles.modalCloseCircleBtn}
+                onPress={() => setShowEditModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -1831,6 +1869,31 @@ function getStyles(themeColors, isDark) {
       borderBottomWidth: 1,
       borderBottomColor: themeColors.border,
       marginBottom: 12,
+    },
+    modalCloseCircleBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.07)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalCloseText: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: themeColors.textPrimary,
+    },
+    modalCloseFooterBtn: {
+      width: '100%',
+      paddingVertical: 12,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalCloseFooterText: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: '#ffffff',
     },
     modalTitle: {
       fontSize: 15,
