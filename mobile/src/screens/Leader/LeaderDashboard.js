@@ -1809,30 +1809,72 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                     <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 4 }}>Checking work submissions...</Text>
                   </View>
                 ) : matchingTaskSubmission ? (
-                  <View style={{ marginTop: 12, padding: 10, borderRadius: 8, backgroundColor: isDark ? '#1e293b' : '#ecfdf5', borderWidth: 1, borderColor: '#10b98144' }}>
-                    <Text style={{ fontSize: 11.5, fontWeight: '800', color: '#10b981', marginBottom: 4 }}>
+                  <View style={{ marginTop: 12, padding: 12, borderRadius: 10, backgroundColor: isDark ? '#1e293b' : '#ecfdf5', borderWidth: 1, borderColor: isDark ? '#334155' : '#a7f3d0' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: isDark ? '#34d399' : '#059669', marginBottom: 6 }}>
                       EMPLOYEE WORK SUBMISSION:
                     </Text>
-                    <Text style={{ fontSize: 12, color: themeColors.textPrimary }}>
+                    <Text style={{ fontSize: 12.5, color: themeColors.textPrimary }}>
                       Assigned To: <Text style={{ fontWeight: '700' }}>{matchingTaskSubmission.assignedToName || 'Specialist'}</Text>
                     </Text>
-                    <Text style={{ fontSize: 12, color: themeColors.textPrimary, marginTop: 2 }}>
-                      Task Status: <Text style={{ fontWeight: '700' }}>{matchingTaskSubmission.status || 'In Progress'}</Text>
+                    <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, marginTop: 3 }}>
+                      Task Status: <Text style={{ fontWeight: '700', color: matchingTaskSubmission.status === 'Completed' ? '#059669' : '#2563eb' }}>{matchingTaskSubmission.status || 'In Progress'}</Text>
                     </Text>
-                    {matchingTaskSubmission.fileUrl ? (
-                      <TouchableOpacity
-                        onPress={() => Linking.openURL(matchingTaskSubmission.fileUrl).catch(() => { })}
-                        style={{ marginTop: 6 }}
-                      >
-                        <Text style={{ color: '#2563eb', fontSize: 12, fontWeight: '700' }}>
-                          🔗 View Uploaded Proof File
+
+                    {/* Employee Completion Note for TL */}
+                    {(matchingTaskSubmission.completion_note || matchingTaskSubmission.notes) ? (
+                      <View style={{ marginTop: 8, padding: 10, borderRadius: 8, backgroundColor: isDark ? '#0f172a' : '#ffffff', borderWidth: 1, borderColor: isDark ? '#334155' : '#86efac' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#34d399' : '#059669', marginBottom: 3 }}>
+                          📝 Employee Completion Note (TL Only):
                         </Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 4, fontStyle: 'italic' }}>
-                        No proof files uploaded yet.
-                      </Text>
-                    )}
+                        <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, lineHeight: 18 }}>
+                          {matchingTaskSubmission.completion_note || matchingTaskSubmission.notes}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {/* Work Proof Attachments */}
+                    {(() => {
+                      const proofList = parseAttachments(matchingTaskSubmission.fileUrl || matchingTaskSubmission.attachment);
+                      if (proofList.length === 0) {
+                        return (
+                          <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 6, fontStyle: 'italic' }}>
+                            No proof files uploaded.
+                          </Text>
+                        );
+                      }
+                      return (
+                        <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: isDark ? '#334155' : '#d1fae5' }}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>
+                            📎 Uploaded Work Proofs ({proofList.length}):
+                          </Text>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                            {proofList.map((proofUrl, pIdx) => {
+                              const filename = typeof proofUrl === 'string' ? proofUrl.split('/').pop().split('?')[0] : `Proof ${pIdx + 1}`;
+                              return (
+                                <TouchableOpacity
+                                  key={pIdx}
+                                  style={[
+                                    styles.reqAttachPill,
+                                    {
+                                      backgroundColor: isDark ? '#0f172a' : '#dcfce7',
+                                      borderColor: isDark ? '#059669' : '#86efac',
+                                      paddingVertical: 5,
+                                      paddingHorizontal: 9,
+                                    },
+                                  ]}
+                                  onPress={() => handleOpenAttachment(proofUrl)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={[styles.reqAttachPillText, { color: isDark ? '#34d399' : '#15803d' }]} numberOfLines={1}>
+                                    📄 {decodeURIComponent(filename)}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      );
+                    })()}
                   </View>
                 ) : null}
               </ScrollView>

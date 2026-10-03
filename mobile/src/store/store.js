@@ -745,7 +745,9 @@ export function startTask(taskId, operatorName = 'System') {
   const index = tasks.findIndex(t => t.id === taskId);
   if (index !== -1 && tasks[index].status !== 'Completed') {
     tasks[index].status = 'In Progress';
+    tasks[index].isRunning = true;
     tasks[index].startedAt = new Date().toISOString();
+    tasks[index].lastStartedAt = tasks[index].startedAt;
     saveTasks(tasks);
 
     logAssignmentChange(
@@ -763,14 +765,17 @@ export function startTask(taskId, operatorName = 'System') {
 export function stopTask(taskId, operatorName = 'System') {
   const tasks = getTasks();
   const index = tasks.findIndex(t => t.id === taskId);
-  if (index !== -1 && tasks[index].status === 'In Progress') {
-    const started = new Date(tasks[index].startedAt).getTime();
+  if (index !== -1 && (tasks[index].status === 'In Progress' || tasks[index].isRunning)) {
+    const started = new Date(tasks[index].startedAt || tasks[index].lastStartedAt || Date.now()).getTime();
     const now = new Date().getTime();
     const diffSeconds = Math.max(0, Math.floor((now - started) / 1000));
     
     tasks[index].status = 'Pending';
+    tasks[index].isRunning = false;
     tasks[index].totalDuration = (tasks[index].totalDuration || 0) + diffSeconds;
+    tasks[index].accumulatedTime = (tasks[index].accumulatedTime || 0) + (diffSeconds * 1000);
     tasks[index].startedAt = null;
+    tasks[index].lastStartedAt = null;
     saveTasks(tasks);
 
     logAssignmentChange(
@@ -785,21 +790,30 @@ export function stopTask(taskId, operatorName = 'System') {
   return false;
 }
 
-export function completeTask(taskId, operatorName = 'System', fileUrl = null) {
+export function completeTask(taskId, operatorName = 'System', fileUrl = null, completionNote = null) {
   const tasks = getTasks();
   const index = tasks.findIndex(t => t.id === taskId);
   if (index !== -1 && tasks[index].status !== 'Completed') {
-    if (tasks[index].status === 'In Progress' && tasks[index].startedAt) {
-      const started = new Date(tasks[index].startedAt).getTime();
+    if ((tasks[index].status === 'In Progress' || tasks[index].isRunning) && (tasks[index].startedAt || tasks[index].lastStartedAt)) {
+      const started = new Date(tasks[index].startedAt || tasks[index].lastStartedAt).getTime();
       const now = new Date().getTime();
       const diffSeconds = Math.max(0, Math.floor((now - started) / 1000));
       tasks[index].totalDuration = (tasks[index].totalDuration || 0) + diffSeconds;
+      tasks[index].accumulatedTime = (tasks[index].accumulatedTime || 0) + (diffSeconds * 1000);
     }
 
     tasks[index].status = 'Completed';
+    tasks[index].isRunning = false;
     tasks[index].startedAt = null;
+    tasks[index].lastStartedAt = null;
     tasks[index].completedAt = new Date().toISOString();
-    tasks[index].fileUrl = fileUrl || null;
+    if (completionNote) {
+      tasks[index].completion_note = completionNote;
+    }
+    if (fileUrl) {
+      tasks[index].fileUrl = fileUrl;
+      tasks[index].attachments = Array.isArray(fileUrl) ? fileUrl : [fileUrl];
+    }
     saveTasks(tasks);
 
     logAssignmentChange(

@@ -105,13 +105,49 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, status } = await request.json();
+    const { id, status, fileUrl, completion_note, notes, note } = await request.json();
     if (!id || !status) {
       return NextResponse.json({ error: 'Missing id or status.' }, { status: 400 });
     }
 
+    const completionNoteStr = completion_note || notes || note || null;
     const db = await getDbConnection();
-    await db.execute(`UPDATE tasks SET status = ? WHERE id = ?`, [status, id]);
+
+    // Ensure columns exist in tasks dynamically
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN fileUrl TEXT`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN completedAt VARCHAR(50)`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN completion_note TEXT`);
+    } catch (e) {}
+
+    const fileUrlStr = fileUrl ? (Array.isArray(fileUrl) ? JSON.stringify(fileUrl) : String(fileUrl)) : null;
+
+    if (status === 'Completed') {
+      const completedAt = new Date().toISOString();
+      if (fileUrlStr && completionNoteStr) {
+        await db.execute(`UPDATE tasks SET status = ?, fileUrl = ?, completedAt = ?, completion_note = ? WHERE id = ?`, [status, fileUrlStr, completedAt, completionNoteStr, id]);
+      } else if (fileUrlStr) {
+        await db.execute(`UPDATE tasks SET status = ?, fileUrl = ?, completedAt = ? WHERE id = ?`, [status, fileUrlStr, completedAt, id]);
+      } else if (completionNoteStr) {
+        await db.execute(`UPDATE tasks SET status = ?, completedAt = ?, completion_note = ? WHERE id = ?`, [status, completedAt, completionNoteStr, id]);
+      } else {
+        await db.execute(`UPDATE tasks SET status = ?, completedAt = ? WHERE id = ?`, [status, completedAt, id]);
+      }
+    } else {
+      if (fileUrlStr && completionNoteStr) {
+        await db.execute(`UPDATE tasks SET status = ?, fileUrl = ?, completion_note = ? WHERE id = ?`, [status, fileUrlStr, completionNoteStr, id]);
+      } else if (fileUrlStr) {
+        await db.execute(`UPDATE tasks SET status = ?, fileUrl = ? WHERE id = ?`, [status, fileUrlStr, id]);
+      } else if (completionNoteStr) {
+        await db.execute(`UPDATE tasks SET status = ?, completion_note = ? WHERE id = ?`, [status, completionNoteStr, id]);
+      } else {
+        await db.execute(`UPDATE tasks SET status = ? WHERE id = ?`, [status, id]);
+      }
+    }
 
     // If task has a project_id (service request), update that too if completed
     if (status === 'Completed') {

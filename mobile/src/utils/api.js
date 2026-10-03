@@ -1282,7 +1282,7 @@ export async function postTaskApi({ title, description, assignedTo, assignedToNa
   }
 }
 
-export async function updateTaskStatusApi(id, status) {
+export async function updateTaskStatusApi(id, status, fileUrl = null, completion_note = null) {
   const url = `${currentApiUrl}/api/tasks`;
   try {
     const response = await fetch(url, {
@@ -1291,7 +1291,7 @@ export async function updateTaskStatusApi(id, status) {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ id, status })
+      body: JSON.stringify({ id, status, fileUrl, completion_note })
     });
     return await response.json();
   } catch (err) {

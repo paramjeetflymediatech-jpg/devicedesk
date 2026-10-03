@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { getTasks, addTask, updateTask, deleteTask, startTask, stopTask, completeTask, subscribe, syncWithServer } from '../../store/store';
 import { pick } from '@react-native-documents/picker';
-import { getApiUrl, fetchClientRequestsApi } from '../../utils/api';
+import { getApiUrl, fetchClientRequestsApi, updateTaskStatusApi } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
@@ -175,6 +175,7 @@ export default function EmployeeTasks({ currentUser }) {
   const [completeModalVisible, setCompleteModalVisible] = useState(false);
   const [activeCompletingId, setActiveCompletingId] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [completionNote, setCompletionNote] = useState('');
   const [uploading, setUploading] = useState(false);
 
   // Self Task states
@@ -283,30 +284,31 @@ export default function EmployeeTasks({ currentUser }) {
     };
   }, [currentUser, selectedTask]);
 
-  const handleStart = (taskId) => {
+  const handleStart = async (taskId) => {
     startTask(taskId, currentUser.name);
+    setTasks(getTasks().filter(t => t.assignedTo === currentUser?.id));
+    try {
+      await updateTaskStatusApi(taskId, 'In Progress');
+    } catch (e) {
+      console.log('Error updating task status on server:', e);
+    }
   };
 
-  const handleStop = (taskId) => {
+  const handleStop = async (taskId) => {
     stopTask(taskId, currentUser.name);
+    setTasks(getTasks().filter(t => t.assignedTo === currentUser?.id));
+    try {
+      await updateTaskStatusApi(taskId, 'Pending');
+    } catch (e) {
+      console.log('Error updating task status on server:', e);
+    }
   };
 
   const handleCompletePress = (taskId) => {
-    Alert.alert(
-      'Confirm Completion',
-      'Are you sure you want to mark this task as completed?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Yes, Complete', 
-          onPress: () => {
-            setActiveCompletingId(taskId);
-            setSelectedFiles([]);
-            setCompleteModalVisible(true);
-          }
-        }
-      ]
-    );
+    setActiveCompletingId(taskId);
+    setSelectedFiles([]);
+    setCompletionNote('');
+    setCompleteModalVisible(true);
   };
 
   const handleSelectFile = async () => {
@@ -364,14 +366,26 @@ export default function EmployeeTasks({ currentUser }) {
         }
       }
 
-      completeTask(activeCompletingId, currentUser.name, uploadedUrls);
+      const noteVal = completionNote.trim();
 
+      // Complete in local store
+      completeTask(activeCompletingId, currentUser.name, uploadedUrls, noteVal);
+
+      // Sync status with backend
+      try {
+        await updateTaskStatusApi(activeCompletingId, 'Completed', uploadedUrls, noteVal);
+      } catch (e) {
+        console.log('Error syncing task completion with server:', e);
+      }
+
+      setTasks(getTasks().filter(t => t.assignedTo === currentUser?.id));
       setCompleteModalVisible(false);
       setActiveCompletingId(null);
       setSelectedFiles([]);
+      setCompletionNote('');
       sweetAlert({
         title: 'Success',
-        text: 'Task marked as completed with files attached!',
+        text: 'Task marked as completed successfully!',
         type: 'success'
       });
     } catch (err) {
@@ -916,6 +930,213 @@ export default function EmployeeTasks({ currentUser }) {
                 onPress={() => setDetailsModalVisible(false)}
               >
                 <Text style={{ color: themeColors.textPrimary, fontWeight: '700', fontSize: 13 }}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Complete Task & Upload Proof Modal */}
+      <Modal
+        visible={completeModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!uploading) setCompleteModalVisible(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+            <Text style={[styles.modalTitle, { color: isDark ? '#34d399' : '#059669' }]}>Complete Task</Text>
+            <Text style={styles.modalLabel}>
+              Attach completion proof, documents, or screenshots (optional) and confirm task completion.
+            </Text>
+
+            <TouchableOpacity 
+              style={[styles.fileSelectBtn, { backgroundColor: isDark ? themeColors.background : '#f8fafc', borderColor: isDark ? '#34d399' : '#059669' }]}
+              onPress={handleSelectFile}
+              disabled={uploading}
+            >
+              <AppIcon name="paperclip" size={24} color={isDark ? '#34d399' : '#059669'} />
+              <Text style={[styles.fileSelectText, { color: isDark ? '#34d399' : '#059669', marginTop: 6 }]}>
+                {selectedFiles.length > 0 ? '+ Add More Proof Files' : 'Select Proof Files / Documents'}
+              </Text>
+            </TouchableOpacity>
+
+            {selectedFiles.length > 0 && (
+              <View style={{ marginBottom: 12, maxHeight: 120 }}>
+                <ScrollView nestedScrollEnabled={true}>
+                  {selectedFiles.map((file, idx) => (
+                    <View 
+                      key={idx} 
+                      style={{ 
+                        flexDirection: 'row', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        padding: 8,
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
+                        borderRadius: 8,
+                        marginBottom: 6
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, color: themeColors.textPrimary, flex: 1 }} numberOfLines={1}>
+                        📎 {file.name || `File ${idx + 1}`}
+                      </Text>
+                      <TouchableOpacity 
+                        onPress={() => handleRemoveFile(idx)}
+                        disabled={uploading}
+                        style={{ paddingHorizontal: 6 }}
+                      >
+                        <AppIcon name="x" size={14} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            <Text style={[styles.inputLabel, { color: themeColors.textPrimary, marginTop: 4 }]}>
+              Completion Note / Remarks (For Team Leader):
+            </Text>
+            <TextInput
+              style={[styles.textInput, { height: 75, textAlignVertical: 'top' }]}
+              placeholder="Enter work summary, notes, or remarks for your Team Leader..."
+              placeholderTextColor={themeColors.textSecondary}
+              value={completionNote}
+              onChangeText={setCompletionNote}
+              multiline
+              editable={!uploading}
+            />
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.cancelBtn, { backgroundColor: isDark ? themeColors.background : '#f1f5f9', borderColor: themeColors.border }]}
+                onPress={() => {
+                  setCompleteModalVisible(false);
+                  setActiveCompletingId(null);
+                  setSelectedFiles([]);
+                  setCompletionNote('');
+                }}
+                disabled={uploading}
+              >
+                <Text style={{ color: themeColors.textSecondary, fontWeight: '700' }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: '#059669' }]}
+                onPress={handleSubmitCompletion}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AppIcon name="check" size={14} color="#ffffff" />
+                    <Text style={{ color: '#ffffff', fontWeight: '800' }}>Submit & Complete</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create Self Task Modal */}
+      <Modal
+        visible={showSelfModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSelfModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+            <Text style={styles.modalTitle}>Create New Task</Text>
+
+            <Text style={styles.inputLabel}>Task Title *</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g., Routine Maintenance, System Update..."
+              placeholderTextColor={themeColors.textSecondary}
+              value={selfTitle}
+              onChangeText={setSelfTitle}
+            />
+
+            <Text style={styles.inputLabel}>Description / Notes</Text>
+            <TextInput
+              style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
+              placeholder="Enter task details..."
+              placeholderTextColor={themeColors.textSecondary}
+              value={selfDesc}
+              onChangeText={setSelfDesc}
+              multiline
+            />
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => {
+                  setShowSelfModal(false);
+                  setSelfTitle('');
+                  setSelfDesc('');
+                }}
+              >
+                <Text style={{ color: themeColors.textSecondary, fontWeight: '700' }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.submitBtn}
+                onPress={handleCreateSelfTask}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: '800' }}>Create Task</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Self Task Modal */}
+      <Modal
+        visible={editModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+            <Text style={styles.modalTitle}>Edit Task</Text>
+
+            <Text style={styles.inputLabel}>Task Title *</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Task Title"
+              placeholderTextColor={themeColors.textSecondary}
+              value={editTitle}
+              onChangeText={setEditTitle}
+            />
+
+            <Text style={styles.inputLabel}>Description</Text>
+            <TextInput
+              style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
+              placeholder="Task Description"
+              placeholderTextColor={themeColors.textSecondary}
+              value={editDesc}
+              onChangeText={setEditDesc}
+              multiline
+            />
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Text style={{ color: themeColors.textSecondary, fontWeight: '700' }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.submitBtn}
+                onPress={handleEditSelfTask}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: '800' }}>Save Changes</Text>
               </TouchableOpacity>
             </View>
           </View>
