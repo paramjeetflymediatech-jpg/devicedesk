@@ -1264,10 +1264,21 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             >
               {onSwitchToLeader && (
                 <View style={{ marginBottom: 12, marginTop: 4 }}>
-                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.12)' : 'rgba(37, 99, 235, 0.06)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.35)' : 'rgba(37, 99, 235, 0.2)' }}>
+                  <View style={{
+                    padding: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                  }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <Text style={{ fontSize: 18, marginRight: 8 }}>👔</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>Team Leader Mode</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#f8fafc' : '#1e293b' }}>
+                        Team Leader Mode
+                      </Text>
                     </View>
                     <Switch
                       value={false}
@@ -1276,7 +1287,7 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                         onSwitchToLeader();
                       }}
                       trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
-                      thumbColor={'#3b82f6'}
+                      thumbColor={isDark ? '#94a3b8' : '#ffffff'}
                     />
                   </View>
                 </View>

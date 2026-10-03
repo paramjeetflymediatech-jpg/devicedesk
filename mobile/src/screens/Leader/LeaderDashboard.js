@@ -2240,13 +2240,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           />
           <View style={[styles.drawerContent, { backgroundColor: themeColors.drawerBg, borderColor: themeColors.border }]}>
             <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border }]}>
-              <View style={{ marginBottom: 12, alignItems: 'center' }}>
-                <Image
-                  source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
-                  style={{ width: 140, height: 34 }}
-                  resizeMode="contain"
-                />
-              </View>
+              
               <View style={styles.drawerAvatarContainer}>
                 <Text style={styles.drawerAvatarText}>
                   {user?.name ? user.name.charAt(0).toUpperCase() : 'L'}
@@ -2268,10 +2262,21 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             >
               {onSwitchToEmployee && (
                 <View style={{ marginBottom: 12, marginTop: 4 }}>
-                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.12)' : 'rgba(37, 99, 235, 0.06)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.35)' : 'rgba(37, 99, 235, 0.2)' }}>
+                  <View style={{
+                    padding: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: '#2563eb',
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: '#1d4ed8',
+                  }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <Text style={{ fontSize: 18, marginRight: 8 }}>👔</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>Team Leader Mode</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#ffffff' }}>
+                        Team Leader Mode
+                      </Text>
                     </View>
                     <Switch
                       value={true}
@@ -2279,8 +2284,8 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                         setIsDrawerOpen(false);
                         onSwitchToEmployee();
                       }}
-                      trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
-                      thumbColor={'#2563eb'}
+                      trackColor={{ false: '#93c5fd', true: '#bfdbfe' }}
+                      thumbColor={'#ffffff'}
                     />
                   </View>
                 </View>
