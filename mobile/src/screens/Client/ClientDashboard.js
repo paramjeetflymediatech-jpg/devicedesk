@@ -1629,7 +1629,14 @@ export default function ClientDashboard({ user, onLogout }) {
           />
           <View style={[styles.drawerContent, { backgroundColor: themeColors.drawerBg, borderColor: themeColors.border }]}>
             <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border }]}>
-              <View style={[styles.drawerAvatarContainer, { backgroundColor: '#2563eb' }]}>
+              <View style={{ marginBottom: 12, alignItems: 'center' }}>
+                <Image
+                  source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
+                  style={{ width: 140, height: 34 }}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.drawerAvatarContainer}>
                 <Text style={styles.drawerAvatarText}>
                   {(clientDetails?.company_name || user?.name || 'C').charAt(0).toUpperCase()}
                 </Text>
@@ -1642,13 +1649,27 @@ export default function ClientDashboard({ user, onLogout }) {
               </Text>
             </View>
 
-            <ScrollView style={styles.drawerItemsContainer} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.drawerItemsContainer}
+              contentContainerStyle={styles.drawerScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               {navMenuItems.map((item) => {
                 const isActive = activeTab === item.id;
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.drawerItem, isActive && styles.drawerItemActive]}
+                    style={[
+                      styles.drawerItem,
+                      isActive && [
+                        styles.drawerItemActive,
+                        {
+                          backgroundColor: isDark ? 'rgba(37, 99, 235, 0.18)' : '#eff6ff',
+                          borderColor: isDark ? '#3b82f6' : '#bfdbfe',
+                        }
+                      ],
+                    ]}
                     onPress={() => {
                       setActiveTab(item.id);
                       setIsDrawerOpen(false);
@@ -1658,12 +1679,15 @@ export default function ClientDashboard({ user, onLogout }) {
                       name={item.icon}
                       size={18}
                       color={isActive ? '#2563eb' : themeColors.drawerItemText}
-                      style={{ marginRight: 10 }}
+                      style={{ marginRight: 12 }}
                     />
                     <Text
                       style={[
                         styles.drawerItemLabel,
-                        { color: isActive ? '#2563eb' : themeColors.drawerItemText, fontWeight: isActive ? '800' : '600' },
+                        {
+                          color: isActive ? '#2563eb' : themeColors.drawerItemText,
+                          fontWeight: isActive ? '800' : '600',
+                        },
                       ]}
                     >
                       {item.label}
@@ -1672,25 +1696,27 @@ export default function ClientDashboard({ user, onLogout }) {
                 );
               })}
 
-              {/* Theme Toggle */}
+              {/* Theme Toggle Button */}
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
                   {
                     justifyContent: 'space-between',
-                    marginTop: 14,
-                    marginBottom: 14,
+                    marginTop: 8,
+                    marginBottom: 8,
                     backgroundColor: isDark ? '#334155' : '#f1f5f9',
                     paddingHorizontal: 12,
                     paddingVertical: 8,
                     borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#475569' : '#e2e8f0',
                   },
                 ]}
                 activeOpacity={0.8}
                 onPress={toggleTheme}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 10 }} />
+                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 12 }} />
                   <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText, fontWeight: '700' }]}>
                     {isDark ? 'Dark Mode' : 'Light Mode'}
                   </Text>
@@ -1703,6 +1729,32 @@ export default function ClientDashboard({ user, onLogout }) {
                 />
               </TouchableOpacity>
             </ScrollView>
+
+            {onLogout && (
+              <TouchableOpacity
+                style={[
+                  styles.drawerLogoutBtn,
+                  {
+                    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                    borderTopColor: themeColors.border,
+                  }
+                ]}
+                onPress={() => {
+                  setIsDrawerOpen(false);
+                  sweetAlert({
+                    title: 'Log Out',
+                    text: 'Are you sure you want to log out of your client portal?',
+                    type: 'warning',
+                    showCancel: true,
+                    onConfirm: onLogout,
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <AppIcon name="logout" size={16} color="#dc2626" style={{ marginRight: 8 }} />
+                <Text style={styles.drawerLogoutText}>Log Out 🚪</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -2867,64 +2919,107 @@ const getStyles = (colors, isDark) =>
     },
     drawerOverlay: {
       position: 'absolute',
-      inset: 0,
-      zIndex: 100,
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
       flexDirection: 'row',
+      zIndex: 999,
     },
     drawerBackdrop: {
       position: 'absolute',
-      inset: 0,
-      backgroundColor: 'rgba(0,0,0,0.6)',
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(15, 23, 42, 0.4)',
     },
     drawerContent: {
-      width: '78%',
-      maxWidth: 300,
+      width: 290,
       height: '100%',
+      backgroundColor: colors.drawerBg || (isDark ? '#1e293b' : '#ffffff'),
       borderRightWidth: 1,
-      paddingTop: 10,
+      borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      paddingHorizontal: 16,
+      paddingTop: 45,
+      paddingBottom: 20,
+      flexDirection: 'column',
     },
     drawerHeader: {
-      padding: 16,
+      alignItems: 'center',
       borderBottomWidth: 1,
+      borderBottomColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      paddingBottom: 16,
+      marginBottom: 12,
     },
     drawerAvatarContainer: {
-      width: 44,
-      height: 44,
-      borderRadius: 12,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff',
+      borderWidth: 2,
+      borderColor: '#2563eb',
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 10,
+      marginBottom: 8,
     },
     drawerAvatarText: {
-      color: '#ffffff',
-      fontSize: 18,
+      fontSize: 26,
       fontWeight: '800',
+      color: '#2563eb',
     },
     drawerName: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '800',
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+      textAlign: 'center',
     },
     drawerEmail: {
-      fontSize: 11.5,
-      marginTop: 2,
+      fontSize: 12,
+      color: colors.drawerSubtext || '#64748b',
+      marginTop: 3,
+      textAlign: 'center',
     },
     drawerItemsContainer: {
       flex: 1,
-      padding: 12,
+    },
+    drawerScrollContent: {
+      paddingVertical: 6,
+      paddingBottom: 16,
     },
     drawerItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 10,
+      paddingVertical: 12,
       paddingHorizontal: 12,
-      borderRadius: 10,
-      marginBottom: 4,
+      borderRadius: 12,
+      marginBottom: 6,
     },
     drawerItemActive: {
-      backgroundColor: 'rgba(37, 99, 235, 0.12)',
+      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.18)' : '#eff6ff',
+      borderWidth: 1,
+      borderColor: isDark ? '#3b82f6' : '#bfdbfe',
     },
     drawerItemLabel: {
-      fontSize: 12.5,
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.drawerItemText || (isDark ? '#cbd5e1' : '#334155'),
+      flex: 1,
+    },
+    drawerLogoutBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      borderTopWidth: 1,
+      borderTopColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      borderRadius: 12,
+      marginTop: 8,
+    },
+    drawerLogoutText: {
+      color: '#dc2626',
+      fontSize: 14,
+      fontWeight: '700',
     },
     modalOverlay: {
       flex: 1,

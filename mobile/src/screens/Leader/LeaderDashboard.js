@@ -2240,26 +2240,77 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           />
           <View style={[styles.drawerContent, { backgroundColor: themeColors.drawerBg, borderColor: themeColors.border }]}>
             <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border }]}>
-              <View style={[styles.drawerAvatarContainer, { backgroundColor: '#2563eb' }]}>
+              <View style={{ marginBottom: 12, alignItems: 'center' }}>
+                <Image
+                  source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
+                  style={{ width: 140, height: 34 }}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.drawerAvatarContainer}>
                 <Text style={styles.drawerAvatarText}>
-                  {(user?.name || 'TL').charAt(0).toUpperCase()}
+                  {user?.name ? user.name.charAt(0).toUpperCase() : 'L'}
                 </Text>
               </View>
               <Text style={[styles.drawerName, { color: themeColors.textPrimary }]} numberOfLines={1}>
                 {user?.name || 'Team Leader'}
               </Text>
               <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]} numberOfLines={1}>
-                {user?.department || 'Lead'} • {user?.email || 'leader@devicedesk.com'}
+                {user?.department || 'Operations Lead'} • {user?.email || 'leader@devicedesk.com'}
               </Text>
             </View>
 
-            <ScrollView style={styles.drawerItemsContainer} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.drawerItemsContainer}
+              contentContainerStyle={styles.drawerScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {onSwitchToEmployee && (
+                <View style={{ marginBottom: 10 }}>
+                  <TouchableOpacity
+                    style={{
+                      padding: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(37, 99, 235, 0.35)' : '#bfdbfe',
+                    }}
+                    onPress={() => {
+                      setIsDrawerOpen(false);
+                      onSwitchToEmployee();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 16 }}>👤</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563eb' }}>
+                        My Employee Profile
+                      </Text>
+                    </View>
+                    <AppIcon name="arrow-right" size={14} color="#2563eb" />
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {navMenuItems.map((item) => {
                 const isActive = activeTab === item.id;
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.drawerItem, isActive && styles.drawerItemActive]}
+                    style={[
+                      styles.drawerItem,
+                      isActive && [
+                        styles.drawerItemActive,
+                        {
+                          backgroundColor: isDark ? 'rgba(37, 99, 235, 0.18)' : '#eff6ff',
+                          borderColor: isDark ? '#3b82f6' : '#bfdbfe',
+                        }
+                      ],
+                    ]}
                     onPress={() => {
                       setActiveTab(item.id);
                       setIsDrawerOpen(false);
@@ -2269,12 +2320,15 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       name={item.icon}
                       size={18}
                       color={isActive ? '#2563eb' : themeColors.drawerItemText}
-                      style={{ marginRight: 10 }}
+                      style={{ marginRight: 12 }}
                     />
                     <Text
                       style={[
                         styles.drawerItemLabel,
-                        { color: isActive ? '#2563eb' : themeColors.drawerItemText, fontWeight: isActive ? '800' : '600' },
+                        {
+                          color: isActive ? '#2563eb' : themeColors.drawerItemText,
+                          fontWeight: isActive ? '800' : '600',
+                        },
                       ]}
                     >
                       {item.label}
@@ -2288,46 +2342,27 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 );
               })}
 
-              {/* My Employee Profile Switch */}
-              {onSwitchToEmployee && (
-                <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 16 }}>
-                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(37, 99, 235, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.3)' : 'rgba(37, 99, 235, 0.2)' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 16, marginRight: 8 }}>👔</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>Team Leader Mode</Text>
-                    </View>
-                    <Switch
-                      value={true}
-                      onValueChange={() => {
-                        setIsDrawerOpen(false);
-                        onSwitchToEmployee();
-                      }}
-                      trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
-                      thumbColor={'#3b82f6'}
-                    />
-                  </View>
-                </View>
-              )}
-
-              {/* Theme Toggle */}
+              {/* Theme Toggle Button */}
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
                   {
                     justifyContent: 'space-between',
-                    marginTop: 14,
-                    marginBottom: 14,
+                    marginTop: 8,
+                    marginBottom: 8,
                     backgroundColor: isDark ? '#334155' : '#f1f5f9',
                     paddingHorizontal: 12,
                     paddingVertical: 8,
                     borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#475569' : '#e2e8f0',
                   },
                 ]}
                 activeOpacity={0.8}
                 onPress={toggleTheme}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 10 }} />
+                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 12 }} />
                   <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText, fontWeight: '700' }]}>
                     {isDark ? 'Dark Mode' : 'Light Mode'}
                   </Text>
@@ -2340,6 +2375,32 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 />
               </TouchableOpacity>
             </ScrollView>
+
+            {onLogout && (
+              <TouchableOpacity
+                style={[
+                  styles.drawerLogoutBtn,
+                  {
+                    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                    borderTopColor: themeColors.border,
+                  }
+                ]}
+                onPress={() => {
+                  setIsDrawerOpen(false);
+                  sweetAlert({
+                    title: 'Log Out',
+                    text: 'Are you sure you want to log out of your session?',
+                    type: 'warning',
+                    showCancel: true,
+                    onConfirm: onLogout,
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <AppIcon name="logout" size={16} color="#dc2626" style={{ marginRight: 8 }} />
+                <Text style={styles.drawerLogoutText}>Log Out 🚪</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -3088,76 +3149,119 @@ function getStyles(themeColors, isDark) {
     },
     drawerOverlay: {
       position: 'absolute',
-      inset: 0,
-      zIndex: 100,
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
       flexDirection: 'row',
+      zIndex: 999,
     },
     drawerBackdrop: {
       position: 'absolute',
-      inset: 0,
-      backgroundColor: 'rgba(0,0,0,0.6)',
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(15, 23, 42, 0.4)',
     },
     drawerContent: {
-      width: '78%',
-      maxWidth: 300,
+      width: 290,
       height: '100%',
+      backgroundColor: themeColors.drawerBg,
       borderRightWidth: 1,
-      paddingTop: 10,
+      borderColor: themeColors.border,
+      paddingHorizontal: 16,
+      paddingTop: 45,
+      paddingBottom: 20,
+      flexDirection: 'column',
     },
     drawerHeader: {
-      padding: 16,
+      alignItems: 'center',
       borderBottomWidth: 1,
+      borderBottomColor: themeColors.border,
+      paddingBottom: 16,
+      marginBottom: 12,
     },
     drawerAvatarContainer: {
-      width: 44,
-      height: 44,
-      borderRadius: 12,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff',
+      borderWidth: 2,
+      borderColor: '#2563eb',
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 10,
+      marginBottom: 8,
     },
     drawerAvatarText: {
-      color: '#ffffff',
-      fontSize: 18,
+      fontSize: 26,
       fontWeight: '800',
+      color: '#2563eb',
     },
     drawerName: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '800',
+      color: themeColors.textPrimary,
+      textAlign: 'center',
     },
     drawerEmail: {
-      fontSize: 11.5,
-      marginTop: 2,
+      fontSize: 12,
+      color: themeColors.drawerSubtext,
+      marginTop: 3,
+      textAlign: 'center',
     },
     drawerItemsContainer: {
       flex: 1,
-      padding: 12,
+    },
+    drawerScrollContent: {
+      paddingVertical: 6,
+      paddingBottom: 16,
     },
     drawerItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 10,
+      paddingVertical: 12,
       paddingHorizontal: 12,
-      borderRadius: 10,
-      marginBottom: 4,
+      borderRadius: 12,
+      marginBottom: 6,
     },
     drawerItemActive: {
-      backgroundColor: 'rgba(37, 99, 235, 0.12)',
+      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.18)' : '#eff6ff',
+      borderWidth: 1,
+      borderColor: isDark ? '#3b82f6' : '#bfdbfe',
     },
     drawerItemLabel: {
-      fontSize: 12.5,
+      fontSize: 14,
+      fontWeight: '600',
+      color: themeColors.drawerItemText,
+      flex: 1,
     },
     drawerBadge: {
       marginLeft: 'auto',
       backgroundColor: '#2563eb',
-      paddingHorizontal: 6,
+      paddingHorizontal: 7,
       paddingVertical: 2,
       borderRadius: 10,
     },
     drawerBadgeText: {
       color: '#ffffff',
-      fontSize: 10,
+      fontSize: 11,
       fontWeight: '800',
+    },
+    drawerLogoutBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      borderTopWidth: 1,
+      borderTopColor: themeColors.border,
+      borderRadius: 12,
+      marginTop: 8,
+    },
+    drawerLogoutText: {
+      color: '#dc2626',
+      fontSize: 14,
+      fontWeight: '700',
     },
     // CLIENT CHAT / NOTES STYLES
     clientChatHeaderBox: {
