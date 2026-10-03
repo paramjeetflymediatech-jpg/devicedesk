@@ -677,7 +677,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
       case 'history':
         return <ManageHistory currentUser={user} />;
       case 'departments':
-        return <ManageDepartments currentUser={user} />;
+        return <ManageDepartments currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'tasks':
         return <ManageTasks currentUser={user} />;
       case 'domains':
