@@ -17,7 +17,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { pick } from '@react-native-documents/picker';
+import { pickFilesOrPhotos } from '../../utils/filePicker';
 import Video from 'react-native-video';
 import AppIcon from '../../components/AppIcon';
 import { useTheme } from '../../utils/ThemeContext';
@@ -344,9 +344,9 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   // Pick Reply Attachments
   const handlePickReplyAttachment = async (noteId) => {
     try {
-      const res = await pick({
-        type: ['*/*'],
+      const res = await pickFilesOrPhotos({
         allowMultiSelection: true,
+        includeCamera: true,
       });
       if (res && res.length > 0) {
         const oversized = res.some(f => (f.size || f.fileSize || 0) > 100 * 1024 * 1024);

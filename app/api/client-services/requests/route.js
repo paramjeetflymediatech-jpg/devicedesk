@@ -32,16 +32,24 @@ export async function POST(request) {
   try {
     const { clientId, service_type, requirements, attachment } = await request.json();
     if (!clientId || !service_type || !requirements) {
-      return NextResponse.json({ success: false, error: 'Missing fields' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing required fields (service type or requirements).' }, { status: 400 });
     }
 
     const db = await getDbConnection();
 
+    // Ensure columns exist dynamically
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN attachment TEXT`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN assigned_tl_id VARCHAR(50)`);
+    } catch (e) {}
+
     // Verify client has an active package before allowing service booking
     const [activePkgs] = await db.query(
       `SELECT cpo.id, p.name FROM client_package_overrides cpo 
-       JOIN packages p ON cpo.package_id = p.id 
-       WHERE cpo.client_id = ? AND cpo.status = 'Active'`,
+       LEFT JOIN packages p ON cpo.package_id = p.id 
+       WHERE cpo.client_id = ? AND (cpo.status = 'Active' OR cpo.status = 'active')`,
       [clientId]
     );
 

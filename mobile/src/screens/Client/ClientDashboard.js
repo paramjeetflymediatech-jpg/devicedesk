@@ -16,7 +16,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { pick } from '@react-native-documents/picker';
+import { pickFilesOrPhotos } from '../../utils/filePicker';
 import Video from 'react-native-video';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
@@ -244,17 +244,15 @@ export default function ClientDashboard({ user, onLogout }) {
 
   const handlePickServiceAttachment = async () => {
     try {
-      const res = await pick({
-        type: ['image/*', 'video/*', 'audio/*', 'application/pdf', 'text/plain'],
+      const res = await pickFilesOrPhotos({
         allowMultiSelection: true,
+        includeCamera: true,
       });
       if (res && res.length > 0) {
         setServiceAttachments(prev => [...prev, ...res]);
       }
     } catch (err) {
-      if (err.message && !err.message.includes('user canceled')) {
-        console.warn('File pick error:', err);
-      }
+      console.warn('File pick error:', err);
     }
   };
 
@@ -296,8 +294,9 @@ export default function ClientDashboard({ user, onLogout }) {
         setUploadingServiceAttachments(true);
         const formData = new FormData();
         serviceAttachments.forEach(att => {
+          const fileUri = att.uri || '';
           formData.append('files', {
-            uri: att.uri,
+            uri: Platform.OS === 'android' ? fileUri : fileUri.replace('file://', ''),
             type: att.type || 'application/octet-stream',
             name: att.name || `file_${Date.now()}`,
           });
@@ -309,21 +308,23 @@ export default function ClientDashboard({ user, onLogout }) {
           body: formData,
           headers: {
             'Accept': 'application/json',
+            'x-user-id': String(clientId || user?.id || ''),
           },
         });
         const uploadData = await uploadRes.json();
         if (uploadRes.ok && uploadData.success && uploadData.fileUrls) {
           attachmentUrls = uploadData.fileUrls;
         } else {
-          throw new Error(uploadData?.error || 'Failed to upload attachments');
+          throw new Error(uploadData?.error || uploadData?.message || 'Failed to upload attachments');
         }
       }
 
       const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+      const selectedService = serviceType || validPkgs[0]?.name || 'Service Booking';
 
       const res = await createClientRequestApi({
         clientId,
-        service_type: serviceType,
+        service_type: selectedService,
         requirements: serviceReqs.trim(),
         attachment: attachmentStr,
       });
@@ -412,9 +413,9 @@ export default function ClientDashboard({ user, onLogout }) {
   // Pick Note Attachments
   const handlePickNoteAttachment = async () => {
     try {
-      const res = await pick({
-        type: ['*/*'],
+      const res = await pickFilesOrPhotos({
         allowMultiSelection: true,
+        includeCamera: true,
       });
       if (res && res.length > 0) {
         const oversized = res.some(f => (f.size || f.fileSize || 0) > 100 * 1024 * 1024);

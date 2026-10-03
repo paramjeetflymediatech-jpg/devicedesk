@@ -14,7 +14,7 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import { pick } from '@react-native-documents/picker';
+import { pickFilesOrPhotos } from '../../utils/filePicker';
 import Video from 'react-native-video';
 import { useTheme } from '../../utils/ThemeContext';
 import { fetchAllClientNotesApi, replyClientNoteApi, getApiUrl } from '../../utils/api';
@@ -81,19 +81,18 @@ export default function ManageClientNotes({ currentUser, onBack }) {
 
   const handlePickAttachment = async (noteId) => {
     try {
-      const [res] = await pick({
-        type: ['image/*', 'video/*', 'audio/*', 'application/pdf', 'text/plain'],
+      const res = await pickFilesOrPhotos({
+        allowMultiSelection: true,
+        includeCamera: true,
       });
-      if (res && res.uri) {
+      if (res && res.length > 0) {
         setReplyAttachmentsMap(prev => ({
           ...prev,
-          [noteId]: [...(prev[noteId] || []), res]
+          [noteId]: [...(prev[noteId] || []), ...res]
         }));
       }
     } catch (err) {
-      if (err.message && !err.message.includes('user canceled')) {
-        console.warn('File pick error:', err);
-      }
+      console.warn('File pick error:', err);
     }
   };
 

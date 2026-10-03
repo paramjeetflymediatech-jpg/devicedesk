@@ -14,7 +14,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { getTasks, addTask, updateTask, deleteTask, startTask, stopTask, completeTask, subscribe, syncWithServer } from '../../store/store';
-import { pick } from '@react-native-documents/picker';
+import { pickFilesOrPhotos } from '../../utils/filePicker';
 import { getApiUrl, fetchClientRequestsApi, updateTaskStatusApi } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { useTheme } from '../../utils/ThemeContext';
@@ -313,17 +313,15 @@ export default function EmployeeTasks({ currentUser }) {
 
   const handleSelectFile = async () => {
     try {
-      const selected = await pick({
-        type: ['*/*'],
-        allowMultiSelection: true
+      const selected = await pickFilesOrPhotos({
+        allowMultiSelection: true,
+        includeCamera: true,
       });
       if (selected && selected.length > 0) {
         setSelectedFiles(prev => [...prev, ...selected]);
       }
     } catch (err) {
-      if (err.code !== 'DOCUMENT_PICKER_CANCELED') {
-        Alert.alert('File Picker Error', err.message || 'Could not pick file');
-      }
+      console.log('File selection error:', err);
     }
   };
 
