@@ -2267,32 +2267,22 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
               keyboardShouldPersistTaps="handled"
             >
               {onSwitchToEmployee && (
-                <View style={{ marginBottom: 10 }}>
-                  <TouchableOpacity
-                    style={{
-                      padding: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff',
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: isDark ? 'rgba(37, 99, 235, 0.35)' : '#bfdbfe',
-                    }}
-                    onPress={() => {
-                      setIsDrawerOpen(false);
-                      onSwitchToEmployee();
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={{ fontSize: 16 }}>👤</Text>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563eb' }}>
-                        My Employee Profile
-                      </Text>
+                <View style={{ marginBottom: 12, marginTop: 4 }}>
+                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.12)' : 'rgba(37, 99, 235, 0.06)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.35)' : 'rgba(37, 99, 235, 0.2)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 18, marginRight: 8 }}>👔</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>Team Leader Mode</Text>
                     </View>
-                    <AppIcon name="arrow-right" size={14} color="#2563eb" />
-                  </TouchableOpacity>
+                    <Switch
+                      value={true}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToEmployee();
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
+                      thumbColor={'#2563eb'}
+                    />
+                  </View>
                 </View>
               )}
 
@@ -2363,9 +2353,9 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 activeOpacity={0.8}
                 onPress={toggleTheme}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 10 }} />
-                  <Text style={{ fontSize: 13.5, color: themeColors.drawerItemText, fontWeight: '700' }} numberOfLines={1}>
+                  <Text style={{ fontSize: 13.5, color: themeColors.drawerItemText, fontWeight: '700' }}>
                     {isDark ? 'Dark Mode' : 'Light Mode'}
                   </Text>
                 </View>
@@ -2374,7 +2364,6 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                   onValueChange={toggleTheme}
                   trackColor={{ false: themeColors.switchTrackFalse, true: themeColors.switchTrackTrue }}
                   thumbColor={themeColors.switchThumb}
-                  style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
                 />
               </TouchableOpacity>
             </ScrollView>
