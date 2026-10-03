@@ -83,7 +83,7 @@ export default function ManageDepartments({ currentUser, onBack }) {
     if (count > 0) {
       Alert.alert(
         'Cannot Delete Department',
-        `Department "${dept.name}" currently has ${count} employee(s) assigned.\n\nPlease reassign these employees to another department before deleting.`,
+        `Department "${dept.name}" currently has ${count} employee(s) assigned.\n\nPlease reassign these employees to another department before deleting this department.`,
         [{ text: 'OK', style: 'default' }]
       );
       return;
@@ -99,6 +99,10 @@ export default function ManageDepartments({ currentUser, onBack }) {
           style: 'destructive',
           onPress: () => {
             deleteDepartment(dept.id, currentUser?.name || 'Admin');
+            if (selectedDept && selectedDept.id === dept.id) {
+              setSelectedDept(null);
+              setDeptDetailsModalVisible(false);
+            }
             refreshData();
             Alert.alert('Deleted', `Department "${dept.name}" has been removed.`);
           },
@@ -560,6 +564,27 @@ export default function ManageDepartments({ currentUser, onBack }) {
                       })
                     )}
                   </ScrollView>
+
+                  {/* Modal Footer Actions */}
+                  <View style={styles.modalDetailsFooter}>
+                    <TouchableOpacity
+                      style={styles.deleteBtn}
+                      onPress={() => handleDeleteDept(selectedDept)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.deleteBtnText}>🗑️ Delete Department</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.cancelBtn}
+                      onPress={() => {
+                        setSelectedDept(null);
+                        setDeptDetailsModalVisible(false);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.cancelBtnText}>Close</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })() : null}
@@ -856,6 +881,16 @@ const getStyles = (themeColors, isDark) =>
     detailsScroll: {
       flex: 1,
       marginTop: 6,
+    },
+    modalDetailsFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderColor: themeColors.border,
+      gap: 10,
     },
     memberAvatarCircle: {
       width: 36,
