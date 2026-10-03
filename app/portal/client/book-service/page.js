@@ -63,46 +63,120 @@ export default function BookServicePage() {
   };
 
   const handleViewDelivery = async (req) => {
-    let extraHtml = '';
-    try {
-      const res = await fetch('/api/tasks');
-      const data = await res.json();
-      if(data.success) {
-        const matchingTask = data.data.find(t => t.project_id === req.id && t.status === 'Completed');
-        if(matchingTask) {
-          let proofsHtml = '<p style="margin-bottom: 5px; color: #64748b;"><em>No proof files uploaded by the team.</em></p>';
-          if(matchingTask.fileUrl) {
-            try {
-              const parsedUrls = JSON.parse(matchingTask.fileUrl);
-              if(Array.isArray(parsedUrls) && parsedUrls.length > 0) {
-                proofsHtml = '<p style="margin-bottom: 5px;"><strong>Delivered Files:</strong><br/>' + parsedUrls.map((u, i) => `<a href="${u}" target="_blank" style="color: #db2777; text-decoration: underline; margin-right: 10px;">View File ${i+1}</a>`).join('') + '</p>';
-              } else if(typeof parsedUrls === 'string') {
-                proofsHtml = `<p style="margin-bottom: 5px;"><strong>Delivered File:</strong> <a href="${parsedUrls}" target="_blank" style="color: #db2777; text-decoration: underline;">View File</a></p>`;
-              }
-            } catch(err) {
-              proofsHtml = `<p style="margin-bottom: 5px;"><strong>Delivered File:</strong> <a href="${matchingTask.fileUrl}" target="_blank" style="color: #db2777; text-decoration: underline;">View File</a></p>`;
-            }
-          }
+    let deliverableFiles = req.deliverable_files;
+    let deliverableNote = req.deliverable_note;
+    let deliveredAt = req.delivered_at;
+    let specialistName = req.specialist_name;
 
-          extraHtml = `
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #f3f4f6;">
-              <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; color: #1f2937;">Delivery Details</h4>
-              ${proofsHtml}
-            </div>
-          `;
+    if (!deliverableFiles) {
+      try {
+        const res = await fetch('/api/tasks');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          const matchingTask = data.data.find(t => String(t.project_id) === String(req.id) || (t.title && t.title.includes(req.service_type)));
+          if (matchingTask) {
+            deliverableFiles = matchingTask.fileUrl;
+            deliverableNote = matchingTask.completion_note || deliverableNote;
+            deliveredAt = matchingTask.completedAt || deliveredAt;
+            specialistName = matchingTask.assignedToName || specialistName;
+          }
         }
+      } catch (e) {}
+    }
+
+    let proofsHtml = '';
+    if (deliverableFiles) {
+      let parsedUrls = [];
+      try {
+        if (typeof deliverableFiles === 'string') {
+          if (deliverableFiles.startsWith('[') || deliverableFiles.startsWith('{')) {
+            const parsed = JSON.parse(deliverableFiles);
+            parsedUrls = Array.isArray(parsed) ? parsed : [parsed];
+          } else {
+            parsedUrls = deliverableFiles.split(',').map(s => s.trim()).filter(Boolean);
+          }
+        } else if (Array.isArray(deliverableFiles)) {
+          parsedUrls = deliverableFiles;
+        }
+      } catch (err) {
+        parsedUrls = [deliverableFiles];
       }
-    } catch(e) {}
+
+      if (parsedUrls.length > 0) {
+        proofsHtml = `
+          <div style="margin-top: 10px;">
+            <p style="margin-bottom: 6px; font-weight: 600; color: #15803d;">📎 Delivered Files & Deliverables:</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              ${parsedUrls.map((u, i) => {
+                const fname = typeof u === 'string' ? u.split('/').pop().split('?')[0] : `File ${i + 1}`;
+                return `<a href="${u}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; background: #ecfdf5; border: 1px solid #86efac; color: #166534; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">📦 ${decodeURIComponent(fname)} ↗</a>`;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    let attachmentHtml = '';
+    if (req.attachment) {
+      let attUrls = [];
+      try {
+        if (typeof req.attachment === 'string') {
+          if (req.attachment.startsWith('[') || req.attachment.startsWith('{')) {
+            const parsed = JSON.parse(req.attachment);
+            attUrls = Array.isArray(parsed) ? parsed : [parsed];
+          } else {
+            attUrls = req.attachment.split(',').map(s => s.trim()).filter(Boolean);
+          }
+        } else if (Array.isArray(req.attachment)) {
+          attUrls = req.attachment;
+        }
+      } catch (e) {
+        attUrls = [req.attachment];
+      }
+
+      if (attUrls.length > 0) {
+        attachmentHtml = `
+          <div style="margin-top: 8px;">
+            <p style="margin-bottom: 4px; font-weight: 600; color: #475569; font-size: 12px;">Your Attached Files:</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              ${attUrls.map((u, i) => {
+                const fname = typeof u === 'string' ? u.split('/').pop().split('?')[0] : `Attachment ${i + 1}`;
+                return `<a href="${u}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; font-size: 12px; text-decoration: underline;">📄 ${decodeURIComponent(fname)}</a>`;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    const deliverySection = `
+      <div style="margin-top: 14px; padding: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <h4 style="font-size: 0.95rem; font-weight: 700; color: #166534; margin: 0;">🎉 Work Delivered & Completed</h4>
+          ${deliveredAt ? `<span style="font-size: 11px; color: #15803d; font-weight: 600;">${new Date(deliveredAt).toLocaleDateString()}</span>` : ''}
+        </div>
+        ${deliverableNote ? `
+          <div style="background: #ffffff; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; color: #1f2937; border: 1px solid #dcfce7;">
+            <strong>Team Note:</strong> ${deliverableNote}
+          </div>
+        ` : ''}
+        ${proofsHtml}
+      </div>
+    `;
 
     Swal.fire({
       title: `Service: ${req.service_type}`,
       html: `
         <div style="text-align: left; font-size: 0.9rem;">
-          <p style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: #16a34a; font-weight: bold;">${req.status}</span></p>
-          ${req.tl_name ? `<p style="margin-bottom: 8px;"><strong>Your Assigned TL:</strong> <span style="color: #4f46e5; font-weight: 600;">${req.tl_name}</span></p>` : ''}
-          <p style="margin-bottom: 8px;"><strong>Your Original Requirement:</strong></p>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin-top: 5px;">${req.requirements}</div>
-          ${extraHtml}
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <div><strong>Status:</strong> <span style="color: #16a34a; font-weight: bold;">${req.status}</span></div>
+            ${req.tl_name ? `<div style="color: #4f46e5; font-weight: 600;">🛡️ TL: ${req.tl_name}</div>` : ''}
+          </div>
+          <p style="margin-bottom: 4px;"><strong>Your Original Requirement:</strong></p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; font-size: 13px;">${req.requirements}</div>
+          ${attachmentHtml}
+          ${deliverySection}
         </div>
       `,
       confirmButtonText: 'Close',

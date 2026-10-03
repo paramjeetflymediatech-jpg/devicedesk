@@ -83,46 +83,45 @@ export default function ClientDashboard({ user, onLogout }) {
   const [noteAttachments, setNoteAttachments] = useState([]);
   const [uploadingNoteAttachments, setUploadingNoteAttachments] = useState(false);
   const [submittingNote, setSubmittingNote] = useState(false);
-  const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
-  const [previewError, setPreviewError] = useState(false);
 
-  // Audio player state & ref
-  const audioPlayerRef = useRef(null);
-  const [audioPaused, setAudioPaused] = useState(false);
-  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [audioLoading, setAudioLoading] = useState(true);
+  // Request Details & Deliverables Modal
+  const [selectedReqDetails, setSelectedReqDetails] = useState(null);
+  const [reqDetailsModalVisible, setReqDetailsModalVisible] = useState(false);
 
-  const formatAudioTime = (seconds) => {
-    if (!seconds || isNaN(seconds) || seconds < 0) return '00:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  const isImageUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(jpg|jpeg|png|webp|gif|svg|bmp|heic|heif)$/i.test(clean);
   };
-
-  const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
-  const isVideoUrl = (url) => typeof url === 'string' && /\.(mp4|webm|mov|ogg|mkv|3gp|avi)($|\?)/i.test(url);
-  const isAudioUrl = (url) => typeof url === 'string' && /\.(mp3|wav|ogg|m4a|aac|flac)($|\?)/i.test(url);
+  const isVideoUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(mp4|webm|mov|ogg|mkv|3gp|avi)$/i.test(clean);
+  };
+  const isAudioUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(clean);
+  };
 
   const handleOpenAttachment = (url) => {
     if (!url) {
       sweetAlert({ title: 'Attachment Missing', text: 'No attachment found for this item.', type: 'info' });
       return;
     }
-    setPreviewError(false);
-    setAudioPaused(false);
-    setAudioCurrentTime(0);
-    setAudioDuration(0);
-    setAudioLoading(true);
-    setPreviewAttachmentUrl(url);
-  };
-
-  const handleClosePreview = () => {
-    setPreviewAttachmentUrl(null);
-    setPreviewError(false);
-    setAudioPaused(true);
-    setAudioCurrentTime(0);
-    setAudioDuration(0);
+    const resolved = resolveMediaUrl(url);
+    if (!resolved) {
+      sweetAlert({ title: 'Attachment Missing', text: 'No valid attachment found.', type: 'info' });
+      return;
+    }
+    Linking.openURL(resolved).catch((err) => {
+      console.log('Error opening attachment:', err);
+      sweetAlert({
+        title: 'Cannot Open File',
+        text: 'Failed to open file: ' + resolved,
+        type: 'error',
+      });
+    });
   };
 
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
@@ -1009,7 +1008,11 @@ export default function ClientDashboard({ user, onLogout }) {
                 ) : (
                   requests.map((req) => {
                     const badge = getStatusBadge(req.status);
+                    const isCompleted = (req.status || '').toLowerCase() === 'completed';
                     const attList = parseAttachments(req.attachment);
+                    const deliveredFiles = parseAttachments(req.deliverable_files);
+                    const hasDelivery = isCompleted || deliveredFiles.length > 0 || !!req.deliverable_note;
+
                     return (
                       <View key={req.id} style={styles.itemCard}>
                         <View style={styles.itemCardHeader}>
@@ -1020,35 +1023,120 @@ export default function ClientDashboard({ user, onLogout }) {
                         </View>
                         <Text style={styles.itemDesc}>{req.requirements}</Text>
 
+                        {/* Client's Original Uploaded Requirements Attachments */}
                         {attList.length > 0 && (
-                          <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                            {attList.map((attUrl, aIdx) => {
-                              const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
-                              return (
-                                <TouchableOpacity
-                                  key={aIdx}
-                                  style={[styles.pendingChip, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: '#3b82f644', borderWidth: 1 }]}
-                                  onPress={() => Linking.openURL(attUrl).catch(() => {})}
-                                  activeOpacity={0.7}
-                                >
-                                  <Text style={[styles.pendingChipText, { color: '#3b82f6', fontWeight: '600' }]} numberOfLines={1}>
-                                    📎 {decodeURIComponent(filename)}
-                                  </Text>
-                                </TouchableOpacity>
-                              );
-                            })}
+                          <View style={{ marginTop: 8 }}>
+                            <Text style={{ fontSize: 10.5, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 4 }}>
+                              Your Attached Briefs:
+                            </Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                              {attList.map((attUrl, aIdx) => {
+                                const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                                return (
+                                  <TouchableOpacity
+                                    key={aIdx}
+                                    style={[styles.pendingChip, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: '#3b82f644', borderWidth: 1 }]}
+                                    onPress={() => Linking.openURL(attUrl).catch(() => {})}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Text style={[styles.pendingChipText, { color: '#3b82f6', fontWeight: '600' }]} numberOfLines={1}>
+                                      📎 {decodeURIComponent(filename)}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
                           </View>
                         )}
 
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+                        {/* Delivered Work Details & Deliverable Files */}
+                        {hasDelivery && (
+                          <View style={{ marginTop: 10, padding: 10, borderRadius: 8, backgroundColor: isDark ? '#022c22' : '#f0fdf4', borderWidth: 1, borderColor: isDark ? '#059669' : '#86efac' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text style={{ fontSize: 11.5, fontWeight: '800', color: isDark ? '#34d399' : '#16a34a' }}>
+                                🎉 Work Delivered & Completed
+                              </Text>
+                              {req.delivered_at && (
+                                <Text style={{ fontSize: 10, color: isDark ? '#a7f3d0' : '#15803d', fontWeight: '600' }}>
+                                  {new Date(req.delivered_at).toLocaleDateString()}
+                                </Text>
+                              )}
+                            </View>
+
+                            {req.deliverable_note ? (
+                              <Text style={{ fontSize: 11.5, color: themeColors.textPrimary, marginBottom: deliveredFiles.length > 0 ? 6 : 0 }} numberOfLines={3}>
+                                Note: {req.deliverable_note}
+                              </Text>
+                            ) : null}
+
+                            {deliveredFiles.length > 0 && (
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                                {deliveredFiles.map((fileUrl, fIdx) => {
+                                  const filename = typeof fileUrl === 'string' ? fileUrl.split('/').pop().split('?')[0] : `Deliverable ${fIdx + 1}`;
+                                  const isImg = isImageUrl(fileUrl);
+                                  const isVid = isVideoUrl(fileUrl);
+                                  const isAud = isAudioUrl(fileUrl);
+                                  return (
+                                    <TouchableOpacity
+                                      key={fIdx}
+                                      style={[
+                                        styles.pendingChip,
+                                        {
+                                          backgroundColor: isDark ? '#064e3b' : '#dcfce7',
+                                          borderColor: isDark ? '#059669' : '#86efac',
+                                          borderWidth: 1,
+                                          paddingVertical: 5,
+                                          paddingHorizontal: 8,
+                                          flexDirection: 'row',
+                                          alignItems: 'center',
+                                          gap: 4
+                                        }
+                                      ]}
+                                      onPress={() => Linking.openURL(fileUrl).catch(() => {})}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Text style={{ fontSize: 11 }}>
+                                        {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📦'}
+                                      </Text>
+                                      <Text style={[styles.pendingChipText, { color: isDark ? '#34d399' : '#15803d', fontWeight: '700', maxWidth: 140 }]} numberOfLines={1}>
+                                        {decodeURIComponent(filename)}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            )}
+                          </View>
+                        )}
+
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 6, borderTopWidth: 1, borderTopColor: isDark ? '#334155' : '#f1f5f9' }}>
                           <Text style={styles.itemFooterDate}>
                             Submitted: {new Date(req.created_at || Date.now()).toLocaleDateString()}
                           </Text>
                           {req.tl_name ? (
                             <Text style={{ fontSize: 11, color: '#6366f1', fontWeight: '700' }}>
-                              🛡️ Assigned TL: {req.tl_name}
+                              🛡️ TL: {req.tl_name}
                             </Text>
                           ) : null}
+                          <TouchableOpacity
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 4,
+                              borderRadius: 6,
+                              backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                              borderWidth: 1,
+                              borderColor: '#3b82f644'
+                            }}
+                            onPress={() => {
+                              setSelectedReqDetails(req);
+                              setReqDetailsModalVisible(true);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
+                              View Details 👁️
+                            </Text>
+                          </TouchableOpacity>
                         </View>
                       </View>
                     );
@@ -1862,6 +1950,339 @@ export default function ClientDashboard({ user, onLogout }) {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ======================================================== */}
+      {/* MODAL: SERVICE REQUEST & DELIVERABLES DETAILS             */}
+      {/* ======================================================== */}
+      <Modal
+        visible={reqDetailsModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setReqDetailsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '88%', paddingBottom: 16 }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.modalTitle} numberOfLines={1}>
+                  📋 Service Request Details
+                </Text>
+                <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>
+                  ID: #{selectedReqDetails?.id || ''}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setReqDetailsModalVisible(false)}
+                style={{ padding: 4 }}
+              >
+                <AppIcon name="x" size={20} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={true} style={{ flexGrow: 0 }}>
+              {/* Status Header Banner */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: 12,
+                borderRadius: 10,
+                marginBottom: 12,
+                backgroundColor: (selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'completed')
+                  ? (isDark ? '#064e3b' : '#ecfdf5')
+                  : (selectedReqDetails?.status === 'In Progress' || selectedReqDetails?.status === 'in_progress')
+                  ? (isDark ? '#1e3a8a' : '#eff6ff')
+                  : (isDark ? '#78350f' : '#fefce8'),
+                borderWidth: 1,
+                borderColor: (selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'completed')
+                  ? (isDark ? '#059669' : '#86efac')
+                  : (selectedReqDetails?.status === 'In Progress' || selectedReqDetails?.status === 'in_progress')
+                  ? (isDark ? '#2563eb' : '#bfdbfe')
+                  : (isDark ? '#d97706' : '#fde047')
+              }}>
+                <View>
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, textTransform: 'uppercase', fontWeight: '700' }}>
+                    Current Status
+                  </Text>
+                  <Text style={{
+                    fontSize: 15,
+                    fontWeight: '800',
+                    color: (selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'completed')
+                      ? (isDark ? '#34d399' : '#15803d')
+                      : (selectedReqDetails?.status === 'In Progress' || selectedReqDetails?.status === 'in_progress')
+                      ? (isDark ? '#60a5fa' : '#1d4ed8')
+                      : (isDark ? '#fbbf24' : '#b45309')
+                  }}>
+                    {selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'completed'
+                      ? '🎉 Completed & Delivered'
+                      : selectedReqDetails?.status === 'In Progress' || selectedReqDetails?.status === 'in_progress'
+                      ? '⚡ In Progress'
+                      : '⏳ Pending Review'}
+                  </Text>
+                </View>
+                <View style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 8,
+                  backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.7)'
+                }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textPrimary }}>
+                    {selectedReqDetails?.service_type || 'Service Task'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Delivery Section (if completed or deliverables exist) */}
+              {((selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'completed') || selectedReqDetails?.deliverable_note || selectedReqDetails?.deliverable_files) && (
+                <View style={{
+                  backgroundColor: isDark ? '#064e3b22' : '#f0fdf4',
+                  borderWidth: 1.5,
+                  borderColor: isDark ? '#059669' : '#86efac',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 14
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: isDark ? '#34d399' : '#15803d' }}>
+                      🚀 Final Delivered Work
+                    </Text>
+                    {selectedReqDetails?.delivered_at && (
+                      <Text style={{ fontSize: 11, color: isDark ? '#a7f3d0' : '#166534', fontWeight: '600' }}>
+                        📅 {new Date(selectedReqDetails.delivered_at).toLocaleDateString()}
+                      </Text>
+                    )}
+                  </View>
+
+                  {selectedReqDetails?.deliverable_note ? (
+                    <View style={{ marginBottom: 10, backgroundColor: isDark ? '#064e3b44' : '#ffffff', padding: 10, borderRadius: 8 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 2 }}>
+                        Team Completion Note:
+                      </Text>
+                      <Text style={{ fontSize: 13, color: themeColors.textPrimary, lineHeight: 18 }}>
+                        {selectedReqDetails.deliverable_note}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={{ fontSize: 12, color: themeColors.textSecondary, fontStyle: 'italic', marginBottom: 8 }}>
+                      The assigned team has finished and delivered this task for you.
+                    </Text>
+                  )}
+
+                  {/* Deliverable Files / Assets */}
+                  {(() => {
+                    let dFiles = [];
+                    if (selectedReqDetails?.deliverable_files) {
+                      try {
+                        if (typeof selectedReqDetails.deliverable_files === 'string') {
+                          if (selectedReqDetails.deliverable_files.startsWith('[') || selectedReqDetails.deliverable_files.startsWith('{')) {
+                            const parsed = JSON.parse(selectedReqDetails.deliverable_files);
+                            dFiles = Array.isArray(parsed) ? parsed : [parsed];
+                          } else {
+                            dFiles = selectedReqDetails.deliverable_files.split(',').map(s => s.trim()).filter(Boolean);
+                          }
+                        } else if (Array.isArray(selectedReqDetails.deliverable_files)) {
+                          dFiles = selectedReqDetails.deliverable_files;
+                        }
+                      } catch (e) {
+                        dFiles = [selectedReqDetails.deliverable_files];
+                      }
+                    }
+
+                    if (dFiles.length === 0) return null;
+
+                    return (
+                      <View style={{ marginTop: 4 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#34d399' : '#15803d', marginBottom: 6 }}>
+                          📎 Delivered Attachments & Proofs:
+                        </Text>
+                        <View style={{ gap: 6 }}>
+                          {dFiles.map((fileUrl, fIdx) => {
+                            const filename = typeof fileUrl === 'string' ? fileUrl.split('/').pop().split('?')[0] : `Deliverable ${fIdx + 1}`;
+                            const isImg = isImageUrl(fileUrl);
+                            const isVid = isVideoUrl(fileUrl);
+                            const isAud = isAudioUrl(fileUrl);
+                            const resolvedUrl = resolveMediaUrl(fileUrl);
+
+                            return (
+                              <TouchableOpacity
+                                key={fIdx}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: 10,
+                                  borderRadius: 8,
+                                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                                  borderWidth: 1,
+                                  borderColor: isDark ? '#334155' : '#cbd5e1'
+                                }}
+                                onPress={() => Linking.openURL(resolvedUrl).catch(() => {})}
+                                activeOpacity={0.7}
+                              >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                                  <Text style={{ fontSize: 16, marginRight: 8 }}>
+                                    {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📦'}
+                                  </Text>
+                                  <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textPrimary, flex: 1 }} numberOfLines={1}>
+                                    {decodeURIComponent(filename)}
+                                  </Text>
+                                </View>
+                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
+                                  Open / View ↗
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })()}
+                </View>
+              )}
+
+              {/* Assignment & Request Information Card */}
+              <View style={{
+                backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                borderWidth: 1,
+                borderColor: isDark ? '#334155' : '#e2e8f0',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 14
+              }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary, marginBottom: 8 }}>
+                  📌 Request Overview
+                </Text>
+
+                <View style={{ gap: 6 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: themeColors.textSecondary }}>Service Type:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textPrimary }}>
+                      {selectedReqDetails?.service_type || 'N/A'}
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: themeColors.textSecondary }}>Submitted Date:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: themeColors.textPrimary }}>
+                      {selectedReqDetails?.created_at ? new Date(selectedReqDetails.created_at).toLocaleString() : 'N/A'}
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: themeColors.textSecondary }}>Team Leader:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#6366f1' }}>
+                      🛡️ {selectedReqDetails?.tl_name || 'Assigned to Leadership'}
+                    </Text>
+                  </View>
+
+                  {selectedReqDetails?.specialist_name ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: 12, color: themeColors.textSecondary }}>Specialist:</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#059669' }}>
+                        👤 {selectedReqDetails.specialist_name}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+
+              {/* Client's Original Requirements & Instructions */}
+              <View style={{
+                backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                borderWidth: 1,
+                borderColor: isDark ? '#334155' : '#e2e8f0',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 14
+              }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary, marginBottom: 6 }}>
+                  📝 Your Requirements & Instructions
+                </Text>
+                <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, lineHeight: 18 }}>
+                  {selectedReqDetails?.requirements || 'No additional instructions provided.'}
+                </Text>
+
+                {/* Client's attached files */}
+                {(() => {
+                  let attFiles = [];
+                  if (selectedReqDetails?.attachment) {
+                    try {
+                      if (typeof selectedReqDetails.attachment === 'string') {
+                        if (selectedReqDetails.attachment.startsWith('[') || selectedReqDetails.attachment.startsWith('{')) {
+                          const parsed = JSON.parse(selectedReqDetails.attachment);
+                          attFiles = Array.isArray(parsed) ? parsed : [parsed];
+                        } else {
+                          attFiles = selectedReqDetails.attachment.split(',').map(s => s.trim()).filter(Boolean);
+                        }
+                      } else if (Array.isArray(selectedReqDetails.attachment)) {
+                        attFiles = selectedReqDetails.attachment;
+                      }
+                    } catch (e) {
+                      attFiles = [selectedReqDetails.attachment];
+                    }
+                  }
+
+                  if (attFiles.length === 0) return null;
+
+                  return (
+                    <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDark ? '#334155' : '#e2e8f0' }}>
+                      <Text style={{ fontSize: 11.5, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>
+                        📎 Your Uploaded Attachments:
+                      </Text>
+                      <View style={{ gap: 6 }}>
+                        {attFiles.map((fileUrl, aIdx) => {
+                          const filename = typeof fileUrl === 'string' ? fileUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                          const isImg = isImageUrl(fileUrl);
+                          const isVid = isVideoUrl(fileUrl);
+                          const isAud = isAudioUrl(fileUrl);
+                          const resolvedUrl = resolveMediaUrl(fileUrl);
+
+                          return (
+                            <TouchableOpacity
+                              key={aIdx}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: 8,
+                                borderRadius: 8,
+                                backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                                borderWidth: 1,
+                                borderColor: isDark ? '#334155' : '#cbd5e1'
+                              }}
+                              onPress={() => Linking.openURL(resolvedUrl).catch(() => {})}
+                              activeOpacity={0.7}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                                <Text style={{ fontSize: 14, marginRight: 6 }}>
+                                  {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📄'}
+                                </Text>
+                                <Text style={{ fontSize: 12, color: themeColors.textPrimary, flex: 1 }} numberOfLines={1}>
+                                  {decodeURIComponent(filename)}
+                                </Text>
+                              </View>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
+                                View ↗
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                })()}
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, { marginTop: 12 }]}
+              onPress={() => setReqDetailsModalVisible(false)}
+            >
+              <Text style={styles.modalSubmitText}>Close Details ✕</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

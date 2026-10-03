@@ -10,21 +10,50 @@ export async function GET(request) {
     const db = await getDbConnection();
     let rows;
 
+    const baseQuery = `
+      SELECT r.*, 
+        c.name as client_name, 
+        tl.name as tl_name,
+        t.fileUrl as deliverable_files,
+        t.completion_note as deliverable_note,
+        t.completedAt as delivered_at,
+        t.status as task_status,
+        ea.name as specialist_name
+      FROM service_requests r 
+      LEFT JOIN employees c ON (r.clientId COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci) 
+      LEFT JOIN employees tl ON (r.assigned_tl_id COLLATE utf8mb4_unicode_ci = tl.id COLLATE utf8mb4_unicode_ci) 
+      LEFT JOIN tasks t ON (r.id COLLATE utf8mb4_unicode_ci = t.project_id COLLATE utf8mb4_unicode_ci)
+      LEFT JOIN employees ea ON (t.assignedTo COLLATE utf8mb4_unicode_ci = ea.id COLLATE utf8mb4_unicode_ci)
+    `;
+
     if (clientId) {
       [rows] = await db.query(
-        `SELECT r.*, c.name as client_name, tl.name as tl_name FROM service_requests r LEFT JOIN employees c ON r.clientId = c.id LEFT JOIN employees tl ON r.assigned_tl_id = tl.id WHERE r.clientId = ? ORDER BY r.created_at DESC`,
+        `${baseQuery} WHERE r.clientId = ? ORDER BY r.created_at DESC`,
         [clientId]
       );
     } else {
       [rows] = await db.query(
-        `SELECT r.*, c.name as client_name, tl.name as tl_name FROM service_requests r LEFT JOIN employees c ON r.clientId = c.id LEFT JOIN employees tl ON r.assigned_tl_id = tl.id ORDER BY r.created_at DESC`
+        `${baseQuery} ORDER BY r.created_at DESC`
       );
     }
 
     return NextResponse.json({ success: true, data: rows });
   } catch (err) {
     console.error('Fetch Service Requests Error:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    try {
+      const db = await getDbConnection();
+      const { searchParams } = new URL(request.url);
+      const clientId = searchParams.get('clientId');
+      let rows;
+      if (clientId) {
+        [rows] = await db.query(`SELECT * FROM service_requests WHERE clientId = ? ORDER BY created_at DESC`, [clientId]);
+      } else {
+        [rows] = await db.query(`SELECT * FROM service_requests ORDER BY created_at DESC`);
+      }
+      return NextResponse.json({ success: true, data: rows });
+    } catch (e) {
+      return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    }
   }
 }
 
