@@ -85,7 +85,16 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
     (user?.role || '').toLowerCase().includes('admin') ||
     (user?.role || '').toLowerCase().includes('superadmin');
 
-  const isITSupport = !isAdminUser && (dbRoleStr === 'it support' || dbRoleStr === 'it_support' || dbRoleStr === 'it' || deptStr.includes('it'));
+  const isITSupport = !isAdminUser && (
+    dbRoleStr === 'it support' ||
+    dbRoleStr === 'it_support' ||
+    dbRoleStr === 'it engineer' ||
+    dbRoleStr === 'it_engineer' ||
+    dbRoleStr === 'it' ||
+    deptStr.includes('it') ||
+    (user?.role || '').toLowerCase().includes('engineer') ||
+    (user?.role || '').toLowerCase().includes('it')
+  );
 
   const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 
@@ -827,8 +836,40 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
                 </TouchableOpacity>
               )}
 
-              {/* My Employee Portal Switch */}
-              {!isSuperAdmin && onSwitchToEmployee && (
+              {/* IT Engineer Mode Toggle */}
+              {isITSupport && onSwitchToEmployee && (
+                <View style={{ marginBottom: 8, marginTop: 4 }}>
+                  <View style={{
+                    padding: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: '#0891b2',
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: '#0e7490',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 18, marginRight: 8 }}>💻</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#ffffff' }}>
+                        IT Engineer Mode
+                      </Text>
+                    </View>
+                    <Switch
+                      value={true}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToEmployee();
+                      }}
+                      trackColor={{ false: '#a5f3fc', true: '#cffafe' }}
+                      thumbColor={'#ffffff'}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* My Employee Portal Switch (for non-IT admin roles) */}
+              {!isSuperAdmin && !isITSupport && onSwitchToEmployee && (
                 <TouchableOpacity
                   style={[
                     styles.drawerItem,

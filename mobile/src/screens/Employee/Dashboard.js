@@ -120,8 +120,14 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
 
   const isITUser =
     dbRoleStr === 'it support' ||
+    dbRoleStr === 'it engineer' ||
+    dbRoleStr === 'it_engineer' ||
     dbRoleStr === 'it' ||
-    deptStr.includes('it');
+    roleStr === 'it engineer' ||
+    roleStr.includes('engineer') ||
+    roleStr.includes('it') ||
+    deptStr.includes('it') ||
+    dbRoleStr.includes('it');
 
   const isDnsUser =
     dbRoleStr === 'dns manager' ||
@@ -1293,7 +1299,38 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                 </View>
               )}
 
-              {onSwitchToAdmin && (
+              {onSwitchToAdmin && isITUser && (
+                <View style={{ marginBottom: 12, marginTop: onSwitchToLeader ? 0 : 4 }}>
+                  <View style={{
+                    padding: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 18, marginRight: 8 }}>💻</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#f8fafc' : '#1e293b' }}>
+                        IT Engineer Mode
+                      </Text>
+                    </View>
+                    <Switch
+                      value={false}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToAdmin();
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#a5f3fc' }}
+                      thumbColor={isDark ? '#94a3b8' : '#ffffff'}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {onSwitchToAdmin && !isITUser && (
                 <View style={{ marginBottom: 12, marginTop: onSwitchToLeader ? 0 : 4 }}>
                   <TouchableOpacity
                     style={{
@@ -1302,13 +1339,13 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       backgroundColor: isDark
-                        ? (isHRUser ? 'rgba(236, 72, 153, 0.15)' : isITUser ? 'rgba(8, 145, 178, 0.15)' : 'rgba(37, 99, 235, 0.15)')
-                        : (isHRUser ? '#fdf2f8' : isITUser ? '#ecfeff' : '#eff6ff'),
+                        ? (isHRUser ? 'rgba(236, 72, 153, 0.15)' : 'rgba(37, 99, 235, 0.15)')
+                        : (isHRUser ? '#fdf2f8' : '#eff6ff'),
                       borderRadius: 12,
                       borderWidth: 1,
                       borderColor: isDark
-                        ? (isHRUser ? 'rgba(236, 72, 153, 0.35)' : isITUser ? 'rgba(8, 145, 178, 0.35)' : 'rgba(37, 99, 235, 0.35)')
-                        : (isHRUser ? '#fbcfe8' : isITUser ? '#a5f3fc' : '#bfdbfe'),
+                        ? (isHRUser ? 'rgba(236, 72, 153, 0.35)' : 'rgba(37, 99, 235, 0.35)')
+                        : (isHRUser ? '#fbcfe8' : '#bfdbfe'),
                     }}
                     onPress={() => {
                       setIsDrawerOpen(false);
@@ -1317,21 +1354,21 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                     activeOpacity={0.8}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={{ fontSize: 16 }}>{isHRUser ? '💼' : isITUser ? '💻' : isDnsUser ? '🌐' : '🛡️'}</Text>
+                      <Text style={{ fontSize: 16 }}>{isHRUser ? '💼' : isDnsUser ? '🌐' : '🛡️'}</Text>
                       <Text
                         style={{
                           fontSize: 14,
                           fontWeight: '700',
-                          color: isHRUser ? '#db2777' : isITUser ? '#0891b2' : '#2563eb',
+                          color: isHRUser ? '#db2777' : '#2563eb',
                         }}
                       >
-                        {isHRUser ? 'HR Administrator Portal' : isITUser ? 'IT Support Portal' : isDnsUser ? 'DNS Manager Portal' : 'Admin Console'}
+                        {isHRUser ? 'HR Administrator Portal' : isDnsUser ? 'DNS Manager Portal' : 'Admin Console'}
                       </Text>
                     </View>
                     <AppIcon
                       name="arrow-right"
                       size={14}
-                      color={isHRUser ? '#db2777' : isITUser ? '#0891b2' : '#2563eb'}
+                      color={isHRUser ? '#db2777' : '#2563eb'}
                     />
                   </TouchableOpacity>
                 </View>

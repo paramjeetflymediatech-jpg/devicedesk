@@ -94,7 +94,9 @@ function MainAppContent() {
               deptLower.includes('it department') ||
               deptLower.includes('it') ||
               dbRoleLower.includes('it') ||
-              roleLower.includes('it');
+              roleLower.includes('it') ||
+              dbRoleLower.includes('engineer') ||
+              roleLower.includes('engineer');
 
             const isITTeamLeader = isLeader && isITDepartment;
 
@@ -238,7 +240,9 @@ function MainAppContent() {
       deptLower.includes('it department') ||
       deptLower.includes('it') ||
       dbRoleLower.includes('it') ||
-      roleLower.includes('it');
+      roleLower.includes('it') ||
+      dbRoleLower.includes('engineer') ||
+      roleLower.includes('engineer');
 
     const isITTeamLeader = isLeader && isITDepartment;
 
@@ -334,7 +338,9 @@ function MainAppContent() {
       deptLower.includes('it department') ||
       deptLower.includes('it') ||
       dbRoleLower.includes('it') ||
-      roleLower.includes('it');
+      roleLower.includes('it') ||
+      dbRoleLower.includes('engineer') ||
+      roleLower.includes('engineer');
 
     const isLeader =
       dbRoleLower === 'team leader' ||
