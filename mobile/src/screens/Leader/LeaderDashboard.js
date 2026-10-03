@@ -1118,7 +1118,14 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
                       {/* Client Attachments in Request Card */}
                       {(() => {
-                        const attList = parseAttachments(req.attachment);
+                        const attList = parseAttachments(
+                          req.attachment ||
+                          req.attachments ||
+                          req.fileUrl ||
+                          req.file_url ||
+                          req.client_attachment ||
+                          req.files
+                        );
                         if (attList.length === 0) return null;
                         return (
                           <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
@@ -1893,7 +1900,14 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
                   {/* Client Attached Files / Briefs */}
                   {(() => {
-                    const attList = parseAttachments(selectedRequest.attachment);
+                    const attList = parseAttachments(
+                      selectedRequest.attachment ||
+                      selectedRequest.attachments ||
+                      selectedRequest.fileUrl ||
+                      selectedRequest.file_url ||
+                      selectedRequest.client_attachment ||
+                      selectedRequest.files
+                    );
                     if (attList.length === 0) return null;
                     return (
                       <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: themeColors.border, paddingTop: 8 }}>
@@ -2067,7 +2081,14 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
             {/* Client Attachments Preview in Assign Modal */}
             {selectedRequest && (() => {
-              const attList = parseAttachments(selectedRequest.attachment);
+              const attList = parseAttachments(
+                selectedRequest.attachment ||
+                selectedRequest.attachments ||
+                selectedRequest.fileUrl ||
+                selectedRequest.file_url ||
+                selectedRequest.client_attachment ||
+                selectedRequest.files
+              );
               if (attList.length === 0) return null;
               return (
                 <View style={{ marginTop: 8, marginBottom: 6 }}>
@@ -3076,11 +3097,13 @@ function getStyles(themeColors, isDark) {
     modalSheet: {
       width: '100%',
       maxWidth: 420,
+      maxHeight: '88%',
       backgroundColor: themeColors.cardBg,
       borderRadius: 16,
       borderWidth: 1,
       borderColor: themeColors.border,
       padding: 16,
+      paddingBottom: 16,
     },
     modalHeader: {
       flexDirection: 'row',
