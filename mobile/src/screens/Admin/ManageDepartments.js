@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { useTheme } from '../../utils/ThemeContext';
 import { sweetAlert } from '../../utils/sweetAlert';
-import AppIcon from '../../components/AppIcon';
 import {
   getDepartments,
   addDepartment,
@@ -287,7 +286,6 @@ export default function ManageDepartments({ currentUser, onBack }) {
                   placeholderTextColor={themeColors.textSecondary}
                   value={newDeptName}
                   onChangeText={setNewDeptName}
-                  autoFocus={true}
                 />
 
                 <View style={styles.modalButtons}>
@@ -333,8 +331,8 @@ export default function ManageDepartments({ currentUser, onBack }) {
                 <View style={{ flex: 1 }}>
                   <View style={styles.modalHeaderRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
-                      <View style={[styles.deptIconBadge, { width: 32, height: 32, borderRadius: 8 }]}>
-                        <Text style={[styles.deptIconText, { fontSize: 14 }]}>
+                      <View style={[styles.deptIconBadge, { width: 34, height: 34, borderRadius: 8 }]}>
+                        <Text style={[styles.deptIconText, { fontSize: 15 }]}>
                           {selectedDept.name.charAt(0).toUpperCase()}
                         </Text>
                       </View>
