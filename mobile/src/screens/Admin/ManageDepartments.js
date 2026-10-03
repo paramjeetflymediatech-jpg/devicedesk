@@ -11,6 +11,7 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { useTheme } from '../../utils/ThemeContext';
 import { sweetAlert } from '../../utils/sweetAlert';
@@ -53,57 +54,72 @@ export default function ManageDepartments({ currentUser, onBack }) {
   const handleSaveDept = () => {
     const trimmed = newDeptName.trim();
     if (!trimmed) {
-      sweetAlert({ title: 'Error', text: 'Please enter a department name.', type: 'error' });
+      Alert.alert('Required', 'Please enter a department name.');
       return;
     }
     const res = addDepartment(trimmed, currentUser?.name || 'Admin');
     if (res) {
-      sweetAlert({ title: 'Success', text: `Department "${trimmed}" added successfully!`, type: 'success' });
+      Alert.alert('Success', `Department "${trimmed}" added successfully!`);
       setNewDeptName('');
       setModalVisible(false);
       refreshData();
     } else {
-      sweetAlert({ title: 'Error', text: 'Department already exists or name is invalid.', type: 'error' });
+      Alert.alert('Error', 'Department already exists or name is invalid.');
     }
   };
 
   const handleDeleteDept = (dept) => {
-    const count = employees.filter(
-      (e) => e.department && e.department.toLowerCase() === dept.name.toLowerCase()
-    ).length;
+    if (!dept) return;
+    const deptName = (dept.name || '').trim().toLowerCase();
+    const deptId = (dept.id || '').toString().trim().toLowerCase();
+
+    const assignedEmps = employees.filter((e) => {
+      const empDept = (e.department || e.dept || '').toString().trim().toLowerCase();
+      return empDept === deptName || (deptId && empDept === deptId);
+    });
+
+    const count = assignedEmps.length;
 
     if (count > 0) {
-      sweetAlert({
-        title: 'Cannot Delete',
-        text: `Department "${dept.name}" currently has ${count} employee(s) assigned. Reassign them before deleting.`,
-        type: 'error',
-      });
+      Alert.alert(
+        'Cannot Delete Department',
+        `Department "${dept.name}" currently has ${count} employee(s) assigned.\n\nPlease reassign these employees to another department before deleting.`,
+        [{ text: 'OK', style: 'default' }]
+      );
       return;
     }
 
-    sweetAlert({
-      title: 'Confirm Delete',
-      text: `Are you sure you want to delete "${dept.name}"?`,
-      type: 'warning',
-      showCancel: true,
-      onConfirm: () => {
-        deleteDepartment(dept.id, currentUser?.name || 'Admin');
-        refreshData();
-        sweetAlert({ title: 'Success', text: 'Department removed successfully.', type: 'success' });
-      },
-    });
+    Alert.alert(
+      'Confirm Delete',
+      `Are you sure you want to delete department "${dept.name}"?\n\nThis action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteDepartment(dept.id, currentUser?.name || 'Admin');
+            refreshData();
+            Alert.alert('Deleted', `Department "${dept.name}" has been removed.`);
+          },
+        },
+      ]
+    );
   };
 
   const filteredDepts = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return departments;
-    return departments.filter((d) => d.name.toLowerCase().includes(query));
+    return departments.filter((d) => (d.name || '').toLowerCase().includes(query));
   }, [departments, searchQuery]);
 
   // Overall stats
   const totalEmployeesAssigned = useMemo(() => {
-    const deptNames = departments.map((d) => d.name.toLowerCase());
-    return employees.filter((e) => e.department && deptNames.includes(e.department.toLowerCase())).length;
+    const deptNames = departments.map((d) => (d.name || '').trim().toLowerCase());
+    return employees.filter((e) => {
+      const empDept = (e.department || e.dept || '').trim().toLowerCase();
+      return empDept && deptNames.includes(empDept);
+    }).length;
   }, [departments, employees]);
 
   const totalDevicesAssigned = useMemo(() => {
@@ -176,19 +192,35 @@ export default function ManageDepartments({ currentUser, onBack }) {
           </View>
         ) : (
           filteredDepts.map((dept) => {
-            const deptEmps = employees.filter(
-              (e) => e.department && e.department.toLowerCase() === dept.name.toLowerCase()
-            );
+            const deptName = (dept.name || '').trim().toLowerCase();
+            const deptId = (dept.id || '').toString().trim().toLowerCase();
+
+            const deptEmps = employees.filter((e) => {
+              const empDept = (e.department || e.dept || '').toString().trim().toLowerCase();
+              return empDept === deptName || (deptId && empDept === deptId);
+            });
+
             const empCount = deptEmps.length;
-            const deptMemberIds = deptEmps.map((m) => m.id);
-            const devCount = systems.filter((s) => s.assignedTo && deptMemberIds.includes(s.assignedTo)).length;
+            const deptMemberIds = deptEmps.map((m) => String(m.id || ''));
+            const deptMemberNames = deptEmps.map((m) => (m.name || '').trim().toLowerCase());
+
+            const devCount = systems.filter((s) => {
+              const assignedId = String(s.assignedTo || '');
+              const assignedName = (s.assignedEmployeeName || s.assignedName || s.assignedToName || '').toString().trim().toLowerCase();
+              const sysDept = (s.department || s.dept || '').toString().trim().toLowerCase();
+              return (
+                (assignedId && deptMemberIds.includes(assignedId)) ||
+                (assignedName && deptMemberNames.includes(assignedName)) ||
+                sysDept === deptName
+              );
+            }).length;
 
             return (
-              <View key={dept.id} style={styles.deptCard}>
+              <View key={dept.id || dept.name} style={styles.deptCard}>
                 <View style={styles.deptCardHeader}>
                   <View style={styles.deptIconBadge}>
                     <Text style={styles.deptIconText}>
-                      {dept.name.charAt(0).toUpperCase()}
+                      {(dept.name || 'D').charAt(0).toUpperCase()}
                     </Text>
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
@@ -212,7 +244,7 @@ export default function ManageDepartments({ currentUser, onBack }) {
                       {deptEmps.slice(0, 4).map((emp, idx) => (
                         <View key={emp.id || idx} style={[styles.miniAvatar, { marginLeft: idx > 0 ? -6 : 0 }]}>
                           <Text style={styles.miniAvatarText}>
-                            {emp.name ? emp.name.charAt(0).toUpperCase() : '?'}
+                            {(emp.name || '?').charAt(0).toUpperCase()}
                           </Text>
                         </View>
                       ))}
@@ -319,26 +351,48 @@ export default function ManageDepartments({ currentUser, onBack }) {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '82%', paddingBottom: 15 }]}>
-            {selectedDept && (() => {
-              const deptMembers = employees.filter(
-                (e) => e.department && e.department.toLowerCase() === selectedDept.name.toLowerCase()
-              );
-              const memberIds = deptMembers.map((m) => m.id);
-              const deptDevices = systems.filter((s) => s.assignedTo && memberIds.includes(s.assignedTo));
+          <View style={styles.modalDetailsContent}>
+            {selectedDept ? (() => {
+              const deptName = (selectedDept.name || '').trim().toLowerCase();
+              const deptId = (selectedDept.id || '').toString().trim().toLowerCase();
+
+              const deptMembers = employees.filter((e) => {
+                const empDept = (e.department || e.dept || '').toString().trim().toLowerCase();
+                return empDept === deptName || (deptId && empDept === deptId);
+              });
+
+              const memberIds = deptMembers.map((m) => String(m.id || ''));
+              const memberNames = deptMembers.map((m) => (m.name || '').trim().toLowerCase());
+
+              const deptDevices = systems.filter((s) => {
+                const assignedId = String(s.assignedTo || '');
+                const assignedName = (s.assignedEmployeeName || s.assignedName || s.assignedToName || '').toString().trim().toLowerCase();
+                const sysDept = (s.department || s.dept || '').toString().trim().toLowerCase();
+                return (
+                  (assignedId && memberIds.includes(assignedId)) ||
+                  (assignedName && memberNames.includes(assignedName)) ||
+                  sysDept === deptName
+                );
+              });
 
               return (
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  {/* Modal Header */}
                   <View style={styles.modalHeaderRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
-                      <View style={[styles.deptIconBadge, { width: 34, height: 34, borderRadius: 8 }]}>
-                        <Text style={[styles.deptIconText, { fontSize: 15 }]}>
-                          {selectedDept.name.charAt(0).toUpperCase()}
+                      <View style={[styles.deptIconBadge, { width: 38, height: 38, borderRadius: 10 }]}>
+                        <Text style={[styles.deptIconText, { fontSize: 16 }]}>
+                          {(selectedDept.name || 'D').charAt(0).toUpperCase()}
                         </Text>
                       </View>
-                      <Text style={[styles.modalTitle, { marginLeft: 10, marginBottom: 0, flex: 1 }]} numberOfLines={1}>
-                        {selectedDept.name}
-                      </Text>
+                      <View style={{ marginLeft: 10, flex: 1 }}>
+                        <Text style={styles.modalTitle} numberOfLines={1}>
+                          {selectedDept.name}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: themeColors.textSecondary }}>
+                          {deptMembers.length} Members • {deptDevices.length} Hardware Devices
+                        </Text>
+                      </View>
                     </View>
                     <TouchableOpacity
                       onPress={() => {
@@ -346,6 +400,7 @@ export default function ManageDepartments({ currentUser, onBack }) {
                         setDeptDetailsModalVisible(false);
                       }}
                       style={styles.modalCloseBtn}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
                       <Text style={styles.modalCloseText}>✕</Text>
                     </TouchableOpacity>
@@ -371,36 +426,84 @@ export default function ManageDepartments({ currentUser, onBack }) {
                     </TouchableOpacity>
                   </View>
 
-                  <ScrollView style={{ flex: 1, marginTop: 8 }} showsVerticalScrollIndicator={false}>
+                  {/* Scrollable list */}
+                  <ScrollView
+                    style={styles.detailsScroll}
+                    contentContainerStyle={{ paddingBottom: 20 }}
+                    showsVerticalScrollIndicator={true}
+                  >
                     {deptModalTab === 'members' ? (
                       deptMembers.length === 0 ? (
                         <View style={styles.modalEmptyBox}>
-                          <Text style={{ fontSize: 28, marginBottom: 4 }}>👥</Text>
-                          <Text style={styles.modalEmptyText}>No employees currently in this department.</Text>
+                          <Text style={{ fontSize: 32, marginBottom: 8 }}>👥</Text>
+                          <Text style={styles.emptyTitle}>No Members Found</Text>
+                          <Text style={styles.modalEmptyText}>
+                            No employees are currently assigned to {selectedDept.name}.
+                          </Text>
                         </View>
                       ) : (
-                        deptMembers.map((emp) => {
-                          const empSystems = systems.filter((s) => s.assignedTo === emp.id);
+                        deptMembers.map((emp, idx) => {
+                          const empIdStr = String(emp.id || '');
+                          const empNameStr = (emp.name || '').trim().toLowerCase();
+                          const empSystems = systems.filter(
+                            (s) =>
+                              (empIdStr && String(s.assignedTo || '') === empIdStr) ||
+                              (empNameStr &&
+                                (s.assignedEmployeeName || s.assignedName || s.assignedToName || '')
+                                  .toString()
+                                  .trim()
+                                  .toLowerCase() === empNameStr)
+                          );
+
                           return (
-                            <View key={emp.id} style={styles.detailItemCard}>
+                            <View key={emp.id || idx} style={styles.detailItemCard}>
                               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Text style={styles.detailItemName}>{emp.name}</Text>
-                                <View style={[styles.statusMiniBadge, emp.status === 'Paused' ? styles.badgePaused : styles.badgeActive]}>
-                                  <Text style={[styles.statusMiniText, emp.status === 'Paused' ? { color: '#ef4444' } : { color: '#10b981' }]}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                  <View style={styles.memberAvatarCircle}>
+                                    <Text style={styles.memberAvatarText}>
+                                      {(emp.name || 'E').charAt(0).toUpperCase()}
+                                    </Text>
+                                  </View>
+                                  <View style={{ marginLeft: 10, flex: 1 }}>
+                                    <Text style={styles.detailItemName}>{emp.name || 'Unnamed Employee'}</Text>
+                                    <Text style={styles.detailItemSub}>
+                                      {emp.role || emp.designation || 'Staff'} {emp.email ? `• ${emp.email}` : ''}
+                                    </Text>
+                                  </View>
+                                </View>
+                                <View
+                                  style={[
+                                    styles.statusMiniBadge,
+                                    emp.status === 'Paused' || emp.status === 'inactive'
+                                      ? styles.badgePaused
+                                      : styles.badgeActive,
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.statusMiniText,
+                                      emp.status === 'Paused' || emp.status === 'inactive'
+                                        ? { color: '#ef4444' }
+                                        : { color: '#10b981' },
+                                    ]}
+                                  >
                                     {emp.status || 'Active'}
                                   </Text>
                                 </View>
                               </View>
-                              <Text style={styles.detailItemSub}>{emp.role} • {emp.email}</Text>
-                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+
+                              {/* Systems Assigned */}
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                                 {empSystems.length === 0 ? (
                                   <Text style={{ color: themeColors.textSecondary, fontSize: 11, fontStyle: 'italic' }}>
                                     No hardware assigned
                                   </Text>
                                 ) : (
                                   empSystems.map((sys) => (
-                                    <View key={sys.id} style={styles.sysTag}>
-                                      <Text style={styles.sysTagText}>🖥️ {sys.systemNo}</Text>
+                                    <View key={sys.id || sys.systemNo} style={styles.sysTag}>
+                                      <Text style={styles.sysTagText}>
+                                        🖥️ {sys.systemNo || sys.name || 'Workstation'}
+                                      </Text>
                                     </View>
                                   ))
                                 )}
@@ -409,39 +512,57 @@ export default function ManageDepartments({ currentUser, onBack }) {
                           );
                         })
                       )
+                    ) : deptDevices.length === 0 ? (
+                      <View style={styles.modalEmptyBox}>
+                        <Text style={{ fontSize: 32, marginBottom: 8 }}>🖥️</Text>
+                        <Text style={styles.emptyTitle}>No Devices Found</Text>
+                        <Text style={styles.modalEmptyText}>
+                          No systems or fleet hardware assigned to {selectedDept.name}.
+                        </Text>
+                      </View>
                     ) : (
-                      deptDevices.length === 0 ? (
-                        <View style={styles.modalEmptyBox}>
-                          <Text style={{ fontSize: 28, marginBottom: 4 }}>🖥️</Text>
-                          <Text style={styles.modalEmptyText}>No devices allocated to this department.</Text>
-                        </View>
-                      ) : (
-                        deptDevices.map((sys) => {
-                          const assignee = deptMembers.find((m) => m.id === sys.assignedTo);
-                          return (
-                            <View key={sys.id} style={styles.detailItemCard}>
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Text style={styles.detailItemName}>🖥️ {sys.systemNo}</Text>
-                                <View style={styles.sysTypeBadge}>
-                                  <Text style={styles.sysTypeBadgeText}>{sys.os || 'System'}</Text>
-                                </View>
-                              </View>
-                              <Text style={styles.detailItemSub}>{sys.model || 'Standard Workstation'}</Text>
-                              <Text style={{ color: themeColors.textSecondary, fontSize: 12, marginTop: 4 }}>
-                                CPU: {sys.cpu || '—'} | RAM: {sys.ram || '—'} | GPU: {sys.gpu || '—'}
+                      deptDevices.map((sys, idx) => {
+                        const assignedIdStr = String(sys.assignedTo || '');
+                        const assignedNameStr = (sys.assignedEmployeeName || sys.assignedName || sys.assignedToName || '')
+                          .toString()
+                          .trim()
+                          .toLowerCase();
+
+                        const assignee = deptMembers.find(
+                          (m) =>
+                            (assignedIdStr && String(m.id || '') === assignedIdStr) ||
+                            (assignedNameStr && (m.name || '').trim().toLowerCase() === assignedNameStr)
+                        );
+
+                        return (
+                          <View key={sys.id || idx} style={styles.detailItemCard}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Text style={styles.detailItemName}>
+                                🖥️ {sys.systemNo || sys.name || 'Workstation'}
                               </Text>
-                              <Text style={{ color: themeColors.accent || '#3b82f6', fontSize: 12, fontWeight: '700', marginTop: 6 }}>
-                                Assigned: {assignee ? assignee.name : 'Unassigned'}
+                              <View style={styles.sysTypeBadge}>
+                                <Text style={styles.sysTypeBadgeText}>{sys.os || sys.type || 'System'}</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.detailItemSub}>
+                              {sys.model || sys.brand || 'Standard Workstation'}
+                            </Text>
+                            <Text style={{ color: themeColors.textSecondary, fontSize: 12, marginTop: 4 }}>
+                              CPU: {sys.cpu || '—'} • RAM: {sys.ram || '—'} • GPU: {sys.gpu || '—'}
+                            </Text>
+                            <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderColor: themeColors.border }}>
+                              <Text style={{ color: themeColors.accent || '#3b82f6', fontSize: 12, fontWeight: '700' }}>
+                                Assigned to: {assignee ? assignee.name : sys.assignedEmployeeName || 'Unassigned'}
                               </Text>
                             </View>
-                          );
-                        })
-                      )
+                          </View>
+                        );
+                      })
                     )}
                   </ScrollView>
                 </View>
               );
-            })()}
+            })() : null}
           </View>
         </View>
       </Modal>
@@ -719,6 +840,35 @@ const getStyles = (themeColors, isDark) =>
       padding: 18,
       width: '100%',
       maxWidth: 420,
+    },
+    modalDetailsContent: {
+      backgroundColor: themeColors.card,
+      borderWidth: 1,
+      borderColor: themeColors.border,
+      borderRadius: 18,
+      padding: 18,
+      width: '100%',
+      maxWidth: 440,
+      height: '84%',
+      display: 'flex',
+      flexDirection: 'column',
+    },
+    detailsScroll: {
+      flex: 1,
+      marginTop: 6,
+    },
+    memberAvatarCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: '#2563eb',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    memberAvatarText: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '800',
     },
     modalHeaderRow: {
       flexDirection: 'row',
