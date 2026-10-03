@@ -2029,10 +2029,26 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
               </ScrollView>
 
               <TouchableOpacity
-                style={[styles.modalSaveBtn, { marginTop: 14, flex: 0, width: '100%' }]}
+                style={{
+                  width: '100%',
+                  backgroundColor: '#2563eb',
+                  paddingVertical: 13,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 14,
+                  shadowColor: '#2563eb',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 3,
+                }}
                 onPress={() => setViewReqModalVisible(false)}
+                activeOpacity={0.8}
               >
-                <Text style={styles.modalSaveText}>Close</Text>
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '800', letterSpacing: 0.3 }}>
+                  Close Details ✕
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

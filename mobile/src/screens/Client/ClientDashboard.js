@@ -2279,10 +2279,26 @@ export default function ClientDashboard({ user, onLogout }) {
             </ScrollView>
 
             <TouchableOpacity
-              style={[styles.modalSubmitBtn, { marginTop: 12 }]}
+              style={{
+                width: '100%',
+                backgroundColor: '#2563eb',
+                paddingVertical: 13,
+                borderRadius: 10,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 14,
+                shadowColor: '#2563eb',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 4,
+                elevation: 3,
+              }}
               onPress={() => setReqDetailsModalVisible(false)}
+              activeOpacity={0.8}
             >
-              <Text style={styles.modalSubmitText}>Close Details ✕</Text>
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '800', letterSpacing: 0.3 }}>
+                Close Details ✕
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
