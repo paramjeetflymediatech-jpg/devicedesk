@@ -86,6 +86,18 @@ function MainAppContent() {
               roleLower.includes('leader') ||
               Boolean(userObj.isLeader);
 
+            const isITDepartment =
+              deptLower === 'it' ||
+              deptLower.startsWith('it ') ||
+              deptLower.includes('it support') ||
+              deptLower.includes('information technology') ||
+              deptLower.includes('it department') ||
+              deptLower.includes('it') ||
+              dbRoleLower.includes('it') ||
+              roleLower.includes('it');
+
+            const isITTeamLeader = isLeader && isITDepartment;
+
             const isHR =
               !isLeader &&
               (dbRoleLower === 'hr' || dbRoleLower.includes('hr') || roleLower.includes('hr') || deptLower === 'hr' || deptLower.includes('hr') || deptLower.includes('human resource'));
@@ -99,12 +111,13 @@ function MainAppContent() {
               (dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management');
 
             const isITSupport =
-              !isLeader &&
-              (dbRoleLower === 'it support' || deptLower === 'it support' || dbRoleLower === 'it_support');
+              isITDepartment ||
+              dbRoleLower === 'it support' ||
+              deptLower === 'it support' ||
+              dbRoleLower === 'it_support';
 
             const isAdmin =
-              !isLeader &&
-              (isPureAdmin || isHR || isDnsAdmin || isITSupport || (roleLower.includes('admin') && !isLeader));
+              isPureAdmin || isHR || isDnsAdmin || (!isLeader && isITSupport) || (roleLower.includes('admin') && !isLeader);
 
             if (isLeader) {
               setCurrentScreen('leader');
@@ -217,6 +230,18 @@ function MainAppContent() {
       roleLower.includes('leader') ||
       Boolean(userObj.isLeader);
 
+    const isITDepartment =
+      deptLower === 'it' ||
+      deptLower.startsWith('it ') ||
+      deptLower.includes('it support') ||
+      deptLower.includes('information technology') ||
+      deptLower.includes('it department') ||
+      deptLower.includes('it') ||
+      dbRoleLower.includes('it') ||
+      roleLower.includes('it');
+
+    const isITTeamLeader = isLeader && isITDepartment;
+
     const isHR =
       !isLeader &&
       (dbRoleLower === 'hr' || dbRoleLower.includes('hr') || roleLower.includes('hr') || deptLower === 'hr' || deptLower.includes('hr') || deptLower.includes('human resource'));
@@ -230,12 +255,13 @@ function MainAppContent() {
       (dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management');
 
     const isITSupport =
-      !isLeader &&
-      (dbRoleLower === 'it support' || deptLower === 'it support' || dbRoleLower === 'it_support');
+      isITDepartment ||
+      dbRoleLower === 'it support' ||
+      deptLower === 'it support' ||
+      dbRoleLower === 'it_support';
 
     const isAdmin =
-      !isLeader &&
-      (isPureAdmin || isHR || isDnsAdmin || isITSupport || (roleLower.includes('admin') && !isLeader));
+      isPureAdmin || isHR || isDnsAdmin || (!isLeader && isITSupport) || (roleLower.includes('admin') && !isLeader);
 
     if (isLeader) {
       setCurrentScreen('leader');
@@ -300,6 +326,16 @@ function MainAppContent() {
     const dbRoleLower = (currentUser?.dbRole || '').toLowerCase().trim();
     const deptLower = (currentUser?.department || '').toLowerCase().trim();
 
+    const isITDepartment =
+      deptLower === 'it' ||
+      deptLower.startsWith('it ') ||
+      deptLower.includes('it support') ||
+      deptLower.includes('information technology') ||
+      deptLower.includes('it department') ||
+      deptLower.includes('it') ||
+      dbRoleLower.includes('it') ||
+      roleLower.includes('it');
+
     const isLeader =
       dbRoleLower === 'team leader' ||
       dbRoleLower === 'tl' ||
@@ -310,6 +346,8 @@ function MainAppContent() {
       roleLower === 'tl' ||
       roleLower.includes('leader') ||
       Boolean(currentUser?.isLeader);
+
+    const isITTeamLeader = isLeader && isITDepartment;
 
     const isHR =
       !isLeader &&
@@ -324,12 +362,13 @@ function MainAppContent() {
       (dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management');
 
     const isITSupport =
-      !isLeader &&
-      (dbRoleLower === 'it support' || deptLower === 'it support' || dbRoleLower === 'it_support');
+      isITDepartment ||
+      dbRoleLower === 'it support' ||
+      deptLower === 'it support' ||
+      dbRoleLower === 'it_support';
 
     const isAdmin =
-      !isLeader &&
-      (isPureAdmin || isHR || isDnsAdmin || isITSupport || (roleLower.includes('admin') && !isLeader));
+      isPureAdmin || isHR || isDnsAdmin || (!isLeader && isITSupport) || (roleLower.includes('admin') && !isLeader);
 
     switch (currentScreen) {
       case 'welcome':
@@ -361,6 +400,7 @@ function MainAppContent() {
             user={currentUser}
             onLogout={handleLogout}
             onSwitchToEmployee={() => setCurrentScreen('employee')}
+            onSwitchToAdmin={isITTeamLeader ? () => setCurrentScreen('admin') : undefined}
           />
         );
       }
@@ -370,7 +410,7 @@ function MainAppContent() {
             user={currentUser}
             onLogout={handleLogout}
             onSwitchToLeader={isLeader ? () => setCurrentScreen('leader') : undefined}
-            onSwitchToAdmin={!isLeader && isAdmin ? () => setCurrentScreen('admin') : undefined}
+            onSwitchToAdmin={(isITTeamLeader || (!isLeader && isAdmin)) ? () => setCurrentScreen('admin') : undefined}
           />
         );
       }

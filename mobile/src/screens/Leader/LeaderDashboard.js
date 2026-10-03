@@ -56,7 +56,7 @@ function getDeptColor(dept = '') {
   return DEPT_COLORS.Default;
 }
 
-export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwitchToEmployee }) {
+export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwitchToEmployee, onSwitchToAdmin }) {
   const { themeColors, isDark, toggleTheme } = useTheme();
 
   // Navigation tab: 'overview' | 'requests' | 'team' | 'sop'
@@ -2261,7 +2261,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
               keyboardShouldPersistTaps="handled"
             >
               {onSwitchToEmployee && (
-                <View style={{ marginBottom: 12, marginTop: 4 }}>
+                <View style={{ marginBottom: onSwitchToAdmin ? 8 : 12, marginTop: 4 }}>
                   <View style={{
                     padding: 14,
                     flexDirection: 'row',
@@ -2288,6 +2288,46 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       thumbColor={'#ffffff'}
                     />
                   </View>
+                </View>
+              )}
+
+              {onSwitchToAdmin && (
+                <View style={{ marginBottom: 12, marginTop: 0 }}>
+                  <TouchableOpacity
+                    style={{
+                      padding: 14,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: isDark ? 'rgba(8, 145, 178, 0.15)' : '#ecfeff',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(8, 145, 178, 0.35)' : '#a5f3fc',
+                    }}
+                    onPress={() => {
+                      setIsDrawerOpen(false);
+                      onSwitchToAdmin();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>💻</Text>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: '700',
+                          color: isDark ? '#22d3ee' : '#0891b2',
+                        }}
+                      >
+                        IT Support Portal
+                      </Text>
+                    </View>
+                    <AppIcon
+                      name="arrow-right"
+                      size={14}
+                      color={isDark ? '#22d3ee' : '#0891b2'}
+                    />
+                  </TouchableOpacity>
                 </View>
               )}
 

@@ -68,7 +68,7 @@ function getRelativeTime(isoString) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
+export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onSwitchToLeader }) {
   const { theme, isDark, toggleTheme, themeColors } = useTheme();
   const styles = getStyles(themeColors, isDark);
 
@@ -802,6 +802,31 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
               bounces={true}
               keyboardShouldPersistTaps="handled"
             >
+              {/* Team Leader Portal Switch */}
+              {onSwitchToLeader && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    {
+                      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.18)' : '#eff6ff',
+                      borderColor: isDark ? '#3b82f6' : '#bfdbfe',
+                      borderWidth: 1,
+                      marginTop: 6,
+                      marginBottom: 4,
+                    }
+                  ]}
+                  onPress={() => {
+                    setIsDrawerOpen(false);
+                    onSwitchToLeader();
+                  }}
+                >
+                  <Text style={styles.drawerItemIcon}>👔</Text>
+                  <Text style={[styles.drawerItemLabel, { color: '#2563eb', fontWeight: '800' }]}>
+                    Team Leader Portal &rarr;
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {/* My Employee Portal Switch */}
               {!isSuperAdmin && onSwitchToEmployee && (
                 <TouchableOpacity
@@ -811,7 +836,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
                       backgroundColor: isDark ? '#1e293b' : (isHRUser ? '#fdf2f8' : '#eff6ff'),
                       borderColor: isDark ? '#334155' : (isHRUser ? '#fbcfe8' : '#bfdbfe'),
                       borderWidth: 1,
-                      marginTop: 6,
+                      marginTop: onSwitchToLeader ? 2 : 6,
                       marginBottom: 8,
                     }
                   ]}
