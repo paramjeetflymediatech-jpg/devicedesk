@@ -523,16 +523,28 @@ export default function ClientDashboard({ user, onLogout }) {
   const parseAttachments = (val) => {
     if (!val) return [];
     if (Array.isArray(val)) {
-      return val.map(v => resolveMediaUrl(v)).filter(Boolean);
+      return val.flatMap(v => parseAttachments(v)).filter(Boolean);
     }
     if (typeof val === 'string') {
-      const trimmed = val.trim();
-      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      let trimmed = val.trim();
+      if (!trimmed) return [];
+      // Remove surrounding quotes if double-stringified
+      while ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+        try {
+          const unquoted = JSON.parse(trimmed);
+          if (typeof unquoted === 'string') {
+            trimmed = unquoted.trim();
+          } else {
+            return parseAttachments(unquoted);
+          }
+        } catch (e) {
+          trimmed = trimmed.slice(1, -1).trim();
+        }
+      }
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
         try {
           const parsed = JSON.parse(trimmed);
-          if (Array.isArray(parsed)) {
-            return parsed.map(v => resolveMediaUrl(v)).filter(Boolean);
-          }
+          return parseAttachments(parsed);
         } catch (e) {}
       }
       if (trimmed.includes(',')) {
@@ -1009,8 +1021,8 @@ export default function ClientDashboard({ user, onLogout }) {
                   requests.map((req) => {
                     const badge = getStatusBadge(req.status);
                     const isCompleted = (req.status || '').toLowerCase() === 'completed';
-                    const attList = parseAttachments(req.attachment);
-                    const deliveredFiles = parseAttachments(req.deliverable_files);
+                    const attList = parseAttachments(req.attachment || req.attachments || req.fileUrl || req.file_url);
+                    const deliveredFiles = parseAttachments(req.deliverable_files || req.deliverableFiles || req.proof || req.proofs);
                     const hasDelivery = isCompleted || deliveredFiles.length > 0 || !!req.deliverable_note;
 
                     return (
@@ -1027,11 +1039,14 @@ export default function ClientDashboard({ user, onLogout }) {
                         {attList.length > 0 && (
                           <View style={{ marginTop: 8 }}>
                             <Text style={{ fontSize: 10.5, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 4 }}>
-                              Your Attached Briefs:
+                              📎 Your Uploaded Brief ({attList.length}):
                             </Text>
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                               {attList.map((attUrl, aIdx) => {
                                 const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                                const isImg = isImageUrl(attUrl);
+                                const isVid = isVideoUrl(attUrl);
+                                const isAud = isAudioUrl(attUrl);
                                 return (
                                   <TouchableOpacity
                                     key={aIdx}
@@ -1039,8 +1054,11 @@ export default function ClientDashboard({ user, onLogout }) {
                                     onPress={() => Linking.openURL(attUrl).catch(() => {})}
                                     activeOpacity={0.7}
                                   >
-                                    <Text style={[styles.pendingChipText, { color: '#3b82f6', fontWeight: '600' }]} numberOfLines={1}>
-                                      📎 {decodeURIComponent(filename)}
+                                    <Text style={{ fontSize: 11, marginRight: 4 }}>
+                                      {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📄'}
+                                    </Text>
+                                    <Text style={[styles.pendingChipText, { color: '#3b82f6', fontWeight: '600', maxWidth: 140 }]} numberOfLines={1}>
+                                      {decodeURIComponent(filename)}
                                     </Text>
                                   </TouchableOpacity>
                                 );
@@ -2073,30 +2091,19 @@ export default function ClientDashboard({ user, onLogout }) {
 
                   {/* Deliverable Files / Assets */}
                   {(() => {
-                    let dFiles = [];
-                    if (selectedReqDetails?.deliverable_files) {
-                      try {
-                        if (typeof selectedReqDetails.deliverable_files === 'string') {
-                          if (selectedReqDetails.deliverable_files.startsWith('[') || selectedReqDetails.deliverable_files.startsWith('{')) {
-                            const parsed = JSON.parse(selectedReqDetails.deliverable_files);
-                            dFiles = Array.isArray(parsed) ? parsed : [parsed];
-                          } else {
-                            dFiles = selectedReqDetails.deliverable_files.split(',').map(s => s.trim()).filter(Boolean);
-                          }
-                        } else if (Array.isArray(selectedReqDetails.deliverable_files)) {
-                          dFiles = selectedReqDetails.deliverable_files;
-                        }
-                      } catch (e) {
-                        dFiles = [selectedReqDetails.deliverable_files];
-                      }
-                    }
+                    const dFiles = parseAttachments(
+                      selectedReqDetails?.deliverable_files ||
+                      selectedReqDetails?.deliverableFiles ||
+                      selectedReqDetails?.proof ||
+                      selectedReqDetails?.proofs
+                    );
 
                     if (dFiles.length === 0) return null;
 
                     return (
-                      <View style={{ marginTop: 4 }}>
+                      <View style={{ marginTop: 6 }}>
                         <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#34d399' : '#15803d', marginBottom: 6 }}>
-                          📎 Delivered Attachments & Proofs:
+                          📎 Delivered Attachments & Proofs ({dFiles.length}):
                         </Text>
                         <View style={{ gap: 6 }}>
                           {dFiles.map((fileUrl, fIdx) => {
@@ -2207,70 +2214,64 @@ export default function ClientDashboard({ user, onLogout }) {
 
                 {/* Client's attached files */}
                 {(() => {
-                  let attFiles = [];
-                  if (selectedReqDetails?.attachment) {
-                    try {
-                      if (typeof selectedReqDetails.attachment === 'string') {
-                        if (selectedReqDetails.attachment.startsWith('[') || selectedReqDetails.attachment.startsWith('{')) {
-                          const parsed = JSON.parse(selectedReqDetails.attachment);
-                          attFiles = Array.isArray(parsed) ? parsed : [parsed];
-                        } else {
-                          attFiles = selectedReqDetails.attachment.split(',').map(s => s.trim()).filter(Boolean);
-                        }
-                      } else if (Array.isArray(selectedReqDetails.attachment)) {
-                        attFiles = selectedReqDetails.attachment;
-                      }
-                    } catch (e) {
-                      attFiles = [selectedReqDetails.attachment];
-                    }
-                  }
-
-                  if (attFiles.length === 0) return null;
+                  const attFiles = parseAttachments(
+                    selectedReqDetails?.attachment ||
+                    selectedReqDetails?.attachments ||
+                    selectedReqDetails?.fileUrl ||
+                    selectedReqDetails?.file_url ||
+                    selectedReqDetails?.client_attachment
+                  );
 
                   return (
                     <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDark ? '#334155' : '#e2e8f0' }}>
                       <Text style={{ fontSize: 11.5, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>
-                        📎 Your Uploaded Attachments:
+                        📎 Uploaded Brief & Attachments {attFiles.length > 0 ? `(${attFiles.length})` : ''}:
                       </Text>
-                      <View style={{ gap: 6 }}>
-                        {attFiles.map((fileUrl, aIdx) => {
-                          const filename = typeof fileUrl === 'string' ? fileUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
-                          const isImg = isImageUrl(fileUrl);
-                          const isVid = isVideoUrl(fileUrl);
-                          const isAud = isAudioUrl(fileUrl);
-                          const resolvedUrl = resolveMediaUrl(fileUrl);
+                      {attFiles.length === 0 ? (
+                        <Text style={{ fontSize: 12, color: themeColors.textSecondary, fontStyle: 'italic' }}>
+                          No attachments uploaded with this request.
+                        </Text>
+                      ) : (
+                        <View style={{ gap: 6 }}>
+                          {attFiles.map((fileUrl, aIdx) => {
+                            const filename = typeof fileUrl === 'string' ? fileUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                            const isImg = isImageUrl(fileUrl);
+                            const isVid = isVideoUrl(fileUrl);
+                            const isAud = isAudioUrl(fileUrl);
+                            const resolvedUrl = resolveMediaUrl(fileUrl);
 
-                          return (
-                            <TouchableOpacity
-                              key={aIdx}
-                              style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                padding: 8,
-                                borderRadius: 8,
-                                backgroundColor: isDark ? '#0f172a' : '#ffffff',
-                                borderWidth: 1,
-                                borderColor: isDark ? '#334155' : '#cbd5e1'
-                              }}
-                              onPress={() => Linking.openURL(resolvedUrl).catch(() => {})}
-                              activeOpacity={0.7}
-                            >
-                              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
-                                <Text style={{ fontSize: 14, marginRight: 6 }}>
-                                  {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📄'}
+                            return (
+                              <TouchableOpacity
+                                key={aIdx}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: 10,
+                                  borderRadius: 8,
+                                  backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                                  borderWidth: 1,
+                                  borderColor: isDark ? '#334155' : '#cbd5e1'
+                                }}
+                                onPress={() => Linking.openURL(resolvedUrl).catch(() => {})}
+                                activeOpacity={0.7}
+                              >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                                  <Text style={{ fontSize: 15, marginRight: 8 }}>
+                                    {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📄'}
+                                  </Text>
+                                  <Text style={{ fontSize: 12, color: themeColors.textPrimary, flex: 1 }} numberOfLines={1}>
+                                    {decodeURIComponent(filename)}
+                                  </Text>
+                                </View>
+                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
+                                  View / Download ↗
                                 </Text>
-                                <Text style={{ fontSize: 12, color: themeColors.textPrimary, flex: 1 }} numberOfLines={1}>
-                                  {decodeURIComponent(filename)}
-                                </Text>
-                              </View>
-                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
-                                View ↗
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
                     </View>
                   );
                 })()}
