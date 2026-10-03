@@ -123,6 +123,16 @@ export async function PUT(request) {
         `UPDATE service_requests SET status = ? WHERE id = ?`,
         [status, id]
       );
+      if (status === 'Completed') {
+        try {
+          await db.query(
+            `UPDATE tasks SET status = 'Completed', completedAt = ? WHERE project_id = ?`,
+            [new Date().toISOString(), id]
+          );
+        } catch (e) {
+          console.error('Failed to sync tasks status on request completion:', e);
+        }
+      }
       return NextResponse.json({ success: true });
     }
     

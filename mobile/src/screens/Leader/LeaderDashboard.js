@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { pickFilesOrPhotos } from '../../utils/filePicker';
+import { getTasks, saveTasks } from '../../store/store';
 import Video from 'react-native-video';
 import AppIcon from '../../components/AppIcon';
 import { useTheme } from '../../utils/ThemeContext';
@@ -91,7 +92,15 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
   const resolveMediaUrl = (url) => {
     if (!url) return '';
-    const trimmed = `${url}`.trim();
+    if (typeof url !== 'string') {
+      if (url.uri) return resolveMediaUrl(url.uri);
+      if (url.url) return resolveMediaUrl(url.url);
+      if (url.path) return resolveMediaUrl(url.path);
+      if (url.fileUrl) return resolveMediaUrl(url.fileUrl);
+      return '';
+    }
+    let trimmed = `${url}`.trim();
+    trimmed = trimmed.replace(/^["']+|["']+$/g, '');
     if (
       trimmed.startsWith('http://') ||
       trimmed.startsWith('https://') ||
@@ -108,16 +117,20 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const parseAttachments = (val) => {
     if (!val) return [];
     if (Array.isArray(val)) {
-      return val.map((v) => resolveMediaUrl(v)).filter(Boolean);
+      return val.flatMap((v) => parseAttachments(v)).filter(Boolean);
+    }
+    if (typeof val === 'object' && val !== null) {
+      if (val.uri || val.url || val.path || val.fileUrl) {
+        return [resolveMediaUrl(val.uri || val.url || val.path || val.fileUrl)].filter(Boolean);
+      }
     }
     if (typeof val === 'string') {
-      const trimmed = val.trim();
-      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      let trimmed = val.trim();
+      if (!trimmed) return [];
+      if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
         try {
           const parsed = JSON.parse(trimmed);
-          if (Array.isArray(parsed)) {
-            return parsed.map((v) => resolveMediaUrl(v)).filter(Boolean);
-          }
+          return parseAttachments(parsed);
         } catch (e) {}
       }
       if (trimmed.includes(',')) {
@@ -128,29 +141,54 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     return [];
   };
 
-  const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
-  const isVideoUrl = (url) => typeof url === 'string' && /\.(mp4|webm|mov|ogg|mkv|3gp|avi)($|\?)/i.test(url);
-  const isAudioUrl = (url) => typeof url === 'string' && /\.(mp3|wav|ogg|m4a|aac|flac)($|\?)/i.test(url);
+  const getTaskProofAttachments = (task) => {
+    if (!task) return [];
+    const all = [
+      ...parseAttachments(task.fileUrl),
+      ...parseAttachments(task.file_url),
+      ...parseAttachments(task.attachment),
+      ...parseAttachments(task.attachments),
+      ...parseAttachments(task.proof),
+      ...parseAttachments(task.proofs),
+      ...parseAttachments(task.files),
+    ];
+    return Array.from(new Set(all.filter(Boolean)));
+  };
+
+  const isImageUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(jpg|jpeg|png|webp|gif|svg|bmp|heic|heif)$/i.test(clean);
+  };
+  const isVideoUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(mp4|webm|mov|ogg|mkv|3gp|avi)$/i.test(clean);
+  };
+  const isAudioUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(clean);
+  };
 
   const handleOpenAttachment = (url) => {
     if (!url) {
       sweetAlert({ title: 'Attachment Missing', text: 'No attachment found for this item.', type: 'info' });
       return;
     }
-    setPreviewError(false);
-    setAudioPaused(false);
-    setAudioCurrentTime(0);
-    setAudioDuration(0);
-    setAudioLoading(true);
-    setPreviewAttachmentUrl(url);
-  };
-
-  const handleClosePreview = () => {
-    setPreviewAttachmentUrl(null);
-    setPreviewError(false);
-    setAudioPaused(true);
-    setAudioCurrentTime(0);
-    setAudioDuration(0);
+    const resolved = resolveMediaUrl(url);
+    if (!resolved) {
+      sweetAlert({ title: 'Attachment Missing', text: 'No valid attachment found.', type: 'info' });
+      return;
+    }
+    Linking.openURL(resolved).catch((err) => {
+      console.log('Error opening attachment:', err);
+      sweetAlert({
+        title: 'Cannot Open File',
+        text: 'Failed to open file: ' + resolved,
+        type: 'error',
+      });
+    });
   };
   const [notesFilter, setNotesFilter] = useState('ALL'); // 'ALL' | 'UNREAD' | 'REPLIED'
   const [notesSearch, setNotesSearch] = useState('');
@@ -517,10 +555,25 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     setLoadingTaskDetails(true);
 
     try {
+      const reqIdStr = String(req.id || req._id || '');
+      const localTasks = [...(getTasks() || []), ...(tasksList || [])];
+      const localMatch = localTasks.find(
+        (t) =>
+          (t.project_id && String(t.project_id) === reqIdStr) ||
+          (t.title && req.service_type && t.title.toLowerCase().includes(String(req.service_type).toLowerCase()))
+      );
+      if (localMatch) {
+        setMatchingTaskSubmission(localMatch);
+      }
+
       const taskRes = await fetchTasksApi();
       if (taskRes && taskRes.success) {
         const allTasks = taskRes.data || taskRes.tasks || [];
-        const match = allTasks.find((t) => String(t.project_id) === String(req.id));
+        const match = allTasks.find(
+          (t) =>
+            (t.project_id && String(t.project_id) === reqIdStr) ||
+            (t.title && req.service_type && t.title.toLowerCase().includes(String(req.service_type).toLowerCase()))
+        );
         if (match) {
           setMatchingTaskSubmission(match);
         }
@@ -617,6 +670,24 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         try {
           const res = await updateClientRequestStatusApi(req.id, 'Completed');
           if (res && res.success) {
+            // Also update any matching task in store
+            const reqIdStr = String(req.id || req._id || '');
+            const allLocalTasks = getTasks() || [];
+            let changed = false;
+            allLocalTasks.forEach((t) => {
+              if (
+                (t.project_id && String(t.project_id) === reqIdStr) ||
+                (t.title && req.service_type && t.title.toLowerCase().includes(String(req.service_type).toLowerCase()))
+              ) {
+                t.status = 'Completed';
+                t.completedAt = new Date().toISOString();
+                changed = true;
+              }
+            });
+            if (changed) {
+              saveTasks(allLocalTasks);
+            }
+
             sweetAlert({
               title: 'Delivered! 🎉',
               text: 'Work marked as completed and delivered to the client.',
@@ -1082,6 +1153,73 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                                 </TouchableOpacity>
                               );
                             })}
+                          </View>
+                        );
+                      })()}
+
+                      {/* Team Member Work Submission on Request Card */}
+                      {(() => {
+                        const reqIdStr = String(req.id || req._id || '');
+                        const matchingTask = (tasksList || []).find(
+                          (t) =>
+                            (t.project_id && String(t.project_id) === reqIdStr) ||
+                            (t.title && req.service_type && t.title.toLowerCase().includes(String(req.service_type).toLowerCase()))
+                        );
+                        if (!matchingTask) return null;
+                        const submissionProofs = getTaskProofAttachments(matchingTask);
+                        if (submissionProofs.length === 0 && !matchingTask.completion_note && !isForReview) return null;
+
+                        return (
+                          <View style={{ marginTop: 10, padding: 8, borderRadius: 8, backgroundColor: isDark ? '#0f291e' : '#f0fdf4', borderWidth: 1, borderColor: isDark ? '#059669' : '#bbf7d0' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#34d399' : '#16a34a' }}>
+                                ✅ {matchingTask.assignedToName ? `${matchingTask.assignedToName}'s Submission` : 'Work Submitted'}
+                              </Text>
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: (matchingTask.status === 'Completed' || req.status === 'Completed') ? '#16a34a' : '#2563eb' }}>
+                                {req.status === 'Completed' ? 'Completed' : (matchingTask.status || 'Submitted')}
+                              </Text>
+                            </View>
+                            {matchingTask.completion_note ? (
+                              <Text style={{ fontSize: 11.5, color: themeColors.textPrimary, marginBottom: submissionProofs.length > 0 ? 6 : 0 }} numberOfLines={2}>
+                                Note: {matchingTask.completion_note}
+                              </Text>
+                            ) : null}
+                            {submissionProofs.length > 0 && (
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                                {submissionProofs.map((proofUrl, pIdx) => {
+                                  const filename = typeof proofUrl === 'string' ? proofUrl.split('/').pop().split('?')[0] : `Proof ${pIdx + 1}`;
+                                  const isImg = isImageUrl(proofUrl);
+                                  const isVid = isVideoUrl(proofUrl);
+                                  const isAud = isAudioUrl(proofUrl);
+                                  return (
+                                    <TouchableOpacity
+                                      key={pIdx}
+                                      style={[
+                                        styles.reqAttachPill,
+                                        {
+                                          backgroundColor: isDark ? '#022c22' : '#dcfce7',
+                                          borderColor: isDark ? '#059669' : '#86efac',
+                                          paddingVertical: 4,
+                                          paddingHorizontal: 8,
+                                          flexDirection: 'row',
+                                          alignItems: 'center',
+                                          gap: 4,
+                                        },
+                                      ]}
+                                      onPress={() => handleOpenAttachment(proofUrl)}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Text style={{ fontSize: 11 }}>
+                                        {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📄'}
+                                      </Text>
+                                      <Text style={[styles.reqAttachPillText, { color: isDark ? '#34d399' : '#15803d', maxWidth: 140 }]} numberOfLines={1}>
+                                        {decodeURIComponent(filename)}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            )}
                           </View>
                         );
                       })()}
@@ -1817,7 +1955,9 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       Assigned To: <Text style={{ fontWeight: '700' }}>{matchingTaskSubmission.assignedToName || 'Specialist'}</Text>
                     </Text>
                     <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, marginTop: 3 }}>
-                      Task Status: <Text style={{ fontWeight: '700', color: matchingTaskSubmission.status === 'Completed' ? '#059669' : '#2563eb' }}>{matchingTaskSubmission.status || 'In Progress'}</Text>
+                      Task Status: <Text style={{ fontWeight: '700', color: (matchingTaskSubmission.status === 'Completed' || selectedRequest?.status === 'Completed') ? '#059669' : '#2563eb' }}>
+                        {selectedRequest?.status === 'Completed' ? 'Completed' : (matchingTaskSubmission.status || 'In Progress')}
+                      </Text>
                     </Text>
 
                     {/* Employee Completion Note for TL */}
@@ -1834,7 +1974,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
                     {/* Work Proof Attachments */}
                     {(() => {
-                      const proofList = parseAttachments(matchingTaskSubmission.fileUrl || matchingTaskSubmission.attachment);
+                      const proofList = getTaskProofAttachments(matchingTaskSubmission);
                       if (proofList.length === 0) {
                         return (
                           <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 6, fontStyle: 'italic' }}>
@@ -1850,6 +1990,9 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                             {proofList.map((proofUrl, pIdx) => {
                               const filename = typeof proofUrl === 'string' ? proofUrl.split('/').pop().split('?')[0] : `Proof ${pIdx + 1}`;
+                              const isImg = isImageUrl(proofUrl);
+                              const isVid = isVideoUrl(proofUrl);
+                              const isAud = isAudioUrl(proofUrl);
                               return (
                                 <TouchableOpacity
                                   key={pIdx}
@@ -1858,15 +2001,21 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                                     {
                                       backgroundColor: isDark ? '#0f172a' : '#dcfce7',
                                       borderColor: isDark ? '#059669' : '#86efac',
-                                      paddingVertical: 5,
-                                      paddingHorizontal: 9,
+                                      paddingVertical: 6,
+                                      paddingHorizontal: 10,
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 5
                                     },
                                   ]}
                                   onPress={() => handleOpenAttachment(proofUrl)}
                                   activeOpacity={0.7}
                                 >
-                                  <Text style={[styles.reqAttachPillText, { color: isDark ? '#34d399' : '#15803d' }]} numberOfLines={1}>
-                                    📄 {decodeURIComponent(filename)}
+                                  <Text style={{ fontSize: 12 }}>
+                                    {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📄'}
+                                  </Text>
+                                  <Text style={[styles.reqAttachPillText, { color: isDark ? '#34d399' : '#15803d', maxWidth: 180 }]} numberOfLines={1}>
+                                    {decodeURIComponent(filename)}
                                   </Text>
                                 </TouchableOpacity>
                               );
@@ -2188,275 +2337,6 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           </View>
         </View>
       )}
-
-      {/* ATTACHMENT FULLSCREEN VIEWER MODAL */}
-      <Modal
-        visible={!!previewAttachmentUrl}
-        transparent
-        animationType="fade"
-        onRequestClose={handleClosePreview}
-      >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0, 0, 0, 0.94)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 16
-        }}>
-          {/* Top Bar with Open In Browser & Close Buttons */}
-          <View style={{
-            position: 'absolute',
-            top: Platform.OS === 'ios' ? 50 : 25,
-            left: 20,
-            right: 20,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            zIndex: 10
-          }}>
-            <TouchableOpacity
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderRadius: 8,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6
-              }}
-              onPress={() => previewAttachmentUrl && Linking.openURL(previewAttachmentUrl).catch(() => {})}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Open External ↗</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                justifyContent: 'center',
-                alignItems: 'center'
-              }}
-              onPress={handleClosePreview}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Media Display or Error Fallback */}
-          {previewError ? (
-            <View style={{ width: '100%', height: '70%', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-                <AppIcon name="warning" size={32} color="#ef4444" />
-              </View>
-              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>No Attachment Found</Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13, textAlign: 'center', marginBottom: 20, lineHeight: 18, maxWidth: 280 }}>
-                The attachment file could not be found or failed to load from the server.
-              </Text>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                  paddingHorizontal: 18,
-                  paddingVertical: 10,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.25)'
-                }}
-                onPress={() => previewAttachmentUrl && Linking.openURL(previewAttachmentUrl).catch(() => {})}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Try Direct Link ↗</Text>
-              </TouchableOpacity>
-            </View>
-          ) : isImageUrl(previewAttachmentUrl) ? (
-            <View style={{ width: '100%', height: '80%', justifyContent: 'center', alignItems: 'center' }}>
-              <Image
-                source={{ uri: previewAttachmentUrl }}
-                style={{ width: '100%', height: '100%', borderRadius: 8 }}
-                resizeMode="contain"
-                onError={() => setPreviewError(true)}
-              />
-            </View>
-          ) : isVideoUrl(previewAttachmentUrl) ? (
-            <View style={{ width: '100%', height: '80%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' }}>
-              <Video
-                source={{ uri: previewAttachmentUrl }}
-                style={{ width: '100%', height: '100%' }}
-                controls={true}
-                resizeMode="contain"
-                paused={false}
-                onError={() => setPreviewError(true)}
-              />
-            </View>
-          ) : isAudioUrl(previewAttachmentUrl) ? (
-            <View style={{ width: '100%', maxWidth: 350, backgroundColor: 'rgba(30, 41, 59, 0.95)', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 16, elevation: 10 }}>
-              {/* Background Video engine powering audio */}
-              <Video
-                ref={audioPlayerRef}
-                source={{ uri: previewAttachmentUrl }}
-                style={{ width: 0, height: 0, position: 'absolute' }}
-                paused={audioPaused}
-                playInBackground={false}
-                playWhenInactive={false}
-                ignoreSilentSwitch="ignore"
-                onLoad={(data) => {
-                  setAudioLoading(false);
-                  setAudioDuration(data.duration || 0);
-                }}
-                onProgress={(data) => {
-                  setAudioCurrentTime(data.currentTime || 0);
-                }}
-                onEnd={() => {
-                  setAudioPaused(true);
-                  setAudioCurrentTime(audioDuration);
-                }}
-                onError={() => {
-                  setAudioLoading(false);
-                  setPreviewError(true);
-                }}
-              />
-
-              {/* Glowing Icon Header */}
-              <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(59, 130, 246, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 14, borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.4)' }}>
-                <Text style={{ fontSize: 34 }}>🎙️</Text>
-              </View>
-
-              <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '800', marginBottom: 4, textAlign: 'center' }}>
-                Audio Recording
-              </Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, marginBottom: 20, textAlign: 'center', paddingHorizontal: 10 }} numberOfLines={1}>
-                {previewAttachmentUrl.split('/').pop()}
-              </Text>
-
-              {/* Interactive Progress Bar */}
-              <View style={{ width: '100%', height: 18, justifyContent: 'center', marginBottom: 4 }}>
-                <View style={{ width: '100%', height: 6, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 3, overflow: 'hidden' }}>
-                  <View
-                    style={{
-                      height: '100%',
-                      backgroundColor: '#3b82f6',
-                      borderRadius: 3,
-                      width: `${audioDuration > 0 ? Math.min(100, (audioCurrentTime / audioDuration) * 100) : 0}%`
-                    }}
-                  />
-                </View>
-              </View>
-
-              {/* Time Indicators */}
-              <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-                <Text style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: 12, fontWeight: '700' }}>
-                  {formatAudioTime(audioCurrentTime)}
-                </Text>
-                <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, fontWeight: '600' }}>
-                  {audioLoading ? 'Loading...' : formatAudioTime(audioDuration)}
-                </Text>
-              </View>
-
-              {/* Audio Controls Row */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-                {/* Replay Button */}
-                <TouchableOpacity
-                  style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
-                  onPress={() => {
-                    audioPlayerRef.current?.seek(0);
-                    setAudioCurrentTime(0);
-                    setAudioPaused(false);
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 17 }}>↺</Text>
-                </TouchableOpacity>
-
-                {/* Rewind 10s */}
-                <TouchableOpacity
-                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
-                  onPress={() => {
-                    const newTime = Math.max(0, audioCurrentTime - 10);
-                    audioPlayerRef.current?.seek(newTime);
-                    setAudioCurrentTime(newTime);
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>-10s</Text>
-                </TouchableOpacity>
-
-                {/* Main Play / Pause Button */}
-                <TouchableOpacity
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: 30,
-                    backgroundColor: '#2563eb',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    shadowColor: '#2563eb',
-                    shadowOpacity: 0.5,
-                    shadowRadius: 8,
-                    elevation: 6
-                  }}
-                  onPress={() => {
-                    if (audioCurrentTime >= audioDuration && audioDuration > 0) {
-                      audioPlayerRef.current?.seek(0);
-                      setAudioCurrentTime(0);
-                      setAudioPaused(false);
-                    } else {
-                      setAudioPaused(!audioPaused);
-                    }
-                  }}
-                >
-                  {audioLoading ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <AppIcon name={audioPaused ? 'play' : 'pause'} size={24} color="#ffffff" />
-                  )}
-                </TouchableOpacity>
-
-                {/* Forward 10s */}
-                <TouchableOpacity
-                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
-                  onPress={() => {
-                    if (audioDuration > 0) {
-                      const newTime = Math.min(audioDuration, audioCurrentTime + 10);
-                      audioPlayerRef.current?.seek(newTime);
-                      setAudioCurrentTime(newTime);
-                    }
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>+10s</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : previewAttachmentUrl ? (
-            <View style={{ width: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 16, padding: 24 }}>
-              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(59, 130, 246, 0.25)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 30 }}>📄</Text>
-              </View>
-              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: 'bold', marginBottom: 6 }}>
-                Document Attachment
-              </Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, textAlign: 'center', marginBottom: 20, maxWidth: 260 }} numberOfLines={2}>
-                {previewAttachmentUrl.split('/').pop()}
-              </Text>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#2563eb',
-                  paddingHorizontal: 20,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  shadowColor: '#2563eb',
-                  shadowOpacity: 0.3,
-                  shadowRadius: 6,
-                  elevation: 4
-                }}
-                onPress={() => Linking.openURL(previewAttachmentUrl).catch(() => {})}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Open / Download File ↗</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-        </View>
-      </Modal>
     </ContainerComponent>
   );
 }
