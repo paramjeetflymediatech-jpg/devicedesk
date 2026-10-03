@@ -860,6 +860,21 @@ async function initializeDatabase(db) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN address TEXT`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN experience_level VARCHAR(50)`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN experience_details TEXT`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN status VARCHAR(50) DEFAULT 'Pending'`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN resume_url TEXT`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN portfolio_url TEXT`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN education TEXT`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN skills TEXT`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN notice_period VARCHAR(50)`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_registrations ADD COLUMN position_applied VARCHAR(150)`); } catch (e) {}
+
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (e) {}
   try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN test_type VARCHAR(50) DEFAULT 'text'`); } catch (e) {}
   try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN test_data JSON DEFAULT NULL`); } catch (e) {}
   try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN score INT DEFAULT NULL`); } catch (e) {}
