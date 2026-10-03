@@ -1701,12 +1701,14 @@ export default function ClientDashboard({ user, onLogout }) {
                 style={[
                   styles.drawerItem,
                   {
+                    flexDirection: 'row',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
                     marginTop: 8,
                     marginBottom: 8,
                     backgroundColor: isDark ? '#334155' : '#f1f5f9',
                     paddingHorizontal: 12,
-                    paddingVertical: 8,
+                    paddingVertical: 10,
                     borderRadius: 12,
                     borderWidth: 1,
                     borderColor: isDark ? '#475569' : '#e2e8f0',
@@ -1715,9 +1717,9 @@ export default function ClientDashboard({ user, onLogout }) {
                 activeOpacity={0.8}
                 onPress={toggleTheme}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 12 }} />
-                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText, fontWeight: '700' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 8 }}>
+                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 10 }} />
+                  <Text style={{ fontSize: 13.5, color: themeColors.drawerItemText, fontWeight: '700' }} numberOfLines={1}>
                     {isDark ? 'Dark Mode' : 'Light Mode'}
                   </Text>
                 </View>
@@ -1726,6 +1728,7 @@ export default function ClientDashboard({ user, onLogout }) {
                   onValueChange={toggleTheme}
                   trackColor={{ false: themeColors.switchTrackFalse, true: themeColors.switchTrackTrue }}
                   thumbColor={themeColors.switchThumb}
+                  style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
                 />
               </TouchableOpacity>
             </ScrollView>
@@ -3004,7 +3007,6 @@ const getStyles = (colors, isDark) =>
       fontSize: 14,
       fontWeight: '600',
       color: colors.drawerItemText || (isDark ? '#cbd5e1' : '#334155'),
-      flex: 1,
     },
     drawerLogoutBtn: {
       flexDirection: 'row',
