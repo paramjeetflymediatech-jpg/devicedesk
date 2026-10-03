@@ -14,11 +14,17 @@ export async function GET() {
     const [rows] = await db.query(
       `SELECT t.*, 
        p.name as project_name, 
-       c.name as client_name,
-       a.name as assigned_to_name
+       COALESCE(c.name, sc.name) as client_name,
+       a.name as assigned_to_name,
+       sr.attachment as client_attachment,
+       sr.service_type as client_service_type,
+       sr.requirements as client_requirements,
+       sr.clientId as client_id
        FROM tasks t
        LEFT JOIN projects p ON (t.project_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci)
        LEFT JOIN employees c ON (p.client_id COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci)
+       LEFT JOIN service_requests sr ON (t.project_id COLLATE utf8mb4_unicode_ci = sr.id COLLATE utf8mb4_unicode_ci)
+       LEFT JOIN employees sc ON (sr.clientId COLLATE utf8mb4_unicode_ci = sc.id COLLATE utf8mb4_unicode_ci)
        LEFT JOIN employees a ON (t.assignedTo COLLATE utf8mb4_unicode_ci = a.id COLLATE utf8mb4_unicode_ci)
        ORDER BY t.createdAt DESC`
     );
@@ -43,7 +49,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { title, description, assignedTo, assignedToName, assignedBy, assignedByName, project_id } = await request.json();
+    const { title, description, assignedTo, assignedToName, assignedBy, assignedByName, project_id, attachment, fileUrl } = await request.json();
 
     if (!title || !title.trim()) {
       return NextResponse.json({ error: 'Task title is required.' }, { status: 400 });
@@ -56,6 +62,7 @@ export async function POST(request) {
     const taskDesc = description ? description.trim() : null;
     const taskStatus = 'Pending';
     const createdAt = new Date().toISOString();
+    const taskFileUrl = fileUrl || attachment || null;
 
     // Dynamically add project_id to tasks if needed
     try {
@@ -63,9 +70,9 @@ export async function POST(request) {
     } catch(e) {}
 
     await db.execute(
-      `INSERT INTO tasks (id, title, description, assignedTo, assignedToName, assignedBy, assignedByName, status, createdAt, project_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [taskId, taskTitle, taskDesc, assignedTo || null, assignedToName || null, assignedBy || null, assignedByName || null, taskStatus, createdAt, project_id || null]
+      `INSERT INTO tasks (id, title, description, assignedTo, assignedToName, assignedBy, assignedByName, status, createdAt, project_id, fileUrl) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [taskId, taskTitle, taskDesc, assignedTo || null, assignedToName || null, assignedBy || null, assignedByName || null, taskStatus, createdAt, project_id || null, taskFileUrl]
     );
 
     if (project_id) {
@@ -88,7 +95,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      task: { id: taskId, title: taskTitle, description: taskDesc, status: taskStatus, project_id }
+      task: { id: taskId, title: taskTitle, description: taskDesc, status: taskStatus, project_id, fileUrl: taskFileUrl }
     });
   } catch (err) {
     console.error('Add Task API Error:', err);

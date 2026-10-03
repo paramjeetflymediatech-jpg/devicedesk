@@ -88,13 +88,21 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
   const roleStr = (user?.role || '').toLowerCase().trim();
   const deptStr = (user?.department || '').toLowerCase().trim();
 
+  const isTeamLeaderUser =
+    dbRoleStr === 'team leader' ||
+    dbRoleStr === 'tl' ||
+    dbRoleStr === 'team lead' ||
+    dbRoleStr === 'team_lead' ||
+    dbRoleStr.includes('leader') ||
+    roleStr.includes('leader') ||
+    roleStr === 'tl' ||
+    Boolean(user?.isLeader);
+
   const isMarketingUser =
-    dbRoleStr === 'admin' ||
-    dbRoleStr === 'superadmin' ||
-    dbRoleStr === 'management' ||
-    deptStr === 'marketing' ||
-    dbRoleStr.includes('marketing') ||
-    authorizedMarketingIds.includes(user?.id);
+    !isTeamLeaderUser &&
+    (deptStr === 'marketing' ||
+      dbRoleStr.includes('marketing') ||
+      authorizedMarketingIds.includes(user?.id));
 
   const isHRUser =
     dbRoleStr === 'hr' ||
@@ -1039,23 +1047,63 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             />
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={() => {
-            sweetAlert({
-              title: 'Log Out',
-              text: 'Are you sure you want to log out of your session?',
-              type: 'warning',
-              showCancel: true,
-              onConfirm: onLogout,
-            });
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <AppIcon name="logout" size={15} color="#dc2626" />
-            <Text style={styles.logoutBtnText}>Log Out</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {onSwitchToLeader && (
+            <TouchableOpacity
+              style={[
+                styles.employeeSwitchPill,
+                {
+                  backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                  borderColor: isDark ? '#3b82f6' : '#bfdbfe',
+                }
+              ]}
+              onPress={onSwitchToLeader}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 11 }}>👔</Text>
+              <Text style={[styles.employeeSwitchPillText, { color: '#2563eb' }]}>
+                Team Leader
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {onSwitchToAdmin && !onSwitchToLeader && (
+            <TouchableOpacity
+              style={[
+                styles.employeeSwitchPill,
+                {
+                  backgroundColor: isDark ? '#1e293b' : (isHRUser ? '#fdf2f8' : '#eff6ff'),
+                  borderColor: isDark ? '#3b82f6' : (isHRUser ? '#f472b6' : '#bfdbfe'),
+                }
+              ]}
+              onPress={onSwitchToAdmin}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 11 }}>{isHRUser ? '💼' : '🛡️'}</Text>
+              <Text style={[styles.employeeSwitchPillText, { color: isHRUser ? '#db2777' : '#2563eb' }]}>
+                {isHRUser ? 'HR Portal' : 'Admin'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() => {
+              sweetAlert({
+                title: 'Log Out',
+                text: 'Are you sure you want to log out of your session?',
+                type: 'warning',
+                showCancel: true,
+                onConfirm: onLogout,
+              });
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon name="logout" size={15} color="#dc2626" />
+              <Text style={styles.logoutBtnText}>Log Out</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Return Switcher Banner (HR, Team Leader, or Admin/IT) */}
@@ -1254,29 +1302,21 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             >
               {onSwitchToLeader && (
                 <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 16 }}>
-                  <TouchableOpacity
-                    style={{
-                      padding: 14,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff',
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: isDark ? 'rgba(37, 99, 235, 0.35)' : '#bfdbfe',
-                    }}
-                    onPress={() => {
-                      setIsDrawerOpen(false);
-                      onSwitchToLeader();
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={{ fontSize: 16 }}>👔</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>Team Leader Portal</Text>
+                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(37, 99, 235, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.3)' : 'rgba(37, 99, 235, 0.2)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>👔</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>Team Leader Mode</Text>
                     </View>
-                    <AppIcon name="arrow-right" size={14} color="#2563eb" />
-                  </TouchableOpacity>
+                    <Switch
+                      value={false}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToLeader();
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
+                      thumbColor={'#3b82f6'}
+                    />
+                  </View>
                 </View>
               )}
 
@@ -2401,6 +2441,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0f172a',
+  },
+  employeeSwitchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  employeeSwitchPillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
   },
   leaderSwitchBanner: {
     flexDirection: 'row',

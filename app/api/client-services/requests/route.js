@@ -36,6 +36,22 @@ export async function POST(request) {
     }
 
     const db = await getDbConnection();
+
+    // Verify client has an active package before allowing service booking
+    const [activePkgs] = await db.query(
+      `SELECT cpo.id, p.name FROM client_package_overrides cpo 
+       JOIN packages p ON cpo.package_id = p.id 
+       WHERE cpo.client_id = ? AND cpo.status = 'Active'`,
+      [clientId]
+    );
+
+    if (!activePkgs || activePkgs.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'Please buy a package first. You need an active package subscription to book services.'
+      }, { status: 400 });
+    }
+
     const id = 'req_' + Date.now() + Math.random().toString(36).substring(2, 7);
     const now = new Date().toISOString();
 

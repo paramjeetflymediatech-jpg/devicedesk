@@ -71,6 +71,8 @@ export default function ClientDashboard({ user, onLogout }) {
   const [showBookServiceModal, setShowBookServiceModal] = useState(false);
   const [serviceType, setServiceType] = useState('SEO');
   const [serviceReqs, setServiceReqs] = useState('');
+  const [serviceAttachments, setServiceAttachments] = useState([]);
+  const [uploadingServiceAttachments, setUploadingServiceAttachments] = useState(false);
   const [submittingService, setSubmittingService] = useState(false);
 
   const [showSmoModal, setShowSmoModal] = useState(false);
@@ -217,23 +219,119 @@ export default function ClientDashboard({ user, onLogout }) {
     loadAllData();
   };
 
+  // 0. Handle Open Book Service (checks active packages first)
+  const handleOpenBookService = () => {
+    const validPkgs = activePackages.filter(p => !p.is_expired);
+    if (validPkgs.length === 0) {
+      sweetAlert({
+        title: 'Please Buy Package First',
+        text: 'You need an active package subscription to book services. Please purchase a package first as per your requirement.',
+        type: 'warning',
+        showCancel: true,
+        cancelText: 'Cancel',
+        confirmButtonText: 'View Packages',
+        onConfirm: () => {
+          setActiveTab('packages');
+        },
+      });
+      return;
+    }
+    if (!validPkgs.some(p => p.name === serviceType)) {
+      setServiceType(validPkgs[0].name);
+    }
+    setShowBookServiceModal(true);
+  };
+
+  const handlePickServiceAttachment = async () => {
+    try {
+      const res = await pick({
+        type: ['image/*', 'video/*', 'audio/*', 'application/pdf', 'text/plain'],
+        allowMultiSelection: true,
+      });
+      if (res && res.length > 0) {
+        setServiceAttachments(prev => [...prev, ...res]);
+      }
+    } catch (err) {
+      if (err.message && !err.message.includes('user canceled')) {
+        console.warn('File pick error:', err);
+      }
+    }
+  };
+
+  const handleRemoveServiceAttachment = (index) => {
+    setServiceAttachments(prev => {
+      const updated = [...prev];
+      updated.splice(index, 1);
+      return updated;
+    });
+  };
+
   // 1. Submit Service Request
   const handleBookService = async () => {
+    const validPkgs = activePackages.filter(p => !p.is_expired);
+    if (validPkgs.length === 0) {
+      sweetAlert({
+        title: 'Please Buy Package First',
+        text: 'You need an active package subscription to book services. Please purchase a package first.',
+        type: 'warning',
+        confirmButtonText: 'View Packages',
+        onConfirm: () => {
+          setShowBookServiceModal(false);
+          setActiveTab('packages');
+        },
+      });
+      return;
+    }
+
     if (!serviceReqs.trim()) {
       sweetAlert({ title: 'Missing Requirements', text: 'Please enter your project requirements.', type: 'warning' });
       return;
     }
+
     setSubmittingService(true);
+    let attachmentUrls = [];
+
     try {
+      if (serviceAttachments.length > 0) {
+        setUploadingServiceAttachments(true);
+        const formData = new FormData();
+        serviceAttachments.forEach(att => {
+          formData.append('files', {
+            uri: att.uri,
+            type: att.type || 'application/octet-stream',
+            name: att.name || `file_${Date.now()}`,
+          });
+        });
+        formData.append('folder', 'client-requests');
+
+        const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadRes.ok && uploadData.success && uploadData.fileUrls) {
+          attachmentUrls = uploadData.fileUrls;
+        } else {
+          throw new Error(uploadData?.error || 'Failed to upload attachments');
+        }
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+
       const res = await createClientRequestApi({
         clientId,
         service_type: serviceType,
         requirements: serviceReqs.trim(),
+        attachment: attachmentStr,
       });
       if (res && res.success) {
         sweetAlert({ title: 'Service Request Sent! 🚀', text: 'Our team will review and contact you shortly.', type: 'success' });
         setShowBookServiceModal(false);
         setServiceReqs('');
+        setServiceAttachments([]);
         fetchClientRequestsApi(clientId).then(r => r.success && setRequests(r.data || []));
       } else {
         throw new Error(res?.error || 'Failed to submit request');
@@ -242,6 +340,7 @@ export default function ClientDashboard({ user, onLogout }) {
       sweetAlert({ title: 'Error', text: err.message || 'Could not submit request.', type: 'error' });
     } finally {
       setSubmittingService(false);
+      setUploadingServiceAttachments(false);
     }
   };
 
@@ -412,6 +511,38 @@ export default function ClientDashboard({ user, onLogout }) {
     }
   };
 
+  const resolveMediaUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('file://')) {
+      return url;
+    }
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+    return `${getApiUrl()}${cleanUrl}`;
+  };
+
+  const parseAttachments = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) {
+      return val.map(v => resolveMediaUrl(v)).filter(Boolean);
+    }
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return parsed.map(v => resolveMediaUrl(v)).filter(Boolean);
+          }
+        } catch (e) {}
+      }
+      if (trimmed.includes(',')) {
+        return trimmed.split(',').map(s => resolveMediaUrl(s.trim())).filter(Boolean);
+      }
+      return [resolveMediaUrl(trimmed)].filter(Boolean);
+    }
+    return [];
+  };
+
   const getStatusBadge = (status) => {
     const s = (status || 'Pending').toLowerCase();
     if (s === 'active' || s === 'completed' || s === 'paid' || s === 'approved') {
@@ -520,7 +651,7 @@ export default function ClientDashboard({ user, onLogout }) {
 
                   <TouchableOpacity
                     style={styles.bookServiceBtn}
-                    onPress={() => setShowBookServiceModal(true)}
+                    onPress={handleOpenBookService}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.bookServiceBtnText}>+ Book a New Service 🚀</Text>
@@ -838,11 +969,30 @@ export default function ClientDashboard({ user, onLogout }) {
             {/* ======================================================== */}
             {activeTab === 'requests' && (
               <View>
+                {activePackages.filter(p => !p.is_expired).length === 0 && (
+                  <View style={[styles.buyPackageNotice, { backgroundColor: isDark ? '#4c051933' : '#fff1f2', borderColor: '#f43f5e' }]}>
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#f43f5e22', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 22 }}>💳</Text>
+                    </View>
+                    <Text style={[styles.buyPackageTitle, { color: isDark ? '#fda4af' : '#9f1239' }]}>Please Buy Package First</Text>
+                    <Text style={[styles.buyPackageDesc, { color: isDark ? '#e2e8f0' : '#4b5563' }]}>
+                      You need an active package subscription to book services. Please purchase a package first as per your requirement.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.viewPackagesBannerBtn}
+                      onPress={() => setActiveTab('packages')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.viewPackagesBannerBtnText}>View Packages →</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <View style={styles.rowBetween}>
                   <Text style={styles.sectionHeading}>📝 Service Requests ({requests.length})</Text>
                   <TouchableOpacity
                     style={styles.smallActionBtn}
-                    onPress={() => setShowBookServiceModal(true)}
+                    onPress={handleOpenBookService}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.smallActionBtnText}>+ Book Service</Text>
@@ -858,6 +1008,7 @@ export default function ClientDashboard({ user, onLogout }) {
                 ) : (
                   requests.map((req) => {
                     const badge = getStatusBadge(req.status);
+                    const attList = parseAttachments(req.attachment);
                     return (
                       <View key={req.id} style={styles.itemCard}>
                         <View style={styles.itemCardHeader}>
@@ -867,7 +1018,28 @@ export default function ClientDashboard({ user, onLogout }) {
                           </View>
                         </View>
                         <Text style={styles.itemDesc}>{req.requirements}</Text>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+
+                        {attList.length > 0 && (
+                          <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                            {attList.map((attUrl, aIdx) => {
+                              const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                              return (
+                                <TouchableOpacity
+                                  key={aIdx}
+                                  style={[styles.pendingChip, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: '#3b82f644', borderWidth: 1 }]}
+                                  onPress={() => Linking.openURL(attUrl).catch(() => {})}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={[styles.pendingChipText, { color: '#3b82f6', fontWeight: '600' }]} numberOfLines={1}>
+                                    📎 {decodeURIComponent(filename)}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        )}
+
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
                           <Text style={styles.itemFooterDate}>
                             Submitted: {new Date(req.created_at || Date.now()).toLocaleDateString()}
                           </Text>
@@ -1449,17 +1621,31 @@ export default function ClientDashboard({ user, onLogout }) {
 
             <Text style={styles.inputLabel}>Service Category *</Text>
             <View style={styles.serviceChips}>
-              {['SEO', 'Social Media (SMO)', 'Google / Meta Ads', 'Website Development', 'Graphic Design'].map(st => (
-                <TouchableOpacity
-                  key={st}
-                  style={[styles.serviceChip, serviceType === st && styles.serviceChipActive]}
-                  onPress={() => setServiceType(st)}
-                >
-                  <Text style={[styles.serviceChipText, serviceType === st && styles.serviceChipTextActive]}>
-                    {st}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {activePackages.filter(p => !p.is_expired).length > 0 ? (
+                activePackages.filter(p => !p.is_expired).map(pkg => (
+                  <TouchableOpacity
+                    key={pkg.id || pkg.name}
+                    style={[styles.serviceChip, serviceType === pkg.name && styles.serviceChipActive]}
+                    onPress={() => setServiceType(pkg.name)}
+                  >
+                    <Text style={[styles.serviceChipText, serviceType === pkg.name && styles.serviceChipTextActive]}>
+                      {pkg.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                ['SEO', 'Social Media (SMO)', 'Google / Meta Ads', 'Website Development', 'Graphic Design'].map(st => (
+                  <TouchableOpacity
+                    key={st}
+                    style={[styles.serviceChip, serviceType === st && styles.serviceChipActive]}
+                    onPress={() => setServiceType(st)}
+                  >
+                    <Text style={[styles.serviceChipText, serviceType === st && styles.serviceChipTextActive]}>
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
 
             <Text style={styles.inputLabel}>Project Scope & Requirements *</Text>
@@ -1474,21 +1660,58 @@ export default function ClientDashboard({ user, onLogout }) {
               onChangeText={setServiceReqs}
             />
 
+            {/* Attachments Section */}
+            <View style={{ marginTop: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={styles.inputLabel}>Attach Files / Brief (Optional)</Text>
+                <TouchableOpacity
+                  style={[styles.smallActionBtn, { backgroundColor: isDark ? '#1e293b' : '#eff6ff' }]}
+                  onPress={handlePickServiceAttachment}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.smallActionBtnText, { color: '#3b82f6' }]}>+ Add Files 📎</Text>
+                </TouchableOpacity>
+              </View>
+
+              {serviceAttachments.length > 0 && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {serviceAttachments.map((file, fIdx) => (
+                    <View key={fIdx} style={[styles.pendingChip, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}>
+                      <Text style={[styles.pendingChipText, { color: themeColors.textPrimary }]} numberOfLines={1}>
+                        📎 {file.name || `Attachment ${fIdx + 1}`}
+                      </Text>
+                      <TouchableOpacity onPress={() => handleRemoveServiceAttachment(fIdx)} style={{ padding: 2 }}>
+                        <Text style={{ color: '#ef4444', fontWeight: 'bold', marginLeft: 4 }}>×</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+
             <View style={styles.modalButtonRow}>
               <TouchableOpacity
                 style={styles.modalCancelBtn}
-                onPress={() => setShowBookServiceModal(false)}
+                onPress={() => {
+                  setShowBookServiceModal(false);
+                  setServiceAttachments([]);
+                }}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalSubmitBtn, submittingService && styles.btnDisabled]}
+                style={[styles.modalSubmitBtn, (submittingService || uploadingServiceAttachments) && styles.btnDisabled]}
                 onPress={handleBookService}
-                disabled={submittingService}
+                disabled={submittingService || uploadingServiceAttachments}
               >
-                {submittingService ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                {submittingService || uploadingServiceAttachments ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.modalSubmitText}>
+                      {uploadingServiceAttachments ? 'Uploading Files...' : 'Submitting...'}
+                    </Text>
+                  </View>
                 ) : (
                   <Text style={styles.modalSubmitText}>Submit Request 🚀</Text>
                 )}
@@ -2644,5 +2867,36 @@ const getStyles = (colors, isDark) =>
     },
     btnDisabled: {
       opacity: 0.6,
+    },
+    buyPackageNotice: {
+      padding: 20,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    buyPackageTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      marginBottom: 6,
+      textAlign: 'center',
+    },
+    buyPackageDesc: {
+      fontSize: 12.5,
+      textAlign: 'center',
+      lineHeight: 18,
+      marginBottom: 14,
+      maxWidth: 320,
+    },
+    viewPackagesBannerBtn: {
+      backgroundColor: '#f43f5e',
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    viewPackagesBannerBtnText: {
+      color: '#ffffff',
+      fontSize: 13,
+      fontWeight: '700',
     },
   });

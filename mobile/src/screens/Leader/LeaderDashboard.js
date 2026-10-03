@@ -20,7 +20,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { pick } from '@react-native-documents/picker';
 import Video from 'react-native-video';
 import AppIcon from '../../components/AppIcon';
-import MarketingFieldScreen from '../Marketing/MarketingFieldScreen';
 import { useTheme } from '../../utils/ThemeContext';
 import {
   fetchTasksApi,
@@ -56,7 +55,7 @@ function getDeptColor(dept = '') {
   return DEPT_COLORS.Default;
 }
 
-export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwitchToEmployee, onSwitchToAdmin }) {
+export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwitchToEmployee }) {
   const { themeColors, isDark, toggleTheme } = useTheme();
 
   // Navigation tab: 'overview' | 'requests' | 'team' | 'sop'
@@ -88,6 +87,45 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const resolveMediaUrl = (url) => {
+    if (!url) return '';
+    const trimmed = `${url}`.trim();
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('data:') ||
+      trimmed.startsWith('file://')
+    ) {
+      return trimmed;
+    }
+    const apiBase = (getApiUrl() || '').replace(/\/+$/, '');
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${apiBase}${cleanPath}`;
+  };
+
+  const parseAttachments = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) {
+      return val.map((v) => resolveMediaUrl(v)).filter(Boolean);
+    }
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return parsed.map((v) => resolveMediaUrl(v)).filter(Boolean);
+          }
+        } catch (e) {}
+      }
+      if (trimmed.includes(',')) {
+        return trimmed.split(',').map((s) => resolveMediaUrl(s.trim())).filter(Boolean);
+      }
+      return [resolveMediaUrl(trimmed)].filter(Boolean);
+    }
+    return [];
   };
 
   const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
@@ -535,6 +573,8 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         assignedBy: 'TL',
         assignedByName: user?.name || 'Team Leader',
         project_id: selectedRequest.id,
+        attachment: selectedRequest.attachment || selectedRequest.attachments || null,
+        fileUrl: selectedRequest.attachment || selectedRequest.attachments || null,
       });
 
       if (res && res.success) {
@@ -627,19 +667,9 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     { id: 'requests', label: 'Client Requests', icon: 'check-square', badge: stats.pendingRequests },
     { id: 'client-chat', label: 'Client Chat Room', icon: 'chat', badge: stats.unreadNotes },
     { id: 'team', label: 'Team & EODs', icon: 'users' },
-    { id: 'marketing-trips', label: 'Field Trips & GPS Radar', icon: 'navigation' },
   ];
 
   const ContainerComponent = onNavigateBack ? View : SafeAreaView;
-
-  if (activeTab === 'marketing-trips') {
-    return (
-      <ContainerComponent style={styles.container} edges={onNavigateBack ? undefined : ['top', 'left', 'right']}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-        <MarketingFieldScreen user={user} onBack={() => setActiveTab('overview')} />
-      </ContainerComponent>
-    );
-  }
 
   return (
     <ContainerComponent style={styles.container} edges={onNavigateBack ? undefined : ['top', 'left', 'right']}>
@@ -685,7 +715,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 activeOpacity={0.7}
               >
                 <Text style={{ fontSize: 11 }}>👤</Text>
-                <Text style={styles.employeeSwitchPillText}>Employee</Text>
+                <Text style={styles.employeeSwitchPillText}>Employee Mode</Text>
               </TouchableOpacity>
             )}
 
@@ -720,6 +750,37 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />}
       >
+        {/* Switch to Employee Profile Banner */}
+        {onSwitchToEmployee && (
+          <TouchableOpacity
+            style={[
+              styles.leaderSwitchBanner,
+              {
+                backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                borderBottomColor: isDark ? '#334155' : '#bfdbfe',
+              },
+            ]}
+            onPress={onSwitchToEmployee}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <Text style={{ fontSize: 16 }}>👤</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#93c5fd' : '#1d4ed8' }}>
+                  Switch to Employee Profile
+                </Text>
+                <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }} numberOfLines={1}>
+                  View personal tasks, punch daily attendance & submit EOD
+                </Text>
+              </View>
+            </View>
+            <View style={styles.leaderSwitchBtnPill}>
+              <Text style={styles.leaderSwitchBtnPillText}>Employee Mode</Text>
+              <AppIcon name="arrow-right" size={12} color="#ffffff" />
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* TOP SEGMENTED TAB SWITCHER */}
         <View style={styles.tabSwitcher}>
           <TouchableOpacity
@@ -993,7 +1054,39 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       <Text style={styles.reportContentText} numberOfLines={2}>
                         {req.requirements || 'No specific description provided.'}
                       </Text>
-                      <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, marginTop: 4 }}>
+
+                      {/* Client Attachments in Request Card */}
+                      {(() => {
+                        const attList = parseAttachments(req.attachment);
+                        if (attList.length === 0) return null;
+                        return (
+                          <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                            {attList.map((attUrl, aIdx) => {
+                              const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `File ${aIdx + 1}`;
+                              return (
+                                <TouchableOpacity
+                                  key={aIdx}
+                                  style={[
+                                    styles.reqAttachPill,
+                                    {
+                                      backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                                      borderColor: isDark ? '#3b82f644' : '#bfdbfe',
+                                    },
+                                  ]}
+                                  onPress={() => handleOpenAttachment(attUrl)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={styles.reqAttachPillText} numberOfLines={1}>
+                                    📎 {decodeURIComponent(filename)}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        );
+                      })()}
+
+                      <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, marginTop: 6 }}>
                         📅 Date: {new Date(req.created_at || Date.now()).toLocaleDateString()}
                       </Text>
                     </View>
@@ -1669,6 +1762,44 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                   <Text style={{ fontSize: 12.5, color: themeColors.textPrimary }}>
                     {selectedRequest.requirements || 'No specific requirements provided.'}
                   </Text>
+
+                  {/* Client Attached Files / Briefs */}
+                  {(() => {
+                    const attList = parseAttachments(selectedRequest.attachment);
+                    if (attList.length === 0) return null;
+                    return (
+                      <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: themeColors.border, paddingTop: 8 }}>
+                        <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#2563eb', marginBottom: 6 }}>
+                          📎 CLIENT ATTACHMENTS ({attList.length}):
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                          {attList.map((attUrl, aIdx) => {
+                            const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                            return (
+                              <TouchableOpacity
+                                key={aIdx}
+                                style={[
+                                  styles.reqAttachPill,
+                                  {
+                                    backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                                    borderColor: isDark ? '#3b82f6' : '#93c5fd',
+                                    paddingVertical: 6,
+                                    paddingHorizontal: 10,
+                                  },
+                                ]}
+                                onPress={() => handleOpenAttachment(attUrl)}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={styles.reqAttachPillText} numberOfLines={1}>
+                                  📎 {decodeURIComponent(filename)}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })()}
                 </View>
 
                 {/* Employee Submission & Proof Files */}
@@ -1736,6 +1867,39 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             </View>
 
             <Text style={styles.inputLabel}>Service: {selectedRequest?.service_type || 'Service'}</Text>
+
+            {/* Client Attachments Preview in Assign Modal */}
+            {selectedRequest && (() => {
+              const attList = parseAttachments(selectedRequest.attachment);
+              if (attList.length === 0) return null;
+              return (
+                <View style={{ marginTop: 8, marginBottom: 6 }}>
+                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#2563eb', marginBottom: 4 }}>
+                    📎 Attached Files ({attList.length}):
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {attList.map((attUrl, aIdx) => {
+                      const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                      return (
+                        <TouchableOpacity
+                          key={aIdx}
+                          style={[
+                            styles.reqAttachPill,
+                            { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: '#3b82f644' },
+                          ]}
+                          onPress={() => handleOpenAttachment(attUrl)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.reqAttachPillText} numberOfLines={1}>
+                            📎 {decodeURIComponent(filename)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })()}
 
             <Text style={[styles.inputLabel, { marginTop: 10 }]}>Select Team Specialist *</Text>
 
@@ -1932,8 +2096,8 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 16 }}>
                   <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(37, 99, 235, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.3)' : 'rgba(37, 99, 235, 0.2)' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <AppIcon name="user" size={16} color="#2563eb" style={{ marginRight: 8 }} />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>TL Portal</Text>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>👔</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>Team Leader Mode</Text>
                     </View>
                     <Switch
                       value={true}
@@ -1943,27 +2107,6 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       }}
                       trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
                       thumbColor={'#3b82f6'}
-                    />
-                  </View>
-                </View>
-              )}
-
-              {/* Admin Portal Switch */}
-              {onSwitchToAdmin && (
-                <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(220, 38, 38, 0.1)' : 'rgba(220, 38, 38, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(220, 38, 38, 0.3)' : 'rgba(220, 38, 38, 0.2)' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <AppIcon name="settings" size={16} color="#dc2626" style={{ marginRight: 8 }} />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#dc2626' }}>IT Portal</Text>
-                    </View>
-                    <Switch
-                      value={false}
-                      onValueChange={() => {
-                        setIsDrawerOpen(false);
-                        onSwitchToAdmin();
-                      }}
-                      trackColor={{ false: '#cbd5e1', true: '#fca5a5' }}
-                      thumbColor={'#f8fafc'}
                     />
                   </View>
                 </View>
@@ -2337,16 +2480,54 @@ function getStyles(themeColors, isDark) {
       alignItems: 'center',
       gap: 4,
       backgroundColor: isDark ? '#1e293b' : '#eff6ff',
-      paddingHorizontal: 8,
-      paddingVertical: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: isDark ? '#3b82f6' : '#bfdbfe',
     },
     employeeSwitchPillText: {
-      fontSize: 11,
+      fontSize: 11.5,
       fontWeight: '700',
       color: isDark ? '#93c5fd' : '#2563eb',
+    },
+    leaderSwitchBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      marginBottom: 12,
+      borderRadius: 10,
+    },
+    leaderSwitchBtnPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#2563eb',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+      gap: 4,
+    },
+    leaderSwitchBtnPillText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#ffffff',
+    },
+    reqAttachPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+      maxWidth: '100%',
+    },
+    reqAttachPillText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#2563eb',
     },
     iconCircleBtn: {
       padding: 7,

@@ -759,7 +759,25 @@ export async function fetchCandidatesListApi() {
   }
 }
 
-export async function evaluateCandidateTestApi(testId, status) {
+export async function approveCandidateRegistrationApi(data) {
+  const url = `${currentApiUrl}/api/candidates/approve`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Approve candidate registration failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function evaluateCandidateTestApi(testId, status, feedback = '') {
   const url = `${currentApiUrl}/api/candidates/evaluate-test`;
   try {
     const response = await fetch(url, {
@@ -768,7 +786,7 @@ export async function evaluateCandidateTestApi(testId, status) {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ test_id: testId, status })
+      body: JSON.stringify({ test_id: testId, status, feedback })
     });
     return await response.json();
   } catch (err) {
@@ -776,6 +794,8 @@ export async function evaluateCandidateTestApi(testId, status) {
     throw err;
   }
 }
+
+
 
 // ==========================================
 // Work Submissions & EOD Reports APIs
@@ -1234,7 +1254,7 @@ export async function fetchTasksApi() {
   }
 }
 
-export async function postTaskApi({ title, description, assignedTo, assignedToName, assignedBy, assignedByName, project_id }) {
+export async function postTaskApi({ title, description, assignedTo, assignedToName, assignedBy, assignedByName, project_id, attachment, fileUrl }) {
   const url = `${currentApiUrl}/api/tasks`;
   try {
     const response = await fetch(url, {
@@ -1250,7 +1270,9 @@ export async function postTaskApi({ title, description, assignedTo, assignedToNa
         assignedToName,
         assignedBy: assignedBy || 'TL',
         assignedByName: assignedByName || 'Team Leader',
-        project_id: project_id || null
+        project_id: project_id || null,
+        attachment: attachment || null,
+        fileUrl: fileUrl || attachment || null
       })
     });
     return await response.json();

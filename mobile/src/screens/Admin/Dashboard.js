@@ -39,6 +39,8 @@ import ManageTeamHierarchy from './ManageTeamHierarchy';
 import ManageAuditLogs from './ManageAuditLogs';
 import ManageProjects from './ManageProjects';
 import ManageClientRequests from './ManageClientRequests';
+import ManageManagementOverview from './ManageManagementOverview';
+import ManageClientNotes from './ManageClientNotes';
 import LeaderDashboard from '../Leader/LeaderDashboard';
 import ChatScreen from '../ChatScreen';
 
@@ -353,8 +355,8 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
         </TouchableOpacity>
       )}
 
-      {/* Marketing Operations Quick Link (Admin & Marketing) */}
-      {(isAdminUser || isMarketingRole) && (
+      {/* Marketing Operations Quick Link (Super Admin Only) */}
+      {isAdminUser && (
         <TouchableOpacity
           style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#064e3b22' : '#ecfdf5', borderColor: '#10b981', marginBottom: 16 }]}
           onPress={() => setActiveTab('marketing')}
@@ -525,6 +527,52 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
               <Text style={{ fontSize: 12, fontWeight: '700', color: '#6366f1' }}>Track →</Text>
             </View>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#14532d22' : '#f0fdf4', borderColor: '#16a34a', marginBottom: 16 }]}
+            onPress={() => setActiveTab('management_overview')}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#16a34a', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 18 }}>📊</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#bbf7d0' : '#15803d' }}>
+                    Management Overview
+                  </Text>
+                  <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                    End-to-end request pipelines, TL assignments & sub-tasks
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#16a34a' }}>Overview →</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.marketingCardBanner, { backgroundColor: isDark ? '#0e749022' : '#ecfeff', borderColor: '#0891b2', marginBottom: 16 }]}
+            onPress={() => setActiveTab('client_notes')}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#0891b2', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 18 }}>💬</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#a5f3fc' : '#0e7490' }}>
+                    Client Messages & Notes
+                  </Text>
+                  <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', marginTop: 2 }}>
+                    Central client communications, discussion threads & attachments
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#0891b2' }}>Discussions →</Text>
+            </View>
+          </TouchableOpacity>
         </>
       )}
 
@@ -653,6 +701,10 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
         return <ManageProjects currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'client_requests':
         return <ManageClientRequests currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
+      case 'management_overview':
+        return <ManageManagementOverview currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
+      case 'client_notes':
+        return <ManageClientNotes currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'chat':
         return <ChatScreen user={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'profile':
@@ -1012,8 +1064,8 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
               )}
  
 
-              {/* Marketing Field Trips - Admin & Marketing */}
-              {(isAdminUser || isMarketingRole) && (
+              {/* Marketing Field Trips - Super Admin Only */}
+              {isAdminUser && (
                 <TouchableOpacity
                   style={[
                     styles.drawerItem,
@@ -1037,6 +1089,34 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
                 >
                   <Text style={styles.drawerItemIcon}>🏢</Text>
                   <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Client CRM Records</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Management Overview - Admin Only */}
+              {isAdminUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'management_overview' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('management_overview'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>📊</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Management Overview</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Client Messages & Notes - Admin Only */}
+              {isAdminUser && (
+                <TouchableOpacity
+                  style={[
+                    styles.drawerItem,
+                    activeTab === 'client_notes' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                  ]}
+                  onPress={() => { setActiveTab('client_notes'); setIsDrawerOpen(false); }}
+                >
+                  <Text style={styles.drawerItemIcon}>💬</Text>
+                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Client Notes & Messages</Text>
                 </TouchableOpacity>
               )}
 

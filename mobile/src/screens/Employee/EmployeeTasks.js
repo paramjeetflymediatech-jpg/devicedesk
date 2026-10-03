@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { getTasks, addTask, updateTask, deleteTask, startTask, stopTask, completeTask, subscribe, syncWithServer } from '../../store/store';
 import { pick } from '@react-native-documents/picker';
-import { getApiUrl } from '../../utils/api';
+import { getApiUrl, fetchClientRequestsApi } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
@@ -24,14 +24,151 @@ export default function EmployeeTasks({ currentUser }) {
   const { isDark, themeColors } = useTheme();
   const styles = getStyles(themeColors, isDark);
   const [tasks, setTasks] = useState(() => getTasks().filter(t => t.assignedTo === currentUser?.id));
+  const [clientRequests, setClientRequests] = useState([]);
   const [now, setNow] = useState(() => Date.now());
   const [refreshing, setRefreshing] = useState(false);
+
+  // View Task & Client Request Details modal states
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedLinkedRequest, setSelectedLinkedRequest] = useState(null);
+
+  const resolveMediaUrl = (url) => {
+    if (!url) return '';
+    const trimmed = `${url}`.trim();
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('data:') ||
+      trimmed.startsWith('file://')
+    ) {
+      return trimmed;
+    }
+    const apiBase = (getApiUrl() || '').replace(/\/+$/, '');
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${apiBase}${cleanPath}`;
+  };
+
+  const parseAttachments = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) {
+      return val.map((v) => resolveMediaUrl(v)).filter(Boolean);
+    }
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return parsed.map((v) => resolveMediaUrl(v)).filter(Boolean);
+          }
+        } catch (e) {}
+      }
+      if (trimmed.includes(',')) {
+        return trimmed.split(',').map((s) => resolveMediaUrl(s.trim())).filter(Boolean);
+      }
+      return [resolveMediaUrl(trimmed)].filter(Boolean);
+    }
+    return [];
+  };
+
+  const getClientAttachments = (task, linkedReq) => {
+    const combined = [];
+    if (linkedReq) {
+      if (linkedReq.attachment) combined.push(linkedReq.attachment);
+      if (linkedReq.attachments) combined.push(linkedReq.attachments);
+      if (linkedReq.fileUrl) combined.push(linkedReq.fileUrl);
+      if (linkedReq.file_url) combined.push(linkedReq.file_url);
+      if (linkedReq.files) combined.push(linkedReq.files);
+    }
+    if (task) {
+      if (task.client_attachment) combined.push(task.client_attachment);
+      if (task.client_attachments) combined.push(task.client_attachments);
+      if (task.attachment) combined.push(task.attachment);
+      if (task.attachments && Array.isArray(task.attachments) && !task.completedAt) {
+        combined.push(...task.attachments);
+      }
+      if (task.fileUrl && !task.completedAt) combined.push(task.fileUrl);
+    }
+
+    const allParsed = [];
+    combined.forEach(val => {
+      const list = parseAttachments(val);
+      list.forEach(url => {
+        if (url && !allParsed.includes(url)) {
+          allParsed.push(url);
+        }
+      });
+    });
+    return allParsed;
+  };
+
+  const handleOpenAttachment = (url) => {
+    if (!url) {
+      sweetAlert({ title: 'Attachment Missing', text: 'No attachment found for this item.', type: 'info' });
+      return;
+    }
+    const resolved = resolveMediaUrl(url);
+    Linking.openURL(resolved).catch(() => {
+      Alert.alert('Error', 'Could not open attachment URL: ' + resolved);
+    });
+  };
+
+  const loadClientRequests = async () => {
+    try {
+      const res = await fetchClientRequestsApi();
+      if (res && (res.data || Array.isArray(res))) {
+        setClientRequests(res.data || res || []);
+      }
+    } catch (e) {
+      console.log('Failed to fetch client requests in employee tasks:', e);
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
     await syncWithServer();
+    await loadClientRequests();
     setTasks(getTasks().filter(t => t.assignedTo === currentUser?.id));
     setRefreshing(false);
+  };
+
+  const handleOpenDetails = async (task) => {
+    setSelectedTask(task);
+    
+    // 1. Check existing in-memory cache
+    let allReqs = clientRequests || [];
+    let linked = allReqs.find(r => 
+      (task.project_id && (String(r.id) === String(task.project_id) || String(r._id) === String(task.project_id))) ||
+      (task.title && r.service_type && (
+        task.title.toLowerCase().includes(r.service_type.toLowerCase()) ||
+        r.service_type.toLowerCase().includes(task.title.toLowerCase().replace('client request:', '').trim())
+      ))
+    ) || null;
+
+    setSelectedLinkedRequest(linked);
+    setDetailsModalVisible(true);
+
+    // 2. Fetch fresh requests in background to guarantee attachments are always retrieved
+    try {
+      const res = await fetchClientRequestsApi();
+      const freshReqs = res?.data || res || [];
+      if (Array.isArray(freshReqs) && freshReqs.length > 0) {
+        setClientRequests(freshReqs);
+        const freshLinked = freshReqs.find(r => 
+          (task.project_id && (String(r.id) === String(task.project_id) || String(r._id) === String(task.project_id))) ||
+          (task.title && r.service_type && (
+            task.title.toLowerCase().includes(r.service_type.toLowerCase()) ||
+            r.service_type.toLowerCase().includes(task.title.toLowerCase().replace('client request:', '').trim())
+          ))
+        ) || null;
+        if (freshLinked) {
+          setSelectedLinkedRequest(freshLinked);
+        }
+      }
+    } catch (e) {
+      console.log('Error fetching fresh client requests on view details:', e);
+    }
   };
 
   // Task completion modal states
@@ -111,8 +248,29 @@ export default function EmployeeTasks({ currentUser }) {
   };
 
   useEffect(() => {
+    let isMounted = true;
+    fetchClientRequestsApi()
+      .then((res) => {
+        if (isMounted && res && (res.data || Array.isArray(res))) {
+          setClientRequests(res.data || res || []);
+        }
+      })
+      .catch((e) => {
+        console.log('Failed to fetch client requests in employee tasks:', e);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const unsubscribe = subscribe(() => {
-      setTasks(getTasks().filter(t => t.assignedTo === currentUser?.id));
+      const currentTasks = getTasks().filter(t => t.assignedTo === currentUser?.id);
+      setTasks(currentTasks);
+      if (selectedTask) {
+        const updated = currentTasks.find(t => t.id === selectedTask.id);
+        if (updated) setSelectedTask(updated);
+      }
     });
     
     const timer = setInterval(() => {
@@ -123,7 +281,7 @@ export default function EmployeeTasks({ currentUser }) {
       unsubscribe();
       clearInterval(timer);
     };
-  }, [currentUser]);
+  }, [currentUser, selectedTask]);
 
   const handleStart = (taskId) => {
     startTask(taskId, currentUser.name);
@@ -235,10 +393,29 @@ export default function EmployeeTasks({ currentUser }) {
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  const isTaskRunning = (task) => {
+    if (!task) return false;
+    return !!(task.isRunning || (task.status === 'In Progress' && !!task.startedAt));
+  };
+
+  const isTaskStarted = (task) => {
+    if (!task) return false;
+    const running = isTaskRunning(task);
+    const hasWorked = !!(
+      task.startedAt || 
+      task.lastStartedAt || 
+      (task.totalDuration && task.totalDuration > 0) || 
+      (task.accumulatedTime && task.accumulatedTime > 0)
+    );
+    return running || hasWorked || task.status === 'In Progress';
+  };
+
   const calculateTotalDuration = (task) => {
-    let duration = task.accumulatedTime || 0;
-    if (task.isRunning && task.lastStartedAt) {
-      duration += Math.max(0, now - new Date(task.lastStartedAt).getTime());
+    if (!task) return 0;
+    let duration = (task.accumulatedTime || (task.totalDuration ? task.totalDuration * 1000 : 0)) || 0;
+    const startTimestamp = task.lastStartedAt || task.startedAt;
+    if (isTaskRunning(task) && startTimestamp) {
+      duration += Math.max(0, now - new Date(startTimestamp).getTime());
     }
     return duration;
   };
@@ -279,10 +456,40 @@ export default function EmployeeTasks({ currentUser }) {
         ) : (
           tasks.map(task => {
             const isSelfTask = task.assignedBy === currentUser?.id;
+            const isClientRequestTask = !!(
+              task.project_id || 
+              (task.title && task.title.toLowerCase().startsWith('client request:')) ||
+              (task.assignedByName && task.assignedByName.toLowerCase().includes('leader')) ||
+              task.client_attachment
+            );
+
+            const matchingReq = (clientRequests || []).find(r => 
+              (task.project_id && (String(r.id) === String(task.project_id) || String(r._id) === String(task.project_id))) ||
+              (task.title && r.service_type && (
+                task.title.toLowerCase().includes(r.service_type.toLowerCase()) ||
+                r.service_type.toLowerCase().includes(task.title.toLowerCase().replace('client request:', '').trim())
+              ))
+            );
+            const cardClientFiles = getClientAttachments(task, matchingReq);
+
             return (
               <View key={task.id} style={[styles.taskCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
                 <View style={styles.taskHeader}>
-                  <Text style={[styles.taskTitle, { color: themeColors.textPrimary }]}>{task.title}</Text>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={[styles.taskTitle, { color: themeColors.textPrimary }]}>{task.title}</Text>
+                    {isClientRequestTask ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                        <AppIcon name="users" size={12} color={isDark ? '#a78bfa' : '#7c3aed'} />
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: isDark ? '#a78bfa' : '#7c3aed' }}>
+                          Client Request {task.assignedByName ? `• Assigned by ${task.assignedByName}` : ''}
+                        </Text>
+                      </View>
+                    ) : task.assignedByName && !isSelfTask ? (
+                      <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>
+                        Assigned by {task.assignedByName}
+                      </Text>
+                    ) : null}
+                  </View>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <View style={[
@@ -326,8 +533,21 @@ export default function EmployeeTasks({ currentUser }) {
                 </View>
 
                 {task.description ? (
-                  <Text style={styles.taskDesc}>{task.description}</Text>
+                  <Text style={styles.taskDesc} numberOfLines={3}>{task.description}</Text>
                 ) : null}
+
+                {/* Client attachments badge on card if present */}
+                {cardClientFiles.length > 0 && (
+                  <TouchableOpacity 
+                    style={[styles.attachmentBadge, { backgroundColor: isDark ? 'rgba(124, 58, 237, 0.18)' : '#ede9fe', borderColor: isDark ? '#7c3aed' : '#c4b5fd' }]}
+                    onPress={() => handleOpenDetails(task)}
+                  >
+                    <AppIcon name="paperclip" size={12} color={isDark ? '#c4b5fd' : '#6d28d9'} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: isDark ? '#c4b5fd' : '#6d28d9' }}>
+                      {cardClientFiles.length} Client Attachment{cardClientFiles.length > 1 ? 's' : ''} • Tap to View
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 <View style={styles.divider} />
 
@@ -344,7 +564,7 @@ export default function EmployeeTasks({ currentUser }) {
                     {task.attachments.map((url, idx) => (
                       <TouchableOpacity 
                         key={idx} 
-                        onPress={() => Linking.openURL(url)}
+                        onPress={() => handleOpenAttachment(url)}
                         style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2, gap: 4 }}
                       >
                         <AppIcon name="paperclip" size={14} color={isDark ? '#60a5fa' : '#2563eb'} />
@@ -356,49 +576,65 @@ export default function EmployeeTasks({ currentUser }) {
                   </View>
                 )}
 
-                <View style={styles.actionsRow}>
-                  {task.status !== 'Completed' ? (
-                    <>
-                      {!task.isRunning ? (
-                        <TouchableOpacity
-                          style={styles.startBtn}
-                          onPress={() => handleStart(task.id)}
-                        >
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <AppIcon name="play" size={14} color={isDark ? '#60a5fa' : '#2563eb'} />
-                            <Text style={styles.btnTextStart}>Start Timer</Text>
-                          </View>
-                        </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity
-                          style={styles.stopBtn}
-                          onPress={() => handleStop(task.id)}
-                        >
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <AppIcon name="pause" size={14} color={isDark ? '#fbbf24' : '#d97706'} />
-                            <Text style={styles.btnTextStop}>Pause Timer</Text>
-                          </View>
-                        </TouchableOpacity>
-                      )}
-
-                      <TouchableOpacity
-                        style={styles.completeBtn}
-                        onPress={() => handleCompletePress(task.id)}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <AppIcon name="check" size={14} color={isDark ? '#34d399' : '#059669'} />
-                          <Text style={styles.btnTextComplete}>Complete</Text>
-                        </View>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <AppIcon name="check" size={14} color="#059669" />
-                      <Text style={styles.completedText}>
-                        Completed on {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : 'N/A'}
-                      </Text>
+                <View style={styles.cardActionsContainer}>
+                  <TouchableOpacity
+                    style={styles.viewDetailsBtn}
+                    onPress={() => handleOpenDetails(task)}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <AppIcon name="eye" size={14} color={isDark ? '#60a5fa' : '#2563eb'} />
+                      <Text style={styles.btnTextViewDetails}>View Details</Text>
                     </View>
-                  )}
+                  </TouchableOpacity>
+
+                  <View style={styles.actionsRow}>
+                    {task.status !== 'Completed' ? (
+                      <>
+                        {!isTaskRunning(task) ? (
+                          <TouchableOpacity
+                            style={styles.startBtn}
+                            onPress={() => handleStart(task.id)}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                              <AppIcon name="play" size={13} color={isDark ? '#60a5fa' : '#2563eb'} />
+                              <Text style={styles.btnTextStart}>
+                                {isTaskStarted(task) ? 'Resume' : 'Start'}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.stopBtn}
+                            onPress={() => handleStop(task.id)}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                              <AppIcon name="pause" size={13} color={isDark ? '#fbbf24' : '#d97706'} />
+                              <Text style={styles.btnTextStop}>Pause</Text>
+                            </View>
+                          </TouchableOpacity>
+                        )}
+
+                        {isTaskStarted(task) && (
+                          <TouchableOpacity
+                            style={styles.completeBtn}
+                            onPress={() => handleCompletePress(task.id)}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                              <AppIcon name="check" size={13} color={isDark ? '#34d399' : '#059669'} />
+                              <Text style={styles.btnTextComplete}>Complete</Text>
+                            </View>
+                          </TouchableOpacity>
+                        )}
+                      </>
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <AppIcon name="check" size={14} color="#059669" />
+                        <Text style={styles.completedText}>
+                          Done {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : ''}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </View>
             );
@@ -406,194 +642,286 @@ export default function EmployeeTasks({ currentUser }) {
         )}
       </ScrollView>
 
-      {/* Complete Task Modal */}
+      {/* Task & Client Request Details Modal */}
       <Modal
-        visible={completeModalVisible}
+        visible={detailsModalVisible}
         transparent={true}
-        animationType="fade"
-        onRequestClose={() => setCompleteModalVisible(false)}
+        animationType="slide"
+        onRequestClose={() => setDetailsModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <AppIcon name="check" size={20} color="#059669" />
-              <Text style={styles.modalTitle}>Complete Task</Text>
+          <View style={[styles.detailsModalContent, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+            {/* Modal Header */}
+            <View style={[styles.detailsModalHeader, { borderBottomColor: themeColors.border }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                <AppIcon name="file-text" size={20} color={isDark ? '#60a5fa' : '#2563eb'} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.detailsModalTitle, { color: themeColors.textPrimary }]}>
+                    Task & Request Details
+                  </Text>
+                  <Text style={[styles.detailsModalSub, { color: themeColors.textSecondary }]}>
+                    {selectedLinkedRequest ? 'Delegated Client Service Request' : 'Assigned Task Information'}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.closeIconBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#f1f5f9' }]}
+                onPress={() => setDetailsModalVisible(false)}
+              >
+                <AppIcon name="x" size={18} color={themeColors.textPrimary} />
+              </TouchableOpacity>
             </View>
-            <Text style={styles.modalLabel}>
-              Optional: Attach completion proof (screenshots, files, or documents).
-            </Text>
 
-            <TouchableOpacity 
-              style={styles.fileSelectBtn} 
-              onPress={handleSelectFile}
-              disabled={uploading}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <AppIcon name="paperclip" size={16} color={isDark ? '#60a5fa' : '#2563eb'} />
-                <Text style={styles.fileSelectText}>Select Proof Files</Text>
-              </View>
-            </TouchableOpacity>
+            {/* Scrollable details */}
+            {selectedTask && (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 14 }}>
+                {/* Title and Status Banner */}
+                <View style={[styles.infoBannerCard, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff', borderColor: isDark ? 'rgba(59, 130, 246, 0.25)' : '#bfdbfe' }]}>
+                  <Text style={[styles.taskDetailTitle, { color: themeColors.textPrimary }]}>{selectedTask.title}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    <View style={[
+                      styles.statusBadge,
+                      selectedTask.status === 'Completed' ? styles.badgeSuccess :
+                      selectedTask.isRunning ? styles.badgeProgress : styles.badgePending
+                    ]}>
+                      <Text style={[
+                        styles.statusText,
+                        selectedTask.status === 'Completed' && { color: isDark ? '#34d399' : '#059669' },
+                        selectedTask.isRunning && { color: isDark ? '#60a5fa' : '#2563eb' },
+                        selectedTask.status !== 'Completed' && !selectedTask.isRunning && { color: isDark ? '#fbbf24' : '#d97706' }
+                      ]}>
+                        {selectedTask.status === 'Completed' ? 'Completed' : selectedTask.isRunning ? 'Active / Running' : selectedTask.status}
+                      </Text>
+                    </View>
 
-            {selectedFiles.length > 0 && (
-              <View style={{ marginBottom: 16 }}>
-                {selectedFiles.map((file, idx) => (
-                  <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <Text style={{ color: themeColors.textPrimary, fontSize: 12, flex: 1 }} numberOfLines={1}>
-                      📄 {file.name}
-                    </Text>
-                    <TouchableOpacity onPress={() => handleRemoveFile(idx)}>
-                      <Text style={{ color: '#ef4444', fontSize: 12, marginLeft: 8, fontWeight: '600' }}>Remove</Text>
-                    </TouchableOpacity>
+                    <View style={[styles.timeChip, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : '#ffffff' }]}>
+                      <AppIcon name="clock" size={13} color={isDark ? '#60a5fa' : '#2563eb'} />
+                      <Text style={[styles.timeChipText, { color: isDark ? '#60a5fa' : '#2563eb' }]}>
+                        {formatHMS(calculateTotalDuration(selectedTask))}
+                      </Text>
+                    </View>
                   </View>
-                ))}
-              </View>
+                </View>
+
+                {/* Assignment Meta Details */}
+                <View style={[styles.sectionCard, { backgroundColor: isDark ? themeColors.background : '#f8fafc', borderColor: themeColors.border }]}>
+                  <Text style={[styles.sectionCardHeader, { color: themeColors.textPrimary }]}>Assignment Info</Text>
+                  
+                  <View style={styles.metaRow}>
+                    <Text style={[styles.metaLabel, { color: themeColors.textSecondary }]}>Assigned By:</Text>
+                    <Text style={[styles.metaValue, { color: themeColors.textPrimary }]}>
+                      {selectedTask.assignedByName || (selectedTask.assignedBy === currentUser?.id ? 'Self' : 'Team Leader / Admin')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.metaRow}>
+                    <Text style={[styles.metaLabel, { color: themeColors.textSecondary }]}>Assigned To:</Text>
+                    <Text style={[styles.metaValue, { color: themeColors.textPrimary }]}>
+                      {selectedTask.assignedToName || currentUser?.name || 'Employee'}
+                    </Text>
+                  </View>
+
+                  {selectedTask.completedAt && (
+                    <View style={styles.metaRow}>
+                      <Text style={[styles.metaLabel, { color: themeColors.textSecondary }]}>Completed On:</Text>
+                      <Text style={[styles.metaValue, { color: '#059669' }]}>
+                        {new Date(selectedTask.completedAt).toLocaleString()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Task Instructions & TL Note */}
+                <View style={[styles.sectionCard, { backgroundColor: isDark ? themeColors.background : '#f8fafc', borderColor: themeColors.border }]}>
+                  <Text style={[styles.sectionCardHeader, { color: themeColors.textPrimary }]}>Task Description & Notes</Text>
+                  <Text style={[styles.sectionBodyText, { color: themeColors.textPrimary }]}>
+                    {selectedTask.description || 'No additional task instructions provided.'}
+                  </Text>
+                </View>
+
+                {/* Linked Client Request & Client Attachments Section */}
+                {(() => {
+                  const clientFiles = getClientAttachments(selectedTask, selectedLinkedRequest);
+                  const isClientReq = !!(
+                    selectedLinkedRequest ||
+                    (selectedTask.title && selectedTask.title.toLowerCase().includes('client request')) ||
+                    selectedTask.project_id ||
+                    selectedTask.client_attachment ||
+                    clientFiles.length > 0
+                  );
+
+                  if (!isClientReq && clientFiles.length === 0) return null;
+
+                  const clientName = selectedLinkedRequest?.company_name || selectedLinkedRequest?.client_name || selectedTask.client_name || 'Client';
+                  const serviceType = selectedLinkedRequest?.service_type || selectedTask.client_service_type || (selectedTask.title ? selectedTask.title.replace(/^Client Request:\s*/i, '') : 'Service Request');
+                  const reqStatus = selectedLinkedRequest?.status || 'Assigned';
+                  const targetDate = selectedLinkedRequest?.target_date || selectedLinkedRequest?.due_date || null;
+                  const requirements = selectedLinkedRequest?.requirements || selectedTask.client_requirements || null;
+
+                  return (
+                    <View style={[styles.sectionCard, { backgroundColor: isDark ? 'rgba(124, 58, 237, 0.08)' : '#f5f3ff', borderColor: isDark ? 'rgba(124, 58, 237, 0.25)' : '#ddd6fe' }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                        <AppIcon name="users" size={16} color={isDark ? '#a78bfa' : '#7c3aed'} />
+                        <Text style={[styles.sectionCardHeader, { color: isDark ? '#c4b5fd' : '#6d28d9', marginBottom: 0 }]}>
+                          Original Client Request & Attachments
+                        </Text>
+                      </View>
+
+                      <View style={styles.metaRow}>
+                        <Text style={[styles.metaLabel, { color: themeColors.textSecondary }]}>Client / Company:</Text>
+                        <Text style={[styles.metaValue, { color: themeColors.textPrimary }]}>
+                          {clientName}
+                        </Text>
+                      </View>
+
+                      <View style={styles.metaRow}>
+                        <Text style={[styles.metaLabel, { color: themeColors.textSecondary }]}>Service Type:</Text>
+                        <Text style={[styles.metaValue, { color: isDark ? '#a78bfa' : '#7c3aed', fontWeight: '700' }]}>
+                          {serviceType}
+                        </Text>
+                      </View>
+
+                      <View style={styles.metaRow}>
+                        <Text style={[styles.metaLabel, { color: themeColors.textSecondary }]}>Request Status:</Text>
+                        <Text style={[styles.metaValue, { color: themeColors.textPrimary }]}>
+                          {reqStatus}
+                        </Text>
+                      </View>
+
+                      {targetDate ? (
+                        <View style={styles.metaRow}>
+                          <Text style={[styles.metaLabel, { color: themeColors.textSecondary }]}>Target Date:</Text>
+                          <Text style={[styles.metaValue, { color: themeColors.textPrimary }]}>
+                            {targetDate}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {requirements ? (
+                        <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0' }}>
+                          <Text style={[styles.metaLabel, { color: themeColors.textSecondary, marginBottom: 4 }]}>Client Requirements:</Text>
+                          <Text style={[styles.sectionBodyText, { color: themeColors.textPrimary }]}>
+                            {requirements}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {/* Client Attached Files */}
+                      <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0' }}>
+                        <Text style={[styles.metaLabel, { color: themeColors.textSecondary, marginBottom: 8, fontWeight: '700' }]}>
+                          📎 Client Attachments ({clientFiles.length}):
+                        </Text>
+                        {clientFiles.length === 0 ? (
+                          <Text style={{ fontSize: 12, color: themeColors.textSecondary, fontStyle: 'italic' }}>
+                            No files attached with this request.
+                          </Text>
+                        ) : (
+                          <View style={{ flexDirection: 'column', gap: 8 }}>
+                            {clientFiles.map((fileUrl, fIdx) => {
+                              const fileName = fileUrl.split('/').pop().split('?')[0] || `Client_Attachment_${fIdx + 1}`;
+                              return (
+                                <TouchableOpacity
+                                  key={fIdx}
+                                  style={[styles.attachmentCardRow, { backgroundColor: isDark ? 'rgba(124, 58, 237, 0.2)' : '#ede9fe', borderColor: isDark ? '#7c3aed' : '#c4b5fd' }]}
+                                  onPress={() => handleOpenAttachment(fileUrl)}
+                                >
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                                    <AppIcon name="paperclip" size={16} color={isDark ? '#c4b5fd' : '#6d28d9'} />
+                                    <View style={{ flex: 1 }}>
+                                      <Text style={[styles.attachmentChipText, { color: isDark ? '#c4b5fd' : '#6d28d9' }]} numberOfLines={1}>
+                                        {fileName}
+                                      </Text>
+                                      <Text style={{ fontSize: 11, color: isDark ? '#a78bfa' : '#7c3aed', marginTop: 1 }}>
+                                        Tap to View / Download
+                                      </Text>
+                                    </View>
+                                  </View>
+                                  <View style={[styles.openBadge, { backgroundColor: isDark ? '#7c3aed' : '#6d28d9' }]}>
+                                    <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Open ↗</Text>
+                                  </View>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })()}
+
+                {/* Submitted Proof Attachments */}
+                {selectedTask.completedAt && selectedTask.attachments && selectedTask.attachments.length > 0 && (
+                  <View style={[styles.sectionCard, { backgroundColor: isDark ? themeColors.background : '#f8fafc', borderColor: themeColors.border }]}>
+                    <Text style={[styles.sectionCardHeader, { color: themeColors.textPrimary }]}>Task Completion Proofs</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {selectedTask.attachments.map((proofUrl, pIdx) => (
+                        <TouchableOpacity
+                          key={pIdx}
+                          style={[styles.attachmentChip, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff', borderColor: isDark ? '#3b82f6' : '#bfdbfe' }]}
+                          onPress={() => handleOpenAttachment(proofUrl)}
+                        >
+                          <AppIcon name="paperclip" size={14} color={isDark ? '#60a5fa' : '#2563eb'} />
+                          <Text style={[styles.attachmentChipText, { color: isDark ? '#60a5fa' : '#2563eb' }]} numberOfLines={1}>
+                            📄 Proof #{pIdx + 1}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
             )}
 
-            <View style={styles.modalFooter}>
-              <TouchableOpacity 
-                style={styles.cancelBtn} 
-                onPress={() => setCompleteModalVisible(false)}
-                disabled={uploading}
-              >
-                <Text style={{ color: themeColors.textSecondary, fontWeight: '600' }}>Cancel</Text>
-              </TouchableOpacity>
+            {/* Modal Footer Actions */}
+            <View style={[styles.detailsModalFooter, { borderTopColor: themeColors.border }]}>
+              {selectedTask && selectedTask.status !== 'Completed' ? (
+                <View style={{ flexDirection: 'row', gap: 8, flex: 1 }}>
+                  {!isTaskRunning(selectedTask) ? (
+                    <TouchableOpacity
+                      style={[styles.modalActionBtn, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff', borderColor: isDark ? 'rgba(59, 130, 246, 0.4)' : '#bfdbfe' }]}
+                      onPress={() => handleStart(selectedTask.id)}
+                    >
+                      <AppIcon name="play" size={14} color={isDark ? '#60a5fa' : '#2563eb'} />
+                      <Text style={[styles.modalActionBtnText, { color: isDark ? '#60a5fa' : '#2563eb' }]}>
+                        {isTaskStarted(selectedTask) ? 'Resume Timer' : 'Start Timer'}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.modalActionBtn, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb', borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#fde68a' }]}
+                      onPress={() => handleStop(selectedTask.id)}
+                    >
+                      <AppIcon name="pause" size={14} color={isDark ? '#fbbf24' : '#d97706'} />
+                      <Text style={[styles.modalActionBtnText, { color: isDark ? '#fbbf24' : '#d97706' }]}>Pause Timer</Text>
+                    </TouchableOpacity>
+                  )}
 
-              <TouchableOpacity 
-                style={styles.submitBtn} 
-                onPress={handleSubmitCompletion}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Text style={{ color: '#ffffff', fontWeight: '800' }}>Submit & Finish</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+                  {isTaskStarted(selectedTask) && (
+                    <TouchableOpacity
+                      style={[styles.modalActionBtn, { backgroundColor: isDark ? '#059669' : '#059669', borderColor: '#059669' }]}
+                      onPress={() => {
+                        setDetailsModalVisible(false);
+                        handleCompletePress(selectedTask.id);
+                      }}
+                    >
+                      <AppIcon name="check" size={14} color="#ffffff" />
+                      <Text style={[styles.modalActionBtnText, { color: '#ffffff' }]}>Complete</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : null}
 
-      {/* Add Self Task Modal */}
-      <Modal
-        visible={showSelfModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowSelfModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <AppIcon name="plus" size={18} color={isDark ? '#60a5fa' : '#2563eb'} />
-              <Text style={styles.modalTitle}>Create New Task</Text>
-            </View>
-            
-            <Text style={styles.inputLabel}>Task Title</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. Update Client Proposal"
-              placeholderTextColor={themeColors.textSecondary}
-              value={selfTitle}
-              onChangeText={setSelfTitle}
-            />
-
-            <Text style={styles.inputLabel}>Description (Optional)</Text>
-            <TextInput
-              style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
-              placeholder="Task details..."
-              placeholderTextColor={themeColors.textSecondary}
-              multiline
-              numberOfLines={3}
-              value={selfDesc}
-              onChangeText={setSelfDesc}
-            />
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity 
-                style={styles.cancelBtn} 
-                onPress={() => setShowSelfModal(false)}
+              <TouchableOpacity
+                style={[styles.closeDetailBtn, { backgroundColor: isDark ? themeColors.background : '#f1f5f9', borderColor: themeColors.border }]}
+                onPress={() => setDetailsModalVisible(false)}
               >
-                <Text style={{ color: themeColors.textSecondary, fontWeight: '600' }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.submitBtn} 
-                onPress={handleCreateSelfTask}
-              >
-                <Text style={{ color: '#ffffff', fontWeight: '800' }}>Create Task</Text>
+                <Text style={{ color: themeColors.textPrimary, fontWeight: '700', fontSize: 13 }}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Edit Self Task Modal */}
-      <Modal
-        visible={editModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <AppIcon name="edit" size={18} color="#38bdf8" />
-              <Text style={styles.modalTitle}>Edit Task</Text>
-            </View>
-            
-            <Text style={styles.inputLabel}>Task Title</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Task title..."
-              placeholderTextColor={themeColors.textSecondary}
-              value={editTitle}
-              onChangeText={setEditTitle}
-            />
-
-            <Text style={styles.inputLabel}>Description</Text>
-            <TextInput
-              style={[styles.textInput, { height: 70, textAlignVertical: 'top' }]}
-              placeholder="Task details..."
-              placeholderTextColor={themeColors.textSecondary}
-              multiline
-              numberOfLines={3}
-              value={editDesc}
-              onChangeText={setEditDesc}
-            />
-
-            <Text style={styles.inputLabel}>Status</Text>
-            <View style={styles.pickerContainer}>
-              <ScrollView nestedScrollEnabled={true}>
-                {['Pending', 'In Progress', 'Completed'].map(st => (
-                  <TouchableOpacity
-                    key={st}
-                    style={[styles.pickerItem, editStatus === st && styles.pickerItemActive]}
-                    onPress={() => setEditStatus(st)}
-                  >
-                    <Text style={[styles.pickerItemText, editStatus === st && styles.pickerItemTextActive]}>
-                      {st}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity 
-                style={styles.cancelBtn} 
-                onPress={() => setEditModalVisible(false)}
-              >
-                <Text style={{ color: themeColors.textSecondary, fontWeight: '600' }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.submitBtn} 
-                onPress={handleEditSelfTask}
-              >
-                <Text style={{ color: '#ffffff', fontWeight: '800' }}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -655,15 +983,13 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
   taskHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
   taskTitle: {
     fontSize: 15.5,
     fontWeight: '800',
     color: themeColors.textPrimary,
-    flex: 1,
-    marginRight: 10,
   },
   taskDesc: {
     fontSize: 13,
@@ -696,9 +1022,30 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     fontWeight: '700',
     marginBottom: 4,
   },
+  cardActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  viewDetailsBtn: {
+    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.12)' : '#eff6ff',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(59, 130, 246, 0.35)' : '#bfdbfe',
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  btnTextViewDetails: {
+    color: isDark ? '#60a5fa' : '#2563eb',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
   actionsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
@@ -707,12 +1054,12 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     borderWidth: 1,
     borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe',
     borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
   },
   btnTextStart: {
     color: isDark ? '#60a5fa' : '#2563eb',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
   },
   stopBtn: {
@@ -720,12 +1067,12 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     borderWidth: 1,
     borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#fde68a',
     borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
   },
   btnTextStop: {
     color: isDark ? '#fbbf24' : '#d97706',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
   },
   completeBtn: {
@@ -733,12 +1080,12 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     borderWidth: 1,
     borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0',
     borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
   },
   btnTextComplete: {
     color: isDark ? '#34d399' : '#059669',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
   },
   completedText: {
@@ -747,7 +1094,7 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     fontStyle: 'italic',
   },
   statusBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 8,
     borderWidth: 1,
@@ -772,7 +1119,7 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
-    padding: 20,
+    padding: 16,
   },
   modalContent: {
     backgroundColor: themeColors.cardBg,
@@ -785,6 +1132,165 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
+  },
+  detailsModalContent: {
+    backgroundColor: themeColors.cardBg,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: themeColors.border,
+    maxHeight: '88%',
+    padding: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  detailsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderColor: themeColors.border,
+  },
+  detailsModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: themeColors.textPrimary,
+  },
+  detailsModalSub: {
+    fontSize: 12,
+    color: themeColors.textSecondary,
+    marginTop: 2,
+  },
+  closeIconBtn: {
+    padding: 6,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  infoBannerCard: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  taskDetailTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 22,
+  },
+  timeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  timeChipText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  sectionCard: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  sectionCardHeader: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 10,
+    letterSpacing: 0.2,
+  },
+  sectionBodyText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  metaLabel: {
+    fontSize: 12.5,
+    fontWeight: '500',
+  },
+  metaValue: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  attachmentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  attachmentCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
+  openBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  attachmentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    maxWidth: '100%',
+  },
+  attachmentChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  detailsModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderColor: themeColors.border,
+    gap: 10,
+  },
+  modalActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  modalActionBtnText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  closeDetailBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   modalTitle: {
     fontSize: 18,
