@@ -139,11 +139,7 @@ export default function EmployeeTasks({ currentUser }) {
     // 1. Check existing in-memory cache
     let allReqs = clientRequests || [];
     let linked = allReqs.find(r => 
-      (task.project_id && (String(r.id) === String(task.project_id) || String(r._id) === String(task.project_id))) ||
-      (task.title && r.service_type && (
-        task.title.toLowerCase().includes(r.service_type.toLowerCase()) ||
-        r.service_type.toLowerCase().includes(task.title.toLowerCase().replace('client request:', '').trim())
-      ))
+      task.project_id && (String(r.id) === String(task.project_id) || String(r._id) === String(task.project_id))
     ) || null;
 
     setSelectedLinkedRequest(linked);
@@ -156,11 +152,7 @@ export default function EmployeeTasks({ currentUser }) {
       if (Array.isArray(freshReqs) && freshReqs.length > 0) {
         setClientRequests(freshReqs);
         const freshLinked = freshReqs.find(r => 
-          (task.project_id && (String(r.id) === String(task.project_id) || String(r._id) === String(task.project_id))) ||
-          (task.title && r.service_type && (
-            task.title.toLowerCase().includes(r.service_type.toLowerCase()) ||
-            r.service_type.toLowerCase().includes(task.title.toLowerCase().replace('client request:', '').trim())
-          ))
+          task.project_id && (String(r.id) === String(task.project_id) || String(r._id) === String(task.project_id))
         ) || null;
         if (freshLinked) {
           setSelectedLinkedRequest(freshLinked);
@@ -476,11 +468,7 @@ export default function EmployeeTasks({ currentUser }) {
             );
 
             const matchingReq = (clientRequests || []).find(r => 
-              (task.project_id && (String(r.id) === String(task.project_id) || String(r._id) === String(task.project_id))) ||
-              (task.title && r.service_type && (
-                task.title.toLowerCase().includes(r.service_type.toLowerCase()) ||
-                r.service_type.toLowerCase().includes(task.title.toLowerCase().replace('client request:', '').trim())
-              ))
+              task.project_id && (String(r.id) === String(task.project_id) || String(r._id) === String(task.project_id))
             );
             const cardClientFiles = getClientAttachments(task, matchingReq);
 

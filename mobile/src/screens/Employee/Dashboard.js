@@ -104,13 +104,25 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
       dbRoleStr.includes('marketing') ||
       authorizedMarketingIds.includes(user?.id));
 
+  const isHRDeptCheck = (d) => {
+    if (!d) return false;
+    const str = d.toLowerCase().trim();
+    return (
+      str === 'hr' ||
+      str === 'human resources' ||
+      str === 'human resource' ||
+      str.startsWith('hr ') ||
+      str.endsWith(' hr') ||
+      str.includes(' hr ') ||
+      str.includes('human resources') ||
+      str.includes('human resource')
+    );
+  };
+
   const isHRUser =
-    dbRoleStr === 'hr' ||
-    dbRoleStr.includes('hr') ||
-    roleStr.includes('hr') ||
-    deptStr === 'hr' ||
-    deptStr.includes('hr') ||
-    deptStr.includes('human resource');
+    isHRDeptCheck(dbRoleStr) ||
+    isHRDeptCheck(roleStr) ||
+    isHRDeptCheck(deptStr);
 
   const isAdminUser =
     dbRoleStr === 'admin' ||
@@ -120,14 +132,31 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
 
   const isITUser =
     dbRoleStr === 'it support' ||
+    dbRoleStr === 'it_support' ||
     dbRoleStr === 'it engineer' ||
     dbRoleStr === 'it_engineer' ||
     dbRoleStr === 'it' ||
     roleStr === 'it engineer' ||
-    roleStr.includes('engineer') ||
-    roleStr.includes('it') ||
-    deptStr.includes('it') ||
-    dbRoleStr.includes('it');
+    roleStr === 'it support' ||
+    roleStr.startsWith('it ') ||
+    roleStr.endsWith(' it') ||
+    roleStr.includes(' it ') ||
+    roleStr.includes('it support') ||
+    roleStr.includes('it engineer') ||
+    roleStr.includes('network engineer') ||
+    roleStr.includes('system administrator') ||
+    deptStr === 'it' ||
+    deptStr === 'it support' ||
+    deptStr === 'information technology' ||
+    deptStr === 'it department' ||
+    deptStr.startsWith('it ') ||
+    deptStr.endsWith(' it') ||
+    deptStr.includes(' it ') ||
+    deptStr.includes('it support') ||
+    deptStr.includes('information technology') ||
+    dbRoleStr.startsWith('it ') ||
+    dbRoleStr.includes('it support') ||
+    dbRoleStr.includes('it engineer');
 
   const isDnsUser =
     dbRoleStr === 'dns manager' ||

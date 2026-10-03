@@ -113,7 +113,22 @@ export default function AdminLayout({ children }) {
     user?.email === 'admin@yopmail.com' ||
     user?.email === 'pravi@yopmail.com';
 
-  const isITSupport = !isAdminUser && (dbRoleStr === 'it support' || dbRoleStr === 'it_support' || dbRoleStr === 'it' || deptStr.includes('it'));
+  const isITSupport =
+    !isAdminUser &&
+    (dbRoleStr === 'it support' ||
+      dbRoleStr === 'it_support' ||
+      dbRoleStr === 'it engineer' ||
+      dbRoleStr === 'it_engineer' ||
+      dbRoleStr === 'it' ||
+      deptStr === 'it' ||
+      deptStr === 'it support' ||
+      deptStr === 'it_support' ||
+      deptStr === 'information technology' ||
+      deptStr === 'it department' ||
+      deptStr.startsWith('it ') ||
+      deptStr.endsWith(' it') ||
+      deptStr.includes(' it ') ||
+      deptStr.includes('it support'));
 
   const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 

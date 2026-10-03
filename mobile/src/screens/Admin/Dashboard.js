@@ -91,12 +91,38 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
     dbRoleStr === 'it engineer' ||
     dbRoleStr === 'it_engineer' ||
     dbRoleStr === 'it' ||
-    deptStr.includes('it') ||
-    (user?.role || '').toLowerCase().includes('engineer') ||
-    (user?.role || '').toLowerCase().includes('it')
+    deptStr === 'it' ||
+    deptStr === 'it support' ||
+    deptStr === 'information technology' ||
+    deptStr === 'it department' ||
+    deptStr.startsWith('it ') ||
+    deptStr.endsWith(' it') ||
+    deptStr.includes(' it ') ||
+    deptStr.includes('it support') ||
+    (user?.role || '').toLowerCase() === 'it engineer' ||
+    (user?.role || '').toLowerCase() === 'it support' ||
+    (user?.role || '').toLowerCase().includes('it support') ||
+    (user?.role || '').toLowerCase().includes('it engineer') ||
+    (user?.role || '').toLowerCase().includes('network engineer') ||
+    (user?.role || '').toLowerCase().includes('system administrator')
   );
 
-  const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+  const isHRDept = (d) => {
+    if (!d) return false;
+    const str = d.toLowerCase().trim();
+    return (
+      str === 'hr' ||
+      str === 'human resources' ||
+      str === 'human resource' ||
+      str.startsWith('hr ') ||
+      str.endsWith(' hr') ||
+      str.includes(' hr ') ||
+      str.includes('human resources') ||
+      str.includes('human resource')
+    );
+  };
+
+  const isHRUser = !isAdminUser && (isHRDept(dbRoleStr) || isHRDept(deptStr) || isHRDept(user?.role));
 
   const isDnsManager = !isAdminUser && (dbRoleStr === 'dns manager' || dbRoleStr.includes('dns') || deptStr.includes('dns'));
 

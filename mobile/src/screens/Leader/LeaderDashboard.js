@@ -558,9 +558,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       const reqIdStr = String(req.id || req._id || '');
       const localTasks = [...(getTasks() || []), ...(tasksList || [])];
       const localMatch = localTasks.find(
-        (t) =>
-          (t.project_id && String(t.project_id) === reqIdStr) ||
-          (t.title && req.service_type && t.title.toLowerCase().includes(String(req.service_type).toLowerCase()))
+        (t) => t.project_id && String(t.project_id) === reqIdStr
       );
       if (localMatch) {
         setMatchingTaskSubmission(localMatch);
@@ -570,9 +568,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       if (taskRes && taskRes.success) {
         const allTasks = taskRes.data || taskRes.tasks || [];
         const match = allTasks.find(
-          (t) =>
-            (t.project_id && String(t.project_id) === reqIdStr) ||
-            (t.title && req.service_type && t.title.toLowerCase().includes(String(req.service_type).toLowerCase()))
+          (t) => t.project_id && String(t.project_id) === reqIdStr
         );
         if (match) {
           setMatchingTaskSubmission(match);
@@ -675,10 +671,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             const allLocalTasks = getTasks() || [];
             let changed = false;
             allLocalTasks.forEach((t) => {
-              if (
-                (t.project_id && String(t.project_id) === reqIdStr) ||
-                (t.title && req.service_type && t.title.toLowerCase().includes(String(req.service_type).toLowerCase()))
-              ) {
+              if (t.project_id && String(t.project_id) === reqIdStr) {
                 t.status = 'Completed';
                 t.completedAt = new Date().toISOString();
                 changed = true;
@@ -1158,9 +1151,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       {(() => {
                         const reqIdStr = String(req.id || req._id || '');
                         const matchingTask = (tasksList || []).find(
-                          (t) =>
-                            (t.project_id && String(t.project_id) === reqIdStr) ||
-                            (t.title && req.service_type && t.title.toLowerCase().includes(String(req.service_type).toLowerCase()))
+                          (t) => t.project_id && String(t.project_id) === reqIdStr
                         );
                         if (!matchingTask) return null;
                         const submissionProofs = getTaskProofAttachments(matchingTask);
