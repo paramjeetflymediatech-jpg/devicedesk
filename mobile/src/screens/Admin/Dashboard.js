@@ -749,25 +749,6 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee }) {
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {!isSuperAdmin && onSwitchToEmployee && (
-            <TouchableOpacity
-              style={[
-                styles.employeeSwitchPill,
-                {
-                  backgroundColor: isDark ? '#1e293b' : (isHRUser ? '#fdf2f8' : '#eff6ff'),
-                  borderColor: isDark ? '#3b82f6' : (isHRUser ? '#f472b6' : '#bfdbfe'),
-                }
-              ]}
-              onPress={onSwitchToEmployee}
-              activeOpacity={0.7}
-            >
-              <Text style={{ fontSize: 11 }}>👤</Text>
-              <Text style={[styles.employeeSwitchPillText, { color: isHRUser ? '#db2777' : '#2563eb' }]}>
-                Employee
-              </Text>
-            </TouchableOpacity>
-          )}
-
           <TouchableOpacity
             style={styles.logoutBtn}
             onPress={() => {

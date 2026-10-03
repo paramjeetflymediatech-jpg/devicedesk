@@ -1048,44 +1048,6 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {onSwitchToLeader && (
-            <TouchableOpacity
-              style={[
-                styles.employeeSwitchPill,
-                {
-                  backgroundColor: isDark ? '#1e293b' : '#eff6ff',
-                  borderColor: isDark ? '#3b82f6' : '#bfdbfe',
-                }
-              ]}
-              onPress={onSwitchToLeader}
-              activeOpacity={0.7}
-            >
-              <Text style={{ fontSize: 11 }}>👔</Text>
-              <Text style={[styles.employeeSwitchPillText, { color: '#2563eb' }]}>
-                Team Leader
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {onSwitchToAdmin && !onSwitchToLeader && (
-            <TouchableOpacity
-              style={[
-                styles.employeeSwitchPill,
-                {
-                  backgroundColor: isDark ? '#1e293b' : (isHRUser ? '#fdf2f8' : '#eff6ff'),
-                  borderColor: isDark ? '#3b82f6' : (isHRUser ? '#f472b6' : '#bfdbfe'),
-                }
-              ]}
-              onPress={onSwitchToAdmin}
-              activeOpacity={0.7}
-            >
-              <Text style={{ fontSize: 11 }}>{isHRUser ? '💼' : '🛡️'}</Text>
-              <Text style={[styles.employeeSwitchPillText, { color: isHRUser ? '#db2777' : '#2563eb' }]}>
-                {isHRUser ? 'HR Portal' : 'Admin'}
-              </Text>
-            </TouchableOpacity>
-          )}
-
           <TouchableOpacity
             style={styles.logoutBtn}
             onPress={() => {

@@ -752,15 +752,21 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           <TouchableOpacity onPress={onNavigateBack} style={styles.backBtn} activeOpacity={0.7}>
             <AppIcon name="arrow-left" size={18} color={themeColors.textPrimary} />
           </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.embeddedHeaderTitle}>👔 Team Leader Portal</Text>
-            <Text style={styles.embeddedHeaderSub}>Overview, requests & team EOD reviews</Text>
+          <View style={{ marginLeft: 4 }}>
+            <Image
+              source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
+              style={{ width: 120, height: 30 }}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <Text style={styles.embeddedHeaderTitle}>👔 TL Portal</Text>
           </View>
         </View>
       ) : (
         /* STANDALONE TOP APP HEADER (When logged in directly as Team Leader) */
-        <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+        <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity
               onPress={() => setIsDrawerOpen(true)}
               hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -768,32 +774,16 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             >
               <AppIcon name="menu" size={22} color="#2563eb" />
             </TouchableOpacity>
-            <View style={{ marginLeft: 10, flex: 1 }}>
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {user?.name || 'Team Leader'}
-              </Text>
-              <Text style={styles.headerSub}>
-                {user?.department || 'Operations Lead'} • TL Portal
-              </Text>
+            <View style={{ marginLeft: 10 }}>
+              <Image
+                source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
+                style={{ width: 140, height: 36 }}
+                resizeMode="contain"
+              />
             </View>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {onSwitchToEmployee && (
-              <TouchableOpacity
-                style={styles.employeeSwitchPill}
-                onPress={onSwitchToEmployee}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontSize: 11 }}>👤</Text>
-                <Text style={styles.employeeSwitchPillText}>Employee Mode</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity onPress={toggleTheme} style={styles.iconCircleBtn} activeOpacity={0.7}>
-              <AppIcon name={isDark ? 'sun' : 'moon'} size={17} color={themeColors.textPrimary} />
-            </TouchableOpacity>
-
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {onLogout && (
               <TouchableOpacity
                 style={styles.logoutBtn}

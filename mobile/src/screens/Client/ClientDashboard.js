@@ -590,7 +590,7 @@ export default function ClientDashboard({ user, onLogout }) {
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
             onPress={() => setIsDrawerOpen(true)}
@@ -600,12 +600,11 @@ export default function ClientDashboard({ user, onLogout }) {
             <AppIcon name="menu" size={22} color="#2563eb" />
           </TouchableOpacity>
           <View style={{ marginLeft: 10 }}>
-            <Text style={styles.headerTitle}>
-              {clientDetails?.company_name || user?.name || 'Client Portal'}
-            </Text>
-            <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>
-              {navMenuItems.find(m => m.id === activeTab)?.label || 'Client Experience Portal'}
-            </Text>
+            <Image
+              source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
+              style={{ width: 140, height: 36 }}
+              resizeMode="contain"
+            />
           </View>
         </View>
 
