@@ -96,14 +96,31 @@ export async function PUT(request) {
 
 export async function DELETE(request) {
   try {
-    const { id } = await request.json();
+    let id, name;
+    try {
+      const body = await request.json();
+      id = body?.id;
+      name = body?.name;
+    } catch (e) {}
 
-    if (!id) {
-      return NextResponse.json({ error: 'Department ID is required.' }, { status: 400 });
+    if (!id && !name) {
+      const { searchParams } = new URL(request.url);
+      id = searchParams.get('id');
+      name = searchParams.get('name');
+    }
+
+    if (!id && !name) {
+      return NextResponse.json({ error: 'Department ID or name is required.' }, { status: 400 });
     }
 
     const db = await getDbConnection();
-    await db.execute(`DELETE FROM departments WHERE id = ?`, [id]);
+    if (id && name) {
+      await db.execute(`DELETE FROM departments WHERE id = ? OR name = ?`, [id, name]);
+    } else if (id) {
+      await db.execute(`DELETE FROM departments WHERE id = ?`, [id]);
+    } else if (name) {
+      await db.execute(`DELETE FROM departments WHERE name = ?`, [name]);
+    }
 
     return NextResponse.json({ success: true, message: 'Department deleted successfully.' });
   } catch (err) {

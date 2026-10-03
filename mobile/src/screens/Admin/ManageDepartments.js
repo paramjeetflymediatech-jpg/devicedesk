@@ -97,11 +97,25 @@ export default function ManageDepartments({ currentUser, onBack }) {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            deleteDepartment(dept.id, currentUser?.name || 'Admin');
-            if (selectedDept && selectedDept.id === dept.id) {
-              setSelectedDept(null);
-              setDeptDetailsModalVisible(false);
+          onPress: async () => {
+            try {
+              deleteDepartment(dept.id || dept.name, currentUser?.name || 'Admin');
+              if (selectedDept && (selectedDept.id === dept.id || selectedDept.name === dept.name)) {
+                setSelectedDept(null);
+                setDeptDetailsModalVisible(false);
+              }
+              refreshData();
+
+              // Call API to remove from MySQL database immediately
+              const { getApiUrl } = require('../../utils/api');
+              const baseUrl = getApiUrl();
+              await fetch(`${baseUrl}/api/departments`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: dept.id, name: dept.name }),
+              });
+            } catch (err) {
+              console.warn('API delete department error:', err);
             }
             refreshData();
             Alert.alert('Deleted', `Department "${dept.name}" has been removed.`);

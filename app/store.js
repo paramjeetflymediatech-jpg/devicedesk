@@ -197,11 +197,13 @@ export function addDepartment(name, operatorName = 'Admin') {
 
 export function deleteDepartment(id, operatorName = 'Admin') {
   const departments = getDepartments();
-  const dept = departments.find(d => d.id === id);
+  const dept = departments.find(d => d.id === id || d.name === id);
   if (dept) {
     logAssignmentChange(null, null, null, `Department Removed: ${dept.name}`, operatorName);
   }
-  const filtered = departments.filter(d => d.id !== id);
+  const filtered = departments.filter(
+    d => d.id !== id && d.name !== id && (dept ? d.id !== dept.id && d.name !== dept.name : true)
+  );
   saveDepartments(filtered);
   return true;
 }
