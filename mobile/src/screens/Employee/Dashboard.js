@@ -1232,17 +1232,18 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             <ScrollView style={styles.modalScroll}>
               <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>1. Privacy Policy & Data Collection</Text>
               <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
-                {"DeviceDesk collects system specifications, employee assignments, location coordinates (GPS for punch in/out verification), camera photos for tickets/chat attachments, and IT support tickets to facilitate hardware inventory tracking. Data is stored securely in encrypted databases. We do not share, sell, or distribute your personal details or usage history to any third parties."}
+                {"Device Desk (DeviceDesk) is operated by Fly Media Technology. We collect minimal operational data including system specs, punch-in/out GPS coordinates, photos for IT tickets, and push notification tokens. Data is encrypted in transit and at rest. We never sell user data."}
               </Text>
 
               <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>2. Terms & Conditions</Text>
               <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
-                This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited. All transactions, assignments, and support tickets raised are logged and audited.
+                This system is provided exclusively for authorized corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited.
               </Text>
 
               <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>3. Permanent Account Deletion</Text>
               <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
-                Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. You can delete your account directly using the button below, or submit a deletion request on our web portal at https://devicedesk.app/account-deletion
+                Deleting your account permanently deletes your profile, credentials, and raised tickets. You can delete your account using the button below or online at:
+                {"\n"}https://devicedesk.flymediatech.com/account-deletion
               </Text>
 
               <TouchableOpacity

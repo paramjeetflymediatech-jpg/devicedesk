@@ -1401,17 +1401,18 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
             <ScrollView style={styles.modalScroll}>
               <Text style={styles.legalHeader}>1. Privacy Policy</Text>
               <Text style={styles.legalText}>
-                {"DeviceDesk collects system specifications, employee assignments, and IT support tickets to facilitate hardware inventory tracking. Data is cached locally on this device and synchronized with your organization's secure database server. We do not share, sell, or distribute your personal details or usage history to any third parties."}
+                {"Device Desk (DeviceDesk) is operated by Fly Media Technology. We collect minimal operational telemetry, attendance data, and IT complaint tickets. Data is protected with end-to-end encryption and we never sell user data.\nFull Policy: https://devicedesk.flymediatech.com/privacy-policy"}
               </Text>
 
               <Text style={styles.legalHeader}>2. Terms & Conditions</Text>
               <Text style={styles.legalText}>
-                This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited. All transactions, assignments, and support tickets raised are logged and audited.
+                This system is provided exclusively for authorized corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited.
               </Text>
 
               <Text style={styles.legalHeader}>3. Permanent Account Deletion</Text>
               <Text style={styles.legalText}>
-                Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. This action is immediate and cannot be undone.
+                Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. You can also request deletion at:
+                {"\n"}https://devicedesk.flymediatech.com/account-deletion
               </Text>
 
               <TouchableOpacity

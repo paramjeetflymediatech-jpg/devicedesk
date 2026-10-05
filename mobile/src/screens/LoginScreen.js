@@ -13,6 +13,7 @@ import {
   StatusBar,
   Dimensions,
   Image,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiUrl, setApiUrl, initApiUrl, getOrCreateDeviceId } from '../utils/api';
@@ -529,28 +530,49 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
       >
         <SafeAreaView style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Legal & Privacy Policy</Text>
+            <Text style={styles.modalTitle}>Device Desk Privacy Policy</Text>
             <ScrollView style={styles.modalScroll}>
-              <Text style={styles.legalHeader}>1. Privacy Policy & Data Collection</Text>
+              <Text style={styles.legalHeader}>1. App & Developer Identification</Text>
               <Text style={styles.legalText}>
-                {"DeviceDesk collects system specifications, employee assignments, attendance location coordinates (GPS), camera photos for ticket attachments, and push notification tokens to facilitate corporate inventory and attendance tracking. Data is stored securely in encrypted databases."}
+                {"Device Desk (DeviceDesk) is an enterprise hardware tracking, IT complaint management, and workplace attendance solution developed and operated by Fly Media Technology."}
               </Text>
 
-              <Text style={styles.legalHeader}>2. Location & Media Usage</Text>
+              <Text style={styles.legalHeader}>2. Data Collection & Permissions</Text>
               <Text style={styles.legalText}>
-                Location permissions are accessed only during attendance punch-in and punch-out to verify office presence. Camera permissions are used exclusively to capture hardware issue photos for IT support tickets and chat attachments.
+                {"• Personal Data: Full name, email address, employee ID, and job role.\n• Location Data: GPS coordinates accessed during attendance punch-in/out for geofence validation and for active field marketing shifts only.\n• Camera & Media: Used to photograph equipment damage for IT tickets, task completion, and internal team chat.\n• Audio/Microphone: Used exclusively for optional voice messages in internal chat.\n• Device Info & Push Tokens: Device model, OS version, and Firebase FCM tokens for shift alerts and ticket notifications."}
               </Text>
 
-              <Text style={styles.legalHeader}>3. Terms & Conditions</Text>
+              <Text style={styles.legalHeader}>3. Security & Third-Party Disclosure</Text>
               <Text style={styles.legalText}>
-                This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited.
+                All data is encrypted in transit (TLS 1.3/HTTPS) and at rest (AES-256). We strictly do not sell, rent, or lease any user or corporate data to third-party advertisers or data brokers.
               </Text>
 
-              <Text style={styles.legalHeader}>4. Data & Account Deletion</Text>
+              <Text style={styles.legalHeader}>4. Account & Data Deletion Rights</Text>
               <Text style={styles.legalText}>
-                In compliance with Google Play Developer Program policies, users have the right to request full account profile and data deletion within the app settings or via our public web portal at:
-                {"\n"}
-                https://devicedesk.app/account-deletion
+                Users have the right to request permanent account and data deletion at any time in-app or via our public web portal:
+              </Text>
+              <TouchableOpacity
+                style={{ marginVertical: 8, padding: 10, backgroundColor: '#fee2e2', borderRadius: 8, borderWidth: 1, borderColor: '#fca5a5' }}
+                onPress={() => Linking.openURL('https://devicedesk.flymediatech.com/account-deletion')}
+              >
+                <Text style={{ color: '#dc2626', fontWeight: '700', fontSize: 13, textAlign: 'center' }}>
+                  🗑️ Request Web Account Deletion
+                </Text>
+              </TouchableOpacity>
+
+              <Text style={styles.legalHeader}>5. View Full Privacy Policy Online</Text>
+              <TouchableOpacity
+                style={{ marginVertical: 8, padding: 10, backgroundColor: '#e0f2fe', borderRadius: 8, borderWidth: 1, borderColor: '#7dd3fc' }}
+                onPress={() => Linking.openURL('https://devicedesk.flymediatech.com/privacy-policy')}
+              >
+                <Text style={{ color: '#0284c7', fontWeight: '700', fontSize: 13, textAlign: 'center' }}>
+                  🌐 Open Official Privacy Policy Webpage
+                </Text>
+              </TouchableOpacity>
+
+              <Text style={styles.legalHeader}>6. Support & Contact</Text>
+              <Text style={styles.legalText}>
+                Developer: Fly Media Technology{"\n"}Email: support@flymediatech.com
               </Text>
             </ScrollView>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setShowLegalModal(false)}>

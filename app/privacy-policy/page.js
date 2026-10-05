@@ -20,7 +20,13 @@ import {
   FiPhone,
   FiHelpCircle,
   FiMapPin,
-  FiMessageSquare
+  FiMessageSquare,
+  FiCamera,
+  FiMic,
+  FiNavigation,
+  FiBell,
+  FiExternalLink,
+  FiAlertCircle
 } from "react-icons/fi";
 
 export default function PrivacyPolicyPage() {
@@ -59,7 +65,7 @@ export default function PrivacyPolicyPage() {
       <div
         style={{
           width: "100%",
-          maxWidth: "840px",
+          maxWidth: "880px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -76,7 +82,7 @@ export default function PrivacyPolicyPage() {
       <div
         style={{
           width: "100%",
-          maxWidth: "840px",
+          maxWidth: "880px",
           background: "var(--bg-secondary)",
           backdropFilter: "blur(20px)",
           border: "1px solid var(--glass-border)",
@@ -110,7 +116,7 @@ export default function PrivacyPolicyPage() {
             }}
           >
             <FiShield style={{ fontSize: "1rem" }} />
-            Corporate Governance & Data Protection
+            Google Play User Data & Corporate Privacy Compliance
           </div>
 
           <h1
@@ -121,18 +127,19 @@ export default function PrivacyPolicyPage() {
               letterSpacing: "-0.5px"
             }}
           >
-            Privacy Policy & Terms of Service
+            Device Desk Privacy Policy & Terms of Service
           </h1>
 
           <p
             style={{
               color: "var(--text-secondary)",
               fontSize: "0.95rem",
-              maxWidth: "560px",
-              margin: "0 auto"
+              maxWidth: "680px",
+              margin: "0 auto",
+              lineHeight: "1.6"
             }}
           >
-            Standards governing device management, personnel inventory, complaint coordination, and corporate attendance tracking on DeviceDesk.
+            This Privacy Policy governs the collection, usage, processing, storage, and deletion of user data for the <strong>Device Desk</strong> application (also known as <strong>DeviceDesk</strong>), developed and operated by <strong>Fly Media Technology</strong>.
           </p>
 
           <div
@@ -140,25 +147,38 @@ export default function PrivacyPolicyPage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              flexWrap: "wrap",
               gap: "15px",
               marginTop: "1.25rem",
-              fontSize: "0.8rem",
+              fontSize: "0.85rem",
               color: "var(--text-muted)"
             }}
           >
             <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
-              <FiClock /> Last Updated: July 2026
+              <FiClock /> Effective Date / Last Updated: October 5, 2026
             </span>
             <span>•</span>
             <span
               style={{
                 background: "var(--bg-tertiary)",
-                padding: "2px 8px",
+                padding: "3px 10px",
+                borderRadius: "6px",
+                fontWeight: "600",
+                color: "var(--accent-cyan)"
+              }}
+            >
+              Application: Device Desk (DeviceDesk)
+            </span>
+            <span>•</span>
+            <span
+              style={{
+                background: "var(--bg-tertiary)",
+                padding: "3px 10px",
                 borderRadius: "6px",
                 fontWeight: "600"
               }}
             >
-              v2.4 Enterprise Compliance
+              Developer: Fly Media Technology
             </span>
           </div>
         </div>
@@ -166,7 +186,7 @@ export default function PrivacyPolicyPage() {
         {/* Content Sections Grid */}
         <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
 
-          {/* Official App Support Callout Banner */}
+          {/* Quick Action Support & Data Deletion Banner */}
           <div
             style={{
               background: "rgba(2, 132, 199, 0.08)",
@@ -199,33 +219,53 @@ export default function PrivacyPolicyPage() {
               </div>
               <div>
                 <h3 style={{ fontSize: "1rem", fontWeight: "700", margin: "0 0 2px", color: "var(--text-primary)" }}>
-                  Need Official App Support or Customer Assistance?
+                  Questions, Inquiries or Data Deletion Requests?
                 </h3>
                 <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: 0 }}>
-                  Email us directly at <a href="mailto:support@flymediatech.com" style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>support@flymediatech.com</a> or submit an inquiry at our dedicated Support Desk.
+                  Contact our Data Protection Officer at <a href="mailto:support@flymediatech.com" style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>support@flymediatech.com</a> or visit our online portals below.
                 </p>
               </div>
             </div>
-            <a
-              href="/support"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "8px 16px",
-                borderRadius: "10px",
-                background: "var(--accent-cyan)",
-                color: "#fff",
-                fontWeight: "700",
-                fontSize: "0.85rem",
-                textDecoration: "none"
-              }}
-            >
-              Go to Support Center →
-            </a>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <a
+                href="/account-deletion"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  background: "rgba(239, 68, 68, 0.15)",
+                  color: "#ef4444",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  fontWeight: "700",
+                  fontSize: "0.85rem",
+                  textDecoration: "none"
+                }}
+              >
+                <FiTrash2 /> Data Deletion Portal
+              </a>
+              <a
+                href="/support"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  background: "var(--accent-cyan)",
+                  color: "#fff",
+                  fontWeight: "700",
+                  fontSize: "0.85rem",
+                  textDecoration: "none"
+                }}
+              >
+                Support Center →
+              </a>
+            </div>
           </div>
           
-          {/* Section 1 */}
+          {/* Section 1: Overview & Developer Identity */}
           <section
             style={{
               background: "var(--bg-tertiary)",
@@ -251,15 +291,15 @@ export default function PrivacyPolicyPage() {
                 <FiInfo />
               </div>
               <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
-                1. Overview & Platform Purpose
+                1. Overview & Developer Information
               </h2>
             </div>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7" }}>
-              DeviceDesk is a private enterprise platform operated by Fly Media Technology to coordinate corporate computer inventories, hardware assignment logs, IT complaint resolution workflows, and employee attendance logs. Access is strictly restricted to authorized staff and contractors.
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", margin: 0 }}>
+              <strong>Device Desk</strong> (also referred to as <strong>DeviceDesk</strong>) is a corporate enterprise mobility and IT operations suite engineered and maintained by <strong>Fly Media Technology</strong> (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;). The platform allows organizations to manage hardware inventories, process internal IT support complaints, streamline workplace attendance records, and coordinate employee workflows. Access is intended solely for authorized employees, contractors, and administrators of registered organizations.
             </p>
           </section>
 
-          {/* Section 2 */}
+          {/* Section 2: Data Collection Scope */}
           <section
             style={{
               background: "var(--bg-tertiary)",
@@ -285,81 +325,119 @@ export default function PrivacyPolicyPage() {
                 <FiLock />
               </div>
               <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
-                2. Information Collection Scope
+                2. Types of User Data Collected & Device Permissions
               </h2>
             </div>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "1rem" }}>
-              DeviceDesk captures minimal operational data required for asset inventory management, internal ticket routing, and attendance validation:
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "1.25rem" }}>
+              In accordance with Google Play Developer Program policies and global data protection standards, we disclose all categories of personal and sensitive user data collected by the Device Desk mobile application and desktop agents:
             </p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
+              {/* Account / Personal Identifiers */}
               <div
                 style={{
                   background: "var(--bg-secondary)",
-                  padding: "1rem",
+                  padding: "1.1rem",
                   borderRadius: "12px",
                   border: "1px solid var(--glass-border)"
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-cyan)" }}>
-                  <FiCpu /> Hardware Specifications
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.9rem", marginBottom: "0.4rem", color: "var(--accent-blue)" }}>
+                  <FiUsers /> Personal & Account Information
                 </div>
-                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
-                  Processor CPU, Graphics GPU, RAM capacity, system serials, and OS build versions.
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0, lineHeight: "1.5" }}>
+                  Employee Full Name, corporate email address, phone number, employee identification code, job designation, and role permissions.
                 </p>
               </div>
 
+              {/* Location Data */}
               <div
                 style={{
                   background: "var(--bg-secondary)",
-                  padding: "1rem",
+                  padding: "1.1rem",
                   borderRadius: "12px",
                   border: "1px solid var(--glass-border)"
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-blue)" }}>
-                  <FiUsers /> Account Credentials
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.9rem", marginBottom: "0.4rem", color: "#10b981" }}>
+                  <FiNavigation /> Location Data (Foreground & Background)
                 </div>
-                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
-                  Employee names, usernames, corporate email addresses, and departmental roles.
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0, lineHeight: "1.5" }}>
+                  Approximate and precise GPS coordinates accessed during attendance punch-in/punch-out for geofencing validation, and for authorized field marketing executives during active on-duty working shifts only.
                 </p>
               </div>
 
+              {/* Camera & Storage */}
               <div
                 style={{
                   background: "var(--bg-secondary)",
-                  padding: "1rem",
+                  padding: "1.1rem",
                   borderRadius: "12px",
                   border: "1px solid var(--glass-border)"
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-purple)" }}>
-                  <FiFileText /> Ticket Logs
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.9rem", marginBottom: "0.4rem", color: "var(--accent-cyan)" }}>
+                  <FiCamera /> Camera & Photos / Media
                 </div>
-                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
-                  Hardware complaint reports, maintenance timelines, and technician resolution notes.
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0, lineHeight: "1.5" }}>
+                  Camera access and photo uploads used solely to capture images of damaged hardware/assets for IT complaint tickets, proof-of-work documentation, and internal team chat attachments.
                 </p>
               </div>
 
+              {/* Microphone / Audio */}
               <div
                 style={{
                   background: "var(--bg-secondary)",
-                  padding: "1rem",
+                  padding: "1.1rem",
                   borderRadius: "12px",
                   border: "1px solid var(--glass-border)"
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "#10b981" }}>
-                  <FiClock /> Attendance Logs
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.9rem", marginBottom: "0.4rem", color: "var(--accent-purple)" }}>
+                  <FiMic /> Microphone & Audio
                 </div>
-                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
-                  Daily Punch In/Out timestamps, break durations, and work hour calculations.
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0, lineHeight: "1.5" }}>
+                  Microphone access used exclusively when a user actively records and transmits voice messages in the internal workplace chat module.
+                </p>
+              </div>
+
+              {/* Device Specs & Hardware */}
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  padding: "1.1rem",
+                  borderRadius: "12px",
+                  border: "1px solid var(--glass-border)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.9rem", marginBottom: "0.4rem", color: "#f59e0b" }}>
+                  <FiCpu /> Device Specs & Identifiers
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0, lineHeight: "1.5" }}>
+                  Device model, operating system build, CPU/RAM/GPU capacity, system serial numbers (for assigned corporate hardware), and battery/network connectivity status.
+                </p>
+              </div>
+
+              {/* Push Notifications & FCM */}
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  padding: "1.1rem",
+                  borderRadius: "12px",
+                  border: "1px solid var(--glass-border)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.9rem", marginBottom: "0.4rem", color: "#ec4899" }}>
+                  <FiBell /> Push Notifications (FCM Tokens)
+                </div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0, lineHeight: "1.5" }}>
+                  Firebase Cloud Messaging (FCM) device registration tokens used to deliver shift alerts, ticket status updates, company announcements, and emergency notices.
                 </p>
               </div>
             </div>
           </section>
 
-          {/* Section 3 */}
+          {/* Section 3: Purpose of Data Processing */}
           <section
             style={{
               background: "var(--bg-tertiary)",
@@ -382,18 +460,184 @@ export default function PrivacyPolicyPage() {
                   fontSize: "1.1rem"
                 }}
               >
+                <FiCheckCircle />
+              </div>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
+                3. Purpose and Legal Basis of Data Processing
+              </h2>
+            </div>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "0.75rem" }}>
+              We collect and process your information exclusively for legitimate workplace operational purposes:
+            </p>
+            <ul style={{ color: "var(--text-secondary)", fontSize: "0.9rem", lineHeight: "1.7", paddingLeft: "1.5rem", margin: 0 }}>
+              <li><strong>Corporate Inventory Management:</strong> Assigning, tracking, and auditing company laptops, desktops, and accessories to employees.</li>
+              <li><strong>IT Helpdesk & Ticketing:</strong> Routing maintenance requests, hardware repairs, and technical support between employees and technicians.</li>
+              <li><strong>Attendance & Shift Verification:</strong> Validating workplace presence during punch in/punch out to eliminate attendance fraud and calculate work hours.</li>
+              <li><strong>Internal Communication:</strong> Enabling real-time task coordination, notifications, and team messaging within the organization.</li>
+              <li><strong>Security & Asset Protection:</strong> Preventing unauthorized access, hardware theft, and malicious alteration of system telemetry.</li>
+            </ul>
+          </section>
+
+          {/* Section 4: Third-Party SDKs & No-Sale Guarantee */}
+          <section
+            style={{
+              background: "var(--bg-tertiary)",
+              borderRadius: "16px",
+              padding: "1.5rem 1.75rem",
+              border: "1px solid var(--glass-border)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: "rgba(139, 92, 246, 0.12)",
+                  color: "#8b5cf6",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem"
+                }}
+              >
                 <FiShield />
               </div>
               <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
-                3. Enterprise Security & Encryption
+                4. Third-Party Service Providers & No-Sale Guarantee
               </h2>
             </div>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7" }}>
-              All captured data is stored within private encrypted databases protected behind corporate firewall security rules. We strictly prohibit selling, renting, or transferring corporate device metrics or personnel data to third-party commercial entities.
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "0.75rem" }}>
+              We utilize trusted, enterprise-grade third-party service providers and SDKs solely for infrastructure and operational functionality:
+            </p>
+            <ul style={{ color: "var(--text-secondary)", fontSize: "0.9rem", lineHeight: "1.7", paddingLeft: "1.5rem", marginBottom: "1rem" }}>
+              <li><strong>Google Firebase Cloud Messaging (FCM):</strong> Used to deliver push notifications to Android and iOS mobile devices.</li>
+              <li><strong>OpenStreetMap / Map Routing APIs:</strong> Used for map visualizations and geocoding coordinates for field team routing.</li>
+              <li><strong>Cloud Infrastructure & Database Hosting:</strong> Stored on secure, dedicated cloud servers with firewalls and access restrictions.</li>
+            </ul>
+            <div
+              style={{
+                background: "rgba(16, 185, 129, 0.1)",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+                borderRadius: "10px",
+                padding: "0.85rem 1.1rem",
+                color: "#10b981",
+                fontSize: "0.88rem",
+                fontWeight: "600"
+              }}
+            >
+              🔒 Absolute Commitment: We do NOT sell, lease, monetize, or rent any employee or device data to third-party advertisers, data brokers, or marketing networks.
+            </div>
+          </section>
+
+          {/* Section 5: Data Security & Encryption */}
+          <section
+            style={{
+              background: "var(--bg-tertiary)",
+              borderRadius: "16px",
+              padding: "1.5rem 1.75rem",
+              border: "1px solid var(--glass-border)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: "rgba(16, 185, 129, 0.12)",
+                  color: "#10b981",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem"
+                }}
+              >
+                <FiLock />
+              </div>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
+                5. Data Security, Storage & Retention
+              </h2>
+            </div>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "0.75rem" }}>
+              All network transmissions between the Device Desk mobile apps, desktop agents, and backend servers are strictly encrypted in transit using industry-standard <strong>Transport Layer Security (TLS 1.3 / HTTPS)</strong> protocols. Data at rest is safeguarded using <strong>AES-256 encryption</strong> within enterprise-grade relational databases protected by role-based authentication rules.
+            </p>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", margin: 0 }}>
+              <strong>Retention Policy:</strong> Personal data and operational telemetry are retained only as long as necessary to provide service to your organization or to comply with applicable statutory employment and auditing obligations. Once an employee departs or an account deletion request is finalized, records are permanently expunged or anonymized in accordance with our deletion policy.
             </p>
           </section>
 
-          {/* Section 4 */}
+          {/* Section 6: Account Deletion & User Rights (MANDATORY GOOGLE PLAY SECTION) */}
+          <section
+            style={{
+              background: "var(--bg-tertiary)",
+              borderRadius: "16px",
+              padding: "1.5rem 1.75rem",
+              border: "2px solid rgba(239, 68, 68, 0.3)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.75rem" }}>
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "10px",
+                  background: "rgba(239, 68, 68, 0.12)",
+                  color: "var(--status-critical)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem"
+                }}
+              >
+                <FiTrash2 />
+              </div>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0, color: "var(--text-primary)" }}>
+                6. Account Deletion, Data Portability & User Rights
+              </h2>
+            </div>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "1rem" }}>
+              In full compliance with Google Play Developer Program policies and global privacy frameworks (GDPR, CCPA), users have comprehensive rights regarding their personal data, including the right to access, rectify, or request permanent deletion of their account and all associated data.
+            </p>
+
+            <div style={{ background: "var(--bg-secondary)", borderRadius: "12px", padding: "1.25rem", border: "1px solid var(--glass-border)", marginBottom: "1.25rem" }}>
+              <h4 style={{ margin: "0 0 0.5rem", fontSize: "0.95rem", fontWeight: "700", color: "var(--text-primary)" }}>
+                How to Request Account and Data Deletion:
+              </h4>
+              <ul style={{ color: "var(--text-secondary)", fontSize: "0.88rem", lineHeight: "1.7", paddingLeft: "1.3rem", margin: "0 0 1rem" }}>
+                <li><strong>In-App Self-Service:</strong> Open the Device Desk mobile app &rarr; Tap on Profile / Settings &rarr; Select <em>&ldquo;Delete My Account&rdquo;</em> &rarr; Confirm password/identity to permanently delete.</li>
+                <li><strong>Public Web Deletion Portal:</strong> Visit our dedicated web-based deletion portal at <a href="https://devicedesk.flymediatech.com/account-deletion" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>https://devicedesk.flymediatech.com/account-deletion</a>, enter your registered email address, and submit a deletion request.</li>
+                <li><strong>Direct Email Request:</strong> Email our privacy department at <a href="mailto:support@flymediatech.com?subject=Account%20and%20Data%20Deletion%20Request" style={{ color: "var(--accent-cyan)", fontWeight: "600" }}>support@flymediatech.com</a> with the subject <em>&ldquo;Account and Data Deletion Request&rdquo;</em>.</li>
+              </ul>
+              
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                <a
+                  href="/account-deletion"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "10px 18px",
+                    borderRadius: "10px",
+                    background: "#ef4444",
+                    color: "#fff",
+                    fontWeight: "700",
+                    fontSize: "0.88rem",
+                    textDecoration: "none",
+                    boxShadow: "0 4px 12px rgba(239, 68, 68, 0.3)"
+                  }}
+                >
+                  <FiTrash2 /> Open Web Account & Data Deletion Portal →
+                </a>
+              </div>
+            </div>
+
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: "1.6", margin: 0 }}>
+              <strong>What happens upon deletion:</strong> Upon submission and administrative verification, your user profile, authentication credentials, personal identifiers, and uploaded attachments are permanently erased from active production databases within 30 days. Hardware assignment tags are unlinked and reassigned to corporate inventory.
+            </p>
+          </section>
+
+          {/* Section 7: Children's Privacy */}
           <section
             style={{
               background: "var(--bg-tertiary)",
@@ -416,18 +660,18 @@ export default function PrivacyPolicyPage() {
                   fontSize: "1.1rem"
                 }}
               >
-                <FiCheckCircle />
+                <FiAlertCircle />
               </div>
               <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
-                4. Permissible System Conduct
+                7. Children&rsquo;s Privacy Protection (COPPA / GDPR)
               </h2>
             </div>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7" }}>
-              Users must submit accurate IT complaints and attendance entries. Any attempts to tamper with hardware serial numbers, alter system metrics, forge attendance logs, or access unauthorized administrative functions will trigger security flags and administrative review.
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", margin: 0 }}>
+              Device Desk is exclusively a corporate business application intended for adult enterprise personnel and authorized corporate staff (ages 18 and older). We do not target, market to, or knowingly collect any personal information from children under the age of 13 (or under the age of 16 in applicable European jurisdictions). If we discover that personal data of a minor has inadvertently been collected, we will promptly delete it from our servers.
             </p>
           </section>
 
-          {/* Section 5 */}
+          {/* Section 8: Policy Updates */}
           <section
             style={{
               background: "var(--bg-tertiary)",
@@ -442,46 +686,26 @@ export default function PrivacyPolicyPage() {
                   width: "36px",
                   height: "36px",
                   borderRadius: "10px",
-                  background: "rgba(239, 68, 68, 0.12)",
-                  color: "var(--status-critical)",
+                  background: "rgba(2, 132, 199, 0.12)",
+                  color: "var(--accent-cyan)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: "1.1rem"
                 }}
               >
-                <FiTrash2 />
+                <FiClock />
               </div>
               <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
-                5. Account & Data Deletion Rights
+                8. Changes to this Privacy Policy
               </h2>
             </div>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "1rem" }}>
-              In compliance with Google Play Developer Program policies, all users have the right to request permanent deletion of their account profile, personal identifiers, and associated attendance/ticket data. You can delete your account in-app under Account Settings, or submit a request directly on our web portal:
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", margin: 0 }}>
+              We may update this Privacy Policy periodically to reflect enhancements to the Device Desk platform, shifts in statutory requirements, or Google Play policy updates. We will notify users of any significant modifications by revising the &ldquo;Last Updated&rdquo; date at the top of this document and delivering in-app announcements where appropriate.
             </p>
-            <div style={{ marginTop: "0.5rem" }}>
-              <a
-                href="/account-deletion"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 18px",
-                  borderRadius: "10px",
-                  background: "rgba(239, 68, 68, 0.15)",
-                  color: "#ef4444",
-                  fontWeight: "700",
-                  fontSize: "0.9rem",
-                  textDecoration: "none",
-                  border: "1px solid rgba(239, 68, 68, 0.3)"
-                }}
-              >
-                <FiTrash2 /> Request Web Account & Data Deletion →
-              </a>
-            </div>
           </section>
 
-          {/* Section 6 - Support & Contact Information */}
+          {/* Section 9: Official Contact Information */}
           <section
             style={{
               background: "var(--bg-tertiary)",
@@ -507,24 +731,24 @@ export default function PrivacyPolicyPage() {
                 <FiHelpCircle />
               </div>
               <h2 style={{ fontSize: "1.2rem", fontWeight: "700", margin: 0 }}>
-                6. Official App Support & Contact Information
+                9. Official Developer Contact Information
               </h2>
             </div>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "1rem" }}>
-              If you have questions, require technical support, or need assistance with your DeviceDesk account or mobile application, our customer support team is available to help.
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.92rem", lineHeight: "1.7", marginBottom: "1.25rem" }}>
+              For legal inquiries, privacy questions, compliance requests, or technical support regarding Device Desk, please reach out to:
             </p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.25rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
               <div
                 style={{
                   background: "var(--bg-secondary)",
-                  padding: "1rem",
+                  padding: "1.1rem",
                   borderRadius: "12px",
                   border: "1px solid var(--glass-border)"
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-cyan)" }}>
-                  <FiMail /> Support Email
+                  <FiMail /> Official Support Email
                 </div>
                 <a
                   href="mailto:support@flymediatech.com"
@@ -537,35 +761,35 @@ export default function PrivacyPolicyPage() {
               <div
                 style={{
                   background: "var(--bg-secondary)",
-                  padding: "1rem",
+                  padding: "1.1rem",
                   borderRadius: "12px",
                   border: "1px solid var(--glass-border)"
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-blue)" }}>
-                  <FiMessageSquare /> Support Desk Portal
+                  <FiMessageSquare /> Online Support Desk
                 </div>
                 <a
                   href="/support"
                   style={{ fontSize: "0.85rem", color: "var(--accent-blue)", textDecoration: "none", fontWeight: "600" }}
                 >
-                  Visit DeviceDesk Support Center →
+                  https://devicedesk.flymediatech.com/support
                 </a>
               </div>
 
               <div
                 style={{
                   background: "var(--bg-secondary)",
-                  padding: "1rem",
+                  padding: "1.1rem",
                   borderRadius: "12px",
                   border: "1px solid var(--glass-border)"
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "700", fontSize: "0.88rem", marginBottom: "0.4rem", color: "var(--accent-purple)" }}>
-                  <FiMapPin /> Company Headquarters
+                  <FiMapPin /> Corporate Entity
                 </div>
                 <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
-                  Fly Media Technology, DeviceDesk Enterprise Operations
+                  Fly Media Technology (Device Desk Team)
                 </p>
               </div>
             </div>
