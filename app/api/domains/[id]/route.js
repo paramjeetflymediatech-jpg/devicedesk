@@ -116,7 +116,6 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'No fields provided for update.' }, { status: 400 });
     }
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
     values.push(id);
 
     await db.execute(

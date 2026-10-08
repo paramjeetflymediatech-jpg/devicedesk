@@ -22,6 +22,22 @@ export default function AdminDomainsPage() {
   const [expireMonthFilter, setExpireMonthFilter] = useState("ALL");
   const [expireYearFilter, setExpireYearFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    const savedPage = sessionStorage.getItem("domainsCurrentPage");
+    if (savedPage) {
+      setCurrentPage(parseInt(savedPage, 10));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      sessionStorage.setItem("domainsCurrentPage", currentPage);
+    }
+  }, [currentPage, isClient]);
+
   const [pageSize, setPageSize] = useState(10);
   
   // Modal states
@@ -57,7 +73,7 @@ export default function AdminDomainsPage() {
       setLoading(true);
       const query = new URLSearchParams();
       if (search) query.set("search", search);
-      if (statusFilter !== "ALL") query.set("status", statusFilter);
+      // Status filter is applied on the frontend now
 
       const res = await fetch(`/api/domains?${query.toString()}`);
       const data = await res.json();
@@ -80,7 +96,6 @@ export default function AdminDomainsPage() {
         setLoading(true);
         const query = new URLSearchParams();
         if (search) query.set("search", search);
-        if (statusFilter !== "ALL") query.set("status", statusFilter);
 
         const res = await fetch(`/api/domains?${query.toString()}`);
         const data = await res.json();
@@ -102,7 +117,7 @@ export default function AdminDomainsPage() {
     return () => {
       isMounted = false;
     };
-  }, [statusFilter]);
+  }, []); // Remove statusFilter dependency so it doesn't refetch
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -197,13 +212,19 @@ export default function AdminDomainsPage() {
 
   const openEditModal = (dom) => {
     setEditingDomain(dom);
+
+    const formatDate = (dateStr) => {
+      if (!dateStr) return "";
+      try { return new Date(dateStr).toISOString().split('T')[0]; } catch(e) { return ""; }
+    };
+
     setFormData({
       domain_name: dom.domain_name || "",
       client_name: dom.client_name || "",
       client_email: dom.client_email || "",
       registrar: dom.registrar || "GoDaddy",
-      registration_date: dom.registration_date || "",
-      expiry_date: dom.expiry_date || "",
+      registration_date: formatDate(dom.registration_date),
+      expiry_date: formatDate(dom.expiry_date),
       auto_renew: Boolean(dom.auto_renew),
       renewal_cost: dom.renewal_cost || "15.99",
       card_details: dom.card_details || "",
@@ -551,6 +572,12 @@ export default function AdminDomainsPage() {
             <tbody>
               {(() => {
                 let filteredDomains = domains;
+
+                if (statusFilter !== "ALL") {
+                  filteredDomains = filteredDomains.filter(d => 
+                    d.status && d.status.toLowerCase() === statusFilter.toLowerCase()
+                  );
+                }
 
                 if (expireMonthFilter !== "ALL") {
                   const targetMonth = parseInt(expireMonthFilter);
