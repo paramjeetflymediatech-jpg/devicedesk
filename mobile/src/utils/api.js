@@ -6,8 +6,8 @@ import { emitEODSubmitted } from './socketService';
 const API_URL_KEY = 'devicedesk_api_url';
 
 // Default URLs: 10.0.2.2 for Android Emulator, localhost for iOS simulator
-const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-// const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
+// const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
 
 let currentApiUrl = DEFAULT_URL;
 
@@ -759,7 +759,25 @@ export async function fetchCandidatesListApi() {
   }
 }
 
-export async function evaluateCandidateTestApi(testId, status) {
+export async function approveCandidateRegistrationApi(data) {
+  const url = `${currentApiUrl}/api/candidates/approve`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Approve candidate registration failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function evaluateCandidateTestApi(testId, status, feedback = '') {
   const url = `${currentApiUrl}/api/candidates/evaluate-test`;
   try {
     const response = await fetch(url, {
@@ -768,7 +786,7 @@ export async function evaluateCandidateTestApi(testId, status) {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ test_id: testId, status })
+      body: JSON.stringify({ test_id: testId, status, feedback })
     });
     return await response.json();
   } catch (err) {
@@ -776,6 +794,8 @@ export async function evaluateCandidateTestApi(testId, status) {
     throw err;
   }
 }
+
+
 
 // ==========================================
 // Work Submissions & EOD Reports APIs
@@ -1234,7 +1254,7 @@ export async function fetchTasksApi() {
   }
 }
 
-export async function postTaskApi({ title, description, assignedTo, assignedToName, assignedBy, assignedByName, project_id }) {
+export async function postTaskApi({ title, description, assignedTo, assignedToName, assignedBy, assignedByName, project_id, attachment, fileUrl }) {
   const url = `${currentApiUrl}/api/tasks`;
   try {
     const response = await fetch(url, {
@@ -1250,7 +1270,9 @@ export async function postTaskApi({ title, description, assignedTo, assignedToNa
         assignedToName,
         assignedBy: assignedBy || 'TL',
         assignedByName: assignedByName || 'Team Leader',
-        project_id: project_id || null
+        project_id: project_id || null,
+        attachment: attachment || null,
+        fileUrl: fileUrl || attachment || null
       })
     });
     return await response.json();
@@ -1260,7 +1282,7 @@ export async function postTaskApi({ title, description, assignedTo, assignedToNa
   }
 }
 
-export async function updateTaskStatusApi(id, status) {
+export async function updateTaskStatusApi(id, status, fileUrl = null, completion_note = null) {
   const url = `${currentApiUrl}/api/tasks`;
   try {
     const response = await fetch(url, {
@@ -1269,7 +1291,7 @@ export async function updateTaskStatusApi(id, status) {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ id, status })
+      body: JSON.stringify({ id, status, fileUrl, completion_note })
     });
     return await response.json();
   } catch (err) {
@@ -1292,6 +1314,24 @@ export async function updateClientRequestStatusApi(id, status) {
     return await response.json();
   } catch (err) {
     console.error(`Update client request status failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateClientRequestApi(payload) {
+  const url = `${currentApiUrl}/api/client-services/requests`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update client request failed at ${url}:`, err);
     throw err;
   }
 }

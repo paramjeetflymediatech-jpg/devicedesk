@@ -100,11 +100,23 @@ export default function EmployeeLayout({ children }) {
   const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
   const isITDepartment =
     deptStr === 'it' ||
+    deptStr === 'it support' ||
+    deptStr === 'it_support' ||
+    deptStr === 'information technology' ||
+    deptStr === 'it department' ||
     deptStr.startsWith('it ') ||
+    deptStr.endsWith(' it') ||
+    deptStr.includes(' it ') ||
     deptStr.includes('it support') ||
-    deptStr.includes('information technology') ||
-    deptStr.includes('it department') ||
-    dbRoleStr.includes('it');
+    dbRoleStr === 'it' ||
+    dbRoleStr === 'it support' ||
+    dbRoleStr === 'it_support' ||
+    dbRoleStr === 'it engineer' ||
+    dbRoleStr === 'it_engineer' ||
+    dbRoleStr.startsWith('it ') ||
+    dbRoleStr.endsWith(' it') ||
+    dbRoleStr.includes(' it ') ||
+    dbRoleStr.includes('it support');
   const isAdminUser =
     dbRoleStr === 'admin' ||
     dbRoleStr === 'superadmin' ||

@@ -66,7 +66,10 @@ export default function ClientRequestsPage() {
       const res = await fetch('/api/tasks');
       const data = await res.json();
       if(data.success) {
-        const matchingTask = data.data.find(t => t.project_id === req.id);
+        const matchingTask = data.data.find(t => 
+          (t.project_id && String(t.project_id) === String(req.id)) ||
+          (t.title && req.service && t.title.toLowerCase().includes(String(req.service).toLowerCase()))
+        );
         if(matchingTask) {
           let proofsHtml = '<p style="margin-bottom: 5px; color: #64748b;"><em>No proof files uploaded by the employee.</em></p>';
           if(matchingTask.fileUrl) {
@@ -82,11 +85,22 @@ export default function ClientRequestsPage() {
             }
           }
 
+          const noteHtml = matchingTask.completion_note || matchingTask.notes ? `
+            <div style="margin-top: 8px; margin-bottom: 8px; padding: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px;">
+              <p style="color: #065f46; font-weight: 700; font-size: 0.85rem; margin-bottom: 3px;">📝 Employee Completion Note (TL Only):</p>
+              <p style="color: #1e293b; font-size: 0.88rem; margin: 0; white-space: pre-wrap;">${matchingTask.completion_note || matchingTask.notes}</p>
+            </div>
+          ` : '';
+
+          const displayTaskStatus = req.status === 'Completed' ? 'Completed' : (matchingTask.status || 'In Progress');
+          const statusColor = displayTaskStatus === 'Completed' ? '#059669' : '#2563eb';
+
           extraHtml = `
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
               <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px;">Employee Work Submission</h4>
-              <p style="margin-bottom: 5px;"><strong>Assigned To:</strong> ${matchingTask.assignedToName || 'Unknown'}</p>
-              <p style="margin-bottom: 5px;"><strong>Task Status:</strong> ${matchingTask.status}</p>
+              <p style="margin-bottom: 5px;"><strong>Assigned To:</strong> ${matchingTask.assignedToName || 'Specialist'}</p>
+              <p style="margin-bottom: 5px;"><strong>Task Status:</strong> <span style="font-weight: 700; color: ${statusColor};">${displayTaskStatus}</span></p>
+              ${noteHtml}
               ${proofsHtml}
             </div>
           `;

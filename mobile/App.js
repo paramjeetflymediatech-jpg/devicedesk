@@ -24,6 +24,145 @@ import { sweetAlertRef, sweetAlert } from './src/utils/sweetAlert';
 
 import { ThemeProvider, useTheme } from './src/utils/ThemeContext';
 
+export function parseUserRoles(userObj) {
+  if (!userObj) {
+    return {
+      isLeader: false,
+      isITDepartment: false,
+      isITSupport: false,
+      isITTeamLeader: false,
+      isHR: false,
+      isDnsAdmin: false,
+      isPureAdmin: false,
+      isAdmin: false,
+      isCandidate: false,
+      isClient: false,
+      roleLower: '',
+      dbRoleLower: '',
+      deptLower: '',
+    };
+  }
+
+  const roleLower = (userObj.role || '').toLowerCase().trim();
+  const dbRoleLower = (userObj.dbRole || '').toLowerCase().trim();
+  const deptLower = (userObj.department || '').toLowerCase().trim();
+
+  // Accurate IT department check - prevents substring match on "writer", "auditor", "hospitality", "recruiter", etc.
+  const isITDept = (dept) => {
+    if (!dept) return false;
+    const d = dept.toLowerCase().trim();
+    return (
+      d === 'it' ||
+      d === 'it support' ||
+      d === 'it_support' ||
+      d === 'it department' ||
+      d === 'information technology' ||
+      d === 'it infrastructure' ||
+      d === 'it & networking' ||
+      d === 'it and networking' ||
+      d.startsWith('it ') ||
+      d.endsWith(' it') ||
+      d.includes(' it ') ||
+      d.includes('it support') ||
+      d.includes('information technology')
+    );
+  };
+
+  // Accurate IT role check - prevents false match on words containing 'it'
+  const isITRole = (role) => {
+    if (!role) return false;
+    const r = role.toLowerCase().trim();
+    return (
+      r === 'it' ||
+      r === 'it support' ||
+      r === 'it_support' ||
+      r === 'it engineer' ||
+      r === 'it_engineer' ||
+      r === 'it admin' ||
+      r === 'it manager' ||
+      r === 'it technician' ||
+      r === 'network engineer' ||
+      r === 'system administrator' ||
+      r === 'sysadmin' ||
+      r.startsWith('it ') ||
+      r.endsWith(' it') ||
+      r.includes(' it ') ||
+      r.includes('it support') ||
+      r.includes('it engineer') ||
+      r.includes('network engineer') ||
+      r.includes('system administrator')
+    );
+  };
+
+  const isLeader =
+    dbRoleLower === 'team leader' ||
+    dbRoleLower === 'tl' ||
+    dbRoleLower === 'team lead' ||
+    dbRoleLower === 'team_lead' ||
+    dbRoleLower.includes('leader') ||
+    roleLower === 'team leader' ||
+    roleLower === 'tl' ||
+    roleLower.includes('leader') ||
+    Boolean(userObj.isLeader);
+
+  const isITDepartment = isITDept(deptLower) || isITRole(dbRoleLower) || isITRole(roleLower);
+
+  const isITTeamLeader = isLeader && isITDepartment;
+
+  const isHR =
+    !isLeader &&
+    (dbRoleLower === 'hr' ||
+      dbRoleLower === 'human resources' ||
+      dbRoleLower === 'human resource' ||
+      roleLower === 'hr' ||
+      deptLower === 'hr' ||
+      deptLower === 'human resources' ||
+      deptLower === 'human resource' ||
+      dbRoleLower.startsWith('hr ') ||
+      deptLower.startsWith('hr ') ||
+      roleLower.startsWith('hr '));
+
+  const isDnsAdmin =
+    !isLeader &&
+    (roleLower === 'dns manager' ||
+      deptLower === 'dns manager' ||
+      roleLower.includes('dns') ||
+      dbRoleLower.includes('dns'));
+
+  const isPureAdmin =
+    !isLeader &&
+    (dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management');
+
+  const isITSupport =
+    !isLeader &&
+    (isITDepartment ||
+      dbRoleLower === 'it support' ||
+      deptLower === 'it support' ||
+      dbRoleLower === 'it_support');
+
+  const isAdmin =
+    isPureAdmin || isHR || isDnsAdmin || isITSupport || (roleLower.includes('admin') && !isLeader);
+
+  const isCandidate = roleLower === 'candidate' || dbRoleLower === 'candidate';
+  const isClient = roleLower === 'client' || dbRoleLower === 'client';
+
+  return {
+    isLeader,
+    isITDepartment,
+    isITSupport,
+    isITTeamLeader,
+    isHR,
+    isDnsAdmin,
+    isPureAdmin,
+    isAdmin,
+    isCandidate,
+    isClient,
+    roleLower,
+    dbRoleLower,
+    deptLower,
+  };
+}
+
 function MainAppContent() {
   const [currentScreen, setCurrentScreen] = useState('welcome'); // welcome, login, forgot, admin, employee, client, leader
   const [currentUser, setCurrentUser] = useState(null);
@@ -71,21 +210,15 @@ function MainAppContent() {
               console.warn('Socket initialization error on startup:', sockErr);
             }
 
-            const roleLower = (userObj.role || '').toLowerCase().trim();
-            const dbRoleLower = (userObj.dbRole || '').toLowerCase().trim();
-            const deptLower = (userObj.department || '').toLowerCase().trim();
-            const isHR = dbRoleLower === 'hr' || dbRoleLower.includes('hr') || roleLower.includes('hr') || deptLower === 'hr' || deptLower.includes('hr') || deptLower.includes('human resource');
-            const isDnsAdmin = roleLower === 'dns manager' || deptLower === 'dns manager' || roleLower.includes('dns') || dbRoleLower.includes('dns');
-            const isAdmin = userObj.role === 'admin' || roleLower.includes('admin') || roleLower.includes('superadmin') || dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management' || isDnsAdmin || dbRoleLower === 'it support' || deptLower === 'it support' || isHR;
-            const isLeader = roleLower.includes('leader') || roleLower === 'tl' || roleLower.includes('team lead') || dbRoleLower.includes('leader') || dbRoleLower === 'tl';
+            const roles = parseUserRoles(userObj);
 
-            if (isAdmin) {
-              setCurrentScreen('admin');
-            } else if (isLeader) {
+            if (roles.isLeader) {
               setCurrentScreen('leader');
-            } else if (roleLower === 'candidate' || dbRoleLower === 'candidate') {
+            } else if (roles.isAdmin) {
+              setCurrentScreen('admin');
+            } else if (roles.isCandidate) {
               setCurrentScreen('candidateDashboard');
-            } else if (roleLower === 'client' || dbRoleLower === 'client') {
+            } else if (roles.isClient) {
               setCurrentScreen('client');
             } else {
               setCurrentScreen('employee');
@@ -175,21 +308,15 @@ function MainAppContent() {
       console.warn('Device token registration failed on login (non-fatal):', tokenErr);
     }
 
-    const roleLower = (userObj.role || '').toLowerCase().trim();
-    const dbRoleLower = (userObj.dbRole || '').toLowerCase().trim();
-    const deptLower = (userObj.department || '').toLowerCase().trim();
-    const isHR = dbRoleLower === 'hr' || dbRoleLower.includes('hr') || roleLower.includes('hr') || deptLower === 'hr' || deptLower.includes('hr') || deptLower.includes('human resource');
-    const isDnsAdmin = dbRoleLower === 'dns manager' || deptLower === 'dns manager' || dbRoleLower.includes('dns') || roleLower.includes('dns');
-    const isAdmin = dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management' || roleLower.includes('admin') || isDnsAdmin || dbRoleLower === 'it support' || deptLower === 'it support' || isHR;
-    const isLeader = dbRoleLower.includes('leader') || dbRoleLower === 'tl' || dbRoleLower.includes('team lead') || roleLower.includes('leader') || roleLower === 'tl';
+    const roles = parseUserRoles(userObj);
 
-    if (isAdmin) {
-      setCurrentScreen('admin');
-    } else if (isLeader) {
+    if (roles.isLeader) {
       setCurrentScreen('leader');
-    } else if (roleLower === 'candidate' || dbRoleLower === 'candidate') {
+    } else if (roles.isAdmin) {
+      setCurrentScreen('admin');
+    } else if (roles.isCandidate) {
       setCurrentScreen('candidateDashboard');
-    } else if (roleLower === 'client' || dbRoleLower === 'client') {
+    } else if (roles.isClient) {
       setCurrentScreen('client');
     } else {
       setCurrentScreen('employee');
@@ -242,6 +369,13 @@ function MainAppContent() {
   };
 
   const renderScreen = () => {
+    const {
+      isLeader,
+      isITTeamLeader,
+      isPureAdmin,
+      isAdmin,
+    } = parseUserRoles(currentUser);
+
     switch (currentScreen) {
       case 'welcome':
         return (
@@ -256,44 +390,33 @@ function MainAppContent() {
             onNavigateToLogin={() => setCurrentScreen('login')}
           />
         );
-      case 'admin':
+      case 'admin': {
         return (
           <AdminDashboard
             user={currentUser}
             onLogout={handleLogout}
-            onSwitchToEmployee={() => setCurrentScreen('employee')}
+            onSwitchToLeader={isLeader ? () => setCurrentScreen('leader') : undefined}
+            onSwitchToEmployee={!isPureAdmin ? () => setCurrentScreen('employee') : undefined}
           />
         );
+      }
       case 'leader': {
-        const roleL = (currentUser?.role || '').toLowerCase().trim();
-        const dbRoleL = (currentUser?.dbRole || '').toLowerCase().trim();
-        const deptL = (currentUser?.department || '').toLowerCase().trim();
-        const isHRL = dbRoleL === 'hr' || dbRoleL.includes('hr') || roleL.includes('hr') || deptL === 'hr' || deptL.includes('hr') || deptL.includes('human resource');
-        const isDnsAdmin = dbRoleL === 'dns manager' || deptL === 'dns manager' || dbRoleL.includes('dns') || roleL.includes('dns');
-        const isAdmin = dbRoleL === 'admin' || dbRoleL === 'superadmin' || dbRoleL === 'management' || roleL.includes('admin') || isDnsAdmin || dbRoleL === 'it support' || deptL === 'it support' || isHRL;
         return (
           <LeaderDashboard
             user={currentUser}
             onLogout={handleLogout}
             onSwitchToEmployee={() => setCurrentScreen('employee')}
-            onSwitchToAdmin={isAdmin ? () => setCurrentScreen('admin') : undefined}
+            onSwitchToAdmin={isITTeamLeader ? () => setCurrentScreen('admin') : undefined}
           />
         );
       }
       case 'employee': {
-        const roleLower = (currentUser?.role || '').toLowerCase().trim();
-        const dbRoleLower = (currentUser?.dbRole || '').toLowerCase().trim();
-        const deptLower = (currentUser?.department || '').toLowerCase().trim();
-        const isHR = dbRoleLower === 'hr' || dbRoleLower.includes('hr') || roleLower.includes('hr') || deptLower === 'hr' || deptLower.includes('hr') || deptLower.includes('human resource');
-        const isLeader = dbRoleLower.includes('leader') || dbRoleLower === 'tl' || dbRoleLower.includes('team lead') || roleLower.includes('leader') || roleLower === 'tl';
-        const isDnsAdmin = dbRoleLower === 'dns manager' || deptLower === 'dns manager' || dbRoleLower.includes('dns') || roleLower.includes('dns');
-        const isAdmin = dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || dbRoleLower === 'management' || roleLower.includes('admin') || isDnsAdmin || dbRoleLower === 'it support' || deptLower === 'it support' || isHR;
         return (
           <EmployeeDashboard
             user={currentUser}
             onLogout={handleLogout}
             onSwitchToLeader={isLeader ? () => setCurrentScreen('leader') : undefined}
-            onSwitchToAdmin={isAdmin ? () => setCurrentScreen('admin') : undefined}
+            onSwitchToAdmin={(isITTeamLeader || (!isLeader && isAdmin)) ? () => setCurrentScreen('admin') : undefined}
           />
         );
       }

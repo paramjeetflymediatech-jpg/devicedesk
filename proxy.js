@@ -49,7 +49,16 @@ export function proxy(request) {
 
     // Role-based route protection: non-admins cannot access admin desk
     if (pathname === '/') {
-      const isIT = role.includes('it');
+      const isIT =
+        role === 'it' ||
+        role === 'it support' ||
+        role === 'it_support' ||
+        role === 'it engineer' ||
+        role === 'it_engineer' ||
+        role.startsWith('it ') ||
+        role.endsWith(' it') ||
+        role.includes(' it ') ||
+        role.includes('it support');
       if (!isAdmin && !isIT) {
         if (isTL) {
           return NextResponse.redirect(new URL('/portal/leader', request.url));

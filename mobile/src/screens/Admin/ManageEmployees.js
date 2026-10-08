@@ -38,6 +38,8 @@ export default function ManageEmployees({ currentUser }) {
 
   // Modal states
   const [modalVisible, setModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
   
   // Form states
   const [name, setName] = useState('');
@@ -46,6 +48,14 @@ export default function ManageEmployees({ currentUser }) {
   const [role, setRole] = useState('Team Member');
   const [department, setDepartment] = useState('Operations');
   const [ticketLimit, setTicketLimit] = useState('100');
+
+  // Edit Form states
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editRole, setEditRole] = useState('Team Member');
+  const [editDepartment, setEditDepartment] = useState('Operations');
+  const [editTicketLimit, setEditTicketLimit] = useState('100');
 
   const refreshData = () => {
     setEmployees(getEmployees());
@@ -288,6 +298,85 @@ export default function ManageEmployees({ currentUser }) {
     }
   };
 
+  const openEditModal = (emp) => {
+    setEditingEmployee(emp);
+    setEditName(emp.name || '');
+    setEditEmail(emp.email || '');
+    setEditPassword('');
+    setEditRole(emp.role || 'Team Member');
+    setEditDepartment(emp.department || (departments.length > 0 ? departments[0].name : 'Operations'));
+    setEditTicketLimit(String(emp.ticketLimit !== undefined ? emp.ticketLimit : '100'));
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) {
+      sweetAlert({ title: 'Error', text: 'Full Name is required.', type: 'error' });
+      return;
+    }
+    if (!editEmail.trim()) {
+      sweetAlert({ title: 'Error', text: 'Email Address is required.', type: 'error' });
+      return;
+    }
+    if (!editRole || !editRole.trim()) {
+      sweetAlert({ title: 'Error', text: 'Role is required.', type: 'error' });
+      return;
+    }
+    if (!editDepartment || !editDepartment.trim()) {
+      sweetAlert({ title: 'Error', text: 'Department is required.', type: 'error' });
+      return;
+    }
+
+    const limit = parseInt(editTicketLimit, 10);
+    if (isNaN(limit) || limit <= 0) {
+      sweetAlert({ title: 'Error', text: 'Ticket limit must be a positive number.', type: 'error' });
+      return;
+    }
+
+    const payload = {
+      name: editName.trim(),
+      email: editEmail.trim(),
+      role: editRole,
+      department: editDepartment,
+      ticketLimit: limit,
+    };
+
+    if (editPassword.trim()) {
+      payload.password = editPassword.trim();
+    }
+
+    try {
+      const { getApiUrl } = require('../../utils/api');
+      const baseUrl = getApiUrl();
+      const res = await fetch(`${baseUrl}/api/employees/${editingEmployee.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      // Update in local store
+      updateEmployee(editingEmployee.id, payload, currentUser?.name || 'Admin');
+
+      sweetAlert({ title: 'Success', text: `Team Member "${editName.trim()}" updated successfully!`, type: 'success' });
+      setEditModalVisible(false);
+      setEditingEmployee(null);
+
+      // Re-sync store from server if available
+      try {
+        const { syncWithServer } = require('../../store/store');
+        await syncWithServer();
+      } catch (syncErr) {
+        console.warn('Sync failed:', syncErr);
+      }
+    } catch (err) {
+      // Fallback update locally if network fails
+      updateEmployee(editingEmployee.id, payload, currentUser?.name || 'Admin');
+      sweetAlert({ title: 'Saved Locally', text: `Team Member updated locally: ${err.message}`, type: 'info' });
+      setEditModalVisible(false);
+      setEditingEmployee(null);
+    }
+  };
+
   const handleDelete = (id, empName) => {
     sweetAlert({
       title: 'Confirm Remove',
@@ -388,6 +477,12 @@ export default function ManageEmployees({ currentUser }) {
                     <Text style={styles.empEmail}>✉️ {e.email}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity
+                      style={styles.editIcon}
+                      onPress={() => openEditModal(e)}
+                    >
+                      <Text style={styles.editIconText}>✏️</Text>
+                    </TouchableOpacity>
                     {!['Admin'].includes(e.role) && (
                       <TouchableOpacity
                         style={[
@@ -545,6 +640,104 @@ export default function ManageEmployees({ currentUser }) {
 
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
                 <Text style={styles.saveBtnText}>Save Team Member</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Team Member Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>✏️ Edit Team Member</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <Text style={styles.closeBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.formContainer}>
+              <Text style={styles.label}>Full Name *</Text>
+              <TextInput
+                style={styles.input}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="e.g. Tanmay Sharma"
+                placeholderTextColor="#666"
+              />
+
+              <Text style={styles.label}>Email Address *</Text>
+              <TextInput
+                style={styles.input}
+                value={editEmail}
+                onChangeText={setEditEmail}
+                placeholder="Please enter your company email"
+                placeholderTextColor="#666"
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.label}>New Password (leave blank to keep current)</Text>
+              <TextInput
+                style={styles.input}
+                value={editPassword}
+                onChangeText={setEditPassword}
+                placeholder="Enter new password"
+                placeholderTextColor="#666"
+                secureTextEntry
+              />
+
+              <Text style={styles.label}>Role</Text>
+              <View style={styles.pickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {['Team Member', 'Team Leader', 'IT Engineer', 'Management', 'Admin'].map(r => (
+                    <TouchableOpacity
+                      key={r}
+                      style={[styles.pickerItem, editRole === r && styles.pickerItemActive]}
+                      onPress={() => setEditRole(r)}
+                    >
+                      <Text style={[styles.pickerItemText, editRole === r && styles.pickerItemTextActive]}>
+                        {r}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <Text style={styles.label}>Department</Text>
+              <View style={styles.pickerContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {departments.map(d => (
+                    <TouchableOpacity
+                      key={d.id || d.name}
+                      style={[styles.pickerItem, editDepartment === d.name && styles.pickerItemActive]}
+                      onPress={() => setEditDepartment(d.name)}
+                    >
+                      <Text style={[styles.pickerItemText, editDepartment === d.name && styles.pickerItemTextActive]}>
+                        {d.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <Text style={styles.label}>Ticket Limit</Text>
+              <TextInput
+                style={styles.input}
+                value={editTicketLimit}
+                onChangeText={setEditTicketLimit}
+                keyboardType="numeric"
+                placeholder="100"
+                placeholderTextColor="#666"
+              />
+
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveEdit}>
+                <Text style={styles.saveBtnText}>Update Team Member</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -827,6 +1020,17 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     fontSize: 12,
     color: themeColors.textSecondary,
     marginTop: 3,
+  },
+  editIcon: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    borderRadius: 6,
+    padding: 6,
+    marginRight: 8,
+  },
+  editIconText: {
+    fontSize: 14,
   },
   deleteIcon: {
     backgroundColor: 'rgba(248, 81, 73, 0.1)',

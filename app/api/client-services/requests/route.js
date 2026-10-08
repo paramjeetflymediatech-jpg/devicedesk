@@ -10,21 +10,50 @@ export async function GET(request) {
     const db = await getDbConnection();
     let rows;
 
+    const baseQuery = `
+      SELECT r.*, 
+        c.name as client_name, 
+        tl.name as tl_name,
+        t.fileUrl as deliverable_files,
+        t.completion_note as deliverable_note,
+        t.completedAt as delivered_at,
+        t.status as task_status,
+        ea.name as specialist_name
+      FROM service_requests r 
+      LEFT JOIN employees c ON (r.clientId COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci) 
+      LEFT JOIN employees tl ON (r.assigned_tl_id COLLATE utf8mb4_unicode_ci = tl.id COLLATE utf8mb4_unicode_ci) 
+      LEFT JOIN tasks t ON (r.id COLLATE utf8mb4_unicode_ci = t.project_id COLLATE utf8mb4_unicode_ci)
+      LEFT JOIN employees ea ON (t.assignedTo COLLATE utf8mb4_unicode_ci = ea.id COLLATE utf8mb4_unicode_ci)
+    `;
+
     if (clientId) {
       [rows] = await db.query(
-        `SELECT r.*, c.name as client_name, tl.name as tl_name FROM service_requests r LEFT JOIN employees c ON r.clientId = c.id LEFT JOIN employees tl ON r.assigned_tl_id = tl.id WHERE r.clientId = ? ORDER BY r.created_at DESC`,
+        `${baseQuery} WHERE r.clientId = ? ORDER BY r.created_at DESC`,
         [clientId]
       );
     } else {
       [rows] = await db.query(
-        `SELECT r.*, c.name as client_name, tl.name as tl_name FROM service_requests r LEFT JOIN employees c ON r.clientId = c.id LEFT JOIN employees tl ON r.assigned_tl_id = tl.id ORDER BY r.created_at DESC`
+        `${baseQuery} ORDER BY r.created_at DESC`
       );
     }
 
     return NextResponse.json({ success: true, data: rows });
   } catch (err) {
     console.error('Fetch Service Requests Error:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    try {
+      const db = await getDbConnection();
+      const { searchParams } = new URL(request.url);
+      const clientId = searchParams.get('clientId');
+      let rows;
+      if (clientId) {
+        [rows] = await db.query(`SELECT * FROM service_requests WHERE clientId = ? ORDER BY created_at DESC`, [clientId]);
+      } else {
+        [rows] = await db.query(`SELECT * FROM service_requests ORDER BY created_at DESC`);
+      }
+      return NextResponse.json({ success: true, data: rows });
+    } catch (e) {
+      return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    }
   }
 }
 
@@ -32,10 +61,34 @@ export async function POST(request) {
   try {
     const { clientId, service_type, requirements, attachment } = await request.json();
     if (!clientId || !service_type || !requirements) {
-      return NextResponse.json({ success: false, error: 'Missing fields' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing required fields (service type or requirements).' }, { status: 400 });
     }
 
     const db = await getDbConnection();
+
+    // Ensure columns exist dynamically
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN attachment TEXT`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN assigned_tl_id VARCHAR(50)`);
+    } catch (e) {}
+
+    // Verify client has an active package before allowing service booking
+    const [activePkgs] = await db.query(
+      `SELECT cpo.id, p.name FROM client_package_overrides cpo 
+       LEFT JOIN packages p ON cpo.package_id = p.id 
+       WHERE cpo.client_id = ? AND (cpo.status = 'Active' OR cpo.status = 'active')`,
+      [clientId]
+    );
+
+    if (!activePkgs || activePkgs.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'Please buy a package first. You need an active package subscription to book services.'
+      }, { status: 400 });
+    }
+
     const id = 'req_' + Date.now() + Math.random().toString(36).substring(2, 7);
     const now = new Date().toISOString();
 
@@ -99,6 +152,16 @@ export async function PUT(request) {
         `UPDATE service_requests SET status = ? WHERE id = ?`,
         [status, id]
       );
+      if (status === 'Completed') {
+        try {
+          await db.query(
+            `UPDATE tasks SET status = 'Completed', completedAt = ? WHERE project_id = ?`,
+            [new Date().toISOString(), id]
+          );
+        } catch (e) {
+          console.error('Failed to sync tasks status on request completion:', e);
+        }
+      }
       return NextResponse.json({ success: true });
     }
     

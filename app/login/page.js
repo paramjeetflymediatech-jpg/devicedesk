@@ -7,6 +7,36 @@ import ThemeToggle from "../components/ThemeToggle.js";
 import Logo from "../components/Logo.js";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 
+const isITDeptOrRole = (dbRoleLower, deptLower) => {
+  const isDept =
+    deptLower === 'it' ||
+    deptLower === 'it support' ||
+    deptLower === 'it_support' ||
+    deptLower === 'it department' ||
+    deptLower === 'information technology' ||
+    deptLower === 'it infrastructure' ||
+    deptLower === 'it & networking' ||
+    deptLower.startsWith('it ') ||
+    deptLower.endsWith(' it') ||
+    deptLower.includes(' it ') ||
+    deptLower.includes('it support');
+
+  const isRole =
+    dbRoleLower === 'it' ||
+    dbRoleLower === 'it support' ||
+    dbRoleLower === 'it_support' ||
+    dbRoleLower === 'it engineer' ||
+    dbRoleLower === 'it_engineer' ||
+    dbRoleLower === 'it admin' ||
+    dbRoleLower.startsWith('it ') ||
+    dbRoleLower.endsWith(' it') ||
+    dbRoleLower.includes(' it ') ||
+    dbRoleLower.includes('it support') ||
+    dbRoleLower.includes('it engineer');
+
+  return isDept || isRole;
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
@@ -92,6 +122,8 @@ export default function LoginPage() {
           emailLower === 'pravi@yopmail.com' ||
           emailLower === 'admin@devicedesk.com';
 
+        const isIT = isITDeptOrRole(dbRoleLower, deptLower);
+
         if (emailLower === 'developer@devicedesk.com') {
           router.push('/developer/dashboard');
         } else if (dbRoleLower === 'client') {
@@ -104,7 +136,7 @@ export default function LoginPage() {
           router.push('/portal/leader');
         } else if (isRootAdmin) {
           router.push('/');
-        } else if (dbRoleLower.includes('it') || deptLower.includes('it')) {
+        } else if (isIT) {
           router.push('/?tab=dashboard');
         } else {
           router.push('/employee-dashboard');
@@ -141,6 +173,8 @@ export default function LoginPage() {
         const dbRoleLower = (data.user?.dbRole || '').toLowerCase();
         const deptLower = (data.user?.department || '').toLowerCase();
         
+        const isIT = isITDeptOrRole(dbRoleLower, deptLower);
+        
         if (dbRoleLower === 'dns manager' || deptLower === 'dns manager') {
           router.push('/admin/domains');
         } else if (dbRoleLower === 'candidate') {
@@ -149,7 +183,7 @@ export default function LoginPage() {
           router.push('/portal/leader');
         } else if (dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || data.user?.email === 'admin@yopmail.com' || data.user?.email === 'pravi@yopmail.com') {
           router.push('/');
-        } else if (dbRoleLower.includes('it') || deptLower.includes('it')) {
+        } else if (isIT) {
           router.push('/?tab=dashboard');
         } else {
           router.push('/employee-dashboard');

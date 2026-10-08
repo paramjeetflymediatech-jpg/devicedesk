@@ -321,12 +321,15 @@ export default function ManagePackages({ currentUser, onBack }) {
                 {showEditModal ? '✏️ Edit Package' : '➕ Create New Service Package'}
               </Text>
               <TouchableOpacity
+                style={styles.modalCloseCircleBtn}
                 onPress={() => {
                   setShowAddModal(false);
                   setShowEditModal(false);
                 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.7}
               >
-                <AppIcon name="x" size={20} color={themeColors.textSecondary} />
+                <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
@@ -660,6 +663,19 @@ function getStyles(themeColors, isDark) {
       borderBottomWidth: 1,
       borderBottomColor: themeColors.border,
       marginBottom: 12,
+    },
+    modalCloseCircleBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.07)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalCloseText: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: themeColors.textPrimary,
     },
     modalTitle: {
       fontSize: 15,

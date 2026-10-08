@@ -14,11 +14,17 @@ export async function GET() {
     const [rows] = await db.query(
       `SELECT t.*, 
        p.name as project_name, 
-       c.name as client_name,
-       a.name as assigned_to_name
+       COALESCE(c.name, sc.name) as client_name,
+       a.name as assigned_to_name,
+       sr.attachment as client_attachment,
+       sr.service_type as client_service_type,
+       sr.requirements as client_requirements,
+       sr.clientId as client_id
        FROM tasks t
        LEFT JOIN projects p ON (t.project_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci)
        LEFT JOIN employees c ON (p.client_id COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci)
+       LEFT JOIN service_requests sr ON (t.project_id COLLATE utf8mb4_unicode_ci = sr.id COLLATE utf8mb4_unicode_ci)
+       LEFT JOIN employees sc ON (sr.clientId COLLATE utf8mb4_unicode_ci = sc.id COLLATE utf8mb4_unicode_ci)
        LEFT JOIN employees a ON (t.assignedTo COLLATE utf8mb4_unicode_ci = a.id COLLATE utf8mb4_unicode_ci)
        ORDER BY t.createdAt DESC`
     );
@@ -43,7 +49,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { title, description, assignedTo, assignedToName, assignedBy, assignedByName, project_id } = await request.json();
+    const { title, description, assignedTo, assignedToName, assignedBy, assignedByName, project_id, attachment, fileUrl } = await request.json();
 
     if (!title || !title.trim()) {
       return NextResponse.json({ error: 'Task title is required.' }, { status: 400 });
@@ -56,6 +62,7 @@ export async function POST(request) {
     const taskDesc = description ? description.trim() : null;
     const taskStatus = 'Pending';
     const createdAt = new Date().toISOString();
+    const taskFileUrl = fileUrl || attachment || null;
 
     // Dynamically add project_id to tasks if needed
     try {
@@ -63,9 +70,9 @@ export async function POST(request) {
     } catch(e) {}
 
     await db.execute(
-      `INSERT INTO tasks (id, title, description, assignedTo, assignedToName, assignedBy, assignedByName, status, createdAt, project_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [taskId, taskTitle, taskDesc, assignedTo || null, assignedToName || null, assignedBy || null, assignedByName || null, taskStatus, createdAt, project_id || null]
+      `INSERT INTO tasks (id, title, description, assignedTo, assignedToName, assignedBy, assignedByName, status, createdAt, project_id, fileUrl) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [taskId, taskTitle, taskDesc, assignedTo || null, assignedToName || null, assignedBy || null, assignedByName || null, taskStatus, createdAt, project_id || null, taskFileUrl]
     );
 
     if (project_id) {
@@ -88,7 +95,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      task: { id: taskId, title: taskTitle, description: taskDesc, status: taskStatus, project_id }
+      task: { id: taskId, title: taskTitle, description: taskDesc, status: taskStatus, project_id, fileUrl: taskFileUrl }
     });
   } catch (err) {
     console.error('Add Task API Error:', err);
@@ -98,13 +105,49 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, status } = await request.json();
+    const { id, status, fileUrl, completion_note, notes, note } = await request.json();
     if (!id || !status) {
       return NextResponse.json({ error: 'Missing id or status.' }, { status: 400 });
     }
 
+    const completionNoteStr = completion_note || notes || note || null;
     const db = await getDbConnection();
-    await db.execute(`UPDATE tasks SET status = ? WHERE id = ?`, [status, id]);
+
+    // Ensure columns exist in tasks dynamically
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN fileUrl TEXT`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN completedAt VARCHAR(50)`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN completion_note TEXT`);
+    } catch (e) {}
+
+    const fileUrlStr = fileUrl ? (Array.isArray(fileUrl) ? JSON.stringify(fileUrl) : String(fileUrl)) : null;
+
+    if (status === 'Completed') {
+      const completedAt = new Date().toISOString();
+      if (fileUrlStr && completionNoteStr) {
+        await db.execute(`UPDATE tasks SET status = ?, fileUrl = ?, completedAt = ?, completion_note = ? WHERE id = ?`, [status, fileUrlStr, completedAt, completionNoteStr, id]);
+      } else if (fileUrlStr) {
+        await db.execute(`UPDATE tasks SET status = ?, fileUrl = ?, completedAt = ? WHERE id = ?`, [status, fileUrlStr, completedAt, id]);
+      } else if (completionNoteStr) {
+        await db.execute(`UPDATE tasks SET status = ?, completedAt = ?, completion_note = ? WHERE id = ?`, [status, completedAt, completionNoteStr, id]);
+      } else {
+        await db.execute(`UPDATE tasks SET status = ?, completedAt = ? WHERE id = ?`, [status, completedAt, id]);
+      }
+    } else {
+      if (fileUrlStr && completionNoteStr) {
+        await db.execute(`UPDATE tasks SET status = ?, fileUrl = ?, completion_note = ? WHERE id = ?`, [status, fileUrlStr, completionNoteStr, id]);
+      } else if (fileUrlStr) {
+        await db.execute(`UPDATE tasks SET status = ?, fileUrl = ? WHERE id = ?`, [status, fileUrlStr, id]);
+      } else if (completionNoteStr) {
+        await db.execute(`UPDATE tasks SET status = ?, completion_note = ? WHERE id = ?`, [status, completionNoteStr, id]);
+      } else {
+        await db.execute(`UPDATE tasks SET status = ? WHERE id = ?`, [status, id]);
+      }
+    }
 
     // If task has a project_id (service request), update that too if completed
     if (status === 'Completed') {

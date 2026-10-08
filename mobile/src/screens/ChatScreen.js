@@ -34,7 +34,7 @@ import {
   sendSocketStopTyping, 
   sendSocketMessagesRead 
 } from '../utils/socketService';
-import { pick } from '@react-native-documents/picker';
+import { pickFilesOrPhotos } from '../utils/filePicker';
 import { launchCamera } from 'react-native-image-picker';
 import { useTheme } from '../utils/ThemeContext';
 import { sweetAlert } from '../utils/sweetAlert';
@@ -557,11 +557,11 @@ export default function ChatScreen({ user, onBack }) {
   };
 
   // Handle Document & Media Picker (Multiple Selection)
-  const handlePickDocument = async (types = []) => {
+  const handlePickDocument = async () => {
     try {
-      const res = await pick({
-        type: types.length > 0 ? types : ['*/*'],
+      const res = await pickFilesOrPhotos({
         allowMultiSelection: true,
+        includeCamera: true,
       });
       if (res && res.length > 0) {
         const oversized = res.some(f => (f.size || f.fileSize || 0) > 100 * 1024 * 1024);
@@ -600,11 +600,11 @@ export default function ChatScreen({ user, onBack }) {
   };
 
   // Append More Files to Current Upload Batch
-  const handleAddMoreFiles = async (types = []) => {
+  const handleAddMoreFiles = async () => {
     try {
-      const res = await pick({
-        type: types.length > 0 ? types : ['*/*'],
+      const res = await pickFilesOrPhotos({
         allowMultiSelection: true,
+        includeCamera: true,
       });
       if (res && res.length > 0) {
         const formattedList = res.map(file => {

@@ -17,10 +17,10 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { pick } from '@react-native-documents/picker';
+import { pickFilesOrPhotos } from '../../utils/filePicker';
+import { getTasks, saveTasks } from '../../store/store';
 import Video from 'react-native-video';
 import AppIcon from '../../components/AppIcon';
-import MarketingFieldScreen from '../Marketing/MarketingFieldScreen';
 import { useTheme } from '../../utils/ThemeContext';
 import {
   fetchTasksApi,
@@ -90,29 +90,105 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
-  const isVideoUrl = (url) => typeof url === 'string' && /\.(mp4|webm|mov|ogg|mkv|3gp|avi)($|\?)/i.test(url);
-  const isAudioUrl = (url) => typeof url === 'string' && /\.(mp3|wav|ogg|m4a|aac|flac)($|\?)/i.test(url);
+  const resolveMediaUrl = (url) => {
+    if (!url) return '';
+    if (typeof url !== 'string') {
+      if (url.uri) return resolveMediaUrl(url.uri);
+      if (url.url) return resolveMediaUrl(url.url);
+      if (url.path) return resolveMediaUrl(url.path);
+      if (url.fileUrl) return resolveMediaUrl(url.fileUrl);
+      return '';
+    }
+    let trimmed = `${url}`.trim();
+    trimmed = trimmed.replace(/^["']+|["']+$/g, '');
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('data:') ||
+      trimmed.startsWith('file://')
+    ) {
+      return trimmed;
+    }
+    const apiBase = (getApiUrl() || '').replace(/\/+$/, '');
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${apiBase}${cleanPath}`;
+  };
+
+  const parseAttachments = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) {
+      return val.flatMap((v) => parseAttachments(v)).filter(Boolean);
+    }
+    if (typeof val === 'object' && val !== null) {
+      if (val.uri || val.url || val.path || val.fileUrl) {
+        return [resolveMediaUrl(val.uri || val.url || val.path || val.fileUrl)].filter(Boolean);
+      }
+    }
+    if (typeof val === 'string') {
+      let trimmed = val.trim();
+      if (!trimmed) return [];
+      if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          return parseAttachments(parsed);
+        } catch (e) {}
+      }
+      if (trimmed.includes(',')) {
+        return trimmed.split(',').map((s) => resolveMediaUrl(s.trim())).filter(Boolean);
+      }
+      return [resolveMediaUrl(trimmed)].filter(Boolean);
+    }
+    return [];
+  };
+
+  const getTaskProofAttachments = (task) => {
+    if (!task) return [];
+    const all = [
+      ...parseAttachments(task.fileUrl),
+      ...parseAttachments(task.file_url),
+      ...parseAttachments(task.attachment),
+      ...parseAttachments(task.attachments),
+      ...parseAttachments(task.proof),
+      ...parseAttachments(task.proofs),
+      ...parseAttachments(task.files),
+    ];
+    return Array.from(new Set(all.filter(Boolean)));
+  };
+
+  const isImageUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(jpg|jpeg|png|webp|gif|svg|bmp|heic|heif)$/i.test(clean);
+  };
+  const isVideoUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(mp4|webm|mov|ogg|mkv|3gp|avi)$/i.test(clean);
+  };
+  const isAudioUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(clean);
+  };
 
   const handleOpenAttachment = (url) => {
     if (!url) {
       sweetAlert({ title: 'Attachment Missing', text: 'No attachment found for this item.', type: 'info' });
       return;
     }
-    setPreviewError(false);
-    setAudioPaused(false);
-    setAudioCurrentTime(0);
-    setAudioDuration(0);
-    setAudioLoading(true);
-    setPreviewAttachmentUrl(url);
-  };
-
-  const handleClosePreview = () => {
-    setPreviewAttachmentUrl(null);
-    setPreviewError(false);
-    setAudioPaused(true);
-    setAudioCurrentTime(0);
-    setAudioDuration(0);
+    const resolved = resolveMediaUrl(url);
+    if (!resolved) {
+      sweetAlert({ title: 'Attachment Missing', text: 'No valid attachment found.', type: 'info' });
+      return;
+    }
+    Linking.openURL(resolved).catch((err) => {
+      console.log('Error opening attachment:', err);
+      sweetAlert({
+        title: 'Cannot Open File',
+        text: 'Failed to open file: ' + resolved,
+        type: 'error',
+      });
+    });
   };
   const [notesFilter, setNotesFilter] = useState('ALL'); // 'ALL' | 'UNREAD' | 'REPLIED'
   const [notesSearch, setNotesSearch] = useState('');
@@ -306,9 +382,9 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   // Pick Reply Attachments
   const handlePickReplyAttachment = async (noteId) => {
     try {
-      const res = await pick({
-        type: ['*/*'],
+      const res = await pickFilesOrPhotos({
         allowMultiSelection: true,
+        includeCamera: true,
       });
       if (res && res.length > 0) {
         const oversized = res.some(f => (f.size || f.fileSize || 0) > 100 * 1024 * 1024);
@@ -479,10 +555,21 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     setLoadingTaskDetails(true);
 
     try {
+      const reqIdStr = String(req.id || req._id || '');
+      const localTasks = [...(getTasks() || []), ...(tasksList || [])];
+      const localMatch = localTasks.find(
+        (t) => t.project_id && String(t.project_id) === reqIdStr
+      );
+      if (localMatch) {
+        setMatchingTaskSubmission(localMatch);
+      }
+
       const taskRes = await fetchTasksApi();
       if (taskRes && taskRes.success) {
         const allTasks = taskRes.data || taskRes.tasks || [];
-        const match = allTasks.find((t) => String(t.project_id) === String(req.id));
+        const match = allTasks.find(
+          (t) => t.project_id && String(t.project_id) === reqIdStr
+        );
         if (match) {
           setMatchingTaskSubmission(match);
         }
@@ -535,6 +622,8 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         assignedBy: 'TL',
         assignedByName: user?.name || 'Team Leader',
         project_id: selectedRequest.id,
+        attachment: selectedRequest.attachment || selectedRequest.attachments || null,
+        fileUrl: selectedRequest.attachment || selectedRequest.attachments || null,
       });
 
       if (res && res.success) {
@@ -577,6 +666,21 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         try {
           const res = await updateClientRequestStatusApi(req.id, 'Completed');
           if (res && res.success) {
+            // Also update any matching task in store
+            const reqIdStr = String(req.id || req._id || '');
+            const allLocalTasks = getTasks() || [];
+            let changed = false;
+            allLocalTasks.forEach((t) => {
+              if (t.project_id && String(t.project_id) === reqIdStr) {
+                t.status = 'Completed';
+                t.completedAt = new Date().toISOString();
+                changed = true;
+              }
+            });
+            if (changed) {
+              saveTasks(allLocalTasks);
+            }
+
             sweetAlert({
               title: 'Delivered! 🎉',
               text: 'Work marked as completed and delivered to the client.',
@@ -627,19 +731,9 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     { id: 'requests', label: 'Client Requests', icon: 'check-square', badge: stats.pendingRequests },
     { id: 'client-chat', label: 'Client Chat Room', icon: 'chat', badge: stats.unreadNotes },
     { id: 'team', label: 'Team & EODs', icon: 'users' },
-    { id: 'marketing-trips', label: 'Field Trips & GPS Radar', icon: 'navigation' },
   ];
 
   const ContainerComponent = onNavigateBack ? View : SafeAreaView;
-
-  if (activeTab === 'marketing-trips') {
-    return (
-      <ContainerComponent style={styles.container} edges={onNavigateBack ? undefined : ['top', 'left', 'right']}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-        <MarketingFieldScreen user={user} onBack={() => setActiveTab('overview')} />
-      </ContainerComponent>
-    );
-  }
 
   return (
     <ContainerComponent style={styles.container} edges={onNavigateBack ? undefined : ['top', 'left', 'right']}>
@@ -651,15 +745,21 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           <TouchableOpacity onPress={onNavigateBack} style={styles.backBtn} activeOpacity={0.7}>
             <AppIcon name="arrow-left" size={18} color={themeColors.textPrimary} />
           </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.embeddedHeaderTitle}>👔 Team Leader Portal</Text>
-            <Text style={styles.embeddedHeaderSub}>Overview, requests & team EOD reviews</Text>
+          <View style={{ marginLeft: 4 }}>
+            <Image
+              source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
+              style={{ width: 120, height: 30 }}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <Text style={styles.embeddedHeaderTitle}>👔 TL Portal</Text>
           </View>
         </View>
       ) : (
         /* STANDALONE TOP APP HEADER (When logged in directly as Team Leader) */
-        <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+        <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity
               onPress={() => setIsDrawerOpen(true)}
               hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -667,32 +767,16 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             >
               <AppIcon name="menu" size={22} color="#2563eb" />
             </TouchableOpacity>
-            <View style={{ marginLeft: 10, flex: 1 }}>
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {user?.name || 'Team Leader'}
-              </Text>
-              <Text style={styles.headerSub}>
-                {user?.department || 'Operations Lead'} • TL Portal
-              </Text>
+            <View style={{ marginLeft: 10 }}>
+              <Image
+                source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
+                style={{ width: 140, height: 36 }}
+                resizeMode="contain"
+              />
             </View>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {onSwitchToEmployee && (
-              <TouchableOpacity
-                style={styles.employeeSwitchPill}
-                onPress={onSwitchToEmployee}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontSize: 11 }}>👤</Text>
-                <Text style={styles.employeeSwitchPillText}>Employee</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity onPress={toggleTheme} style={styles.iconCircleBtn} activeOpacity={0.7}>
-              <AppIcon name={isDark ? 'sun' : 'moon'} size={17} color={themeColors.textPrimary} />
-            </TouchableOpacity>
-
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {onLogout && (
               <TouchableOpacity
                 style={styles.logoutBtn}
@@ -720,6 +804,37 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />}
       >
+        {/* Switch to Employee Profile Banner */}
+        {onSwitchToEmployee && (
+          <TouchableOpacity
+            style={[
+              styles.leaderSwitchBanner,
+              {
+                backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                borderBottomColor: isDark ? '#334155' : '#bfdbfe',
+              },
+            ]}
+            onPress={onSwitchToEmployee}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <Text style={{ fontSize: 16 }}>👤</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: isDark ? '#93c5fd' : '#1d4ed8' }}>
+                  Switch to Employee Profile
+                </Text>
+                <Text style={{ fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' }} numberOfLines={1}>
+                  View personal tasks, punch daily attendance & submit EOD
+                </Text>
+              </View>
+            </View>
+            <View style={styles.leaderSwitchBtnPill}>
+              <Text style={styles.leaderSwitchBtnPillText}>Employee Mode</Text>
+              <AppIcon name="arrow-right" size={12} color="#ffffff" />
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* TOP SEGMENTED TAB SWITCHER */}
         <View style={styles.tabSwitcher}>
           <TouchableOpacity
@@ -993,7 +1108,111 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       <Text style={styles.reportContentText} numberOfLines={2}>
                         {req.requirements || 'No specific description provided.'}
                       </Text>
-                      <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, marginTop: 4 }}>
+
+                      {/* Client Attachments in Request Card */}
+                      {(() => {
+                        const attList = parseAttachments(
+                          req.attachment ||
+                          req.attachments ||
+                          req.fileUrl ||
+                          req.file_url ||
+                          req.client_attachment ||
+                          req.files
+                        );
+                        if (attList.length === 0) return null;
+                        return (
+                          <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                            {attList.map((attUrl, aIdx) => {
+                              const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `File ${aIdx + 1}`;
+                              return (
+                                <TouchableOpacity
+                                  key={aIdx}
+                                  style={[
+                                    styles.reqAttachPill,
+                                    {
+                                      backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                                      borderColor: isDark ? '#3b82f644' : '#bfdbfe',
+                                    },
+                                  ]}
+                                  onPress={() => handleOpenAttachment(attUrl)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={styles.reqAttachPillText} numberOfLines={1}>
+                                    📎 {decodeURIComponent(filename)}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        );
+                      })()}
+
+                      {/* Team Member Work Submission on Request Card */}
+                      {(() => {
+                        const reqIdStr = String(req.id || req._id || '');
+                        const matchingTask = (tasksList || []).find(
+                          (t) => t.project_id && String(t.project_id) === reqIdStr
+                        );
+                        if (!matchingTask) return null;
+                        const submissionProofs = getTaskProofAttachments(matchingTask);
+                        if (submissionProofs.length === 0 && !matchingTask.completion_note && !isForReview) return null;
+
+                        return (
+                          <View style={{ marginTop: 10, padding: 8, borderRadius: 8, backgroundColor: isDark ? '#0f291e' : '#f0fdf4', borderWidth: 1, borderColor: isDark ? '#059669' : '#bbf7d0' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#34d399' : '#16a34a' }}>
+                                ✅ {matchingTask.assignedToName ? `${matchingTask.assignedToName}'s Submission` : 'Work Submitted'}
+                              </Text>
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: (matchingTask.status === 'Completed' || req.status === 'Completed') ? '#16a34a' : '#2563eb' }}>
+                                {req.status === 'Completed' ? 'Completed' : (matchingTask.status || 'Submitted')}
+                              </Text>
+                            </View>
+                            {matchingTask.completion_note ? (
+                              <Text style={{ fontSize: 11.5, color: themeColors.textPrimary, marginBottom: submissionProofs.length > 0 ? 6 : 0 }} numberOfLines={2}>
+                                Note: {matchingTask.completion_note}
+                              </Text>
+                            ) : null}
+                            {submissionProofs.length > 0 && (
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                                {submissionProofs.map((proofUrl, pIdx) => {
+                                  const filename = typeof proofUrl === 'string' ? proofUrl.split('/').pop().split('?')[0] : `Proof ${pIdx + 1}`;
+                                  const isImg = isImageUrl(proofUrl);
+                                  const isVid = isVideoUrl(proofUrl);
+                                  const isAud = isAudioUrl(proofUrl);
+                                  return (
+                                    <TouchableOpacity
+                                      key={pIdx}
+                                      style={[
+                                        styles.reqAttachPill,
+                                        {
+                                          backgroundColor: isDark ? '#022c22' : '#dcfce7',
+                                          borderColor: isDark ? '#059669' : '#86efac',
+                                          paddingVertical: 4,
+                                          paddingHorizontal: 8,
+                                          flexDirection: 'row',
+                                          alignItems: 'center',
+                                          gap: 4,
+                                        },
+                                      ]}
+                                      onPress={() => handleOpenAttachment(proofUrl)}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Text style={{ fontSize: 11 }}>
+                                        {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📄'}
+                                      </Text>
+                                      <Text style={[styles.reqAttachPillText, { color: isDark ? '#34d399' : '#15803d', maxWidth: 140 }]} numberOfLines={1}>
+                                        {decodeURIComponent(filename)}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })()}
+
+                      <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, marginTop: 6 }}>
                         📅 Date: {new Date(req.created_at || Date.now()).toLocaleDateString()}
                       </Text>
                     </View>
@@ -1669,6 +1888,51 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                   <Text style={{ fontSize: 12.5, color: themeColors.textPrimary }}>
                     {selectedRequest.requirements || 'No specific requirements provided.'}
                   </Text>
+
+                  {/* Client Attached Files / Briefs */}
+                  {(() => {
+                    const attList = parseAttachments(
+                      selectedRequest.attachment ||
+                      selectedRequest.attachments ||
+                      selectedRequest.fileUrl ||
+                      selectedRequest.file_url ||
+                      selectedRequest.client_attachment ||
+                      selectedRequest.files
+                    );
+                    if (attList.length === 0) return null;
+                    return (
+                      <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: themeColors.border, paddingTop: 8 }}>
+                        <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#2563eb', marginBottom: 6 }}>
+                          📎 CLIENT ATTACHMENTS ({attList.length}):
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                          {attList.map((attUrl, aIdx) => {
+                            const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                            return (
+                              <TouchableOpacity
+                                key={aIdx}
+                                style={[
+                                  styles.reqAttachPill,
+                                  {
+                                    backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                                    borderColor: isDark ? '#3b82f6' : '#93c5fd',
+                                    paddingVertical: 6,
+                                    paddingHorizontal: 10,
+                                  },
+                                ]}
+                                onPress={() => handleOpenAttachment(attUrl)}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={styles.reqAttachPillText} numberOfLines={1}>
+                                  📎 {decodeURIComponent(filename)}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })()}
                 </View>
 
                 {/* Employee Submission & Proof Files */}
@@ -1678,39 +1942,108 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                     <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 4 }}>Checking work submissions...</Text>
                   </View>
                 ) : matchingTaskSubmission ? (
-                  <View style={{ marginTop: 12, padding: 10, borderRadius: 8, backgroundColor: isDark ? '#1e293b' : '#ecfdf5', borderWidth: 1, borderColor: '#10b98144' }}>
-                    <Text style={{ fontSize: 11.5, fontWeight: '800', color: '#10b981', marginBottom: 4 }}>
+                  <View style={{ marginTop: 12, padding: 12, borderRadius: 10, backgroundColor: isDark ? '#1e293b' : '#ecfdf5', borderWidth: 1, borderColor: isDark ? '#334155' : '#a7f3d0' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: isDark ? '#34d399' : '#059669', marginBottom: 6 }}>
                       EMPLOYEE WORK SUBMISSION:
                     </Text>
-                    <Text style={{ fontSize: 12, color: themeColors.textPrimary }}>
+                    <Text style={{ fontSize: 12.5, color: themeColors.textPrimary }}>
                       Assigned To: <Text style={{ fontWeight: '700' }}>{matchingTaskSubmission.assignedToName || 'Specialist'}</Text>
                     </Text>
-                    <Text style={{ fontSize: 12, color: themeColors.textPrimary, marginTop: 2 }}>
-                      Task Status: <Text style={{ fontWeight: '700' }}>{matchingTaskSubmission.status || 'In Progress'}</Text>
-                    </Text>
-                    {matchingTaskSubmission.fileUrl ? (
-                      <TouchableOpacity
-                        onPress={() => Linking.openURL(matchingTaskSubmission.fileUrl).catch(() => { })}
-                        style={{ marginTop: 6 }}
-                      >
-                        <Text style={{ color: '#2563eb', fontSize: 12, fontWeight: '700' }}>
-                          🔗 View Uploaded Proof File
-                        </Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 4, fontStyle: 'italic' }}>
-                        No proof files uploaded yet.
+                    <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, marginTop: 3 }}>
+                      Task Status: <Text style={{ fontWeight: '700', color: (matchingTaskSubmission.status === 'Completed' || selectedRequest?.status === 'Completed') ? '#059669' : '#2563eb' }}>
+                        {selectedRequest?.status === 'Completed' ? 'Completed' : (matchingTaskSubmission.status || 'In Progress')}
                       </Text>
-                    )}
+                    </Text>
+
+                    {/* Employee Completion Note for TL */}
+                    {(matchingTaskSubmission.completion_note || matchingTaskSubmission.notes) ? (
+                      <View style={{ marginTop: 8, padding: 10, borderRadius: 8, backgroundColor: isDark ? '#0f172a' : '#ffffff', borderWidth: 1, borderColor: isDark ? '#334155' : '#86efac' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#34d399' : '#059669', marginBottom: 3 }}>
+                          📝 Employee Completion Note (TL Only):
+                        </Text>
+                        <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, lineHeight: 18 }}>
+                          {matchingTaskSubmission.completion_note || matchingTaskSubmission.notes}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {/* Work Proof Attachments */}
+                    {(() => {
+                      const proofList = getTaskProofAttachments(matchingTaskSubmission);
+                      if (proofList.length === 0) {
+                        return (
+                          <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 6, fontStyle: 'italic' }}>
+                            No proof files uploaded.
+                          </Text>
+                        );
+                      }
+                      return (
+                        <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: isDark ? '#334155' : '#d1fae5' }}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>
+                            📎 Uploaded Work Proofs ({proofList.length}):
+                          </Text>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                            {proofList.map((proofUrl, pIdx) => {
+                              const filename = typeof proofUrl === 'string' ? proofUrl.split('/').pop().split('?')[0] : `Proof ${pIdx + 1}`;
+                              const isImg = isImageUrl(proofUrl);
+                              const isVid = isVideoUrl(proofUrl);
+                              const isAud = isAudioUrl(proofUrl);
+                              return (
+                                <TouchableOpacity
+                                  key={pIdx}
+                                  style={[
+                                    styles.reqAttachPill,
+                                    {
+                                      backgroundColor: isDark ? '#0f172a' : '#dcfce7',
+                                      borderColor: isDark ? '#059669' : '#86efac',
+                                      paddingVertical: 6,
+                                      paddingHorizontal: 10,
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 5
+                                    },
+                                  ]}
+                                  onPress={() => handleOpenAttachment(proofUrl)}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={{ fontSize: 12 }}>
+                                    {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📄'}
+                                  </Text>
+                                  <Text style={[styles.reqAttachPillText, { color: isDark ? '#34d399' : '#15803d', maxWidth: 180 }]} numberOfLines={1}>
+                                    {decodeURIComponent(filename)}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      );
+                    })()}
                   </View>
                 ) : null}
               </ScrollView>
 
               <TouchableOpacity
-                style={[styles.modalSaveBtn, { marginTop: 14, flex: 0, width: '100%' }]}
+                style={{
+                  width: '100%',
+                  backgroundColor: '#2563eb',
+                  paddingVertical: 13,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 14,
+                  shadowColor: '#2563eb',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 4,
+                  elevation: 3,
+                }}
                 onPress={() => setViewReqModalVisible(false)}
+                activeOpacity={0.8}
               >
-                <Text style={styles.modalSaveText}>Close</Text>
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '800', letterSpacing: 0.3 }}>
+                  Close Details ✕
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1736,6 +2069,46 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             </View>
 
             <Text style={styles.inputLabel}>Service: {selectedRequest?.service_type || 'Service'}</Text>
+
+            {/* Client Attachments Preview in Assign Modal */}
+            {selectedRequest && (() => {
+              const attList = parseAttachments(
+                selectedRequest.attachment ||
+                selectedRequest.attachments ||
+                selectedRequest.fileUrl ||
+                selectedRequest.file_url ||
+                selectedRequest.client_attachment ||
+                selectedRequest.files
+              );
+              if (attList.length === 0) return null;
+              return (
+                <View style={{ marginTop: 8, marginBottom: 6 }}>
+                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#2563eb', marginBottom: 4 }}>
+                    📎 Attached Files ({attList.length}):
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {attList.map((attUrl, aIdx) => {
+                      const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                      return (
+                        <TouchableOpacity
+                          key={aIdx}
+                          style={[
+                            styles.reqAttachPill,
+                            { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: '#3b82f644' },
+                          ]}
+                          onPress={() => handleOpenAttachment(attUrl)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.reqAttachPillText} numberOfLines={1}>
+                            📎 {decodeURIComponent(filename)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })()}
 
             <Text style={[styles.inputLabel, { marginTop: 10 }]}>Select Team Specialist *</Text>
 
@@ -1879,26 +2252,112 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           />
           <View style={[styles.drawerContent, { backgroundColor: themeColors.drawerBg, borderColor: themeColors.border }]}>
             <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border }]}>
-              <View style={[styles.drawerAvatarContainer, { backgroundColor: '#2563eb' }]}>
+              
+              <View style={styles.drawerAvatarContainer}>
                 <Text style={styles.drawerAvatarText}>
-                  {(user?.name || 'TL').charAt(0).toUpperCase()}
+                  {user?.name ? user.name.charAt(0).toUpperCase() : 'L'}
                 </Text>
               </View>
               <Text style={[styles.drawerName, { color: themeColors.textPrimary }]} numberOfLines={1}>
                 {user?.name || 'Team Leader'}
               </Text>
               <Text style={[styles.drawerEmail, { color: themeColors.drawerSubtext }]} numberOfLines={1}>
-                {user?.department || 'Lead'} • {user?.email || 'leader@devicedesk.com'}
+                {user?.department || 'Operations Lead'} • {user?.email || 'leader@devicedesk.com'}
               </Text>
             </View>
 
-            <ScrollView style={styles.drawerItemsContainer} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.drawerItemsContainer}
+              contentContainerStyle={styles.drawerScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {onSwitchToEmployee && (
+                <View style={{ marginBottom: onSwitchToAdmin ? 8 : 12, marginTop: 4 }}>
+                  <View style={{
+                    padding: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: '#2563eb',
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: '#1d4ed8',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 18, marginRight: 8 }}>👔</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#ffffff' }}>
+                        Team Leader Mode
+                      </Text>
+                    </View>
+                    <Switch
+                      value={true}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToEmployee();
+                      }}
+                      trackColor={{ false: '#93c5fd', true: '#bfdbfe' }}
+                      thumbColor={'#ffffff'}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {onSwitchToAdmin && (
+                <View style={{ marginBottom: 12, marginTop: 0 }}>
+                  <TouchableOpacity
+                    style={{
+                      padding: 14,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: isDark ? 'rgba(8, 145, 178, 0.15)' : '#ecfeff',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(8, 145, 178, 0.35)' : '#a5f3fc',
+                    }}
+                    onPress={() => {
+                      setIsDrawerOpen(false);
+                      onSwitchToAdmin();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 16, marginRight: 8 }}>💻</Text>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: '700',
+                          color: isDark ? '#22d3ee' : '#0891b2',
+                        }}
+                      >
+                        IT Support Portal
+                      </Text>
+                    </View>
+                    <AppIcon
+                      name="arrow-right"
+                      size={14}
+                      color={isDark ? '#22d3ee' : '#0891b2'}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {navMenuItems.map((item) => {
                 const isActive = activeTab === item.id;
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.drawerItem, isActive && styles.drawerItemActive]}
+                    style={[
+                      styles.drawerItem,
+                      isActive && [
+                        styles.drawerItemActive,
+                        {
+                          backgroundColor: isDark ? 'rgba(37, 99, 235, 0.18)' : '#eff6ff',
+                          borderColor: isDark ? '#3b82f6' : '#bfdbfe',
+                        }
+                      ],
+                    ]}
                     onPress={() => {
                       setActiveTab(item.id);
                       setIsDrawerOpen(false);
@@ -1908,12 +2367,15 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       name={item.icon}
                       size={18}
                       color={isActive ? '#2563eb' : themeColors.drawerItemText}
-                      style={{ marginRight: 10 }}
+                      style={{ marginRight: 12 }}
                     />
                     <Text
                       style={[
                         styles.drawerItemLabel,
-                        { color: isActive ? '#2563eb' : themeColors.drawerItemText, fontWeight: isActive ? '800' : '600' },
+                        {
+                          color: isActive ? '#2563eb' : themeColors.drawerItemText,
+                          fontWeight: isActive ? '800' : '600',
+                        },
                       ]}
                     >
                       {item.label}
@@ -1927,60 +2389,22 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 );
               })}
 
-              {/* My Employee Profile Switch */}
-              {onSwitchToEmployee && (
-                <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 16 }}>
-                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(37, 99, 235, 0.1)' : 'rgba(37, 99, 235, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(37, 99, 235, 0.3)' : 'rgba(37, 99, 235, 0.2)' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <AppIcon name="user" size={16} color="#2563eb" style={{ marginRight: 8 }} />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>TL Portal</Text>
-                    </View>
-                    <Switch
-                      value={true}
-                      onValueChange={() => {
-                        setIsDrawerOpen(false);
-                        onSwitchToEmployee();
-                      }}
-                      trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
-                      thumbColor={'#3b82f6'}
-                    />
-                  </View>
-                </View>
-              )}
-
-              {/* Admin Portal Switch */}
-              {onSwitchToAdmin && (
-                <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-                  <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(220, 38, 38, 0.1)' : 'rgba(220, 38, 38, 0.05)', borderRadius: 12, borderWidth: 1, borderColor: isDark ? 'rgba(220, 38, 38, 0.3)' : 'rgba(220, 38, 38, 0.2)' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <AppIcon name="settings" size={16} color="#dc2626" style={{ marginRight: 8 }} />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#dc2626' }}>IT Portal</Text>
-                    </View>
-                    <Switch
-                      value={false}
-                      onValueChange={() => {
-                        setIsDrawerOpen(false);
-                        onSwitchToAdmin();
-                      }}
-                      trackColor={{ false: '#cbd5e1', true: '#fca5a5' }}
-                      thumbColor={'#f8fafc'}
-                    />
-                  </View>
-                </View>
-              )}
-
-              {/* Theme Toggle */}
+              {/* Theme Toggle Button */}
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
                   {
+                    flexDirection: 'row',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
-                    marginTop: 14,
-                    marginBottom: 14,
+                    marginTop: 8,
+                    marginBottom: 8,
                     backgroundColor: isDark ? '#334155' : '#f1f5f9',
                     paddingHorizontal: 12,
-                    paddingVertical: 8,
+                    paddingVertical: 10,
                     borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#475569' : '#e2e8f0',
                   },
                 ]}
                 activeOpacity={0.8}
@@ -1988,7 +2412,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 10 }} />
-                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText, fontWeight: '700' }]}>
+                  <Text style={{ fontSize: 13.5, color: themeColors.drawerItemText, fontWeight: '700' }}>
                     {isDark ? 'Dark Mode' : 'Light Mode'}
                   </Text>
                 </View>
@@ -2000,278 +2424,35 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 />
               </TouchableOpacity>
             </ScrollView>
+
+            {onLogout && (
+              <TouchableOpacity
+                style={[
+                  styles.drawerLogoutBtn,
+                  {
+                    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                    borderTopColor: themeColors.border,
+                  }
+                ]}
+                onPress={() => {
+                  setIsDrawerOpen(false);
+                  sweetAlert({
+                    title: 'Log Out',
+                    text: 'Are you sure you want to log out of your session?',
+                    type: 'warning',
+                    showCancel: true,
+                    onConfirm: onLogout,
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <AppIcon name="logout" size={16} color="#dc2626" style={{ marginRight: 8 }} />
+                <Text style={styles.drawerLogoutText}>Log Out 🚪</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
-
-      {/* ATTACHMENT FULLSCREEN VIEWER MODAL */}
-      <Modal
-        visible={!!previewAttachmentUrl}
-        transparent
-        animationType="fade"
-        onRequestClose={handleClosePreview}
-      >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0, 0, 0, 0.94)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 16
-        }}>
-          {/* Top Bar with Open In Browser & Close Buttons */}
-          <View style={{
-            position: 'absolute',
-            top: Platform.OS === 'ios' ? 50 : 25,
-            left: 20,
-            right: 20,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            zIndex: 10
-          }}>
-            <TouchableOpacity
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderRadius: 8,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6
-              }}
-              onPress={() => previewAttachmentUrl && Linking.openURL(previewAttachmentUrl).catch(() => {})}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Open External ↗</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                justifyContent: 'center',
-                alignItems: 'center'
-              }}
-              onPress={handleClosePreview}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Media Display or Error Fallback */}
-          {previewError ? (
-            <View style={{ width: '100%', height: '70%', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-                <AppIcon name="warning" size={32} color="#ef4444" />
-              </View>
-              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>No Attachment Found</Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13, textAlign: 'center', marginBottom: 20, lineHeight: 18, maxWidth: 280 }}>
-                The attachment file could not be found or failed to load from the server.
-              </Text>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                  paddingHorizontal: 18,
-                  paddingVertical: 10,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.25)'
-                }}
-                onPress={() => previewAttachmentUrl && Linking.openURL(previewAttachmentUrl).catch(() => {})}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Try Direct Link ↗</Text>
-              </TouchableOpacity>
-            </View>
-          ) : isImageUrl(previewAttachmentUrl) ? (
-            <View style={{ width: '100%', height: '80%', justifyContent: 'center', alignItems: 'center' }}>
-              <Image
-                source={{ uri: previewAttachmentUrl }}
-                style={{ width: '100%', height: '100%', borderRadius: 8 }}
-                resizeMode="contain"
-                onError={() => setPreviewError(true)}
-              />
-            </View>
-          ) : isVideoUrl(previewAttachmentUrl) ? (
-            <View style={{ width: '100%', height: '80%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' }}>
-              <Video
-                source={{ uri: previewAttachmentUrl }}
-                style={{ width: '100%', height: '100%' }}
-                controls={true}
-                resizeMode="contain"
-                paused={false}
-                onError={() => setPreviewError(true)}
-              />
-            </View>
-          ) : isAudioUrl(previewAttachmentUrl) ? (
-            <View style={{ width: '100%', maxWidth: 350, backgroundColor: 'rgba(30, 41, 59, 0.95)', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 16, elevation: 10 }}>
-              {/* Background Video engine powering audio */}
-              <Video
-                ref={audioPlayerRef}
-                source={{ uri: previewAttachmentUrl }}
-                style={{ width: 0, height: 0, position: 'absolute' }}
-                paused={audioPaused}
-                playInBackground={false}
-                playWhenInactive={false}
-                ignoreSilentSwitch="ignore"
-                onLoad={(data) => {
-                  setAudioLoading(false);
-                  setAudioDuration(data.duration || 0);
-                }}
-                onProgress={(data) => {
-                  setAudioCurrentTime(data.currentTime || 0);
-                }}
-                onEnd={() => {
-                  setAudioPaused(true);
-                  setAudioCurrentTime(audioDuration);
-                }}
-                onError={() => {
-                  setAudioLoading(false);
-                  setPreviewError(true);
-                }}
-              />
-
-              {/* Glowing Icon Header */}
-              <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(59, 130, 246, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 14, borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.4)' }}>
-                <Text style={{ fontSize: 34 }}>🎙️</Text>
-              </View>
-
-              <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '800', marginBottom: 4, textAlign: 'center' }}>
-                Audio Recording
-              </Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, marginBottom: 20, textAlign: 'center', paddingHorizontal: 10 }} numberOfLines={1}>
-                {previewAttachmentUrl.split('/').pop()}
-              </Text>
-
-              {/* Interactive Progress Bar */}
-              <View style={{ width: '100%', height: 18, justifyContent: 'center', marginBottom: 4 }}>
-                <View style={{ width: '100%', height: 6, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 3, overflow: 'hidden' }}>
-                  <View
-                    style={{
-                      height: '100%',
-                      backgroundColor: '#3b82f6',
-                      borderRadius: 3,
-                      width: `${audioDuration > 0 ? Math.min(100, (audioCurrentTime / audioDuration) * 100) : 0}%`
-                    }}
-                  />
-                </View>
-              </View>
-
-              {/* Time Indicators */}
-              <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-                <Text style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: 12, fontWeight: '700' }}>
-                  {formatAudioTime(audioCurrentTime)}
-                </Text>
-                <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, fontWeight: '600' }}>
-                  {audioLoading ? 'Loading...' : formatAudioTime(audioDuration)}
-                </Text>
-              </View>
-
-              {/* Audio Controls Row */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-                {/* Replay Button */}
-                <TouchableOpacity
-                  style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
-                  onPress={() => {
-                    audioPlayerRef.current?.seek(0);
-                    setAudioCurrentTime(0);
-                    setAudioPaused(false);
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 17 }}>↺</Text>
-                </TouchableOpacity>
-
-                {/* Rewind 10s */}
-                <TouchableOpacity
-                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
-                  onPress={() => {
-                    const newTime = Math.max(0, audioCurrentTime - 10);
-                    audioPlayerRef.current?.seek(newTime);
-                    setAudioCurrentTime(newTime);
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>-10s</Text>
-                </TouchableOpacity>
-
-                {/* Main Play / Pause Button */}
-                <TouchableOpacity
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: 30,
-                    backgroundColor: '#2563eb',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    shadowColor: '#2563eb',
-                    shadowOpacity: 0.5,
-                    shadowRadius: 8,
-                    elevation: 6
-                  }}
-                  onPress={() => {
-                    if (audioCurrentTime >= audioDuration && audioDuration > 0) {
-                      audioPlayerRef.current?.seek(0);
-                      setAudioCurrentTime(0);
-                      setAudioPaused(false);
-                    } else {
-                      setAudioPaused(!audioPaused);
-                    }
-                  }}
-                >
-                  {audioLoading ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <AppIcon name={audioPaused ? 'play' : 'pause'} size={24} color="#ffffff" />
-                  )}
-                </TouchableOpacity>
-
-                {/* Forward 10s */}
-                <TouchableOpacity
-                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
-                  onPress={() => {
-                    if (audioDuration > 0) {
-                      const newTime = Math.min(audioDuration, audioCurrentTime + 10);
-                      audioPlayerRef.current?.seek(newTime);
-                      setAudioCurrentTime(newTime);
-                    }
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>+10s</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : previewAttachmentUrl ? (
-            <View style={{ width: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 16, padding: 24 }}>
-              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(59, 130, 246, 0.25)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 30 }}>📄</Text>
-              </View>
-              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: 'bold', marginBottom: 6 }}>
-                Document Attachment
-              </Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, textAlign: 'center', marginBottom: 20, maxWidth: 260 }} numberOfLines={2}>
-                {previewAttachmentUrl.split('/').pop()}
-              </Text>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#2563eb',
-                  paddingHorizontal: 20,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  shadowColor: '#2563eb',
-                  shadowOpacity: 0.3,
-                  shadowRadius: 6,
-                  elevation: 4
-                }}
-                onPress={() => Linking.openURL(previewAttachmentUrl).catch(() => {})}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Open / Download File ↗</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-        </View>
-      </Modal>
     </ContainerComponent>
   );
 }
@@ -2337,16 +2518,54 @@ function getStyles(themeColors, isDark) {
       alignItems: 'center',
       gap: 4,
       backgroundColor: isDark ? '#1e293b' : '#eff6ff',
-      paddingHorizontal: 8,
-      paddingVertical: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
       borderRadius: 8,
       borderWidth: 1,
       borderColor: isDark ? '#3b82f6' : '#bfdbfe',
     },
     employeeSwitchPillText: {
-      fontSize: 11,
+      fontSize: 11.5,
       fontWeight: '700',
       color: isDark ? '#93c5fd' : '#2563eb',
+    },
+    leaderSwitchBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      marginBottom: 12,
+      borderRadius: 10,
+    },
+    leaderSwitchBtnPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#2563eb',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+      gap: 4,
+    },
+    leaderSwitchBtnPillText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#ffffff',
+    },
+    reqAttachPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+      maxWidth: '100%',
+    },
+    reqAttachPillText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#2563eb',
     },
     iconCircleBtn: {
       padding: 7,
@@ -2869,11 +3088,13 @@ function getStyles(themeColors, isDark) {
     modalSheet: {
       width: '100%',
       maxWidth: 420,
+      maxHeight: '88%',
       backgroundColor: themeColors.cardBg,
       borderRadius: 16,
       borderWidth: 1,
       borderColor: themeColors.border,
       padding: 16,
+      paddingBottom: 16,
     },
     modalHeader: {
       flexDirection: 'row',
@@ -2979,76 +3200,118 @@ function getStyles(themeColors, isDark) {
     },
     drawerOverlay: {
       position: 'absolute',
-      inset: 0,
-      zIndex: 100,
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
       flexDirection: 'row',
+      zIndex: 999,
     },
     drawerBackdrop: {
       position: 'absolute',
-      inset: 0,
-      backgroundColor: 'rgba(0,0,0,0.6)',
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(15, 23, 42, 0.4)',
     },
     drawerContent: {
-      width: '78%',
-      maxWidth: 300,
+      width: 290,
       height: '100%',
+      backgroundColor: themeColors.drawerBg,
       borderRightWidth: 1,
-      paddingTop: 10,
+      borderColor: themeColors.border,
+      paddingHorizontal: 16,
+      paddingTop: 45,
+      paddingBottom: 20,
+      flexDirection: 'column',
     },
     drawerHeader: {
-      padding: 16,
+      alignItems: 'center',
       borderBottomWidth: 1,
+      borderBottomColor: themeColors.border,
+      paddingBottom: 16,
+      marginBottom: 12,
     },
     drawerAvatarContainer: {
-      width: 44,
-      height: 44,
-      borderRadius: 12,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff',
+      borderWidth: 2,
+      borderColor: '#2563eb',
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 10,
+      marginBottom: 8,
     },
     drawerAvatarText: {
-      color: '#ffffff',
-      fontSize: 18,
+      fontSize: 26,
       fontWeight: '800',
+      color: '#2563eb',
     },
     drawerName: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '800',
+      color: themeColors.textPrimary,
+      textAlign: 'center',
     },
     drawerEmail: {
-      fontSize: 11.5,
-      marginTop: 2,
+      fontSize: 12,
+      color: themeColors.drawerSubtext,
+      marginTop: 3,
+      textAlign: 'center',
     },
     drawerItemsContainer: {
       flex: 1,
-      padding: 12,
+    },
+    drawerScrollContent: {
+      paddingVertical: 6,
+      paddingBottom: 16,
     },
     drawerItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 10,
+      paddingVertical: 12,
       paddingHorizontal: 12,
-      borderRadius: 10,
-      marginBottom: 4,
+      borderRadius: 12,
+      marginBottom: 6,
     },
     drawerItemActive: {
-      backgroundColor: 'rgba(37, 99, 235, 0.12)',
+      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.18)' : '#eff6ff',
+      borderWidth: 1,
+      borderColor: isDark ? '#3b82f6' : '#bfdbfe',
     },
     drawerItemLabel: {
-      fontSize: 12.5,
+      fontSize: 14,
+      fontWeight: '600',
+      color: themeColors.drawerItemText,
     },
     drawerBadge: {
       marginLeft: 'auto',
       backgroundColor: '#2563eb',
-      paddingHorizontal: 6,
+      paddingHorizontal: 7,
       paddingVertical: 2,
       borderRadius: 10,
     },
     drawerBadgeText: {
       color: '#ffffff',
-      fontSize: 10,
+      fontSize: 11,
       fontWeight: '800',
+    },
+    drawerLogoutBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      borderTopWidth: 1,
+      borderTopColor: themeColors.border,
+      borderRadius: 12,
+      marginTop: 8,
+    },
+    drawerLogoutText: {
+      color: '#dc2626',
+      fontSize: 14,
+      fontWeight: '700',
     },
     // CLIENT CHAT / NOTES STYLES
     clientChatHeaderBox: {

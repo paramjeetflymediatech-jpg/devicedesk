@@ -88,21 +88,41 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
   const roleStr = (user?.role || '').toLowerCase().trim();
   const deptStr = (user?.department || '').toLowerCase().trim();
 
+  const isTeamLeaderUser =
+    dbRoleStr === 'team leader' ||
+    dbRoleStr === 'tl' ||
+    dbRoleStr === 'team lead' ||
+    dbRoleStr === 'team_lead' ||
+    dbRoleStr.includes('leader') ||
+    roleStr.includes('leader') ||
+    roleStr === 'tl' ||
+    Boolean(user?.isLeader);
+
   const isMarketingUser =
-    dbRoleStr === 'admin' ||
-    dbRoleStr === 'superadmin' ||
-    dbRoleStr === 'management' ||
-    deptStr === 'marketing' ||
-    dbRoleStr.includes('marketing') ||
-    authorizedMarketingIds.includes(user?.id);
+    !isTeamLeaderUser &&
+    (deptStr === 'marketing' ||
+      dbRoleStr.includes('marketing') ||
+      authorizedMarketingIds.includes(user?.id));
+
+  const isHRDeptCheck = (d) => {
+    if (!d) return false;
+    const str = d.toLowerCase().trim();
+    return (
+      str === 'hr' ||
+      str === 'human resources' ||
+      str === 'human resource' ||
+      str.startsWith('hr ') ||
+      str.endsWith(' hr') ||
+      str.includes(' hr ') ||
+      str.includes('human resources') ||
+      str.includes('human resource')
+    );
+  };
 
   const isHRUser =
-    dbRoleStr === 'hr' ||
-    dbRoleStr.includes('hr') ||
-    roleStr.includes('hr') ||
-    deptStr === 'hr' ||
-    deptStr.includes('hr') ||
-    deptStr.includes('human resource');
+    isHRDeptCheck(dbRoleStr) ||
+    isHRDeptCheck(roleStr) ||
+    isHRDeptCheck(deptStr);
 
   const isAdminUser =
     dbRoleStr === 'admin' ||
@@ -112,8 +132,31 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
 
   const isITUser =
     dbRoleStr === 'it support' ||
+    dbRoleStr === 'it_support' ||
+    dbRoleStr === 'it engineer' ||
+    dbRoleStr === 'it_engineer' ||
     dbRoleStr === 'it' ||
-    deptStr.includes('it');
+    roleStr === 'it engineer' ||
+    roleStr === 'it support' ||
+    roleStr.startsWith('it ') ||
+    roleStr.endsWith(' it') ||
+    roleStr.includes(' it ') ||
+    roleStr.includes('it support') ||
+    roleStr.includes('it engineer') ||
+    roleStr.includes('network engineer') ||
+    roleStr.includes('system administrator') ||
+    deptStr === 'it' ||
+    deptStr === 'it support' ||
+    deptStr === 'information technology' ||
+    deptStr === 'it department' ||
+    deptStr.startsWith('it ') ||
+    deptStr.endsWith(' it') ||
+    deptStr.includes(' it ') ||
+    deptStr.includes('it support') ||
+    deptStr.includes('information technology') ||
+    dbRoleStr.startsWith('it ') ||
+    dbRoleStr.includes('it support') ||
+    dbRoleStr.includes('it engineer');
 
   const isDnsUser =
     dbRoleStr === 'dns manager' ||
@@ -1039,23 +1082,25 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             />
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={() => {
-            sweetAlert({
-              title: 'Log Out',
-              text: 'Are you sure you want to log out of your session?',
-              type: 'warning',
-              showCancel: true,
-              onConfirm: onLogout,
-            });
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <AppIcon name="logout" size={15} color="#dc2626" />
-            <Text style={styles.logoutBtnText}>Log Out</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() => {
+              sweetAlert({
+                title: 'Log Out',
+                text: 'Are you sure you want to log out of your session?',
+                type: 'warning',
+                showCancel: true,
+                onConfirm: onLogout,
+              });
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <AppIcon name="logout" size={15} color="#dc2626" />
+              <Text style={styles.logoutBtnText}>Log Out</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Return Switcher Banner (HR, Team Leader, or Admin/IT) */}
@@ -1187,17 +1232,18 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             <ScrollView style={styles.modalScroll}>
               <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>1. Privacy Policy & Data Collection</Text>
               <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
-                {"DeviceDesk collects system specifications, employee assignments, location coordinates (GPS for punch in/out verification), camera photos for tickets/chat attachments, and IT support tickets to facilitate hardware inventory tracking. Data is stored securely in encrypted databases. We do not share, sell, or distribute your personal details or usage history to any third parties."}
+                {"Device Desk (DeviceDesk) is operated by Fly Media Technology. We collect minimal operational data including system specs, punch-in/out GPS coordinates, photos for IT tickets, and push notification tokens. Data is encrypted in transit and at rest. We never sell user data."}
               </Text>
 
               <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>2. Terms & Conditions</Text>
               <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
-                This system is provided exclusively for authorized internal corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited. All transactions, assignments, and support tickets raised are logged and audited.
+                This system is provided exclusively for authorized corporate inventory tracking and maintenance coordination. Unauthorized access or attempt to tamper with system records is strictly prohibited.
               </Text>
 
               <Text style={[styles.legalHeader, { color: themeColors.textPrimary }]}>3. Permanent Account Deletion</Text>
               <Text style={[styles.legalText, { color: themeColors.textSecondary }]}>
-                Deleting your account will permanently wipe your profile record, delete your raised tickets, and unassign any active inventory assets. You can delete your account directly using the button below, or submit a deletion request on our web portal at https://devicedesk.app/account-deletion
+                Deleting your account permanently deletes your profile, credentials, and raised tickets. You can delete your account using the button below or online at:
+                {"\n"}https://devicedesk.flymediatech.com/account-deletion
               </Text>
 
               <TouchableOpacity
@@ -1253,35 +1299,69 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
               keyboardShouldPersistTaps="handled"
             >
               {onSwitchToLeader && (
-                <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 16 }}>
-                  <TouchableOpacity
-                    style={{
-                      padding: 14,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff',
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: isDark ? 'rgba(37, 99, 235, 0.35)' : '#bfdbfe',
-                    }}
-                    onPress={() => {
-                      setIsDrawerOpen(false);
-                      onSwitchToLeader();
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={{ fontSize: 16 }}>👔</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563eb' }}>Team Leader Portal</Text>
+                <View style={{ marginBottom: 12, marginTop: 4 }}>
+                  <View style={{
+                    padding: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 18, marginRight: 8 }}>👔</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#f8fafc' : '#1e293b' }}>
+                        Team Leader Mode
+                      </Text>
                     </View>
-                    <AppIcon name="arrow-right" size={14} color="#2563eb" />
-                  </TouchableOpacity>
+                    <Switch
+                      value={false}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToLeader();
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
+                      thumbColor={isDark ? '#94a3b8' : '#ffffff'}
+                    />
+                  </View>
                 </View>
               )}
 
-              {onSwitchToAdmin && (
-                <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: onSwitchToLeader ? 0 : 16 }}>
+              {onSwitchToAdmin && isITUser && (
+                <View style={{ marginBottom: 12, marginTop: onSwitchToLeader ? 0 : 4 }}>
+                  <View style={{
+                    padding: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 18, marginRight: 8 }}>💻</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: isDark ? '#f8fafc' : '#1e293b' }}>
+                        IT Engineer Mode
+                      </Text>
+                    </View>
+                    <Switch
+                      value={false}
+                      onValueChange={() => {
+                        setIsDrawerOpen(false);
+                        onSwitchToAdmin();
+                      }}
+                      trackColor={{ false: '#cbd5e1', true: '#a5f3fc' }}
+                      thumbColor={isDark ? '#94a3b8' : '#ffffff'}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {onSwitchToAdmin && !isITUser && (
+                <View style={{ marginBottom: 12, marginTop: onSwitchToLeader ? 0 : 4 }}>
                   <TouchableOpacity
                     style={{
                       padding: 14,
@@ -1289,13 +1369,13 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       backgroundColor: isDark
-                        ? (isHRUser ? 'rgba(236, 72, 153, 0.15)' : isITUser ? 'rgba(8, 145, 178, 0.15)' : 'rgba(37, 99, 235, 0.15)')
-                        : (isHRUser ? '#fdf2f8' : isITUser ? '#ecfeff' : '#eff6ff'),
+                        ? (isHRUser ? 'rgba(236, 72, 153, 0.15)' : 'rgba(37, 99, 235, 0.15)')
+                        : (isHRUser ? '#fdf2f8' : '#eff6ff'),
                       borderRadius: 12,
                       borderWidth: 1,
                       borderColor: isDark
-                        ? (isHRUser ? 'rgba(236, 72, 153, 0.35)' : isITUser ? 'rgba(8, 145, 178, 0.35)' : 'rgba(37, 99, 235, 0.35)')
-                        : (isHRUser ? '#fbcfe8' : isITUser ? '#a5f3fc' : '#bfdbfe'),
+                        ? (isHRUser ? 'rgba(236, 72, 153, 0.35)' : 'rgba(37, 99, 235, 0.35)')
+                        : (isHRUser ? '#fbcfe8' : '#bfdbfe'),
                     }}
                     onPress={() => {
                       setIsDrawerOpen(false);
@@ -1304,21 +1384,21 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                     activeOpacity={0.8}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={{ fontSize: 16 }}>{isHRUser ? '💼' : isITUser ? '💻' : isDnsUser ? '🌐' : '🛡️'}</Text>
+                      <Text style={{ fontSize: 16 }}>{isHRUser ? '💼' : isDnsUser ? '🌐' : '🛡️'}</Text>
                       <Text
                         style={{
                           fontSize: 14,
                           fontWeight: '700',
-                          color: isHRUser ? '#db2777' : isITUser ? '#0891b2' : '#2563eb',
+                          color: isHRUser ? '#db2777' : '#2563eb',
                         }}
                       >
-                        {isHRUser ? 'HR Administrator Portal' : isITUser ? 'IT Support Portal' : isDnsUser ? 'DNS Manager Portal' : 'Admin Console'}
+                        {isHRUser ? 'HR Administrator Portal' : isDnsUser ? 'DNS Manager Portal' : 'Admin Console'}
                       </Text>
                     </View>
                     <AppIcon
                       name="arrow-right"
                       size={14}
-                      color={isHRUser ? '#db2777' : isITUser ? '#0891b2' : '#2563eb'}
+                      color={isHRUser ? '#db2777' : '#2563eb'}
                     />
                   </TouchableOpacity>
                 </View>
@@ -1382,23 +1462,25 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                 style={[
                   styles.drawerItem,
                   {
+                    flexDirection: 'row',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
                     marginTop: 8,
                     marginBottom: 8,
                     backgroundColor: isDark ? '#334155' : '#f1f5f9',
                     paddingHorizontal: 12,
-                    paddingVertical: 8,
+                    paddingVertical: 10,
                     borderRadius: 12,
                     borderWidth: 1,
                     borderColor: isDark ? '#475569' : '#e2e8f0',
-                  }
+                  },
                 ]}
                 activeOpacity={0.8}
                 onPress={toggleTheme}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 12 }} />
-                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText, fontWeight: '700' }]}>
+                  <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 10 }} />
+                  <Text style={{ fontSize: 13.5, color: themeColors.drawerItemText, fontWeight: '700' }}>
                     {isDark ? 'Dark Mode' : 'Light Mode'}
                   </Text>
                 </View>
@@ -2401,6 +2483,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0f172a',
+  },
+  employeeSwitchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  employeeSwitchPillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
   },
   leaderSwitchBanner: {
     flexDirection: 'row',

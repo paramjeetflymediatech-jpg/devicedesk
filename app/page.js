@@ -91,7 +91,32 @@ export default function Home() {
         emailLower === 'pravi@yopmail.com' ||
         emailLower === 'admin@devicedesk.com';
 
-      const isITSupport = dbRoleLower.includes('it') || deptLower.includes('it') || roleLower.includes('it');
+      const isITSupport =
+        deptLower === 'it' ||
+        deptLower === 'it support' ||
+        deptLower === 'it_support' ||
+        deptLower === 'it department' ||
+        deptLower === 'information technology' ||
+        deptLower.startsWith('it ') ||
+        deptLower.endsWith(' it') ||
+        deptLower.includes(' it ') ||
+        deptLower.includes('it support') ||
+        dbRoleLower === 'it' ||
+        dbRoleLower === 'it support' ||
+        dbRoleLower === 'it_support' ||
+        dbRoleLower === 'it engineer' ||
+        dbRoleLower === 'it_engineer' ||
+        dbRoleLower.startsWith('it ') ||
+        dbRoleLower.endsWith(' it') ||
+        dbRoleLower.includes(' it ') ||
+        dbRoleLower.includes('it support') ||
+        roleLower === 'it' ||
+        roleLower === 'it engineer' ||
+        roleLower === 'it support' ||
+        roleLower.startsWith('it ') ||
+        roleLower.endsWith(' it') ||
+        roleLower.includes(' it ') ||
+        roleLower.includes('it support');
       const isDNS = dbRoleLower === 'dns manager' || deptLower === 'dns manager';
 
       if (!isRootAdmin && !isITSupport && !isDNS) {
@@ -187,8 +212,31 @@ export default function Home() {
 
   // IT person (IT Support / IT Engineer / IT Dept) is restricted to IT Desk sections
   const isITSupport = isMounted && !isRootAdmin && (
-    dbRoleLower.includes('it') ||
-    deptLower.includes('it')
+    deptLower === 'it' ||
+    deptLower === 'it support' ||
+    deptLower === 'it_support' ||
+    deptLower === 'it department' ||
+    deptLower === 'information technology' ||
+    deptLower.startsWith('it ') ||
+    deptLower.endsWith(' it') ||
+    deptLower.includes(' it ') ||
+    deptLower.includes('it support') ||
+    dbRoleLower === 'it' ||
+    dbRoleLower === 'it support' ||
+    dbRoleLower === 'it_support' ||
+    dbRoleLower === 'it engineer' ||
+    dbRoleLower === 'it_engineer' ||
+    dbRoleLower.startsWith('it ') ||
+    dbRoleLower.endsWith(' it') ||
+    dbRoleLower.includes(' it ') ||
+    dbRoleLower.includes('it support') ||
+    roleLower === 'it' ||
+    roleLower === 'it engineer' ||
+    roleLower === 'it support' ||
+    roleLower.startsWith('it ') ||
+    roleLower.endsWith(' it') ||
+    roleLower.includes(' it ') ||
+    roleLower.includes('it support')
   );
 
   const isDnsManager = isMounted && (

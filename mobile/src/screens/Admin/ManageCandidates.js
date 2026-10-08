@@ -9,6 +9,9 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
+  Linking,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import {
   fetchCandidatesPoolApi,
@@ -16,32 +19,72 @@ import {
   updateCandidatePoolApi,
   fetchCandidatesListApi,
   evaluateCandidateTestApi,
+  approveCandidateRegistrationApi,
 } from '../../utils/api';
 import { useTheme } from '../../utils/ThemeContext';
 import { sweetAlert } from '../../utils/sweetAlert';
 
+const { width } = Dimensions.get('window');
+
+const PREDEFINED_TEMPLATES = {
+  aptitude: [
+    { question: 'What is 15% of 80?', options: ['10', '12', '15', '20'], correctIndex: 1 },
+    { question: 'If all bloops are razzies and all razzies are lazzies, are all bloops lazzies?', options: ['Yes', 'No', 'Cannot be determined', 'Sometimes'], correctIndex: 0 },
+    { question: 'A train travels 60 miles in 1.5 hours. What is its average speed in mph?', options: ['30', '40', '45', '50'], correctIndex: 1 },
+    { question: 'If a shopkeeper sells an item for $80 and makes a profit of 20%, what was the original cost of the item?', options: ['$60', '$64', '$66.67', '$70'], correctIndex: 2 },
+    { question: 'A bag contains 5 red, 3 blue, and 2 green balls. What is the probability of drawing a blue ball?', options: ['1/10', '3/10', '1/5', '2/5'], correctIndex: 1 },
+  ],
+  english: [
+    { question: 'Choose the correct synonym for "Abundant":', options: ['Scarce', 'Plentiful', 'Empty', 'Brief'], correctIndex: 1 },
+    { question: 'Identify the grammatically correct sentence:', options: ['He don\'t know nothing.', 'She doesn\'t know anything.', 'They hasn\'t known nothing.', 'I doesn\'t know anything.'], correctIndex: 1 },
+    { question: 'What is the antonym of "Expand"?', options: ['Enlarge', 'Shrink', 'Grow', 'Develop'], correctIndex: 1 },
+    { question: 'Which word is a synonym for "benevolent"?', options: ['Malevolent', 'Generous', 'Cruel', 'Selfish'], correctIndex: 1 },
+    { question: 'Choose the correct spelling:', options: ['Definetely', 'Definitely', 'Definately', 'Definatly'], correctIndex: 1 },
+  ],
+  frontend: [
+    { question: 'Which of the following is NOT a valid CSS position property value?', options: ['static', 'absolute', 'relative', 'floating'], correctIndex: 3 },
+    { question: 'In React, what hook is used to handle side effects?', options: ['useState', 'useContext', 'useEffect', 'useReducer'], correctIndex: 2 },
+    { question: 'What is the purpose of the virtual DOM in React?', options: ['To store data globally', 'To improve rendering performance', 'To handle routing', 'To manage component state'], correctIndex: 1 },
+    { question: 'Which method is used to add an element to the end of a JavaScript array?', options: ['push()', 'pop()', 'unshift()', 'shift()'], correctIndex: 0 },
+    { question: 'How do you center a div horizontally in CSS?', options: ['margin: auto;', 'text-align: center;', 'align-items: center;', 'justify-content: center;'], correctIndex: 0 },
+  ],
+  backend: [
+    { question: 'Which HTTP method is commonly used to retrieve data from a server?', options: ['POST', 'GET', 'PUT', 'DELETE'], correctIndex: 1 },
+    { question: 'Which status code indicates that a request was successful?', options: ['404', '500', '200', '301'], correctIndex: 2 },
+    { question: 'What does REST stand for?', options: ['Representational State Transfer', 'Remote Server Transfer', 'Reliable State Technology', 'Request State Transfer'], correctIndex: 0 },
+    { question: 'Which Node.js framework is commonly used to build backend APIs?', options: ['React', 'Express.js', 'Angular', 'Vue.js'], correctIndex: 1 },
+    { question: 'Which database is a NoSQL database?', options: ['MySQL', 'PostgreSQL', 'MongoDB', 'SQLite'], correctIndex: 2 },
+  ],
+};
+
 export default function ManageCandidates({ currentUser, onBack }) {
   const { themeColors, isDark } = useTheme();
-  const [subTab, setSubTab] = useState('pool'); // 'pool' or 'tests'
+  // 'applications' | 'pool' | 'tests'
+  const [subTab, setSubTab] = useState('applications');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Pool State
+  // Data States
   const [candidates, setCandidates] = useState([]);
+  const [registrations, setRegistrations] = useState([]);
+  const [tests, setTests] = useState([]);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Tests State
-  const [tests, setTests] = useState([]);
-  const [registrations, setRegistrations] = useState([]);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showEvaluateModal, setShowEvaluateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Form States
+  // Selected Entities
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [selectedReg, setSelectedReg] = useState(null);
+  const [selectedTest, setSelectedTest] = useState(null);
+
+  // Forms
   const [addForm, setAddForm] = useState({
     name: '',
     email: '',
@@ -57,10 +100,26 @@ export default function ManageCandidates({ currentUser, onBack }) {
     feedback: '',
   });
 
-  // Evaluate Test Modal State
-  const [showEvaluateModal, setShowEvaluateModal] = useState(false);
-  const [selectedTest, setSelectedTest] = useState(null);
-  const [evalStatus, setEvalStatus] = useState('Evaluated');
+  const [approveForm, setApproveForm] = useState({
+    testType: 'mcq', // 'mcq' | 'text' | 'file'
+    testTitle: '',
+    testInstructions: '',
+    fileUrl: '',
+    mcqData: [],
+  });
+
+  const [evalStatus, setEvalStatus] = useState('Selected');
+  const [evalFeedback, setEvalFeedback] = useState('');
+
+  // Custom MCQ Question Input
+  const [customQuestion, setCustomQuestion] = useState({
+    question: '',
+    opt1: '',
+    opt2: '',
+    opt3: '',
+    opt4: '',
+    correctIndex: 0,
+  });
 
   const loadData = async () => {
     try {
@@ -94,6 +153,7 @@ export default function ManageCandidates({ currentUser, onBack }) {
     loadData();
   };
 
+  // Add Candidate to Pool
   const handleAddSubmit = async () => {
     if (!addForm.name.trim()) {
       sweetAlert({ title: 'Validation Error', text: 'Candidate name is required.', type: 'error' });
@@ -117,17 +177,7 @@ export default function ManageCandidates({ currentUser, onBack }) {
     }
   };
 
-  const handleOpenFeedback = (c) => {
-    setSelectedCandidate(c);
-    setFeedbackForm({
-      id: c.id,
-      name: c.name,
-      status: c.status || 'Pending',
-      feedback: c.feedback || '',
-    });
-    setShowFeedbackModal(true);
-  };
-
+  // Update Pool Feedback
   const handleFeedbackSubmit = async () => {
     setSubmitting(true);
     try {
@@ -146,46 +196,127 @@ export default function ManageCandidates({ currentUser, onBack }) {
     }
   };
 
-  const handleOpenEvaluate = (test) => {
-    setSelectedTest(test);
-    setEvalStatus(test.status || 'Evaluated');
-    setShowEvaluateModal(true);
+  // Open Approve Registration Modal
+  const handleOpenApprove = (reg) => {
+    setSelectedReg(reg);
+    setApproveForm({
+      testType: 'mcq',
+      testTitle: `${reg.role_applied || 'Candidate'} Skill Assessment`,
+      testInstructions: 'Please complete all questions within the allocated time limit.',
+      fileUrl: '',
+      mcqData: [...PREDEFINED_TEMPLATES.aptitude],
+    });
+    setShowApproveModal(true);
   };
 
-  const handleEvaluateSubmit = async () => {
+  // Add Predefined Template to MCQs
+  const handleApplyTemplate = (templateKey) => {
+    const template = PREDEFINED_TEMPLATES[templateKey] || [];
+    setApproveForm(prev => ({
+      ...prev,
+      mcqData: [...prev.mcqData, ...template],
+    }));
+    sweetAlert({ title: 'Template Added', text: `Added ${template.length} questions from ${templateKey.toUpperCase()} bank.`, type: 'info' });
+  };
+
+  // Add Custom MCQ Question
+  const handleAddCustomQuestion = () => {
+    if (!customQuestion.question.trim() || !customQuestion.opt1.trim() || !customQuestion.opt2.trim()) {
+      sweetAlert({ title: 'Incomplete Question', text: 'Please enter question text and at least 2 options.', type: 'info' });
+      return;
+    }
+    const opts = [customQuestion.opt1, customQuestion.opt2, customQuestion.opt3, customQuestion.opt4].filter(Boolean);
+    const newQ = {
+      question: customQuestion.question.trim(),
+      options: opts,
+      correctIndex: customQuestion.correctIndex || 0,
+    };
+    setApproveForm(prev => ({
+      ...prev,
+      mcqData: [...prev.mcqData, newQ],
+    }));
+    setCustomQuestion({ question: '', opt1: '', opt2: '', opt3: '', opt4: '', correctIndex: 0 });
+  };
+
+  const handleRemoveQuestion = (index) => {
+    setApproveForm(prev => {
+      const updated = [...prev.mcqData];
+      updated.splice(index, 1);
+      return { ...prev, mcqData: updated };
+    });
+  };
+
+  // Submit Registration Approval & Test Assignment
+  const handleApproveSubmit = async () => {
+    if (!approveForm.testTitle.trim()) {
+      sweetAlert({ title: 'Validation', text: 'Test title is required.', type: 'error' });
+      return;
+    }
+    if (approveForm.testType === 'mcq' && approveForm.mcqData.length === 0) {
+      sweetAlert({ title: 'Validation', text: 'Please add at least 1 MCQ question or choose a template bank.', type: 'error' });
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const res = await evaluateCandidateTestApi(selectedTest.id, evalStatus);
+      const res = await approveCandidateRegistrationApi({
+        registrationId: selectedReg.id,
+        testTitle: approveForm.testTitle,
+        testInstructions: approveForm.testInstructions,
+        fileUrl: approveForm.fileUrl,
+        testType: approveForm.testType,
+        mcqData: approveForm.mcqData,
+      });
+
       if (res && res.success) {
-        sweetAlert({ title: 'Success', text: `Test status marked as ${evalStatus}!`, type: 'success' });
+        sweetAlert({
+          title: 'Candidate Approved!',
+          text: `Test credentials generated and assigned for ${selectedReg.name}.`,
+          type: 'success',
+        });
+        setShowApproveModal(false);
+        loadData();
+      } else {
+        sweetAlert({ title: 'Error', text: res?.error || 'Failed to approve candidate.', type: 'error' });
+      }
+    } catch (err) {
+      sweetAlert({ title: 'Error', text: 'Network connection failure.', type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Evaluate Test Submission
+  const handleEvaluateSubmit = async () => {
+    if (!selectedTest) return;
+    setSubmitting(true);
+    try {
+      const res = await evaluateCandidateTestApi(selectedTest.id, evalStatus, evalFeedback);
+      if (res && res.success) {
+        sweetAlert({ title: 'Evaluated', text: `Test marked as ${evalStatus}!`, type: 'success' });
         setShowEvaluateModal(false);
         loadData();
       } else {
         sweetAlert({ title: 'Error', text: res?.error || 'Failed to update test evaluation.', type: 'error' });
       }
     } catch (err) {
-      sweetAlert({ title: 'Error', text: 'Network error updating test.', type: 'error' });
+      sweetAlert({ title: 'Error', text: 'Network error updating evaluation.', type: 'error' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Selected':
-      case 'Passed':
-      case 'Hired':
-        return '#10b981';
-      case 'Rejected':
-      case 'Failed':
-        return '#ef4444';
-      case 'Under Review':
-      case 'Evaluated':
-        return '#3b82f6';
-      default:
-        return '#f59e0b';
-    }
-  };
+  const filteredRegistrations = registrations.filter((r) => {
+    const query = searchQuery.toLowerCase();
+    const matchSearch =
+      !searchQuery ||
+      (r.name || '').toLowerCase().includes(query) ||
+      (r.email || '').toLowerCase().includes(query) ||
+      (r.phone || '').toLowerCase().includes(query) ||
+      (r.role_applied || '').toLowerCase().includes(query);
+    const matchStatus = statusFilter === 'ALL' || (r.status || 'Pending').toLowerCase() === statusFilter.toLowerCase();
+    return matchSearch && matchStatus;
+  });
 
   const filteredCandidates = candidates.filter((c) => {
     const query = searchQuery.toLowerCase();
@@ -195,7 +326,6 @@ export default function ManageCandidates({ currentUser, onBack }) {
       (c.email || '').toLowerCase().includes(query) ||
       (c.role_applied || '').toLowerCase().includes(query) ||
       (c.phone || '').toLowerCase().includes(query);
-
     const matchesStatus = statusFilter === 'ALL' || (c.status || '').toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
@@ -206,10 +336,12 @@ export default function ManageCandidates({ currentUser, onBack }) {
       !searchQuery ||
       (t.candidate_name || '').toLowerCase().includes(query) ||
       (t.candidate_email || '').toLowerCase().includes(query) ||
-      (t.title || '').toLowerCase().includes(query) ||
+      (t.title || t.test_title || '').toLowerCase().includes(query) ||
       (t.status || '').toLowerCase().includes(query)
     );
   });
+
+  const styles = getStyles(themeColors, isDark);
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -221,27 +353,40 @@ export default function ManageCandidates({ currentUser, onBack }) {
           </TouchableOpacity>
         )}
         <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Candidate Management</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Recruitment & Candidates</Text>
           <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>
-            {subTab === 'pool' ? `${filteredCandidates.length} pool candidates` : `${filteredTests.length} test submissions`}
+            {subTab === 'applications'
+              ? `${filteredRegistrations.length} applicant applications`
+              : subTab === 'pool'
+              ? `${filteredCandidates.length} talent pool candidates`
+              : `${filteredTests.length} test submissions`}
           </Text>
         </View>
 
         {subTab === 'pool' && (
           <TouchableOpacity style={[styles.headerBtn, { backgroundColor: '#3b82f6' }]} onPress={() => setShowAddModal(true)}>
-            <Text style={styles.headerBtnText}>+ Add</Text>
+            <Text style={styles.headerBtnText}>+ Add Candidate</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Sub Tab Switcher (Pool vs Tests) */}
+      {/* 3 Sub-Tabs Switcher */}
       <View style={[styles.tabSwitcher, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+        <TouchableOpacity
+          style={[styles.switcherTab, subTab === 'applications' && styles.switcherTabActive]}
+          onPress={() => setSubTab('applications')}
+        >
+          <Text style={[styles.switcherText, { color: subTab === 'applications' ? '#3b82f6' : themeColors.textSecondary }]}>
+            📝 Applications ({registrations.length})
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.switcherTab, subTab === 'pool' && styles.switcherTabActive]}
           onPress={() => setSubTab('pool')}
         >
           <Text style={[styles.switcherText, { color: subTab === 'pool' ? '#3b82f6' : themeColors.textSecondary }]}>
-            👥 Candidate Pool ({candidates.length})
+            👥 Pool ({candidates.length})
           </Text>
         </TouchableOpacity>
 
@@ -250,231 +395,354 @@ export default function ManageCandidates({ currentUser, onBack }) {
           onPress={() => setSubTab('tests')}
         >
           <Text style={[styles.switcherText, { color: subTab === 'tests' ? '#3b82f6' : themeColors.textSecondary }]}>
-            📝 Assessment Tests ({tests.length})
+            🎯 Tests ({tests.length})
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Search Input */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
+      {/* Search Bar */}
+      <View style={[styles.searchBox, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+        <Text style={{ fontSize: 14, color: themeColors.textSecondary, marginRight: 6 }}>🔍</Text>
         <TextInput
-          style={[styles.searchInput, { backgroundColor: themeColors.card, color: themeColors.textPrimary, borderColor: themeColors.border }]}
-          placeholder={subTab === 'pool' ? 'Search by candidate name, email, role...' : 'Search tests by candidate or title...'}
+          style={[styles.searchInput, { color: themeColors.textPrimary }]}
+          placeholder="Search by name, role, email, phone..."
           placeholderTextColor={themeColors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+        {searchQuery ? (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Text style={{ color: themeColors.textSecondary, fontSize: 16 }}>×</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
-      {/* Filter Chips for Pool */}
-      {subTab === 'pool' && (
-        <View style={styles.filterRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
-            {['ALL', 'Pending', 'Selected', 'Rejected'].map((st) => (
-              <TouchableOpacity
-                key={st}
-                style={[
-                  styles.chip,
-                  { backgroundColor: themeColors.card, borderColor: themeColors.border },
-                  statusFilter === st && { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
-                ]}
-                onPress={() => setStatusFilter(st)}
-              >
-                <Text style={[
-                  styles.chipText,
-                  { color: themeColors.textSecondary },
-                  statusFilter === st && { color: '#ffffff', fontWeight: 'bold' }
-                ]}>
-                  {st}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
+      {/* Tab Content */}
       {loading ? (
-        <View style={styles.center}>
+        <View style={styles.centerLoading}>
           <ActivityIndicator size="large" color="#3b82f6" />
-          <Text style={{ color: themeColors.textSecondary, marginTop: 10, fontSize: 13 }}>Loading candidate records...</Text>
+          <Text style={{ color: themeColors.textSecondary, marginTop: 12 }}>Loading records...</Text>
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          style={styles.listScroll}
+          contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />}
         >
-          {subTab === 'pool' ? (
-            filteredCandidates.length === 0 ? (
+          {/* 1. APPLICATIONS / REGISTRATIONS TAB */}
+          {subTab === 'applications' && (
+            filteredRegistrations.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-                <Text style={{ fontSize: 32, marginBottom: 8 }}>🧑‍💼</Text>
-                <Text style={[styles.noData, { color: themeColors.textSecondary }]}>No candidates found in this pool.</Text>
+                <Text style={{ fontSize: 36, marginBottom: 12 }}>📝</Text>
+                <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Job Applications</Text>
+                <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
+                  {searchQuery ? 'No applicants match your search.' : 'New job applications from the careers portal will appear here.'}
+                </Text>
               </View>
             ) : (
-              filteredCandidates.map((cand) => (
-                <View key={cand.id} style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-                  <View style={styles.cardHeader}>
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={[styles.candName, { color: themeColors.textPrimary }]}>{cand.name}</Text>
-                      <Text style={[styles.candRole, { color: '#3b82f6' }]}>🎯 {cand.role_applied || 'General Role'}</Text>
+              filteredRegistrations.map((reg) => {
+                const isApproved = reg.status === 'Approved' || reg.status === 'Test Assigned';
+                const isRejected = reg.status === 'Rejected';
+
+                return (
+                  <View key={reg.id} style={[styles.itemCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                    <View style={styles.cardHeaderRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>{reg.name}</Text>
+                        <Text style={[styles.cardSubTitle, { color: '#3b82f6' }]}>💼 {reg.role_applied || 'General Role'}</Text>
+                      </View>
+                      <View style={[styles.statusBadge, { backgroundColor: isApproved ? '#dcfce7' : isRejected ? '#fee2e2' : '#fef3c7' }]}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: isApproved ? '#15803d' : isRejected ? '#b91c1c' : '#b45309' }}>
+                          {reg.status || 'Pending'}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(cand.status)}22`, borderColor: getStatusColor(cand.status) }]}>
-                      <Text style={[styles.statusText, { color: getStatusColor(cand.status) }]}>{cand.status || 'Pending'}</Text>
+
+                    <View style={styles.infoMetaRow}>
+                      <Text style={[styles.infoMetaText, { color: themeColors.textSecondary }]}>📧 {reg.email || 'N/A'}</Text>
+                      <Text style={[styles.infoMetaText, { color: themeColors.textSecondary }]}>📞 {reg.phone || 'N/A'}</Text>
+                      {reg.experience ? <Text style={[styles.infoMetaText, { color: themeColors.textSecondary }]}>⏱️ Exp: {reg.experience}</Text> : null}
+                      {reg.expected_salary ? <Text style={[styles.infoMetaText, { color: themeColors.textSecondary }]}>💰 Expected: {reg.expected_salary}</Text> : null}
+                    </View>
+
+                    {/* Action Buttons */}
+                    <View style={styles.actionsRow}>
+                      {reg.resume_url ? (
+                        <TouchableOpacity
+                          style={[styles.miniBtn, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}
+                          onPress={() => Linking.openURL(reg.resume_url).catch(() => {})}
+                        >
+                          <Text style={[styles.miniBtnText, { color: themeColors.textPrimary }]}>📄 Resume</Text>
+                        </TouchableOpacity>
+                      ) : null}
+
+                      <TouchableOpacity
+                        style={[styles.miniBtn, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: '#3b82f6', borderWidth: 1 }]}
+                        onPress={() => {
+                          setSelectedReg(reg);
+                          setShowDetailsModal(true);
+                        }}
+                      >
+                        <Text style={[styles.miniBtnText, { color: '#3b82f6' }]}>👁️ Details</Text>
+                      </TouchableOpacity>
+
+                      {!isApproved && !isRejected && (
+                        <TouchableOpacity
+                          style={[styles.miniBtn, { backgroundColor: '#10b981' }]}
+                          onPress={() => handleOpenApprove(reg)}
+                        >
+                          <Text style={[styles.miniBtnText, { color: '#ffffff' }]}>✅ Approve & Test</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                );
+              })
+            )
+          )}
+
+          {/* 2. TALENT POOL TAB */}
+          {subTab === 'pool' && (
+            filteredCandidates.length === 0 ? (
+              <View style={[styles.emptyCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                <Text style={{ fontSize: 36, marginBottom: 12 }}>👥</Text>
+                <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Talent Pool Candidates</Text>
+                <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
+                  Add candidates to your talent pool to track interviews and statuses.
+                </Text>
+              </View>
+            ) : (
+              filteredCandidates.map((c) => (
+                <View key={c.id} style={[styles.itemCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                  <View style={styles.cardHeaderRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>{c.name}</Text>
+                      <Text style={[styles.cardSubTitle, { color: '#3b82f6' }]}>💼 {c.role_applied || 'Role'}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: '#e0e7ff' }]}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#3730a3' }}>{c.status || 'Pending'}</Text>
                     </View>
                   </View>
 
-                  <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+                  <View style={styles.infoMetaRow}>
+                    <Text style={[styles.infoMetaText, { color: themeColors.textSecondary }]}>📧 {c.email || 'N/A'}</Text>
+                    <Text style={[styles.infoMetaText, { color: themeColors.textSecondary }]}>📞 {c.phone || 'N/A'}</Text>
+                  </View>
 
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>✉️ Email: <Text style={{ color: themeColors.textPrimary }}>{cand.email || 'N/A'}</Text></Text>
-                    {cand.phone ? (
-                      <Text style={[styles.infoLabel, { color: themeColors.textSecondary, marginTop: 2 }]}>
-                        📞 Phone: <Text style={{ color: themeColors.textPrimary }}>{cand.phone}</Text>
+                  {c.feedback ? (
+                    <View style={[styles.feedbackSnippet, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: themeColors.border }]}>
+                      <Text style={{ fontSize: 12, color: themeColors.textSecondary, fontStyle: 'italic' }}>
+                        💬 "{c.feedback}"
                       </Text>
-                    ) : null}
-                  </View>
-
-                  {cand.feedback ? (
-                    <View style={[styles.feedbackBox, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: themeColors.border }]}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textSecondary }}>Interviewer Feedback:</Text>
-                      <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, fontStyle: 'italic', marginTop: 2 }}>"{cand.feedback}"</Text>
                     </View>
                   ) : null}
 
-                  <View style={styles.cardFooter}>
-                    <Text style={{ fontSize: 10.5, color: themeColors.textSecondary }}>
-                      Added: {cand.created_at ? new Date(cand.created_at).toLocaleDateString() : 'Recent'}
-                    </Text>
+                  <View style={styles.actionsRow}>
+                    {c.resume_url ? (
+                      <TouchableOpacity
+                        style={[styles.miniBtn, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}
+                        onPress={() => Linking.openURL(c.resume_url).catch(() => {})}
+                      >
+                        <Text style={[styles.miniBtnText, { color: themeColors.textPrimary }]}>📄 Resume</Text>
+                      </TouchableOpacity>
+                    ) : null}
+
                     <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: isDark ? '#334155' : '#eff6ff', borderColor: '#3b82f6' }]}
-                      onPress={() => handleOpenFeedback(cand)}
+                      style={[styles.miniBtn, { backgroundColor: '#3b82f6' }]}
+                      onPress={() => {
+                        setSelectedCandidate(c);
+                        setFeedbackForm({
+                          id: c.id,
+                          name: c.name,
+                          status: c.status || 'Pending',
+                          feedback: c.feedback || '',
+                        });
+                        setShowFeedbackModal(true);
+                      }}
                     >
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#3b82f6' }}>⚙️ Status & Feedback</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
-            )
-          ) : (
-            filteredTests.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-                <Text style={{ fontSize: 32, marginBottom: 8 }}>📝</Text>
-                <Text style={[styles.noData, { color: themeColors.textSecondary }]}>No assessment test submissions found.</Text>
-              </View>
-            ) : (
-              filteredTests.map((test) => (
-                <View key={test.id} style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-                  <View style={styles.cardHeader}>
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={[styles.candName, { color: themeColors.textPrimary }]}>{test.candidate_name || 'Candidate'}</Text>
-                      <Text style={[styles.candRole, { color: '#3b82f6' }]}>📝 {test.title || 'Technical Assessment'}</Text>
-                    </View>
-                    <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(test.status)}22`, borderColor: getStatusColor(test.status) }]}>
-                      <Text style={[styles.statusText, { color: getStatusColor(test.status) }]}>{test.status || 'Pending'}</Text>
-                    </View>
-                  </View>
-
-                  <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>
-                      ✉️ Email: <Text style={{ color: themeColors.textPrimary }}>{test.candidate_email || 'N/A'}</Text>
-                    </Text>
-                    <Text style={[styles.infoLabel, { color: themeColors.textSecondary, marginTop: 2 }]}>
-                      🎯 Score: <Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>{test.score !== null && test.score !== undefined ? `${test.score}%` : 'Pending evaluation'}</Text>
-                    </Text>
-                  </View>
-
-                  <View style={styles.cardFooter}>
-                    <Text style={{ fontSize: 10.5, color: themeColors.textSecondary }}>
-                      Submitted: {test.created_at ? new Date(test.created_at).toLocaleDateString() : 'N/A'}
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { backgroundColor: isDark ? '#334155' : '#eff6ff', borderColor: '#3b82f6' }]}
-                      onPress={() => handleOpenEvaluate(test)}
-                    >
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#3b82f6' }}>⚖️ Evaluate Test</Text>
+                      <Text style={[styles.miniBtnText, { color: '#ffffff' }]}>📝 Update Status</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               ))
             )
           )}
+
+          {/* 3. TEST SUBMISSIONS TAB */}
+          {subTab === 'tests' && (
+            filteredTests.length === 0 ? (
+              <View style={[styles.emptyCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                <Text style={{ fontSize: 36, marginBottom: 12 }}>🎯</Text>
+                <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Test Submissions</Text>
+                <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
+                  Candidate test submissions and scores will appear here.
+                </Text>
+              </View>
+            ) : (
+              filteredTests.map((t) => {
+                const isDone = t.status === 'Evaluated' || t.status === 'Selected' || t.status === 'Passed';
+                return (
+                  <View key={t.id} style={[styles.itemCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                    <View style={styles.cardHeaderRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>{t.candidate_name || 'Candidate'}</Text>
+                        <Text style={[styles.cardSubTitle, { color: '#06b6d4' }]}>🎯 {t.title || t.test_title || 'Assessment Test'}</Text>
+                      </View>
+                      <View style={[styles.statusBadge, { backgroundColor: isDone ? '#dcfce7' : '#fef3c7' }]}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: isDone ? '#15803d' : '#b45309' }}>
+                          {t.status || 'Pending'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.infoMetaRow}>
+                      <Text style={[styles.infoMetaText, { color: themeColors.textSecondary }]}>📧 {t.candidate_email || 'N/A'}</Text>
+                      {t.score !== null && t.score !== undefined ? (
+                        <Text style={[styles.infoMetaText, { color: '#10b981', fontWeight: 'bold' }]}>
+                          🏆 Score: {t.score} / {t.total_questions || 10}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    <View style={styles.actionsRow}>
+                      <TouchableOpacity
+                        style={[styles.miniBtn, { backgroundColor: '#3b82f6' }]}
+                        onPress={() => {
+                          setSelectedTest(t);
+                          setEvalStatus(t.status || 'Selected');
+                          setEvalFeedback(t.feedback || '');
+                          setShowEvaluateModal(true);
+                        }}
+                      >
+                        <Text style={[styles.miniBtnText, { color: '#ffffff' }]}>⚖️ Evaluate Candidate</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )
+          )}
         </ScrollView>
       )}
 
-      {/* Add Candidate Modal */}
-      <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-            <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Add Candidate to Pool</Text>
+      {/* Modal: Approve Registration & Assign Test */}
+      <Modal
+        visible={showApproveModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowApproveModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                Approve & Assign Test ({selectedReg?.name})
+              </Text>
+              <TouchableOpacity onPress={() => setShowApproveModal(false)}>
+                <Text style={{ fontSize: 18, color: themeColors.textPrimary }}>✕</Text>
+              </TouchableOpacity>
+            </View>
 
-            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-              <Text style={[styles.formLabel, { color: themeColors.textPrimary }]}>Candidate Full Name *</Text>
+            <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ padding: 16 }}>
+              {/* Test Type Selector */}
+              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Test Format Type:</Text>
+              <View style={styles.pillSelectorRow}>
+                {['mcq', 'text', 'file'].map(type => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.selectorPill,
+                      approveForm.testType === type && styles.selectorPillActive,
+                      { borderColor: themeColors.border }
+                    ]}
+                    onPress={() => setApproveForm(prev => ({ ...prev, testType: type }))}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: approveForm.testType === type ? '#fff' : themeColors.textPrimary }}>
+                      {type === 'mcq' ? '🔘 Multiple Choice (MCQ)' : type === 'text' ? '📝 Written Instructions' : '📁 Project / File Upload'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Test Title */}
+              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary, marginTop: 12 }]}>Test Title *</Text>
               <TextInput
-                style={[styles.formInput, { backgroundColor: themeColors.background, color: themeColors.textPrimary, borderColor: themeColors.border }]}
-                placeholder="e.g. Rahul Sharma"
+                style={[styles.inputBox, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', color: themeColors.textPrimary, borderColor: themeColors.border }]}
+                value={approveForm.testTitle}
+                onChangeText={(val) => setApproveForm(prev => ({ ...prev, testTitle: val }))}
+                placeholder="e.g. Frontend React Assessment"
                 placeholderTextColor={themeColors.textSecondary}
-                value={addForm.name}
-                onChangeText={(v) => setAddForm({ ...addForm, name: v })}
               />
 
-              <Text style={[styles.formLabel, { color: themeColors.textPrimary }]}>Email Address</Text>
+              {/* Instructions */}
+              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary, marginTop: 10 }]}>Instructions / Brief</Text>
               <TextInput
-                style={[styles.formInput, { backgroundColor: themeColors.background, color: themeColors.textPrimary, borderColor: themeColors.border }]}
-                placeholder="candidate@gmail.com"
+                style={[styles.inputBox, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', color: themeColors.textPrimary, borderColor: themeColors.border, minHeight: 60 }]}
+                value={approveForm.testInstructions}
+                onChangeText={(val) => setApproveForm(prev => ({ ...prev, testInstructions: val }))}
+                placeholder="Instructions for candidate..."
                 placeholderTextColor={themeColors.textSecondary}
-                value={addForm.email}
-                onChangeText={(v) => setAddForm({ ...addForm, email: v })}
-                keyboardType="email-address"
-                autoCapitalize="none"
+                multiline
               />
 
-              <Text style={[styles.formLabel, { color: themeColors.textPrimary }]}>Phone Number</Text>
-              <TextInput
-                style={[styles.formInput, { backgroundColor: themeColors.background, color: themeColors.textPrimary, borderColor: themeColors.border }]}
-                placeholder="+91 9876543210"
-                placeholderTextColor={themeColors.textSecondary}
-                value={addForm.phone}
-                onChangeText={(v) => setAddForm({ ...addForm, phone: v })}
-                keyboardType="phone-pad"
-              />
+              {/* MCQ Template Banks */}
+              {approveForm.testType === 'mcq' && (
+                <View style={{ marginTop: 14 }}>
+                  <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Quick Template Banks (Append):</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    <TouchableOpacity style={[styles.templateBtn, { backgroundColor: '#3b82f6' }]} onPress={() => handleApplyTemplate('aptitude')}>
+                      <Text style={styles.templateBtnText}>+ Aptitude (5 Qs)</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.templateBtn, { backgroundColor: '#10b981' }]} onPress={() => handleApplyTemplate('english')}>
+                      <Text style={styles.templateBtnText}>+ English (5 Qs)</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.templateBtn, { backgroundColor: '#8b5cf6' }]} onPress={() => handleApplyTemplate('frontend')}>
+                      <Text style={styles.templateBtnText}>+ Frontend (5 Qs)</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.templateBtn, { backgroundColor: '#f59e0b' }]} onPress={() => handleApplyTemplate('backend')}>
+                      <Text style={styles.templateBtnText}>+ Backend (5 Qs)</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              <Text style={[styles.formLabel, { color: themeColors.textPrimary }]}>Role / Position Applied</Text>
-              <TextInput
-                style={[styles.formInput, { backgroundColor: themeColors.background, color: themeColors.textPrimary, borderColor: themeColors.border }]}
-                placeholder="Frontend Developer / Marketing Associate"
-                placeholderTextColor={themeColors.textSecondary}
-                value={addForm.role_applied}
-                onChangeText={(v) => setAddForm({ ...addForm, role_applied: v })}
-              />
-
-              <Text style={[styles.formLabel, { color: themeColors.textPrimary }]}>Resume URL / Link</Text>
-              <TextInput
-                style={[styles.formInput, { backgroundColor: themeColors.background, color: themeColors.textPrimary, borderColor: themeColors.border }]}
-                placeholder="https://drive.google.com/..."
-                placeholderTextColor={themeColors.textSecondary}
-                value={addForm.resume_url}
-                onChangeText={(v) => setAddForm({ ...addForm, resume_url: v })}
-                autoCapitalize="none"
-              />
+                  {/* Added Questions List */}
+                  <View style={{ marginTop: 14 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textPrimary, marginBottom: 6 }}>
+                      Questions in Test ({approveForm.mcqData.length}):
+                    </Text>
+                    {approveForm.mcqData.map((q, qIdx) => (
+                      <View key={qIdx} style={[styles.questionItemCard, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: themeColors.border }]}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textPrimary, flex: 1 }}>
+                            Q{qIdx + 1}: {q.question}
+                          </Text>
+                          <TouchableOpacity onPress={() => handleRemoveQuestion(qIdx)}>
+                            <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>
+                          Correct: {q.options[q.correctIndex] || 'Option 1'}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
             </ScrollView>
 
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 }]}
-                onPress={() => setShowAddModal(false)}
-              >
+            <View style={[styles.modalFooter, { borderTopColor: themeColors.border }]}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowApproveModal(false)}>
                 <Text style={{ color: themeColors.textSecondary, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: '#3b82f6' }]}
+                style={[styles.submitBtn, { backgroundColor: '#10b981' }]}
+                onPress={handleApproveSubmit}
                 disabled={submitting}
-                onPress={handleAddSubmit}
               >
                 {submitting ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
+                  <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Save Candidate</Text>
+                  <Text style={styles.submitBtnText}>Approve & Send Test</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -482,112 +750,74 @@ export default function ManageCandidates({ currentUser, onBack }) {
         </View>
       </Modal>
 
-      {/* Feedback & Status Modal */}
-      <Modal visible={showFeedbackModal} transparent animationType="fade" onRequestClose={() => setShowFeedbackModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-            <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Update Candidate Status</Text>
-            <Text style={{ fontSize: 13, color: themeColors.textSecondary, marginBottom: 12, textAlign: 'center' }}>
-              Candidate: <Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>{feedbackForm.name}</Text>
-            </Text>
-
-            <Text style={[styles.formLabel, { color: themeColors.textPrimary }]}>Hiring Status</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-              {['Pending', 'Selected', 'Rejected'].map((st) => (
-                <TouchableOpacity
-                  key={st}
-                  style={[
-                    styles.chip,
-                    { flex: 1, alignItems: 'center', backgroundColor: themeColors.background, borderColor: themeColors.border },
-                    feedbackForm.status === st && { backgroundColor: getStatusColor(st), borderColor: getStatusColor(st) },
-                  ]}
-                  onPress={() => setFeedbackForm({ ...feedbackForm, status: st })}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: feedbackForm.status === st ? '#ffffff' : themeColors.textPrimary }}>
-                    {st}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+      {/* Modal: Evaluate Test */}
+      <Modal
+        visible={showEvaluateModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowEvaluateModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Evaluate Candidate Test</Text>
+              <TouchableOpacity onPress={() => setShowEvaluateModal(false)}>
+                <Text style={{ fontSize: 18, color: themeColors.textPrimary }}>✕</Text>
+              </TouchableOpacity>
             </View>
 
-            <Text style={[styles.formLabel, { color: themeColors.textPrimary }]}>Interviewer Feedback & Notes</Text>
-            <TextInput
-              style={[styles.formInput, { backgroundColor: themeColors.background, color: themeColors.textPrimary, borderColor: themeColors.border, minHeight: 80, textAlignVertical: 'top' }]}
-              placeholder="Candidate interview performance, skill notes, salary expectation..."
-              placeholderTextColor={themeColors.textSecondary}
-              value={feedbackForm.feedback}
-              onChangeText={(v) => setFeedbackForm({ ...feedbackForm, feedback: v })}
-              multiline
-              numberOfLines={3}
-            />
+            <View style={{ padding: 16 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: themeColors.textPrimary }}>
+                Candidate: {selectedTest?.candidate_name}
+              </Text>
+              <Text style={{ fontSize: 12, color: themeColors.textSecondary, marginBottom: 12 }}>
+                Test: {selectedTest?.title || selectedTest?.test_title}
+              </Text>
 
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 }]}
-                onPress={() => setShowFeedbackModal(false)}
-              >
+              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Evaluation Decision:</Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginVertical: 8 }}>
+                {['Selected', 'Passed', 'Under Review', 'Rejected'].map(status => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.selectorPill,
+                      evalStatus === status && styles.selectorPillActive,
+                      { borderColor: themeColors.border }
+                    ]}
+                    onPress={() => setEvalStatus(status)}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: evalStatus === status ? '#fff' : themeColors.textPrimary }}>
+                      {status}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary, marginTop: 10 }]}>Feedback / Notes:</Text>
+              <TextInput
+                style={[styles.inputBox, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', color: themeColors.textPrimary, borderColor: themeColors.border, minHeight: 60 }]}
+                value={evalFeedback}
+                onChangeText={setEvalFeedback}
+                placeholder="Enter feedback for HR records..."
+                placeholderTextColor={themeColors.textSecondary}
+                multiline
+              />
+            </View>
+
+            <View style={[styles.modalFooter, { borderTopColor: themeColors.border }]}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowEvaluateModal(false)}>
                 <Text style={{ color: themeColors.textSecondary, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: '#3b82f6' }]}
-                disabled={submitting}
-                onPress={handleFeedbackSubmit}
-              >
-                {submitting ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Save Feedback</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
-      {/* Evaluate Test Modal */}
-      <Modal visible={showEvaluateModal} transparent animationType="fade" onRequestClose={() => setShowEvaluateModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
-            <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Evaluate Assessment Test</Text>
-            <Text style={{ fontSize: 13, color: themeColors.textSecondary, marginBottom: 12, textAlign: 'center' }}>
-              Candidate: <Text style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>{selectedTest?.candidate_name}</Text>
-            </Text>
-
-            <Text style={[styles.formLabel, { color: themeColors.textPrimary }]}>Select Evaluation Result</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-              {['Evaluated', 'Passed', 'Failed'].map((st) => (
-                <TouchableOpacity
-                  key={st}
-                  style={[
-                    styles.chip,
-                    { flex: 1, alignItems: 'center', backgroundColor: themeColors.background, borderColor: themeColors.border },
-                    evalStatus === st && { backgroundColor: getStatusColor(st), borderColor: getStatusColor(st) },
-                  ]}
-                  onPress={() => setEvalStatus(st)}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: evalStatus === st ? '#ffffff' : themeColors.textPrimary }}>
-                    {st}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.modalBtnRow}>
               <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 }]}
-                onPress={() => setShowEvaluateModal(false)}
-              >
-                <Text style={{ color: themeColors.textSecondary, fontWeight: '600' }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: '#3b82f6' }]}
-                disabled={submitting}
+                style={[styles.submitBtn, { backgroundColor: '#3b82f6' }]}
                 onPress={handleEvaluateSubmit}
+                disabled={submitting}
               >
                 {submitting ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
+                  <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Submit Evaluation</Text>
+                  <Text style={styles.submitBtnText}>Save Evaluation</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -598,137 +828,251 @@ export default function ManageCandidates({ currentUser, onBack }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { padding: 30, justifyContent: 'center', alignItems: 'center' },
-  topHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  backBtn: { padding: 6, marginRight: 8 },
-  headerTitle: { fontSize: 17, fontWeight: 'bold' },
-  headerSubtitle: { fontSize: 11, marginTop: 1 },
-  headerBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerBtnText: { color: '#ffffff', fontSize: 12, fontWeight: 'bold' },
-  tabSwitcher: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-  },
-  switcherTab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  switcherTabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#3b82f6',
-  },
-  switcherText: { fontSize: 12.5, fontWeight: '700' },
-  searchInput: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 13,
-  },
-  filterRow: {
-    paddingVertical: 10,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  chipText: { fontSize: 11.5, fontWeight: '600' },
-  scrollContent: { padding: 16, paddingBottom: 40 },
-  card: {
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 12,
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  candName: { fontSize: 15, fontWeight: 'bold' },
-  candRole: { fontSize: 12, marginTop: 2, fontWeight: '600' },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
-  statusText: { fontSize: 10.5, fontWeight: 'bold' },
-  divider: { height: 1, marginVertical: 10 },
-  infoRow: { marginBottom: 6 },
-  infoLabel: { fontSize: 12 },
-  feedbackBox: { padding: 10, borderRadius: 8, borderWidth: 1, marginVertical: 8 },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 6,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(150,150,150,0.1)',
-  },
-  actionBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  emptyCard: {
-    padding: 30,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  noData: { fontSize: 13, textAlign: 'center' },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 420,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 18,
-    maxHeight: '90%',
-  },
-  modalTitle: { fontSize: 17, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
-  formLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4, marginTop: 8 },
-  formInput: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 13,
-  },
-  modalBtnRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 16,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(150,150,150,0.1)',
-  },
-  modalBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+function getStyles(colors, isDark) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    topHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      gap: 12,
+    },
+    backBtn: {
+      padding: 6,
+    },
+    headerTitle: {
+      fontSize: 17,
+      fontWeight: '800',
+    },
+    headerSubtitle: {
+      fontSize: 12,
+      marginTop: 2,
+    },
+    headerBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    headerBtnText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    tabSwitcher: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+    },
+    switcherTab: {
+      flex: 1,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+    },
+    switcherTabActive: {
+      borderBottomColor: '#3b82f6',
+    },
+    switcherText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    searchBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: 16,
+      marginTop: 10,
+      marginBottom: 6,
+      paddingHorizontal: 12,
+      paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+      borderRadius: 10,
+      borderWidth: 1,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 13,
+      padding: 0,
+    },
+    centerLoading: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 30,
+    },
+    listScroll: {
+      flex: 1,
+    },
+    emptyCard: {
+      padding: 30,
+      borderRadius: 16,
+      borderWidth: 1,
+      alignItems: 'center',
+      marginTop: 20,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      marginBottom: 6,
+    },
+    emptySubtitle: {
+      fontSize: 13,
+      textAlign: 'center',
+      lineHeight: 18,
+    },
+    itemCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 16,
+      marginBottom: 12,
+    },
+    cardHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: 10,
+    },
+    cardTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    cardSubTitle: {
+      fontSize: 12,
+      fontWeight: '700',
+      marginTop: 2,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    infoMetaRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginTop: 8,
+    },
+    infoMetaText: {
+      fontSize: 12,
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 8,
+      marginTop: 12,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: 'rgba(150,150,150,0.15)',
+    },
+    miniBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    miniBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    feedbackSnippet: {
+      padding: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      marginTop: 8,
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 16,
+    },
+    modalBox: {
+      width: '100%',
+      maxWidth: 480,
+      borderRadius: 16,
+      borderWidth: 1,
+      overflow: 'hidden',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: '#334155',
+    },
+    modalTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    fieldLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      marginBottom: 4,
+    },
+    pillSelectorRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginTop: 4,
+    },
+    selectorPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 20,
+      borderWidth: 1,
+    },
+    selectorPillActive: {
+      backgroundColor: '#3b82f6',
+      borderColor: '#3b82f6',
+    },
+    inputBox: {
+      borderRadius: 8,
+      borderWidth: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      fontSize: 13,
+      marginTop: 2,
+    },
+    templateBtn: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+    },
+    templateBtnText: {
+      color: '#fff',
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    questionItemCard: {
+      padding: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      marginBottom: 6,
+    },
+    modalFooter: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      padding: 12,
+      borderTopWidth: 1,
+      gap: 10,
+    },
+    cancelBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    submitBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    submitBtnText: {
+      color: '#fff',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+  });
+}

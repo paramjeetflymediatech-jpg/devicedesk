@@ -63,46 +63,129 @@ export default function BookServicePage() {
   };
 
   const handleViewDelivery = async (req) => {
-    let extraHtml = '';
-    try {
-      const res = await fetch('/api/tasks');
-      const data = await res.json();
-      if(data.success) {
-        const matchingTask = data.data.find(t => t.project_id === req.id && t.status === 'Completed');
-        if(matchingTask) {
-          let proofsHtml = '<p style="margin-bottom: 5px; color: #64748b;"><em>No proof files uploaded by the team.</em></p>';
-          if(matchingTask.fileUrl) {
-            try {
-              const parsedUrls = JSON.parse(matchingTask.fileUrl);
-              if(Array.isArray(parsedUrls) && parsedUrls.length > 0) {
-                proofsHtml = '<p style="margin-bottom: 5px;"><strong>Delivered Files:</strong><br/>' + parsedUrls.map((u, i) => `<a href="${u}" target="_blank" style="color: #db2777; text-decoration: underline; margin-right: 10px;">View File ${i+1}</a>`).join('') + '</p>';
-              } else if(typeof parsedUrls === 'string') {
-                proofsHtml = `<p style="margin-bottom: 5px;"><strong>Delivered File:</strong> <a href="${parsedUrls}" target="_blank" style="color: #db2777; text-decoration: underline;">View File</a></p>`;
-              }
-            } catch(err) {
-              proofsHtml = `<p style="margin-bottom: 5px;"><strong>Delivered File:</strong> <a href="${matchingTask.fileUrl}" target="_blank" style="color: #db2777; text-decoration: underline;">View File</a></p>`;
-            }
-          }
+    let deliverableFiles = req.deliverable_files || req.deliverableFiles || req.proof;
+    let deliverableNote = req.deliverable_note || req.completion_note;
+    let deliveredAt = req.delivered_at || req.completedAt;
+    let specialistName = req.specialist_name || req.assignedToName;
 
-          extraHtml = `
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #f3f4f6;">
-              <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; color: #1f2937;">Delivery Details</h4>
-              ${proofsHtml}
-            </div>
-          `;
+    if (!deliverableFiles && req.status === 'Completed') {
+      try {
+        const res = await fetch('/api/tasks');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          const matchingTask = data.data.find(t => String(t.project_id) === String(req.id) || (t.title && t.title.includes(req.service_type)));
+          if (matchingTask) {
+            deliverableFiles = matchingTask.fileUrl;
+            deliverableNote = matchingTask.completion_note || deliverableNote;
+            deliveredAt = matchingTask.completedAt || deliveredAt;
+            specialistName = matchingTask.assignedToName || specialistName;
+          }
         }
+      } catch (e) {}
+    }
+
+    const parseUrls = (val) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val.flatMap(v => parseUrls(v)).filter(Boolean);
+      if (typeof val === 'string') {
+        let trimmed = val.trim();
+        if (!trimmed) return [];
+        while ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+          try {
+            const unquoted = JSON.parse(trimmed);
+            if (typeof unquoted === 'string') trimmed = unquoted.trim();
+            else return parseUrls(unquoted);
+          } catch (e) {
+            trimmed = trimmed.slice(1, -1).trim();
+          }
+        }
+        if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            return parseUrls(parsed);
+          } catch (e) {}
+        }
+        if (trimmed.includes(',')) {
+          return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        return [trimmed].filter(Boolean);
       }
-    } catch(e) {}
+      return [];
+    };
+
+    const clientAtts = parseUrls(req.attachment || req.attachments || req.fileUrl || req.file_url);
+    let attachmentHtml = '';
+    if (clientAtts.length > 0) {
+      attachmentHtml = `
+        <div style="margin-top: 12px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <p style="margin-bottom: 6px; font-weight: 700; color: #334155; font-size: 12.5px;">📎 Your Uploaded Brief & Attachments (${clientAtts.length}):</p>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            ${clientAtts.map((u, i) => {
+              const fname = typeof u === 'string' ? u.split('/').pop().split('?')[0] : `Attachment ${i + 1}`;
+              return `<a href="${u}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">📄 ${decodeURIComponent(fname)} ↗</a>`;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    } else {
+      attachmentHtml = `
+        <div style="margin-top: 8px; font-size: 12px; color: #94a3b8; font-style: italic;">
+          No initial attachments uploaded with this requirement.
+        </div>
+      `;
+    }
+
+    const dFiles = parseUrls(deliverableFiles);
+    let deliverySection = '';
+    if (req.status === 'Completed' || dFiles.length > 0 || deliverableNote) {
+      let proofsHtml = '';
+      if (dFiles.length > 0) {
+        proofsHtml = `
+          <div style="margin-top: 10px;">
+            <p style="margin-bottom: 6px; font-weight: 700; color: #15803d; font-size: 12.5px;">📎 Delivered Files & Deliverables (${dFiles.length}):</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              ${dFiles.map((u, i) => {
+                const fname = typeof u === 'string' ? u.split('/').pop().split('?')[0] : `File ${i + 1}`;
+                return `<a href="${u}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; background: #ecfdf5; border: 1px solid #86efac; color: #166534; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">📦 ${decodeURIComponent(fname)} ↗</a>`;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      deliverySection = `
+        <div style="margin-top: 14px; padding: 12px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <h4 style="font-size: 0.95rem; font-weight: 800; color: #166534; margin: 0;">🎉 Work Delivered & Completed</h4>
+            ${deliveredAt ? `<span style="font-size: 11px; color: #15803d; font-weight: 600;">📅 ${new Date(deliveredAt).toLocaleDateString()}</span>` : ''}
+          </div>
+          ${deliverableNote ? `
+            <div style="background: #ffffff; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; color: #1f2937; border: 1px solid #dcfce7;">
+              <strong>Team Completion Note:</strong> ${deliverableNote}
+            </div>
+          ` : ''}
+          ${specialistName ? `
+            <div style="font-size: 12px; color: #059669; font-weight: 600; margin-bottom: 4px;">
+              Specialist: ${specialistName}
+            </div>
+          ` : ''}
+          ${proofsHtml}
+        </div>
+      `;
+    }
 
     Swal.fire({
       title: `Service: ${req.service_type}`,
       html: `
         <div style="text-align: left; font-size: 0.9rem;">
-          <p style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: #16a34a; font-weight: bold;">${req.status}</span></p>
-          ${req.tl_name ? `<p style="margin-bottom: 8px;"><strong>Your Assigned TL:</strong> <span style="color: #4f46e5; font-weight: 600;">${req.tl_name}</span></p>` : ''}
-          <p style="margin-bottom: 8px;"><strong>Your Original Requirement:</strong></p>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin-top: 5px;">${req.requirements}</div>
-          ${extraHtml}
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0;">
+            <div><strong>Status:</strong> <span style="color: ${req.status === 'Completed' ? '#16a34a' : '#d97706'}; font-weight: bold;">${req.status}</span></div>
+            ${req.tl_name ? `<div style="color: #4f46e5; font-weight: 600; font-size: 12px;">🛡️ TL: ${req.tl_name}</div>` : ''}
+          </div>
+          <p style="margin-bottom: 4px; font-weight: 600; color: #334155;">Your Requirements:</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; font-size: 13px;">${req.requirements}</div>
+          ${attachmentHtml}
+          ${deliverySection}
         </div>
       `,
       confirmButtonText: 'Close',
@@ -368,11 +451,9 @@ export default function BookServicePage() {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right">
-                                {req.status === 'Completed' ? (
-                                  <button onClick={() => handleViewDelivery(req)} className="text-pink-600 hover:text-pink-800 text-sm font-medium transition-colors bg-pink-50 hover:bg-pink-100 px-3 py-1.5 rounded-lg">View Delivery</button>
-                                ) : (
-                                  <span className="text-gray-400 text-sm">-</span>
-                                )}
+                                <button onClick={() => handleViewDelivery(req)} className="text-pink-600 hover:text-pink-800 text-sm font-medium transition-colors bg-pink-50 hover:bg-pink-100 px-3 py-1.5 rounded-lg">
+                                  {req.status === 'Completed' ? 'View Delivery 🚀' : 'View Details 👁️'}
+                                </button>
                               </td>
                             </tr>
                           ))}
@@ -411,9 +492,9 @@ export default function BookServicePage() {
                             </div>
                             
                             <div>
-                              {req.status === 'Completed' && (
-                                <button onClick={() => handleViewDelivery(req)} className="text-pink-600 hover:text-pink-800 font-semibold text-xs px-3 py-1.5 bg-pink-50 rounded-lg">View Delivery</button>
-                              )}
+                              <button onClick={() => handleViewDelivery(req)} className="text-pink-600 hover:text-pink-800 font-semibold text-xs px-3 py-1.5 bg-pink-50 rounded-lg">
+                                {req.status === 'Completed' ? 'View Delivery 🚀' : 'View Details 👁️'}
+                              </button>
                             </div>
                           </div>
                         </div>

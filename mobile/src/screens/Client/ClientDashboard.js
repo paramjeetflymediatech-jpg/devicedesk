@@ -16,7 +16,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { pick } from '@react-native-documents/picker';
+import { pickFilesOrPhotos } from '../../utils/filePicker';
 import Video from 'react-native-video';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
@@ -71,6 +71,8 @@ export default function ClientDashboard({ user, onLogout }) {
   const [showBookServiceModal, setShowBookServiceModal] = useState(false);
   const [serviceType, setServiceType] = useState('SEO');
   const [serviceReqs, setServiceReqs] = useState('');
+  const [serviceAttachments, setServiceAttachments] = useState([]);
+  const [uploadingServiceAttachments, setUploadingServiceAttachments] = useState(false);
   const [submittingService, setSubmittingService] = useState(false);
 
   const [showSmoModal, setShowSmoModal] = useState(false);
@@ -81,46 +83,45 @@ export default function ClientDashboard({ user, onLogout }) {
   const [noteAttachments, setNoteAttachments] = useState([]);
   const [uploadingNoteAttachments, setUploadingNoteAttachments] = useState(false);
   const [submittingNote, setSubmittingNote] = useState(false);
-  const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
-  const [previewError, setPreviewError] = useState(false);
 
-  // Audio player state & ref
-  const audioPlayerRef = useRef(null);
-  const [audioPaused, setAudioPaused] = useState(false);
-  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [audioLoading, setAudioLoading] = useState(true);
+  // Request Details & Deliverables Modal
+  const [selectedReqDetails, setSelectedReqDetails] = useState(null);
+  const [reqDetailsModalVisible, setReqDetailsModalVisible] = useState(false);
 
-  const formatAudioTime = (seconds) => {
-    if (!seconds || isNaN(seconds) || seconds < 0) return '00:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  const isImageUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(jpg|jpeg|png|webp|gif|svg|bmp|heic|heif)$/i.test(clean);
   };
-
-  const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
-  const isVideoUrl = (url) => typeof url === 'string' && /\.(mp4|webm|mov|ogg|mkv|3gp|avi)($|\?)/i.test(url);
-  const isAudioUrl = (url) => typeof url === 'string' && /\.(mp3|wav|ogg|m4a|aac|flac)($|\?)/i.test(url);
+  const isVideoUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(mp4|webm|mov|ogg|mkv|3gp|avi)$/i.test(clean);
+  };
+  const isAudioUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const clean = url.split('?')[0].split('#')[0].toLowerCase();
+    return /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(clean);
+  };
 
   const handleOpenAttachment = (url) => {
     if (!url) {
       sweetAlert({ title: 'Attachment Missing', text: 'No attachment found for this item.', type: 'info' });
       return;
     }
-    setPreviewError(false);
-    setAudioPaused(false);
-    setAudioCurrentTime(0);
-    setAudioDuration(0);
-    setAudioLoading(true);
-    setPreviewAttachmentUrl(url);
-  };
-
-  const handleClosePreview = () => {
-    setPreviewAttachmentUrl(null);
-    setPreviewError(false);
-    setAudioPaused(true);
-    setAudioCurrentTime(0);
-    setAudioDuration(0);
+    const resolved = resolveMediaUrl(url);
+    if (!resolved) {
+      sweetAlert({ title: 'Attachment Missing', text: 'No valid attachment found.', type: 'info' });
+      return;
+    }
+    Linking.openURL(resolved).catch((err) => {
+      console.log('Error opening attachment:', err);
+      sweetAlert({
+        title: 'Cannot Open File',
+        text: 'Failed to open file: ' + resolved,
+        type: 'error',
+      });
+    });
   };
 
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
@@ -217,23 +218,120 @@ export default function ClientDashboard({ user, onLogout }) {
     loadAllData();
   };
 
+  // 0. Handle Open Book Service (checks active packages first)
+  const handleOpenBookService = () => {
+    const validPkgs = activePackages.filter(p => !p.is_expired);
+    if (validPkgs.length === 0) {
+      sweetAlert({
+        title: 'Please Buy Package First',
+        text: 'You need an active package subscription to book services. Please purchase a package first as per your requirement.',
+        type: 'warning',
+        showCancel: true,
+        cancelText: 'Cancel',
+        confirmButtonText: 'View Packages',
+        onConfirm: () => {
+          setActiveTab('packages');
+        },
+      });
+      return;
+    }
+    if (!validPkgs.some(p => p.name === serviceType)) {
+      setServiceType(validPkgs[0].name);
+    }
+    setShowBookServiceModal(true);
+  };
+
+  const handlePickServiceAttachment = async () => {
+    try {
+      const res = await pickFilesOrPhotos({
+        allowMultiSelection: true,
+        includeCamera: true,
+      });
+      if (res && res.length > 0) {
+        setServiceAttachments(prev => [...prev, ...res]);
+      }
+    } catch (err) {
+      console.warn('File pick error:', err);
+    }
+  };
+
+  const handleRemoveServiceAttachment = (index) => {
+    setServiceAttachments(prev => {
+      const updated = [...prev];
+      updated.splice(index, 1);
+      return updated;
+    });
+  };
+
   // 1. Submit Service Request
   const handleBookService = async () => {
+    const validPkgs = activePackages.filter(p => !p.is_expired);
+    if (validPkgs.length === 0) {
+      sweetAlert({
+        title: 'Please Buy Package First',
+        text: 'You need an active package subscription to book services. Please purchase a package first.',
+        type: 'warning',
+        confirmButtonText: 'View Packages',
+        onConfirm: () => {
+          setShowBookServiceModal(false);
+          setActiveTab('packages');
+        },
+      });
+      return;
+    }
+
     if (!serviceReqs.trim()) {
       sweetAlert({ title: 'Missing Requirements', text: 'Please enter your project requirements.', type: 'warning' });
       return;
     }
+
     setSubmittingService(true);
+    let attachmentUrls = [];
+
     try {
+      if (serviceAttachments.length > 0) {
+        setUploadingServiceAttachments(true);
+        const formData = new FormData();
+        serviceAttachments.forEach(att => {
+          const fileUri = att.uri || '';
+          formData.append('files', {
+            uri: Platform.OS === 'android' ? fileUri : fileUri.replace('file://', ''),
+            type: att.type || 'application/octet-stream',
+            name: att.name || `file_${Date.now()}`,
+          });
+        });
+        formData.append('folder', 'client-requests');
+
+        const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json',
+            'x-user-id': String(clientId || user?.id || ''),
+          },
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadRes.ok && uploadData.success && uploadData.fileUrls) {
+          attachmentUrls = uploadData.fileUrls;
+        } else {
+          throw new Error(uploadData?.error || uploadData?.message || 'Failed to upload attachments');
+        }
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+      const selectedService = serviceType || validPkgs[0]?.name || 'Service Booking';
+
       const res = await createClientRequestApi({
         clientId,
-        service_type: serviceType,
+        service_type: selectedService,
         requirements: serviceReqs.trim(),
+        attachment: attachmentStr,
       });
       if (res && res.success) {
         sweetAlert({ title: 'Service Request Sent! 🚀', text: 'Our team will review and contact you shortly.', type: 'success' });
         setShowBookServiceModal(false);
         setServiceReqs('');
+        setServiceAttachments([]);
         fetchClientRequestsApi(clientId).then(r => r.success && setRequests(r.data || []));
       } else {
         throw new Error(res?.error || 'Failed to submit request');
@@ -242,6 +340,7 @@ export default function ClientDashboard({ user, onLogout }) {
       sweetAlert({ title: 'Error', text: err.message || 'Could not submit request.', type: 'error' });
     } finally {
       setSubmittingService(false);
+      setUploadingServiceAttachments(false);
     }
   };
 
@@ -313,9 +412,9 @@ export default function ClientDashboard({ user, onLogout }) {
   // Pick Note Attachments
   const handlePickNoteAttachment = async () => {
     try {
-      const res = await pick({
-        type: ['*/*'],
+      const res = await pickFilesOrPhotos({
         allowMultiSelection: true,
+        includeCamera: true,
       });
       if (res && res.length > 0) {
         const oversized = res.some(f => (f.size || f.fileSize || 0) > 100 * 1024 * 1024);
@@ -412,6 +511,50 @@ export default function ClientDashboard({ user, onLogout }) {
     }
   };
 
+  const resolveMediaUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('file://')) {
+      return url;
+    }
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+    return `${getApiUrl()}${cleanUrl}`;
+  };
+
+  const parseAttachments = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) {
+      return val.flatMap(v => parseAttachments(v)).filter(Boolean);
+    }
+    if (typeof val === 'string') {
+      let trimmed = val.trim();
+      if (!trimmed) return [];
+      // Remove surrounding quotes if double-stringified
+      while ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+        try {
+          const unquoted = JSON.parse(trimmed);
+          if (typeof unquoted === 'string') {
+            trimmed = unquoted.trim();
+          } else {
+            return parseAttachments(unquoted);
+          }
+        } catch (e) {
+          trimmed = trimmed.slice(1, -1).trim();
+        }
+      }
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          return parseAttachments(parsed);
+        } catch (e) {}
+      }
+      if (trimmed.includes(',')) {
+        return trimmed.split(',').map(s => resolveMediaUrl(s.trim())).filter(Boolean);
+      }
+      return [resolveMediaUrl(trimmed)].filter(Boolean);
+    }
+    return [];
+  };
+
   const getStatusBadge = (status) => {
     const s = (status || 'Pending').toLowerCase();
     if (s === 'active' || s === 'completed' || s === 'paid' || s === 'approved') {
@@ -447,7 +590,7 @@ export default function ClientDashboard({ user, onLogout }) {
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
             onPress={() => setIsDrawerOpen(true)}
@@ -457,12 +600,11 @@ export default function ClientDashboard({ user, onLogout }) {
             <AppIcon name="menu" size={22} color="#2563eb" />
           </TouchableOpacity>
           <View style={{ marginLeft: 10 }}>
-            <Text style={styles.headerTitle}>
-              {clientDetails?.company_name || user?.name || 'Client Portal'}
-            </Text>
-            <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>
-              {navMenuItems.find(m => m.id === activeTab)?.label || 'Client Experience Portal'}
-            </Text>
+            <Image
+              source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
+              style={{ width: 140, height: 36 }}
+              resizeMode="contain"
+            />
           </View>
         </View>
 
@@ -520,7 +662,7 @@ export default function ClientDashboard({ user, onLogout }) {
 
                   <TouchableOpacity
                     style={styles.bookServiceBtn}
-                    onPress={() => setShowBookServiceModal(true)}
+                    onPress={handleOpenBookService}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.bookServiceBtnText}>+ Book a New Service 🚀</Text>
@@ -838,11 +980,30 @@ export default function ClientDashboard({ user, onLogout }) {
             {/* ======================================================== */}
             {activeTab === 'requests' && (
               <View>
+                {activePackages.filter(p => !p.is_expired).length === 0 && (
+                  <View style={[styles.buyPackageNotice, { backgroundColor: isDark ? '#4c051933' : '#fff1f2', borderColor: '#f43f5e' }]}>
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#f43f5e22', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 22 }}>💳</Text>
+                    </View>
+                    <Text style={[styles.buyPackageTitle, { color: isDark ? '#fda4af' : '#9f1239' }]}>Please Buy Package First</Text>
+                    <Text style={[styles.buyPackageDesc, { color: isDark ? '#e2e8f0' : '#4b5563' }]}>
+                      You need an active package subscription to book services. Please purchase a package first as per your requirement.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.viewPackagesBannerBtn}
+                      onPress={() => setActiveTab('packages')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.viewPackagesBannerBtnText}>View Packages →</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <View style={styles.rowBetween}>
                   <Text style={styles.sectionHeading}>📝 Service Requests ({requests.length})</Text>
                   <TouchableOpacity
                     style={styles.smallActionBtn}
-                    onPress={() => setShowBookServiceModal(true)}
+                    onPress={handleOpenBookService}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.smallActionBtnText}>+ Book Service</Text>
@@ -858,6 +1019,11 @@ export default function ClientDashboard({ user, onLogout }) {
                 ) : (
                   requests.map((req) => {
                     const badge = getStatusBadge(req.status);
+                    const isCompleted = (req.status || '').toLowerCase() === 'completed';
+                    const attList = parseAttachments(req.attachment || req.attachments || req.fileUrl || req.file_url);
+                    const deliveredFiles = parseAttachments(req.deliverable_files || req.deliverableFiles || req.proof || req.proofs);
+                    const hasDelivery = isCompleted || deliveredFiles.length > 0 || !!req.deliverable_note;
+
                     return (
                       <View key={req.id} style={styles.itemCard}>
                         <View style={styles.itemCardHeader}>
@@ -867,15 +1033,127 @@ export default function ClientDashboard({ user, onLogout }) {
                           </View>
                         </View>
                         <Text style={styles.itemDesc}>{req.requirements}</Text>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+
+                        {/* Client's Original Uploaded Requirements Attachments */}
+                        {attList.length > 0 && (
+                          <View style={{ marginTop: 8 }}>
+                            <Text style={{ fontSize: 10.5, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 4 }}>
+                              📎 Your Uploaded Brief ({attList.length}):
+                            </Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                              {attList.map((attUrl, aIdx) => {
+                                const filename = typeof attUrl === 'string' ? attUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                                const isImg = isImageUrl(attUrl);
+                                const isVid = isVideoUrl(attUrl);
+                                const isAud = isAudioUrl(attUrl);
+                                return (
+                                  <TouchableOpacity
+                                    key={aIdx}
+                                    style={[styles.pendingChip, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: '#3b82f644', borderWidth: 1 }]}
+                                    onPress={() => Linking.openURL(attUrl).catch(() => {})}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Text style={{ fontSize: 11, marginRight: 4 }}>
+                                      {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📄'}
+                                    </Text>
+                                    <Text style={[styles.pendingChipText, { color: '#3b82f6', fontWeight: '600', maxWidth: 140 }]} numberOfLines={1}>
+                                      {decodeURIComponent(filename)}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        )}
+
+                        {/* Delivered Work Details & Deliverable Files */}
+                        {hasDelivery && (
+                          <View style={{ marginTop: 10, padding: 10, borderRadius: 8, backgroundColor: isDark ? '#022c22' : '#f0fdf4', borderWidth: 1, borderColor: isDark ? '#059669' : '#86efac' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text style={{ fontSize: 11.5, fontWeight: '800', color: isDark ? '#34d399' : '#16a34a' }}>
+                                🎉 Work Delivered & Completed
+                              </Text>
+                              {req.delivered_at && (
+                                <Text style={{ fontSize: 10, color: isDark ? '#a7f3d0' : '#15803d', fontWeight: '600' }}>
+                                  {new Date(req.delivered_at).toLocaleDateString()}
+                                </Text>
+                              )}
+                            </View>
+
+                            {req.deliverable_note ? (
+                              <Text style={{ fontSize: 11.5, color: themeColors.textPrimary, marginBottom: deliveredFiles.length > 0 ? 6 : 0 }} numberOfLines={3}>
+                                Note: {req.deliverable_note}
+                              </Text>
+                            ) : null}
+
+                            {deliveredFiles.length > 0 && (
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                                {deliveredFiles.map((fileUrl, fIdx) => {
+                                  const filename = typeof fileUrl === 'string' ? fileUrl.split('/').pop().split('?')[0] : `Deliverable ${fIdx + 1}`;
+                                  const isImg = isImageUrl(fileUrl);
+                                  const isVid = isVideoUrl(fileUrl);
+                                  const isAud = isAudioUrl(fileUrl);
+                                  return (
+                                    <TouchableOpacity
+                                      key={fIdx}
+                                      style={[
+                                        styles.pendingChip,
+                                        {
+                                          backgroundColor: isDark ? '#064e3b' : '#dcfce7',
+                                          borderColor: isDark ? '#059669' : '#86efac',
+                                          borderWidth: 1,
+                                          paddingVertical: 5,
+                                          paddingHorizontal: 8,
+                                          flexDirection: 'row',
+                                          alignItems: 'center',
+                                          gap: 4
+                                        }
+                                      ]}
+                                      onPress={() => Linking.openURL(fileUrl).catch(() => {})}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Text style={{ fontSize: 11 }}>
+                                        {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📦'}
+                                      </Text>
+                                      <Text style={[styles.pendingChipText, { color: isDark ? '#34d399' : '#15803d', fontWeight: '700', maxWidth: 140 }]} numberOfLines={1}>
+                                        {decodeURIComponent(filename)}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            )}
+                          </View>
+                        )}
+
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 6, borderTopWidth: 1, borderTopColor: isDark ? '#334155' : '#f1f5f9' }}>
                           <Text style={styles.itemFooterDate}>
                             Submitted: {new Date(req.created_at || Date.now()).toLocaleDateString()}
                           </Text>
                           {req.tl_name ? (
                             <Text style={{ fontSize: 11, color: '#6366f1', fontWeight: '700' }}>
-                              🛡️ Assigned TL: {req.tl_name}
+                              🛡️ TL: {req.tl_name}
                             </Text>
                           ) : null}
+                          <TouchableOpacity
+                            style={{
+                              paddingHorizontal: 10,
+                              paddingVertical: 4,
+                              borderRadius: 6,
+                              backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                              borderWidth: 1,
+                              borderColor: '#3b82f644'
+                            }}
+                            onPress={() => {
+                              setSelectedReqDetails(req);
+                              setReqDetailsModalVisible(true);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
+                              View Details 👁️
+                            </Text>
+                          </TouchableOpacity>
                         </View>
                       </View>
                     );
@@ -1351,7 +1629,14 @@ export default function ClientDashboard({ user, onLogout }) {
           />
           <View style={[styles.drawerContent, { backgroundColor: themeColors.drawerBg, borderColor: themeColors.border }]}>
             <View style={[styles.drawerHeader, { borderBottomColor: themeColors.border }]}>
-              <View style={[styles.drawerAvatarContainer, { backgroundColor: '#2563eb' }]}>
+              <View style={{ marginBottom: 12, alignItems: 'center' }}>
+                <Image
+                  source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
+                  style={{ width: 140, height: 34 }}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.drawerAvatarContainer}>
                 <Text style={styles.drawerAvatarText}>
                   {(clientDetails?.company_name || user?.name || 'C').charAt(0).toUpperCase()}
                 </Text>
@@ -1364,13 +1649,27 @@ export default function ClientDashboard({ user, onLogout }) {
               </Text>
             </View>
 
-            <ScrollView style={styles.drawerItemsContainer} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.drawerItemsContainer}
+              contentContainerStyle={styles.drawerScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               {navMenuItems.map((item) => {
                 const isActive = activeTab === item.id;
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.drawerItem, isActive && styles.drawerItemActive]}
+                    style={[
+                      styles.drawerItem,
+                      isActive && [
+                        styles.drawerItemActive,
+                        {
+                          backgroundColor: isDark ? 'rgba(37, 99, 235, 0.18)' : '#eff6ff',
+                          borderColor: isDark ? '#3b82f6' : '#bfdbfe',
+                        }
+                      ],
+                    ]}
                     onPress={() => {
                       setActiveTab(item.id);
                       setIsDrawerOpen(false);
@@ -1380,12 +1679,15 @@ export default function ClientDashboard({ user, onLogout }) {
                       name={item.icon}
                       size={18}
                       color={isActive ? '#2563eb' : themeColors.drawerItemText}
-                      style={{ marginRight: 10 }}
+                      style={{ marginRight: 12 }}
                     />
                     <Text
                       style={[
                         styles.drawerItemLabel,
-                        { color: isActive ? '#2563eb' : themeColors.drawerItemText, fontWeight: isActive ? '800' : '600' },
+                        {
+                          color: isActive ? '#2563eb' : themeColors.drawerItemText,
+                          fontWeight: isActive ? '800' : '600',
+                        },
                       ]}
                     >
                       {item.label}
@@ -1394,18 +1696,22 @@ export default function ClientDashboard({ user, onLogout }) {
                 );
               })}
 
-              {/* Theme Toggle */}
+              {/* Theme Toggle Button */}
               <TouchableOpacity
                 style={[
                   styles.drawerItem,
                   {
+                    flexDirection: 'row',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
-                    marginTop: 14,
-                    marginBottom: 14,
+                    marginTop: 8,
+                    marginBottom: 8,
                     backgroundColor: isDark ? '#334155' : '#f1f5f9',
                     paddingHorizontal: 12,
-                    paddingVertical: 8,
+                    paddingVertical: 10,
                     borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#475569' : '#e2e8f0',
                   },
                 ]}
                 activeOpacity={0.8}
@@ -1413,7 +1719,7 @@ export default function ClientDashboard({ user, onLogout }) {
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <AppIcon name={isDark ? 'moon' : 'sun'} size={18} color={isDark ? '#f59e0b' : '#eab308'} style={{ marginRight: 10 }} />
-                  <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText, fontWeight: '700' }]}>
+                  <Text style={{ fontSize: 13.5, color: themeColors.drawerItemText, fontWeight: '700' }}>
                     {isDark ? 'Dark Mode' : 'Light Mode'}
                   </Text>
                 </View>
@@ -1425,6 +1731,32 @@ export default function ClientDashboard({ user, onLogout }) {
                 />
               </TouchableOpacity>
             </ScrollView>
+
+            {onLogout && (
+              <TouchableOpacity
+                style={[
+                  styles.drawerLogoutBtn,
+                  {
+                    backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                    borderTopColor: themeColors.border,
+                  }
+                ]}
+                onPress={() => {
+                  setIsDrawerOpen(false);
+                  sweetAlert({
+                    title: 'Log Out',
+                    text: 'Are you sure you want to log out of your client portal?',
+                    type: 'warning',
+                    showCancel: true,
+                    onConfirm: onLogout,
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <AppIcon name="logout" size={16} color="#dc2626" style={{ marginRight: 8 }} />
+                <Text style={styles.drawerLogoutText}>Log Out 🚪</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -1449,17 +1781,31 @@ export default function ClientDashboard({ user, onLogout }) {
 
             <Text style={styles.inputLabel}>Service Category *</Text>
             <View style={styles.serviceChips}>
-              {['SEO', 'Social Media (SMO)', 'Google / Meta Ads', 'Website Development', 'Graphic Design'].map(st => (
-                <TouchableOpacity
-                  key={st}
-                  style={[styles.serviceChip, serviceType === st && styles.serviceChipActive]}
-                  onPress={() => setServiceType(st)}
-                >
-                  <Text style={[styles.serviceChipText, serviceType === st && styles.serviceChipTextActive]}>
-                    {st}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {activePackages.filter(p => !p.is_expired).length > 0 ? (
+                activePackages.filter(p => !p.is_expired).map(pkg => (
+                  <TouchableOpacity
+                    key={pkg.id || pkg.name}
+                    style={[styles.serviceChip, serviceType === pkg.name && styles.serviceChipActive]}
+                    onPress={() => setServiceType(pkg.name)}
+                  >
+                    <Text style={[styles.serviceChipText, serviceType === pkg.name && styles.serviceChipTextActive]}>
+                      {pkg.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                ['SEO', 'Social Media (SMO)', 'Google / Meta Ads', 'Website Development', 'Graphic Design'].map(st => (
+                  <TouchableOpacity
+                    key={st}
+                    style={[styles.serviceChip, serviceType === st && styles.serviceChipActive]}
+                    onPress={() => setServiceType(st)}
+                  >
+                    <Text style={[styles.serviceChipText, serviceType === st && styles.serviceChipTextActive]}>
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
 
             <Text style={styles.inputLabel}>Project Scope & Requirements *</Text>
@@ -1474,21 +1820,58 @@ export default function ClientDashboard({ user, onLogout }) {
               onChangeText={setServiceReqs}
             />
 
+            {/* Attachments Section */}
+            <View style={{ marginTop: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={styles.inputLabel}>Attach Files / Brief (Optional)</Text>
+                <TouchableOpacity
+                  style={[styles.smallActionBtn, { backgroundColor: isDark ? '#1e293b' : '#eff6ff' }]}
+                  onPress={handlePickServiceAttachment}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.smallActionBtnText, { color: '#3b82f6' }]}>+ Add Files 📎</Text>
+                </TouchableOpacity>
+              </View>
+
+              {serviceAttachments.length > 0 && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {serviceAttachments.map((file, fIdx) => (
+                    <View key={fIdx} style={[styles.pendingChip, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}>
+                      <Text style={[styles.pendingChipText, { color: themeColors.textPrimary }]} numberOfLines={1}>
+                        📎 {file.name || `Attachment ${fIdx + 1}`}
+                      </Text>
+                      <TouchableOpacity onPress={() => handleRemoveServiceAttachment(fIdx)} style={{ padding: 2 }}>
+                        <Text style={{ color: '#ef4444', fontWeight: 'bold', marginLeft: 4 }}>×</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+
             <View style={styles.modalButtonRow}>
               <TouchableOpacity
                 style={styles.modalCancelBtn}
-                onPress={() => setShowBookServiceModal(false)}
+                onPress={() => {
+                  setShowBookServiceModal(false);
+                  setServiceAttachments([]);
+                }}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalSubmitBtn, submittingService && styles.btnDisabled]}
+                style={[styles.modalSubmitBtn, (submittingService || uploadingServiceAttachments) && styles.btnDisabled]}
                 onPress={handleBookService}
-                disabled={submittingService}
+                disabled={submittingService || uploadingServiceAttachments}
               >
-                {submittingService ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                {submittingService || uploadingServiceAttachments ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.modalSubmitText}>
+                      {uploadingServiceAttachments ? 'Uploading Files...' : 'Submitting...'}
+                    </Text>
+                  </View>
                 ) : (
                   <Text style={styles.modalSubmitText}>Submit Request 🚀</Text>
                 )}
@@ -1642,272 +2025,335 @@ export default function ClientDashboard({ user, onLogout }) {
         </View>
       </Modal>
 
-      {/* ATTACHMENT FULLSCREEN VIEWER MODAL */}
+      {/* ======================================================== */}
+      {/* MODAL: SERVICE REQUEST & DELIVERABLES DETAILS             */}
+      {/* ======================================================== */}
       <Modal
-        visible={!!previewAttachmentUrl}
+        visible={reqDetailsModalVisible}
         transparent
-        animationType="fade"
-        onRequestClose={handleClosePreview}
+        animationType="slide"
+        onRequestClose={() => setReqDetailsModalVisible(false)}
       >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0, 0, 0, 0.94)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 16
-        }}>
-          {/* Top Bar with Open In Browser & Close Buttons */}
-          <View style={{
-            position: 'absolute',
-            top: Platform.OS === 'ios' ? 50 : 25,
-            left: 20,
-            right: 20,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            zIndex: 10
-          }}>
-            <TouchableOpacity
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderRadius: 8,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6
-              }}
-              onPress={() => previewAttachmentUrl && Linking.openURL(previewAttachmentUrl).catch(() => {})}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Open External ↗</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                justifyContent: 'center',
-                alignItems: 'center'
-              }}
-              onPress={handleClosePreview}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Media Display or Error Fallback */}
-          {previewError ? (
-            <View style={{ width: '100%', height: '70%', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-                <AppIcon name="warning" size={32} color="#ef4444" />
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '88%', paddingBottom: 16 }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.modalTitle} numberOfLines={1}>
+                  📋 Service Request Details
+                </Text>
+                <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>
+                  ID: #{selectedReqDetails?.id || ''}
+                </Text>
               </View>
-              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>No Attachment Found</Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 13, textAlign: 'center', marginBottom: 20, lineHeight: 18, maxWidth: 280 }}>
-                The attachment file could not be found or failed to load from the server.
-              </Text>
               <TouchableOpacity
-                style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                  paddingHorizontal: 18,
-                  paddingVertical: 10,
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.25)'
-                }}
-                onPress={() => previewAttachmentUrl && Linking.openURL(previewAttachmentUrl).catch(() => {})}
+                onPress={() => setReqDetailsModalVisible(false)}
+                style={{ padding: 4 }}
               >
-                <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Try Direct Link ↗</Text>
+                <AppIcon name="x" size={20} color={themeColors.textSecondary} />
               </TouchableOpacity>
             </View>
-          ) : isImageUrl(previewAttachmentUrl) ? (
-            <View style={{ width: '100%', height: '80%', justifyContent: 'center', alignItems: 'center' }}>
-              <Image
-                source={{ uri: previewAttachmentUrl }}
-                style={{ width: '100%', height: '100%', borderRadius: 8 }}
-                resizeMode="contain"
-                onError={() => setPreviewError(true)}
-              />
-            </View>
-          ) : isVideoUrl(previewAttachmentUrl) ? (
-            <View style={{ width: '100%', height: '80%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' }}>
-              <Video
-                source={{ uri: previewAttachmentUrl }}
-                style={{ width: '100%', height: '100%' }}
-                controls={true}
-                resizeMode="contain"
-                paused={false}
-                onError={() => setPreviewError(true)}
-              />
-            </View>
-          ) : isAudioUrl(previewAttachmentUrl) ? (
-            <View style={{ width: '100%', maxWidth: 350, backgroundColor: 'rgba(30, 41, 59, 0.95)', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 16, elevation: 10 }}>
-              {/* Background Video engine powering audio */}
-              <Video
-                ref={audioPlayerRef}
-                source={{ uri: previewAttachmentUrl }}
-                style={{ width: 0, height: 0, position: 'absolute' }}
-                paused={audioPaused}
-                playInBackground={false}
-                playWhenInactive={false}
-                ignoreSilentSwitch="ignore"
-                onLoad={(data) => {
-                  setAudioLoading(false);
-                  setAudioDuration(data.duration || 0);
-                }}
-                onProgress={(data) => {
-                  setAudioCurrentTime(data.currentTime || 0);
-                }}
-                onEnd={() => {
-                  setAudioPaused(true);
-                  setAudioCurrentTime(audioDuration);
-                }}
-                onError={() => {
-                  setAudioLoading(false);
-                  setPreviewError(true);
-                }}
-              />
 
-              {/* Glowing Icon Header */}
-              <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(236, 72, 153, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 14, borderWidth: 1, borderColor: 'rgba(236, 72, 153, 0.4)' }}>
-                <Text style={{ fontSize: 34 }}>🎙️</Text>
-              </View>
-
-              <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '800', marginBottom: 4, textAlign: 'center' }}>
-                Audio Recording
-              </Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, marginBottom: 20, textAlign: 'center', paddingHorizontal: 10 }} numberOfLines={1}>
-                {previewAttachmentUrl.split('/').pop()}
-              </Text>
-
-              {/* Interactive Progress Bar */}
-              <View style={{ width: '100%', height: 18, justifyContent: 'center', marginBottom: 4 }}>
-                <View style={{ width: '100%', height: 6, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 3, overflow: 'hidden' }}>
-                  <View
-                    style={{
-                      height: '100%',
-                      backgroundColor: '#ec4899',
-                      borderRadius: 3,
-                      width: `${audioDuration > 0 ? Math.min(100, (audioCurrentTime / audioDuration) * 100) : 0}%`
-                    }}
-                  />
+            <ScrollView showsVerticalScrollIndicator={true} style={{ flexGrow: 0 }}>
+              {/* Status Header Banner */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: 12,
+                borderRadius: 10,
+                marginBottom: 12,
+                backgroundColor: (selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'completed')
+                  ? (isDark ? '#064e3b' : '#ecfdf5')
+                  : (selectedReqDetails?.status === 'In Progress' || selectedReqDetails?.status === 'in_progress')
+                  ? (isDark ? '#1e3a8a' : '#eff6ff')
+                  : (isDark ? '#78350f' : '#fefce8'),
+                borderWidth: 1,
+                borderColor: (selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'completed')
+                  ? (isDark ? '#059669' : '#86efac')
+                  : (selectedReqDetails?.status === 'In Progress' || selectedReqDetails?.status === 'in_progress')
+                  ? (isDark ? '#2563eb' : '#bfdbfe')
+                  : (isDark ? '#d97706' : '#fde047')
+              }}>
+                <View>
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, textTransform: 'uppercase', fontWeight: '700' }}>
+                    Current Status
+                  </Text>
+                  <Text style={{
+                    fontSize: 15,
+                    fontWeight: '800',
+                    color: (selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'completed')
+                      ? (isDark ? '#34d399' : '#15803d')
+                      : (selectedReqDetails?.status === 'In Progress' || selectedReqDetails?.status === 'in_progress')
+                      ? (isDark ? '#60a5fa' : '#1d4ed8')
+                      : (isDark ? '#fbbf24' : '#b45309')
+                  }}>
+                    {selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'completed'
+                      ? '🎉 Completed & Delivered'
+                      : selectedReqDetails?.status === 'In Progress' || selectedReqDetails?.status === 'in_progress'
+                      ? '⚡ In Progress'
+                      : '⏳ Pending Review'}
+                  </Text>
+                </View>
+                <View style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 8,
+                  backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.7)'
+                }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textPrimary }}>
+                    {selectedReqDetails?.service_type || 'Service Task'}
+                  </Text>
                 </View>
               </View>
 
-              {/* Time Indicators */}
-              <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-                <Text style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: 12, fontWeight: '700' }}>
-                  {formatAudioTime(audioCurrentTime)}
-                </Text>
-                <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 12, fontWeight: '600' }}>
-                  {audioLoading ? 'Loading...' : formatAudioTime(audioDuration)}
-                </Text>
-              </View>
-
-              {/* Audio Controls Row */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-                {/* Replay Button */}
-                <TouchableOpacity
-                  style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
-                  onPress={() => {
-                    audioPlayerRef.current?.seek(0);
-                    setAudioCurrentTime(0);
-                    setAudioPaused(false);
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 17 }}>↺</Text>
-                </TouchableOpacity>
-
-                {/* Rewind 10s */}
-                <TouchableOpacity
-                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
-                  onPress={() => {
-                    const newTime = Math.max(0, audioCurrentTime - 10);
-                    audioPlayerRef.current?.seek(newTime);
-                    setAudioCurrentTime(newTime);
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>-10s</Text>
-                </TouchableOpacity>
-
-                {/* Main Play / Pause Button */}
-                <TouchableOpacity
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: 30,
-                    backgroundColor: '#ec4899',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    shadowColor: '#ec4899',
-                    shadowOpacity: 0.5,
-                    shadowRadius: 8,
-                    elevation: 6
-                  }}
-                  onPress={() => {
-                    if (audioCurrentTime >= audioDuration && audioDuration > 0) {
-                      audioPlayerRef.current?.seek(0);
-                      setAudioCurrentTime(0);
-                      setAudioPaused(false);
-                    } else {
-                      setAudioPaused(!audioPaused);
-                    }
-                  }}
-                >
-                  {audioLoading ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <AppIcon name={audioPaused ? 'play' : 'pause'} size={24} color="#ffffff" />
-                  )}
-                </TouchableOpacity>
-
-                {/* Forward 10s */}
-                <TouchableOpacity
-                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}
-                  onPress={() => {
-                    if (audioDuration > 0) {
-                      const newTime = Math.min(audioDuration, audioCurrentTime + 10);
-                      audioPlayerRef.current?.seek(newTime);
-                      setAudioCurrentTime(newTime);
-                    }
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>+10s</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : previewAttachmentUrl ? (
-            <View style={{ width: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 16, padding: 24 }}>
-              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(59, 130, 246, 0.25)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 30 }}>📄</Text>
-              </View>
-              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: 'bold', marginBottom: 6 }}>
-                Document Attachment
-              </Text>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 12, textAlign: 'center', marginBottom: 20, maxWidth: 260 }} numberOfLines={2}>
-                {previewAttachmentUrl.split('/').pop()}
-              </Text>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#ec4899',
-                  paddingHorizontal: 20,
-                  paddingVertical: 12,
+              {/* Delivery Section (if completed or deliverables exist) */}
+              {((selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'completed') || selectedReqDetails?.deliverable_note || selectedReqDetails?.deliverable_files) && (
+                <View style={{
+                  backgroundColor: isDark ? '#064e3b22' : '#f0fdf4',
+                  borderWidth: 1.5,
+                  borderColor: isDark ? '#059669' : '#86efac',
                   borderRadius: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  shadowColor: '#ec4899',
-                  shadowOpacity: 0.3,
-                  shadowRadius: 6,
-                  elevation: 4
-                }}
-                onPress={() => Linking.openURL(previewAttachmentUrl).catch(() => {})}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Open / Download File ↗</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
+                  padding: 14,
+                  marginBottom: 14
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: isDark ? '#34d399' : '#15803d' }}>
+                      🚀 Final Delivered Work
+                    </Text>
+                    {selectedReqDetails?.delivered_at && (
+                      <Text style={{ fontSize: 11, color: isDark ? '#a7f3d0' : '#166534', fontWeight: '600' }}>
+                        📅 {new Date(selectedReqDetails.delivered_at).toLocaleDateString()}
+                      </Text>
+                    )}
+                  </View>
+
+                  {selectedReqDetails?.deliverable_note ? (
+                    <View style={{ marginBottom: 10, backgroundColor: isDark ? '#064e3b44' : '#ffffff', padding: 10, borderRadius: 8 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 2 }}>
+                        Team Completion Note:
+                      </Text>
+                      <Text style={{ fontSize: 13, color: themeColors.textPrimary, lineHeight: 18 }}>
+                        {selectedReqDetails.deliverable_note}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={{ fontSize: 12, color: themeColors.textSecondary, fontStyle: 'italic', marginBottom: 8 }}>
+                      The assigned team has finished and delivered this task for you.
+                    </Text>
+                  )}
+
+                  {/* Deliverable Files / Assets */}
+                  {(() => {
+                    const dFiles = parseAttachments(
+                      selectedReqDetails?.deliverable_files ||
+                      selectedReqDetails?.deliverableFiles ||
+                      selectedReqDetails?.proof ||
+                      selectedReqDetails?.proofs
+                    );
+
+                    if (dFiles.length === 0) return null;
+
+                    return (
+                      <View style={{ marginTop: 6 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: isDark ? '#34d399' : '#15803d', marginBottom: 6 }}>
+                          📎 Delivered Attachments & Proofs ({dFiles.length}):
+                        </Text>
+                        <View style={{ gap: 6 }}>
+                          {dFiles.map((fileUrl, fIdx) => {
+                            const filename = typeof fileUrl === 'string' ? fileUrl.split('/').pop().split('?')[0] : `Deliverable ${fIdx + 1}`;
+                            const isImg = isImageUrl(fileUrl);
+                            const isVid = isVideoUrl(fileUrl);
+                            const isAud = isAudioUrl(fileUrl);
+                            const resolvedUrl = resolveMediaUrl(fileUrl);
+
+                            return (
+                              <TouchableOpacity
+                                key={fIdx}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: 10,
+                                  borderRadius: 8,
+                                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                                  borderWidth: 1,
+                                  borderColor: isDark ? '#334155' : '#cbd5e1'
+                                }}
+                                onPress={() => Linking.openURL(resolvedUrl).catch(() => {})}
+                                activeOpacity={0.7}
+                              >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                                  <Text style={{ fontSize: 16, marginRight: 8 }}>
+                                    {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📦'}
+                                  </Text>
+                                  <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textPrimary, flex: 1 }} numberOfLines={1}>
+                                    {decodeURIComponent(filename)}
+                                  </Text>
+                                </View>
+                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
+                                  Open / View ↗
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })()}
+                </View>
+              )}
+
+              {/* Assignment & Request Information Card */}
+              <View style={{
+                backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                borderWidth: 1,
+                borderColor: isDark ? '#334155' : '#e2e8f0',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 14
+              }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary, marginBottom: 8 }}>
+                  📌 Request Overview
+                </Text>
+
+                <View style={{ gap: 6 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: themeColors.textSecondary }}>Service Type:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textPrimary }}>
+                      {selectedReqDetails?.service_type || 'N/A'}
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: themeColors.textSecondary }}>Submitted Date:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: themeColors.textPrimary }}>
+                      {selectedReqDetails?.created_at ? new Date(selectedReqDetails.created_at).toLocaleString() : 'N/A'}
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, color: themeColors.textSecondary }}>Team Leader:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#6366f1' }}>
+                      🛡️ {selectedReqDetails?.tl_name || 'Assigned to Leadership'}
+                    </Text>
+                  </View>
+
+                  {selectedReqDetails?.specialist_name ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: 12, color: themeColors.textSecondary }}>Specialist:</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#059669' }}>
+                        👤 {selectedReqDetails.specialist_name}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+
+              {/* Client's Original Requirements & Instructions */}
+              <View style={{
+                backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                borderWidth: 1,
+                borderColor: isDark ? '#334155' : '#e2e8f0',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 14
+              }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary, marginBottom: 6 }}>
+                  📝 Your Requirements & Instructions
+                </Text>
+                <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, lineHeight: 18 }}>
+                  {selectedReqDetails?.requirements || 'No additional instructions provided.'}
+                </Text>
+
+                {/* Client's attached files */}
+                {(() => {
+                  const attFiles = parseAttachments(
+                    selectedReqDetails?.attachment ||
+                    selectedReqDetails?.attachments ||
+                    selectedReqDetails?.fileUrl ||
+                    selectedReqDetails?.file_url ||
+                    selectedReqDetails?.client_attachment
+                  );
+
+                  return (
+                    <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDark ? '#334155' : '#e2e8f0' }}>
+                      <Text style={{ fontSize: 11.5, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>
+                        📎 Uploaded Brief & Attachments {attFiles.length > 0 ? `(${attFiles.length})` : ''}:
+                      </Text>
+                      {attFiles.length === 0 ? (
+                        <Text style={{ fontSize: 12, color: themeColors.textSecondary, fontStyle: 'italic' }}>
+                          No attachments uploaded with this request.
+                        </Text>
+                      ) : (
+                        <View style={{ gap: 6 }}>
+                          {attFiles.map((fileUrl, aIdx) => {
+                            const filename = typeof fileUrl === 'string' ? fileUrl.split('/').pop().split('?')[0] : `Attachment ${aIdx + 1}`;
+                            const isImg = isImageUrl(fileUrl);
+                            const isVid = isVideoUrl(fileUrl);
+                            const isAud = isAudioUrl(fileUrl);
+                            const resolvedUrl = resolveMediaUrl(fileUrl);
+
+                            return (
+                              <TouchableOpacity
+                                key={aIdx}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: 10,
+                                  borderRadius: 8,
+                                  backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                                  borderWidth: 1,
+                                  borderColor: isDark ? '#334155' : '#cbd5e1'
+                                }}
+                                onPress={() => Linking.openURL(resolvedUrl).catch(() => {})}
+                                activeOpacity={0.7}
+                              >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                                  <Text style={{ fontSize: 15, marginRight: 8 }}>
+                                    {isImg ? '🖼️' : isVid ? '🎥' : isAud ? '🎙️' : '📄'}
+                                  </Text>
+                                  <Text style={{ fontSize: 12, color: themeColors.textPrimary, flex: 1 }} numberOfLines={1}>
+                                    {decodeURIComponent(filename)}
+                                  </Text>
+                                </View>
+                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
+                                  View / Download ↗
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={{
+                width: '100%',
+                backgroundColor: '#2563eb',
+                paddingVertical: 13,
+                borderRadius: 10,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 14,
+                shadowColor: '#2563eb',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 4,
+                elevation: 3,
+              }}
+              onPress={() => setReqDetailsModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '800', letterSpacing: 0.3 }}>
+                Close Details ✕
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -2475,64 +2921,106 @@ const getStyles = (colors, isDark) =>
     },
     drawerOverlay: {
       position: 'absolute',
-      inset: 0,
-      zIndex: 100,
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
       flexDirection: 'row',
+      zIndex: 999,
     },
     drawerBackdrop: {
       position: 'absolute',
-      inset: 0,
-      backgroundColor: 'rgba(0,0,0,0.6)',
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(15, 23, 42, 0.4)',
     },
     drawerContent: {
-      width: '78%',
-      maxWidth: 300,
+      width: 290,
       height: '100%',
+      backgroundColor: colors.drawerBg || (isDark ? '#1e293b' : '#ffffff'),
       borderRightWidth: 1,
-      paddingTop: 10,
+      borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      paddingHorizontal: 16,
+      paddingTop: 45,
+      paddingBottom: 20,
+      flexDirection: 'column',
     },
     drawerHeader: {
-      padding: 16,
+      alignItems: 'center',
       borderBottomWidth: 1,
+      borderBottomColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      paddingBottom: 16,
+      marginBottom: 12,
     },
     drawerAvatarContainer: {
-      width: 44,
-      height: 44,
-      borderRadius: 12,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff',
+      borderWidth: 2,
+      borderColor: '#2563eb',
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 10,
+      marginBottom: 8,
     },
     drawerAvatarText: {
-      color: '#ffffff',
-      fontSize: 18,
+      fontSize: 26,
       fontWeight: '800',
+      color: '#2563eb',
     },
     drawerName: {
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: '800',
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+      textAlign: 'center',
     },
     drawerEmail: {
-      fontSize: 11.5,
-      marginTop: 2,
+      fontSize: 12,
+      color: colors.drawerSubtext || '#64748b',
+      marginTop: 3,
+      textAlign: 'center',
     },
     drawerItemsContainer: {
       flex: 1,
-      padding: 12,
+    },
+    drawerScrollContent: {
+      paddingVertical: 6,
+      paddingBottom: 16,
     },
     drawerItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 10,
+      paddingVertical: 12,
       paddingHorizontal: 12,
-      borderRadius: 10,
-      marginBottom: 4,
+      borderRadius: 12,
+      marginBottom: 6,
     },
     drawerItemActive: {
-      backgroundColor: 'rgba(37, 99, 235, 0.12)',
+      backgroundColor: isDark ? 'rgba(37, 99, 235, 0.18)' : '#eff6ff',
+      borderWidth: 1,
+      borderColor: isDark ? '#3b82f6' : '#bfdbfe',
     },
     drawerItemLabel: {
-      fontSize: 12.5,
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.drawerItemText || (isDark ? '#cbd5e1' : '#334155'),
+    },
+    drawerLogoutBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      borderTopWidth: 1,
+      borderTopColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      borderRadius: 12,
+      marginTop: 8,
+    },
+    drawerLogoutText: {
+      color: '#dc2626',
+      fontSize: 14,
+      fontWeight: '700',
     },
     modalOverlay: {
       flex: 1,
@@ -2644,5 +3132,36 @@ const getStyles = (colors, isDark) =>
     },
     btnDisabled: {
       opacity: 0.6,
+    },
+    buyPackageNotice: {
+      padding: 20,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    buyPackageTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      marginBottom: 6,
+      textAlign: 'center',
+    },
+    buyPackageDesc: {
+      fontSize: 12.5,
+      textAlign: 'center',
+      lineHeight: 18,
+      marginBottom: 14,
+      maxWidth: 320,
+    },
+    viewPackagesBannerBtn: {
+      backgroundColor: '#f43f5e',
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    viewPackagesBannerBtnText: {
+      color: '#ffffff',
+      fontSize: 13,
+      fontWeight: '700',
     },
   });

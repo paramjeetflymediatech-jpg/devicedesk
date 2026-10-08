@@ -10,6 +10,18 @@ export class Task {
   static async saveAll(tasks) {
     if (!Array.isArray(tasks)) return;
     const db = getPool();
+    
+    // Ensure completion_note and project_id columns exist
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN completion_note TEXT`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN project_id VARCHAR(50)`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN fileUrl TEXT`);
+    } catch (e) {}
+
     const maxRetries = 5;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const conn = await db.getConnection();
@@ -18,7 +30,7 @@ export class Task {
         await conn.execute('DELETE FROM tasks');
         for (const t of tasks) {
           await conn.execute(
-            `INSERT INTO tasks (id, title, description, assignedTo, assignedToName, assignedBy, assignedByName, status, createdAt, startedAt, completedAt, totalDuration, fileUrl, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO tasks (id, title, description, assignedTo, assignedToName, assignedBy, assignedByName, status, createdAt, startedAt, completedAt, totalDuration, fileUrl, project_id, completion_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               t.id || null,
               t.title || '',
@@ -32,8 +44,9 @@ export class Task {
               t.startedAt || null,
               t.completedAt || null,
               t.totalDuration || 0,
-              t.fileUrl || null,
-              t.project_id || null
+              t.fileUrl ? (Array.isArray(t.fileUrl) ? JSON.stringify(t.fileUrl) : String(t.fileUrl)) : null,
+              t.project_id || null,
+              t.completion_note || t.completionNote || null
             ]
           );
         }

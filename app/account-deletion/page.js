@@ -139,12 +139,12 @@ export default function AccountDeletionPage() {
             style={{
               color: "var(--text-secondary)",
               fontSize: "0.95rem",
-              maxWidth: "580px",
+              maxWidth: "600px",
               margin: "0 auto",
               lineHeight: "1.6"
             }}
           >
-            In accordance with Google Play Developer Program policies, DeviceDesk allows registered users to request full deletion of their account profile and associated personal data.
+            In accordance with Google Play Developer Program policies, users of <strong>Device Desk (DeviceDesk)</strong> operated by <strong>Fly Media Technology</strong> can request complete deletion of their account profile, credentials, and associated personal data.
           </p>
         </div>
 
