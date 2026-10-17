@@ -5,9 +5,10 @@ import {
   FiSearch, FiFilter, FiCalendar, FiUser, FiTv, FiTrash2,
   FiDownload, FiEye, FiClock, FiGrid, FiList, FiRefreshCw,
   FiShield, FiCheckCircle, FiActivity, FiLayers, FiX, FiZoomIn,
-  FiChevronDown, FiChevronUp
+  FiChevronDown, FiChevronUp, FiUsers, FiSettings
 } from 'react-icons/fi';
 import { FaWindows, FaUbuntu, FaApple } from 'react-icons/fa';
+import ManageTeamScreenshotsModal from './modals/ManageTeamScreenshotsModal.js';
 
 // Image load error fallback handler
 function handleImageError(e, rawUrl) {
@@ -40,7 +41,7 @@ const getTodayDateStr = () => {
   return `${year}-${month}-${day}`;
 };
 
-export default function ScreenshotsTab({ user }) {
+export default function ScreenshotsTab({ user, isTL = false, tlId = null, initialEmployeeId = 'all', adminInitialTlId = null }) {
   const [screenshots, setScreenshots] = useState([]);
   const [employeesList, setEmployeesList] = useState([]);
   const [departmentsList, setDepartmentsList] = useState([]);
@@ -48,16 +49,36 @@ export default function ScreenshotsTab({ user }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Admin Team Leader Scoping & Configuration States
+  const [adminSelectedTL, setAdminSelectedTL] = useState(adminInitialTlId || 'all');
+  const [teamLeadersList, setTeamLeadersList] = useState([]);
+  const [isManageTLModalOpen, setIsManageTLModalOpen] = useState(false);
+  const [manageModalPreselectedTL, setManageModalPreselectedTL] = useState(null);
+
+  // Sync adminInitialTlId if passed as prop
+  useEffect(() => {
+    if (adminInitialTlId) {
+      setAdminSelectedTL(adminInitialTlId);
+    }
+  }, [adminInitialTlId]);
+
   // Collapsible Accordion State for 100+ Employee Cards
   const [collapsedGroups, setCollapsedGroups] = useState({});
 
   // Filters State - Default Date is TODAY's date
-  const [selectedEmployee, setSelectedEmployee] = useState('all');
+  const [selectedEmployee, setSelectedEmployee] = useState(initialEmployeeId || 'all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedDate, setSelectedDate] = useState(getTodayDateStr());
   const [limitFilter, setLimitFilter] = useState('all'); // 'all' (unlimited whole day) | '500' | '100' | '50'
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grouped'); // 'grouped' or 'feed'
+
+  // Sync initialEmployeeId if passed as prop
+  useEffect(() => {
+    if (initialEmployeeId) {
+      setSelectedEmployee(initialEmployeeId);
+    }
+  }, [initialEmployeeId]);
 
   // Pagination States
   const [groupedPage, setGroupedPage] = useState(1);
@@ -79,6 +100,23 @@ export default function ScreenshotsTab({ user }) {
     user?.email === 'admin@yopmail.com' ||
     user?.email === 'pravi@yopmail.com';
   const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+  const isTLUser = isTL || (!isAdminUser && !isHRUser && (dbRoleStr === 'team leader' || dbRoleStr === 'team lead' || dbRoleStr === 'tl' || dbRoleStr === 'leader'));
+  const effectiveTlId = tlId || (isTLUser ? user?.id : (isAdminUser && adminSelectedTL !== 'all' ? adminSelectedTL : null));
+  const canDeleteScreenshots = isAdminUser;
+
+  // Load team leaders for Admin filter and configuration
+  useEffect(() => {
+    if (isAdminUser) {
+      fetch('/api/team-hierarchy')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.teamLeaders)) {
+            setTeamLeadersList(data.teamLeaders);
+          }
+        })
+        .catch(err => console.warn('Could not load team hierarchy for admin:', err));
+    }
+  }, [isAdminUser]);
 
   // Fetch Employees List for filter dropdown
   useEffect(() => {
@@ -89,7 +127,10 @@ export default function ScreenshotsTab({ user }) {
           const empData = await empRes.json();
           if (empData.success && Array.isArray(empData.data)) {
             let filteredEmps = empData.data;
-            if (isHRUser) {
+            if (effectiveTlId) {
+              // Team Leader: Only show their assigned team members
+              filteredEmps = filteredEmps.filter(e => String(e.tl_id) === String(effectiveTlId));
+            } else if (isHRUser) {
               // HR cannot see any HR employees in the dropdown
               filteredEmps = filteredEmps.filter(e => {
                 const dept = (e.department || '').toLowerCase();
@@ -107,7 +148,7 @@ export default function ScreenshotsTab({ user }) {
       }
     }
     loadFilterOptions();
-  }, []);
+  }, [effectiveTlId, isHRUser]);
 
   const [agentRegistrations, setAgentRegistrations] = useState([]);
 
@@ -117,6 +158,7 @@ export default function ScreenshotsTab({ user }) {
     setRefreshing(true);
     try {
       const queryParams = new URLSearchParams();
+      if (effectiveTlId) queryParams.append('tlId', effectiveTlId);
       if (selectedEmployee !== 'all') queryParams.append('employeeId', selectedEmployee);
       if (selectedDepartment !== 'all') queryParams.append('department', selectedDepartment);
       if (selectedDate) queryParams.append('date', selectedDate);
@@ -161,7 +203,7 @@ export default function ScreenshotsTab({ user }) {
       fetchScreenshots();
     }, 300);
     return () => clearTimeout(handler);
-  }, [selectedEmployee, selectedDepartment, selectedDate, limitFilter, searchQuery]);
+  }, [selectedEmployee, selectedDepartment, selectedDate, limitFilter, searchQuery, effectiveTlId]);
 
   // Live Auto-Refresh every 30 seconds for real-time employee capture streaming
   useEffect(() => {
@@ -169,11 +211,11 @@ export default function ScreenshotsTab({ user }) {
       fetchScreenshots(true); // Silent background update
     }, 30000);
     return () => clearInterval(interval);
-  }, [selectedEmployee, selectedDepartment, selectedDate, limitFilter, searchQuery]);
+  }, [selectedEmployee, selectedDepartment, selectedDate, limitFilter, searchQuery, effectiveTlId]);
 
   // Reset All Filters Helper
   const resetFilters = () => {
-    setSelectedEmployee('all');
+    setSelectedEmployee(initialEmployeeId && initialEmployeeId !== 'all' ? initialEmployeeId : 'all');
     setSelectedDepartment('all');
     setSelectedDate(getTodayDateStr());
     setLimitFilter('all');
@@ -181,6 +223,9 @@ export default function ScreenshotsTab({ user }) {
     setViewMode('grouped');
     setGroupedPage(1);
     setFeedPage(1);
+    if (isAdminUser && !adminInitialTlId) {
+      setAdminSelectedTL('all');
+    }
   };
 
   const parseUtcMs = (val) => {
@@ -447,10 +492,12 @@ export default function ScreenshotsTab({ user }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
         <div>
           <h1 style={{ fontSize: '1.6rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span>📸</span> Activity Screenshots & Work Logs
+            <span>📸</span> {isTLUser ? 'Team Member Activity Screenshots' : 'Activity Screenshots & Work Logs'}
           </h1>
           <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '0.9rem' }}>
-            Real-time automated employee activity screenshots & desktop monitoring
+            {isTLUser
+              ? 'Real-time automated desktop monitoring & live activity feeds for your assigned team members'
+              : 'Real-time automated employee activity screenshots & desktop monitoring'}
           </p>
         </div>
 
@@ -506,12 +553,40 @@ export default function ScreenshotsTab({ user }) {
             📖 Full Setup Guide (/setup-agent)
           </a>
 
-          <button
-            onClick={handleDeleteAll}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', cursor: 'pointer', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-critical)', border: '1px solid rgba(239, 68, 68, 0.2)', fontWeight: '700' }}
-          >
-            <FiTrash2 /> Delete All Screenshots
-          </button>
+          {isAdminUser && (
+            <button
+              type="button"
+              onClick={() => {
+                setManageModalPreselectedTL(adminSelectedTL !== 'all' ? adminSelectedTL : null);
+                setIsManageTLModalOpen(true);
+              }}
+              title="Decide which team leader sees which member screenshots"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                color: '#818cf8',
+                border: '1px solid rgba(99, 102, 241, 0.35)',
+                fontWeight: '700'
+              }}
+            >
+              <FiUsers style={{ fontSize: '1rem' }} /> Decide TL Screenshot Access
+            </button>
+          )}
+
+          {canDeleteScreenshots && (
+            <button
+              onClick={handleDeleteAll}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', fontSize: '0.85rem', cursor: 'pointer', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-critical)', border: '1px solid rgba(239, 68, 68, 0.2)', fontWeight: '700' }}
+            >
+              <FiTrash2 /> Delete All Screenshots
+            </button>
+          )}
 
           <div style={{ backgroundColor: 'rgba(2, 132, 199, 0.12)', color: 'var(--accent-cyan)', padding: '6px 14px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '700', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <FiShield /> 180-Day Retention Active
@@ -536,7 +611,7 @@ export default function ScreenshotsTab({ user }) {
 
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', padding: '18px', borderRadius: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: '600' }}>
-            <span>Monitored Employees Today</span>
+            <span>{isTLUser ? 'Monitored Team Members' : 'Monitored Employees Today'}</span>
             <FiUser style={{ color: 'var(--accent-cyan)', fontSize: '1.2rem' }} />
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '8px' }}>
@@ -602,6 +677,38 @@ export default function ScreenshotsTab({ user }) {
               )}
             </div>
 
+            {/* Team Leader Filter (Admin Only) */}
+            {isAdminUser && (
+              <div style={{ position: 'relative', width: '100%' }}>
+                <select
+                  value={adminSelectedTL}
+                  onChange={e => {
+                    setAdminSelectedTL(e.target.value);
+                    setSelectedEmployee('all');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: adminSelectedTL !== 'all' ? '1px solid #818cf8' : '1px solid var(--glass-border)',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    color: adminSelectedTL !== 'all' ? '#818cf8' : 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-tertiary)'
+                  }}
+                >
+                  <option value="all" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                    👑 All TLs (Full View)
+                  </option>
+                  {teamLeadersList.map(tl => (
+                    <option key={tl.id} value={tl.id} style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                      👔 TL: {tl.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Employee Dropdown Filter */}
             <div style={{ position: 'relative', width: '100%' }}>
               <select
@@ -609,7 +716,9 @@ export default function ScreenshotsTab({ user }) {
                 onChange={e => setSelectedEmployee(e.target.value)}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)', backgroundColor: 'var(--bg-tertiary)' }}
               >
-                <option value="all" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>👤 All Employees ({employeesList.length})</option>
+                <option value="all" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                  {adminSelectedTL !== 'all' ? `👥 All Assigned Members (${employeesList.length})` : `👤 All Employees (${employeesList.length})`}
+                </option>
                 {employeesList.map(emp => (
                   <option key={emp.id} value={emp.id} style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
                     {emp.name} ({emp.id}) - {emp.department || 'General'}
@@ -830,6 +939,94 @@ export default function ScreenshotsTab({ user }) {
         </div>
       </div>
 
+      {/* Admin TL View Banner */}
+      {isAdminUser && adminSelectedTL !== 'all' && (
+        <div
+          style={{
+            background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.1) 100%)',
+            border: '1px solid rgba(99, 102, 241, 0.35)',
+            borderRadius: '12px',
+            padding: '12px 18px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                background: 'rgba(99, 102, 241, 0.2)',
+                color: '#818cf8',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.1rem'
+              }}
+            >
+              <FiEye />
+            </div>
+            <div>
+              <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.92rem' }}>
+                Checking Screenshot View for Team Leader:{' '}
+                <span style={{ color: '#818cf8' }}>
+                  {teamLeadersList.find(tl => String(tl.id) === String(adminSelectedTL))?.name || adminSelectedTL}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Only showing screenshots of members assigned to this Team Leader ({employeesList.length} member{employeesList.length === 1 ? '' : 's'}). This mirrors what the Team Leader sees.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setManageModalPreselectedTL(adminSelectedTL);
+                setIsManageTLModalOpen(true);
+              }}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                background: '#06b6d4',
+                color: '#0f172a',
+                fontWeight: '700',
+                fontSize: '0.8rem',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              ⚙️ Decide Member Access
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAdminSelectedTL('all');
+                setSelectedEmployee('all');
+              }}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                background: 'rgba(255, 255, 255, 0.06)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--glass-border)',
+                fontSize: '0.8rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              ✕ View All Screenshots
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 4. Main Content Gallery */}
       {/* 4. Main Content Gallery */}
       {loading ? (
@@ -1003,6 +1200,7 @@ export default function ScreenshotsTab({ user }) {
                               <ScreenshotCard
                                 key={item.id}
                                 item={item}
+                                canDelete={canDeleteScreenshots}
                                 onInspect={() => setInspectModal({ open: true, data: item })}
                                 onDelete={(id, e) => handleDelete(id, e)}
                               />
@@ -1124,6 +1322,7 @@ export default function ScreenshotsTab({ user }) {
                     key={item.id}
                     item={item}
                     showEmployeeHeader
+                    canDelete={canDeleteScreenshots}
                     onInspect={() => setInspectModal({ open: true, data: item })}
                     onDelete={(id, e) => handleDelete(id, e)}
                   />
@@ -1315,12 +1514,14 @@ export default function ScreenshotsTab({ user }) {
                     <FiDownload /> Download High-Res Image
                   </a>
 
-                  <button
-                    onClick={() => handleDelete(inspectModal.data.id)}
-                    style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-critical)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                  >
-                    <FiTrash2 /> Delete Record Permanently
-                  </button>
+                  {canDeleteScreenshots && (
+                    <button
+                      onClick={() => handleDelete(inspectModal.data.id)}
+                      style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-critical)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    >
+                      <FiTrash2 /> Delete Record Permanently
+                    </button>
+                  )}
                 </div>
 
               </div>
@@ -1430,12 +1631,42 @@ export default function ScreenshotsTab({ user }) {
         </div>
       )}
 
+      {/* Manage Team Screenshots Access Modal */}
+      <ManageTeamScreenshotsModal
+        isOpen={isManageTLModalOpen}
+        onClose={() => setIsManageTLModalOpen(false)}
+        initialTlId={manageModalPreselectedTL}
+        onSuccess={() => {
+          fetchScreenshots();
+          if (isAdminUser) {
+            fetch('/api/team-hierarchy')
+              .then(res => res.json())
+              .then(data => {
+                if (data.success && Array.isArray(data.teamLeaders)) {
+                  setTeamLeadersList(data.teamLeaders);
+                }
+              });
+            fetch('/api/employees')
+              .then(res => res.json())
+              .then(empData => {
+                if (empData.success && Array.isArray(empData.data)) {
+                  let filteredEmps = empData.data;
+                  if (effectiveTlId) {
+                    filteredEmps = filteredEmps.filter(e => String(e.tl_id) === String(effectiveTlId));
+                  }
+                  setEmployeesList(filteredEmps);
+                }
+              });
+          }
+        }}
+      />
+
     </div>
   );
 }
 
 // Single Screenshot Thumbnail Card Sub-component
-function ScreenshotCard({ item, showEmployeeHeader, onInspect, onDelete }) {
+function ScreenshotCard({ item, showEmployeeHeader, onInspect, onDelete, canDelete = true }) {
   return (
     <div
       onClick={onInspect}
@@ -1510,13 +1741,15 @@ function ScreenshotCard({ item, showEmployeeHeader, onInspect, onDelete }) {
           📅 {new Date(item.capturedAt).toLocaleDateString()}
         </span>
 
-        <button
-          onClick={e => onDelete(item.id, e)}
-          title="Delete Screenshot"
-          style={{ background: 'none', border: 'none', color: 'var(--status-critical)', cursor: 'pointer', padding: '4px', borderRadius: '4px' }}
-        >
-          <FiTrash2 style={{ fontSize: '0.9rem' }} />
-        </button>
+        {canDelete && (
+          <button
+            onClick={e => onDelete(item.id, e)}
+            title="Delete Screenshot"
+            style={{ background: 'none', border: 'none', color: 'var(--status-critical)', cursor: 'pointer', padding: '4px', borderRadius: '4px' }}
+          >
+            <FiTrash2 style={{ fontSize: '0.9rem' }} />
+          </button>
+        )}
       </div>
     </div>
   );

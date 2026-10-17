@@ -21,6 +21,7 @@ import { pickFilesOrPhotos } from '../../utils/filePicker';
 import { getTasks, saveTasks } from '../../store/store';
 import Video from 'react-native-video';
 import AppIcon from '../../components/AppIcon';
+import ManageScreenshots from '../Admin/ManageScreenshots';
 import { useTheme } from '../../utils/ThemeContext';
 import {
   fetchTasksApi,
@@ -731,9 +732,18 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     { id: 'requests', label: 'Client Requests', icon: 'check-square', badge: stats.pendingRequests },
     { id: 'client-chat', label: 'Client Chat Room', icon: 'chat', badge: stats.unreadNotes },
     { id: 'team', label: 'Team & EODs', icon: 'users' },
+    { id: 'screenshots', label: 'Team Screenshots', icon: 'monitor' },
   ];
 
   const ContainerComponent = onNavigateBack ? View : SafeAreaView;
+
+  if (activeTab === 'screenshots') {
+    return (
+      <ContainerComponent style={styles.container} edges={onNavigateBack ? undefined : ['top', 'left', 'right']}>
+        <ManageScreenshots user={user} tlId={leaderId} onBack={() => setActiveTab('overview')} />
+      </ContainerComponent>
+    );
+  }
 
   return (
     <ContainerComponent style={styles.container} edges={onNavigateBack ? undefined : ['top', 'left', 'right']}>
@@ -892,6 +902,17 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             <AppIcon name="users" size={14} color={activeTab === 'team' ? '#ffffff' : themeColors.textSecondary} />
             <Text style={[styles.tabButtonText, activeTab === 'team' && styles.tabButtonTextActive]}>
               Team ({stats.totalMembers})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'screenshots' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('screenshots')}
+            activeOpacity={0.8}
+          >
+            <AppIcon name="monitor" size={14} color={activeTab === 'screenshots' ? '#ffffff' : themeColors.textSecondary} />
+            <Text style={[styles.tabButtonText, activeTab === 'screenshots' && styles.tabButtonTextActive]}>
+              Screenshots
             </Text>
           </TouchableOpacity>
         </View>
@@ -1403,6 +1424,15 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       >
                         <AppIcon name="plus" size={13} color="#2563eb" />
                         <Text style={styles.actionBtnOutlineText}>Assign Task</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.actionBtnOutline, { borderColor: '#bfdbfe', backgroundColor: isDark ? 'rgba(37,99,235,0.1)' : '#eff6ff' }]}
+                        onPress={() => setActiveTab('screenshots')}
+                        activeOpacity={0.8}
+                      >
+                        <AppIcon name="monitor" size={13} color="#2563eb" />
+                        <Text style={[styles.actionBtnOutlineText, { color: '#2563eb' }]}>Screenshots</Text>
                       </TouchableOpacity>
 
                       {isSubmitted && (

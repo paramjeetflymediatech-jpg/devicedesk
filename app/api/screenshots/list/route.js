@@ -6,6 +6,7 @@ export async function GET(req) {
     const pool = await getDbConnection();
     const { searchParams } = new URL(req.url);
     const employeeId = searchParams.get('employeeId') || '';
+    const tlId = searchParams.get('tlId') || '';
     const department = searchParams.get('department') || '';
     const date = searchParams.get('date') || '';
     const startDate = searchParams.get('startDate') || '';
@@ -69,9 +70,42 @@ export async function GET(req) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    // Resolve team members if tlId is provided
+    let teamMemberIds = null;
+    if (tlId) {
+      const [members] = await pool.query(
+        `SELECT id FROM employees WHERE tl_id = ?`,
+        [tlId]
+      );
+      teamMemberIds = (members || []).map(m => m.id);
+
+      // If TL has no team members assigned, return empty results immediately
+      if (teamMemberIds.length === 0) {
+        return NextResponse.json({
+          success: true,
+          stats: {
+            todayCaptures: 0,
+            todayMonitoredEmployees: 0,
+            todayAvgActivity: 100,
+            totalMatchingFilter: 0,
+            page: 1,
+            totalPages: 1
+          },
+          registrations: [],
+          data: []
+        });
+      }
+    }
+
     // Fetch all screenshots matching filter (Includes all capture types)
     let query = `SELECT * FROM screenshots WHERE 1=1`;
     const params = [];
+
+    if (teamMemberIds && teamMemberIds.length > 0) {
+      const placeholders = teamMemberIds.map(() => '?').join(',');
+      query += ` AND employeeId IN (${placeholders})`;
+      params.push(...teamMemberIds);
+    }
 
     if (employeeId && employeeId !== 'all') {
       query += ` AND employeeId = ?`;
@@ -113,21 +147,44 @@ export async function GET(req) {
     // Fetch registered agents list to display all registered users even if 0 screenshots taken today
     let registrations = [];
     try {
-      const [regRows] = await pool.query(`SELECT * FROM agent_registrations ORDER BY lastSeenAt DESC`);
-      registrations = regRows || [];
+      if (teamMemberIds && teamMemberIds.length > 0) {
+        const placeholders = teamMemberIds.map(() => '?').join(',');
+        const [regRows] = await pool.query(
+          `SELECT * FROM agent_registrations WHERE employeeId IN (${placeholders}) ORDER BY lastSeenAt DESC`,
+          teamMemberIds
+        );
+        registrations = regRows || [];
+      } else {
+        const [regRows] = await pool.query(`SELECT * FROM agent_registrations ORDER BY lastSeenAt DESC`);
+        registrations = regRows || [];
+      }
     } catch (e) {}
 
     // Summary Statistics
-    const [statsRows] = await pool.query(`
+    let statsQuery = `
       SELECT 
         COUNT(*) as totalCaptures,
         COUNT(DISTINCT employeeId) as monitoredEmployees,
         AVG(activityScore) as avgActivity
       FROM screenshots
       WHERE DATE(capturedAt) = CURDATE()
-    `);
+    `;
+    const statsParams = [];
+    if (teamMemberIds && teamMemberIds.length > 0) {
+      const placeholders = teamMemberIds.map(() => '?').join(',');
+      statsQuery += ` AND employeeId IN (${placeholders})`;
+      statsParams.push(...teamMemberIds);
+    }
+    const [statsRows] = await pool.query(statsQuery, statsParams);
 
-    const [totalRegCount] = await pool.query(`SELECT COUNT(DISTINCT employeeId) as total FROM agent_registrations`);
+    let regCountQuery = `SELECT COUNT(DISTINCT employeeId) as total FROM agent_registrations`;
+    const regCountParams = [];
+    if (teamMemberIds && teamMemberIds.length > 0) {
+      const placeholders = teamMemberIds.map(() => '?').join(',');
+      regCountQuery += ` WHERE employeeId IN (${placeholders})`;
+      regCountParams.push(...teamMemberIds);
+    }
+    const [totalRegCount] = await pool.query(regCountQuery, regCountParams);
 
     const stats = {
       todayCaptures: statsRows[0]?.totalCaptures || 0,

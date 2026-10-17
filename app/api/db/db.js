@@ -206,6 +206,10 @@ async function initializeDatabase(db) {
     await db.execute(`ALTER TABLE tasks ADD COLUMN project_id VARCHAR(50) DEFAULT NULL`);
   } catch (err) {}
 
+  try {
+    await db.execute(`ALTER TABLE tasks ADD COLUMN completion_note TEXT DEFAULT NULL`);
+  } catch (err) {}
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS departments (
       id VARCHAR(50) PRIMARY KEY,
@@ -238,7 +242,8 @@ async function initializeDatabase(db) {
       completedAt VARCHAR(50),
       totalDuration INT DEFAULT 0,
       fileUrl VARCHAR(512) DEFAULT NULL,
-      project_id VARCHAR(50) DEFAULT NULL
+      project_id VARCHAR(50) DEFAULT NULL,
+      completion_note TEXT DEFAULT NULL
     )
   `);
 

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../../auth/AuthContext.js';
-import { FiActivity, FiCheckSquare, FiUsers, FiMessageSquare, FiUser, FiMenu, FiX, FiBriefcase, FiLogOut } from 'react-icons/fi';
+import { FiActivity, FiCheckSquare, FiUsers, FiMessageSquare, FiUser, FiMenu, FiX, FiBriefcase, FiLogOut, FiTv } from 'react-icons/fi';
 import NotificationBadge from '../../components/NotificationBadge.js';
 
 export default function LeaderLayout({ children }) {
@@ -36,6 +36,7 @@ export default function LeaderLayout({ children }) {
   const getPageTitle = () => {
     if (pathname.includes('client-requests')) return 'Client Requests';
     if (pathname.includes('team-chat')) return 'Team Chat Room';
+    if (pathname.includes('screenshots')) return 'Team Member Screenshots';
     if (pathname.includes('team')) return 'Team & EODs';
     if (pathname.includes('client-chat')) return 'Client Chat Room';
     return 'Overview Dashboard';
@@ -80,6 +81,10 @@ export default function LeaderLayout({ children }) {
         
         <Link href="/portal/leader/team" className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${pathname.includes('/team') && !pathname.includes('team-chat') ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
           <FiUsers size={20} /><span>Team & EODs</span>
+        </Link>
+
+        <Link href="/portal/leader/screenshots" className={`flex items-center space-x-3 p-3 rounded-lg font-medium transition-all ${pathname.includes('/screenshots') ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
+          <FiTv size={20} /><span>Team Screenshots</span>
         </Link>
 
         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-6 px-3">Communication</div>

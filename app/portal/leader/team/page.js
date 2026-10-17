@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiUsers, FiClock, FiCheck, FiSend, FiSearch, FiX } from 'react-icons/fi';
+import Link from 'next/link';
+import { FiUsers, FiClock, FiCheck, FiSend, FiSearch, FiX, FiTv } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import Pagination from '../../../components/Pagination';
 
@@ -223,6 +224,9 @@ export default function TeamAndEODsPage() {
                 
                 <div className="mt-6 flex flex-wrap gap-3 pt-4 border-t border-slate-100">
                    <button onClick={() => handleAssignClick(member)} className="text-sm bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-md hover:bg-slate-50 transition-colors font-medium">Assign Task</button>
+                   <Link href={`/portal/leader/screenshots?employeeId=${member.id}`} className="text-sm bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-md hover:bg-blue-100 transition-colors font-medium flex items-center gap-1.5">
+                     <FiTv size={14}/> Screenshots
+                   </Link>
                    {member.eodStatus === 'Submitted' && (
                      <button onClick={() => handleForwardClient(member)} className="text-sm bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors font-medium flex items-center gap-1.5">
                        <FiSend size={14}/> Forward to Client

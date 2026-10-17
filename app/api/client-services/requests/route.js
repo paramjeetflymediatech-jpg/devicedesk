@@ -10,6 +10,19 @@ export async function GET(request) {
     const db = await getDbConnection();
     let rows;
 
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN completion_note TEXT DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN project_id VARCHAR(50) DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN assigned_tl_id VARCHAR(50) DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN attachment TEXT DEFAULT NULL`);
+    } catch (e) {}
+
     const baseQuery = `
       SELECT r.*, 
         c.name as client_name, 

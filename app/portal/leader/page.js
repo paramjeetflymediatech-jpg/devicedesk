@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiCheckSquare, FiUsers, FiClock, FiArrowRight } from 'react-icons/fi';
+import { FiCheckSquare, FiUsers, FiClock, FiArrowRight, FiTv } from 'react-icons/fi';
 import Link from 'next/link';
 import { useAuth } from '../../auth/AuthContext';
 
@@ -8,6 +8,7 @@ export default function LeaderOverviewPage() {
   const { user } = useAuth();
   const [teamMembers, setTeamMembers] = useState([]);
   const [clientRequests, setClientRequests] = useState([]);
+  const [screenshotStats, setScreenshotStats] = useState({ todayCaptures: 0, todayMonitoredEmployees: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,15 +16,17 @@ export default function LeaderOverviewPage() {
       if (!user?.id) return;
       try {
         setLoading(true);
-        const [resEmp, resReq, resEod] = await Promise.all([
+        const [resEmp, resReq, resEod, resScreenshots] = await Promise.all([
           fetch('/api/employees'),
           fetch('/api/client-services/requests'),
-          fetch('/api/eod-reports')
+          fetch('/api/eod-reports'),
+          fetch(`/api/screenshots/list?tlId=${user.id}&limit=1`).catch(() => ({ json: () => ({ success: false }) }))
         ]);
         
         const dataEmp = await resEmp.json();
         const dataReq = await resReq.json();
         const dataEod = await resEod.json();
+        const dataScreenshots = await resScreenshots.json().catch(() => ({}));
         
         if (dataEmp.success) {
           const eodList = dataEod.success ? dataEod.data : [];
@@ -49,6 +52,10 @@ export default function LeaderOverviewPage() {
           const reqs = dataReq.data.filter(r => r.assigned_tl_id === user.id);
           setClientRequests(reqs);
         }
+
+        if (dataScreenshots?.success && dataScreenshots.stats) {
+          setScreenshotStats(dataScreenshots.stats);
+        }
       } catch (err) {
         console.error("Failed to fetch TL data:", err);
       } finally {
@@ -68,7 +75,7 @@ export default function LeaderOverviewPage() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Metric Card 1 */}
         <div className="bg-white rounded-lg p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
@@ -107,6 +114,21 @@ export default function LeaderOverviewPage() {
             <Link href="/portal/leader/team" className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">Review <FiArrowRight size={14}/></Link>
           </div>
         </div>
+
+        {/* Metric Card 4: Team Screenshots */}
+        <div className="bg-white rounded-lg p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-slate-600">Team Screenshots</h3>
+            <div className="w-8 h-8 rounded-md bg-slate-50 border border-slate-100 text-slate-500 flex items-center justify-center"><FiTv size={16} /></div>
+          </div>
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900 tracking-tight">{screenshotStats.todayCaptures}</h2>
+              <span className="text-xs text-slate-500">captures today</span>
+            </div>
+            <Link href="/portal/leader/screenshots" className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">View feeds <FiArrowRight size={14}/></Link>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
@@ -114,7 +136,7 @@ export default function LeaderOverviewPage() {
           <h3 className="font-semibold text-slate-800">Standard Operating Procedure</h3>
         </div>
         <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="p-5 rounded-lg border border-slate-100 bg-slate-50">
               <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold flex items-center justify-center mb-3 text-sm">1</div>
               <h4 className="font-semibold text-slate-900 mb-2 text-sm">Review Client Requests</h4>
@@ -131,6 +153,12 @@ export default function LeaderOverviewPage() {
               <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold flex items-center justify-center mb-3 text-sm">3</div>
               <h4 className="font-semibold text-slate-900 mb-2 text-sm">Review EODs & Finalize</h4>
               <p className="text-sm text-slate-600 leading-relaxed">At EOD, review member submissions and forward the final EOD Update to the Client.</p>
+            </div>
+
+            <div className="p-5 rounded-lg border border-slate-100 bg-slate-50">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold flex items-center justify-center mb-3 text-sm">4</div>
+              <h4 className="font-semibold text-slate-900 mb-2 text-sm">Monitor Live Screenshots</h4>
+              <p className="text-sm text-slate-600 leading-relaxed">View real-time desktop screenshots and work activity scores of your team members.</p>
             </div>
           </div>
         </div>

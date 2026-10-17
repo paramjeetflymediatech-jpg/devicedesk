@@ -35,7 +35,7 @@ const getTodayDateStr = () => {
   return `${year}-${month}-${day}`;
 };
 
-export default function ManageScreenshots({ user, onBack }) {
+export default function ManageScreenshots({ user, onBack, tlId = null }) {
   const { isDark, themeColors } = useTheme();
   const styles = getStyles(themeColors, isDark);
 
@@ -44,6 +44,10 @@ export default function ManageScreenshots({ user, onBack }) {
   const [stats, setStats] = useState({ todayCaptures: 0, todayMonitoredEmployees: 0, todayAvgActivity: 100 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
+  const isTLUser = Boolean(tlId || dbRoleStr === 'tl' || dbRoleStr === 'team leader' || dbRoleStr === 'team lead' || dbRoleStr === 'leader');
+  const effectiveTlId = tlId || (isTLUser ? user?.id : null);
 
   // Filters
   const [selectedEmployee, setSelectedEmployee] = useState('all');
@@ -61,10 +65,13 @@ export default function ManageScreenshots({ user, onBack }) {
   // Load Employees
   useEffect(() => {
     try {
-      const emps = getEmployees() || [];
+      let emps = getEmployees() || [];
+      if (effectiveTlId) {
+        emps = emps.filter(e => String(e.tl_id) === String(effectiveTlId));
+      }
       setEmployeesList(emps);
     } catch (e) {}
-  }, []);
+  }, [effectiveTlId]);
 
   const departments = useMemo(() => {
     const depts = new Set();
@@ -79,6 +86,7 @@ export default function ManageScreenshots({ user, onBack }) {
     try {
       setLoading(true);
       const res = await fetchScreenshotsListApi({
+        tlId: effectiveTlId || undefined,
         employeeId: selectedEmployee,
         department: selectedDepartment,
         date: selectedDate,
@@ -215,8 +223,8 @@ export default function ManageScreenshots({ user, onBack }) {
             <AppIcon name="arrow-left" size={20} color={themeColors.textPrimary} />
           </TouchableOpacity>
           <View style={{ marginLeft: 10 }}>
-            <Text style={styles.headerTitle}>Desktop Live Monitoring</Text>
-            <Text style={styles.headerSub}>Live workstation screen captures & logs</Text>
+            <Text style={styles.headerTitle}>{isTLUser ? 'Team Screenshots' : 'Desktop Live Monitoring'}</Text>
+            <Text style={styles.headerSub}>{isTLUser ? 'Live team member screen captures & logs' : 'Live workstation screen captures & logs'}</Text>
           </View>
         </View>
 

@@ -1181,6 +1181,7 @@ export function resolveScreenshotImageUrl(rawUrl) {
 export async function fetchScreenshotsListApi(params = {}) {
   let queryString = '';
   const queryParts = [];
+  if (params.tlId) queryParts.push(`tlId=${encodeURIComponent(params.tlId)}`);
   if (params.employeeId && params.employeeId !== 'all') queryParts.push(`employeeId=${encodeURIComponent(params.employeeId)}`);
   if (params.department && params.department !== 'all') queryParts.push(`department=${encodeURIComponent(params.department)}`);
   if (params.date) queryParts.push(`date=${encodeURIComponent(params.date)}`);
