@@ -213,7 +213,7 @@ export default function ManageTeamHierarchy({ currentUser, onBack }) {
               const palette = TL_PALETTES[index % TL_PALETTES.length];
               const isCollapsed = !!collapsedTls[tl.id];
               const members = regularEmployees.filter(
-                (m) => String(m.tl_id) === String(tl.id) || String(m.teamLeaderId) === String(tl.id)
+                (m) => (m.tl_id || '').split(',').map(s => s.trim()).includes(String(tl.id)) || String(m.teamLeaderId) === String(tl.id)
               );
 
               const filteredMembers = members.filter(

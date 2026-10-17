@@ -70,12 +70,15 @@ export async function GET(req) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    // Resolve team members if tlId is provided
+    // Resolve team members if tlId is provided (Supports multiple TL assignments per employee)
     let teamMemberIds = null;
     if (tlId) {
       const [members] = await pool.query(
-        `SELECT id FROM employees WHERE tl_id = ?`,
-        [tlId]
+        `SELECT id FROM employees 
+         WHERE FIND_IN_SET(?, tl_id) > 0 
+            OR tl_id = ? 
+            OR id IN (SELECT employee_id FROM employee_team_leaders WHERE tl_id = ?)`,
+        [tlId, tlId, tlId]
       );
       teamMemberIds = (members || []).map(m => m.id);
 

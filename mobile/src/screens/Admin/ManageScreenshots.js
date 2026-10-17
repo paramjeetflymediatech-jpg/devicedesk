@@ -67,7 +67,7 @@ export default function ManageScreenshots({ user, onBack, tlId = null }) {
     try {
       let emps = getEmployees() || [];
       if (effectiveTlId) {
-        emps = emps.filter(e => String(e.tl_id) === String(effectiveTlId));
+        emps = emps.filter(e => (e.tl_id || '').split(',').map(s => s.trim()).includes(String(effectiveTlId)));
       }
       setEmployeesList(emps);
     } catch (e) {}

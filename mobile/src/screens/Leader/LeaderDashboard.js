@@ -248,7 +248,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       const myTeam = allEmps.filter(
         (emp) =>
           (emp.role === 'Team Member' || emp.role === 'Employee' || emp.role === 'team member') &&
-          String(emp.tl_id) === String(leaderId)
+          (emp.tl_id || '').split(',').map(s => s.trim()).includes(String(leaderId))
       );
 
       const todayStr = new Date().toISOString().split('T')[0];

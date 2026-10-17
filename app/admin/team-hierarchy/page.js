@@ -21,12 +21,16 @@ function getInitials(name) {
   return (name || '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 }
 
+function isEmpAssignedToTL(emp, tlId) {
+  if (!emp || !tlId) return false;
+  if (Array.isArray(emp.tl_ids)) return emp.tl_ids.map(String).includes(String(tlId));
+  const ids = (emp.tl_id || '').split(',').map(s => s.trim()).filter(Boolean);
+  return ids.includes(String(tlId));
+}
+
 export default function TeamHierarchyPage() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editingEmpId, setEditingEmpId] = useState(null);
-  const [selectedTlId, setSelectedTlId] = useState('');
-  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [collapsed, setCollapsed] = useState({});
   const [unassignedPage, setUnassignedPage] = useState(1);
@@ -39,12 +43,17 @@ export default function TeamHierarchyPage() {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/employees');
+      const res = await fetch('/api/team-hierarchy');
       const data = await res.json();
-      if (data.success) setEmployees(data.data || []);
+      if (data.success) {
+        setEmployees(data.regularEmployees || []);
+        if (data.teamLeaders) setTeamLeaders(data.teamLeaders);
+      }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
+
+  const [teamLeaders, setTeamLeaders] = useState([]);
 
   const isTL = (role) => {
     const r = (role || '').toLowerCase();
@@ -52,7 +61,6 @@ export default function TeamHierarchyPage() {
   };
 
   const EXCLUDED_ROLES = ['client', 'admin', 'management', 'hr management', 'dns manager', 'candidate', 'it engineer', 'it support'];
-  const teamLeaders = employees.filter(emp => isTL(emp.role) && emp.status !== 'Inactive');
   const regularEmployees = employees.filter(emp => {
     const r = (emp.role || '').toLowerCase();
     return !isTL(emp.role) && emp.status !== 'Inactive' && !EXCLUDED_ROLES.includes(r) && !r.includes('marketing') && !r.includes('candidate');
@@ -63,28 +71,8 @@ export default function TeamHierarchyPage() {
 
   const toggleCollapse = (id) => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
 
-  const handleSaveTL = async (empId) => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/employees/${empId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tl_id: selectedTlId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setEditingEmpId(null);
-        fetchEmployees();
-      } else {
-        Swal.fire('Error', data.error || 'Failed to update', 'error');
-      }
-    } catch (err) {
-      Swal.fire('Error', 'Network error', 'error');
-    } finally { setSaving(false); }
-  };
-
-  const totalAssigned = regularEmployees.filter(e => e.tl_id).length;
-  const unassignedAll = regularEmployees.filter(e => !e.tl_id);
+  const totalAssigned = regularEmployees.filter(e => (e.tl_ids?.length > 0 || (e.tl_id && e.tl_id.trim() !== ''))).length;
+  const unassignedAll = regularEmployees.filter(e => (!e.tl_ids || e.tl_ids.length === 0) && (!e.tl_id || e.tl_id.trim() === ''));
   const unassignedFiltered = unassignedAll.filter(matchSearch);
   const unassignedTotalPages = Math.ceil(unassignedFiltered.length / PAGE_SIZE) || 1;
   const safePage = Math.min(unassignedPage, unassignedTotalPages);
@@ -100,39 +88,41 @@ export default function TeamHierarchyPage() {
     );
   }
 
-  const EmployeeRow = ({ emp, palette }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--glass-border)' }}>
-      <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: palette ? `${palette.accent}22` : 'rgba(245,158,11,0.12)', color: palette ? palette.accent : '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.7rem', flexShrink: 0 }}>
-        {getInitials(emp.name)}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.85rem' }}>{emp.name}</span>
-        <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginLeft: '8px' }}>{emp.department || emp.role}</span>
-      </div>
-      {editingEmpId === emp.id ? (
-        <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-          <select value={selectedTlId} onChange={e => setSelectedTlId(e.target.value)}
-            style={{ padding: '4px 6px', borderRadius: '6px', background: 'var(--glass-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', fontSize: '0.78rem', maxWidth: '130px' }}>
-            <option value="">None</option>
-            {teamLeaders.map(tl => <option key={tl.id} value={tl.id}>{tl.name}</option>)}
-          </select>
-          <button onClick={() => handleSaveTL(emp.id)} disabled={saving}
-            style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(16,185,129,0.12)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(16,185,129,0.3)', cursor: 'pointer' }}>
-            <FiCheck size={12} />
-          </button>
-          <button onClick={() => setEditingEmpId(null)}
-            style={{ width: '26px', height: '26px', borderRadius: '6px', background: 'rgba(239,68,68,0.08)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer' }}>
-            <FiX size={12} />
-          </button>
+  const EmployeeRow = ({ emp, palette, currentTlId }) => {
+    const allTlIds = emp.tl_ids || (emp.tl_id || '').split(',').map(s => s.trim()).filter(Boolean);
+    const otherTlNames = allTlIds
+      .filter(id => String(id) !== String(currentTlId))
+      .map(id => teamLeaders.find(t => String(t.id) === String(id))?.name)
+      .filter(Boolean);
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--glass-border)' }}>
+        <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: palette ? `${palette.accent}22` : 'rgba(245,158,11,0.12)', color: palette ? palette.accent : '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.75rem', flexShrink: 0 }}>
+          {getInitials(emp.name)}
         </div>
-      ) : (
-        <button onClick={() => { setEditingEmpId(emp.id); setSelectedTlId(emp.tl_id || ''); }}
-          style={{ padding: '4px 10px', borderRadius: '6px', background: palette ? `${palette.accent}14` : 'rgba(245,158,11,0.1)', color: palette ? palette.accent : '#f59e0b', fontSize: '0.75rem', fontWeight: '600', border: `1px solid ${palette ? palette.border : 'rgba(245,158,11,0.2)'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-          {emp.tl_id ? <><FiEdit2 size={11} /> Reassign</> : <><FiPlus size={11} /> Assign</>}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.88rem' }}>{emp.name}</span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{emp.department || emp.role}</span>
+            {otherTlNames.length > 0 && (
+              <span style={{ background: 'rgba(99, 102, 241, 0.12)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.25)', padding: '1px 8px', borderRadius: '999px', fontSize: '0.7rem', fontWeight: '600' }}>
+                Co-assigned with: {otherTlNames.join(', ')}
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            setManageModalTlId(currentTlId || (teamLeaders[0]?.id || null));
+            setIsManageModalOpen(true);
+          }}
+          style={{ padding: '4px 10px', borderRadius: '6px', background: palette ? `${palette.accent}14` : 'rgba(245,158,11,0.1)', color: palette ? palette.accent : '#f59e0b', fontSize: '0.75rem', fontWeight: '600', border: `1px solid ${palette ? palette.border : 'rgba(245,158,11,0.2)'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}
+        >
+          {allTlIds.length > 0 ? <><FiEdit2 size={11} /> Manage TLs ({allTlIds.length})</> : <><FiPlus size={11} /> Assign TL</>}
         </button>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -143,7 +133,7 @@ export default function TeamHierarchyPage() {
             <FiUsers /> Team Hierarchy & Screenshot Access
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem', margin: '4px 0 0' }}>
-            {teamLeaders.length} TLs · {totalAssigned} assigned · {unassignedAll.length} unassigned · {regularEmployees.length} total members
+            {teamLeaders.length} TLs · {totalAssigned} assigned · {unassignedAll.length} unassigned · {regularEmployees.length} total members (supports multiple TLs per member)
           </p>
         </div>
 
@@ -196,7 +186,7 @@ export default function TeamHierarchyPage() {
           </button>
           {!collapsed['unassigned'] && (
             <div style={{ padding: '10px 14px 14px' }}>
-              {unassignedPaged.map(emp => <EmployeeRow key={emp.id} emp={emp} palette={null} />)}
+              {unassignedPaged.map(emp => <EmployeeRow key={emp.id} emp={emp} palette={null} currentTlId={null} />)}
               {unassignedFiltered.length === 0 && (
                 <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                   {q ? 'No matching unassigned employees.' : 'All employees are assigned!'}
@@ -235,7 +225,7 @@ export default function TeamHierarchyPage() {
 
         {teamLeaders.map((tl, idx) => {
           const palette = TL_COLORS[idx % TL_COLORS.length];
-          const tlEmps = regularEmployees.filter(e => e.tl_id === tl.id).filter(matchSearch);
+          const tlEmps = regularEmployees.filter(e => isEmpAssignedToTL(e, tl.id)).filter(matchSearch);
           const isOpen = !collapsed[tl.id];
 
           return (
@@ -332,7 +322,7 @@ export default function TeamHierarchyPage() {
               {/* Members List */}
               {isOpen && (
                 <div style={{ padding: '10px 14px 14px' }}>
-                  {tlEmps.map(emp => <EmployeeRow key={emp.id} emp={emp} palette={palette} />)}
+                  {tlEmps.map(emp => <EmployeeRow key={emp.id} emp={emp} palette={palette} currentTlId={tl.id} />)}
                   {tlEmps.length === 0 && (
                     <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem', fontStyle: 'italic' }}>
                       {q ? 'No matching members.' : 'No members assigned yet. Click "Decide Members" above to assign.'}

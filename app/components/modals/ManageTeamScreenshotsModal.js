@@ -13,6 +13,15 @@ function getInitials(name) {
     .toUpperCase();
 }
 
+function hasTlAssigned(emp, tlId) {
+  if (!emp || !tlId) return false;
+  if (Array.isArray(emp.tl_ids)) {
+    return emp.tl_ids.map(String).includes(String(tlId));
+  }
+  const ids = (emp.tl_id || '').split(',').map(s => s.trim()).filter(Boolean);
+  return ids.includes(String(tlId));
+}
+
 export default function ManageTeamScreenshotsModal({
   isOpen,
   onClose,
@@ -45,10 +54,10 @@ export default function ManageTeamScreenshotsModal({
         const activeTlId = initialTlId || (tls.length > 0 ? tls[0].id : '');
         setSelectedTlId(activeTlId);
 
-        // Initialize selected members for this TL
+        // Initialize selected members for this TL (supports multi-TL assignments)
         if (activeTlId) {
           const currentMembers = new Set(
-            emps.filter(e => String(e.tl_id) === String(activeTlId)).map(e => e.id)
+            emps.filter(e => hasTlAssigned(e, activeTlId)).map(e => e.id)
           );
           setSelectedMemberIds(currentMembers);
         }
@@ -73,7 +82,7 @@ export default function ManageTeamScreenshotsModal({
   const handleTlChange = (tlId) => {
     setSelectedTlId(tlId);
     const currentMembers = new Set(
-      regularEmployees.filter(e => String(e.tl_id) === String(tlId)).map(e => e.id)
+      regularEmployees.filter(e => hasTlAssigned(e, tlId)).map(e => e.id)
     );
     setSelectedMemberIds(currentMembers);
   };
@@ -131,10 +140,12 @@ export default function ManageTeamScreenshotsModal({
         return false;
       }
 
-      // Tab filter
-      const isAssignedToThisTL = String(emp.tl_id) === String(selectedTlId);
-      const isAssignedToOtherTL = emp.tl_id && !isAssignedToThisTL;
-      const isUnassigned = !emp.tl_id;
+      // Tab filter (Multi-TL aware)
+      const isAssignedToThisTL = hasTlAssigned(emp, selectedTlId);
+      const allAssigned = (emp.tl_ids || (emp.tl_id || '').split(',')).map(s => s.trim()).filter(Boolean);
+      const otherAssignedCount = allAssigned.filter(id => String(id) !== String(selectedTlId)).length;
+      const isAssignedToOtherTL = otherAssignedCount > 0 && !isAssignedToThisTL;
+      const isUnassigned = !isAssignedToThisTL && otherAssignedCount === 0;
 
       if (filterTab === 'assigned_this') return isAssignedToThisTL;
       if (filterTab === 'assigned_others') return isAssignedToOtherTL;
@@ -161,14 +172,18 @@ export default function ManageTeamScreenshotsModal({
     });
   };
 
-  // Counts for tabs
+  // Counts for tabs (Multi-TL aware)
   const tabCounts = useMemo(() => {
     let assignedThis = 0;
     let assignedOthers = 0;
     let unassigned = 0;
     regularEmployees.forEach(e => {
-      if (String(e.tl_id) === String(selectedTlId)) assignedThis++;
-      else if (e.tl_id) assignedOthers++;
+      const isThis = hasTlAssigned(e, selectedTlId);
+      const allAssigned = (e.tl_ids || (e.tl_id || '').split(',')).map(s => s.trim()).filter(Boolean);
+      const otherCount = allAssigned.filter(id => String(id) !== String(selectedTlId)).length;
+
+      if (isThis) assignedThis++;
+      else if (otherCount > 0) assignedOthers++;
       else unassigned++;
     });
     return {
@@ -203,7 +218,7 @@ export default function ManageTeamScreenshotsModal({
         await Swal.fire({
           icon: 'success',
           title: 'Screenshot Permissions Updated!',
-          text: `Team Leader "${activeTL?.name || 'Selected TL'}" can now view screenshots for ${memberIdsArray.length} team member(s).`,
+          text: `Team Leader "${activeTL?.name || 'Selected TL'}" can now view screenshots for ${memberIdsArray.length} team member(s). Multiple TL assignments are preserved.`,
           confirmButtonColor: '#0284c7',
           timer: 2500,
           timerProgressBar: true
@@ -287,7 +302,7 @@ export default function ManageTeamScreenshotsModal({
                 Decide TL Screenshot Access
               </h2>
               <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: 'var(--text-secondary, #64748b)' }}>
-                Select which team members' screenshots are visible to this Team Leader in their portal
+                Select team members whose screenshots are visible to this Team Leader (members can belong to multiple TLs)
               </p>
             </div>
           </div>
@@ -343,7 +358,7 @@ export default function ManageTeamScreenshotsModal({
               }}
             >
               {teamLeaders.map(tl => {
-                const count = regularEmployees.filter(e => String(e.tl_id) === String(tl.id)).length;
+                const count = regularEmployees.filter(e => hasTlAssigned(e, tl.id)).length;
                 return (
                   <option key={tl.id} value={tl.id} style={{ background: 'var(--bg-card, #ffffff)', color: 'var(--text-primary, #0f172a)' }}>
                     👔 {tl.name} ({count} assigned members)
@@ -604,9 +619,10 @@ export default function ManageTeamScreenshotsModal({
           ) : (
             filteredEmployees.map(emp => {
               const isChecked = selectedMemberIds.has(emp.id);
-              const isOriginallyAssignedThisTL = String(emp.tl_id) === String(selectedTlId);
-              const isOriginallyAssignedOtherTL = emp.tl_id && !isOriginallyAssignedThisTL;
-              const otherTl = isOriginallyAssignedOtherTL ? tlMap[String(emp.tl_id)] : null;
+              const isOriginallyAssignedThisTL = hasTlAssigned(emp, selectedTlId);
+              const allAssignedTlIds = (emp.tl_ids || (emp.tl_id || '').split(',')).map(s => s.trim()).filter(Boolean);
+              const otherTlIds = allAssignedTlIds.filter(id => String(id) !== String(selectedTlId));
+              const otherTlNames = otherTlIds.map(id => tlMap[String(id)]?.name || id).filter(Boolean);
 
               return (
                 <div
@@ -713,7 +729,7 @@ export default function ManageTeamScreenshotsModal({
                           gap: '4px'
                         }}
                       >
-                        ✓ Screenshots Visible
+                        ✓ Visible to this TL{otherTlNames.length > 0 ? ` (+${otherTlNames.length} other)` : ''}
                       </span>
                     ) : isOriginallyAssignedThisTL ? (
                       <span
@@ -729,7 +745,7 @@ export default function ManageTeamScreenshotsModal({
                       >
                         Will Be Removed
                       </span>
-                    ) : isOriginallyAssignedOtherTL ? (
+                    ) : otherTlNames.length > 0 ? (
                       <span
                         style={{
                           background: 'rgba(99, 102, 241, 0.12)',
@@ -740,9 +756,9 @@ export default function ManageTeamScreenshotsModal({
                           fontSize: '0.75rem',
                           fontWeight: '600'
                         }}
-                        title={`Currently visible to ${otherTl?.name || 'another TL'}`}
+                        title={`Also visible to ${otherTlNames.join(', ')}`}
                       >
-                        Visible to {otherTl?.name || 'Other TL'}
+                        Visible to {otherTlNames.join(', ')}
                       </span>
                     ) : (
                       <span

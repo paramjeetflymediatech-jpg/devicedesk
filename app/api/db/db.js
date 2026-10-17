@@ -153,7 +153,23 @@ async function initializeDatabase(db) {
   }
 
   try {
-    await db.execute(`ALTER TABLE employees ADD COLUMN tl_id VARCHAR(50) DEFAULT NULL`);
+    await db.execute(`ALTER TABLE employees ADD COLUMN tl_id VARCHAR(255) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE employees MODIFY tl_id VARCHAR(255) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS employee_team_leaders (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        employee_id VARCHAR(100) NOT NULL,
+        tl_id VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_emp_tl (employee_id, tl_id),
+        INDEX idx_emp (employee_id),
+        INDEX idx_tl (tl_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
   } catch (err) {}
 
   try {

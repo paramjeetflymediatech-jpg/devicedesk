@@ -36,7 +36,7 @@ export default function TeamAndEODsPage() {
       if (dataEmp.success) {
         const members = (dataEmp.data || []).filter(emp => {
           const r = (emp.role || '').toLowerCase();
-          return (r === 'team member' || r === 'employee') && emp.tl_id === user.id;
+          return (r === 'team member' || r === 'employee') && (emp.tl_id || '').split(',').map(s => s.trim()).includes(String(user.id));
         });
         const tasksList = dataTasks.success ? dataTasks.data : (dataTasks.tasks || []);
         const eodList = dataEod.success ? dataEod.data : [];

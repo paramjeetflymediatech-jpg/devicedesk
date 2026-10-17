@@ -128,8 +128,8 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
           if (empData.success && Array.isArray(empData.data)) {
             let filteredEmps = empData.data;
             if (effectiveTlId) {
-              // Team Leader: Only show their assigned team members
-              filteredEmps = filteredEmps.filter(e => String(e.tl_id) === String(effectiveTlId));
+              // Team Leader: Only show their assigned team members (supports multi-TL)
+              filteredEmps = filteredEmps.filter(e => (e.tl_id || '').split(',').map(s => s.trim()).includes(String(effectiveTlId)));
             } else if (isHRUser) {
               // HR cannot see any HR employees in the dropdown
               filteredEmps = filteredEmps.filter(e => {
@@ -1652,7 +1652,7 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                 if (empData.success && Array.isArray(empData.data)) {
                   let filteredEmps = empData.data;
                   if (effectiveTlId) {
-                    filteredEmps = filteredEmps.filter(e => String(e.tl_id) === String(effectiveTlId));
+                    filteredEmps = filteredEmps.filter(e => (e.tl_id || '').split(',').map(s => s.trim()).includes(String(effectiveTlId)));
                   }
                   setEmployeesList(filteredEmps);
                 }

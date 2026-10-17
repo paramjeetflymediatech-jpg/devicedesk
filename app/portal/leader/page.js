@@ -32,7 +32,7 @@ export default function LeaderOverviewPage() {
           const eodList = dataEod.success ? dataEod.data : [];
           const members = dataEmp.data.filter(emp => 
             (emp.role === 'Team Member' || emp.role === 'Employee' || emp.role === 'team member') && 
-            emp.tl_id === user.id
+            (emp.tl_id || '').split(',').map(s => s.trim()).includes(String(user.id))
           );
           const today = new Date().toISOString().split('T')[0];
           
