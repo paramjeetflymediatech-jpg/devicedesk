@@ -204,7 +204,7 @@ export default function ManageTeamScreenshotsModal({
           icon: 'success',
           title: 'Screenshot Permissions Updated!',
           text: `Team Leader "${activeTL?.name || 'Selected TL'}" can now view screenshots for ${memberIdsArray.length} team member(s).`,
-          confirmButtonColor: '#06b6d4',
+          confirmButtonColor: '#0284c7',
           timer: 2500,
           timerProgressBar: true
         });
@@ -229,27 +229,27 @@ export default function ManageTeamScreenshotsModal({
         position: 'fixed',
         inset: 0,
         zIndex: 99999,
-        backgroundColor: 'rgba(15, 23, 42, 0.85)',
-        backdropFilter: 'blur(8px)',
+        backgroundColor: 'rgba(0, 0, 0, 0.55)',
+        backdropFilter: 'blur(6px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px'
+        padding: '16px'
       }}
       onClick={onClose}
     >
       <div
         style={{
-          backgroundColor: '#1e293b',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          backgroundColor: 'var(--bg-card, #ffffff)',
+          border: '1px solid var(--glass-border, #e2e8f0)',
           borderRadius: '16px',
           width: '100%',
-          maxWidth: '900px',
-          maxHeight: '92vh',
+          maxWidth: '920px',
+          maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
-          color: '#f8fafc',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          color: 'var(--text-primary, #0f172a)',
           overflow: 'hidden'
         }}
         onClick={e => e.stopPropagation()}
@@ -258,35 +258,35 @@ export default function ManageTeamScreenshotsModal({
         <div
           style={{
             padding: '18px 24px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            borderBottom: '1px solid var(--glass-border, #e2e8f0)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: 'linear-gradient(90deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)'
+            background: 'var(--bg-secondary, #f8fafc)'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '40px',
-                height: '40px',
+                width: '42px',
+                height: '42px',
                 borderRadius: '10px',
-                background: 'rgba(6, 182, 212, 0.15)',
-                color: '#06b6d4',
+                background: 'rgba(2, 132, 199, 0.12)',
+                color: 'var(--accent-cyan, #0284c7)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '1.25rem',
-                border: '1px solid rgba(6, 182, 212, 0.3)'
+                border: '1px solid rgba(2, 132, 199, 0.25)'
               }}
             >
               <FiShield />
             </div>
             <div>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0, color: '#f8fafc' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0, color: 'var(--text-primary, #0f172a)' }}>
                 Decide TL Screenshot Access
               </h2>
-              <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>
+              <p style={{ margin: '3px 0 0', fontSize: '0.82rem', color: 'var(--text-secondary, #64748b)' }}>
                 Select which team members' screenshots are visible to this Team Leader in their portal
               </p>
             </div>
@@ -296,16 +296,15 @@ export default function ManageTeamScreenshotsModal({
             style={{
               background: 'none',
               border: 'none',
-              color: '#94a3b8',
+              color: 'var(--text-secondary, #64748b)',
               cursor: 'pointer',
               padding: '6px',
               borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1.2rem'
+              fontSize: '1.3rem'
             }}
-            className="hover:bg-white/10"
           >
             <FiX />
           </button>
@@ -314,17 +313,17 @@ export default function ManageTeamScreenshotsModal({
         {/* TL Picker Bar */}
         <div
           style={{
-            padding: '16px 24px',
-            background: 'rgba(15, 23, 42, 0.6)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            padding: '14px 24px',
+            background: 'var(--bg-tertiary, #f1f5f9)',
+            borderBottom: '1px solid var(--glass-border, #e2e8f0)',
             display: 'flex',
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: '14px'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#cbd5e1' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary, #0f172a)' }}>
               Select Team Leader:
             </span>
             <select
@@ -334,19 +333,19 @@ export default function ManageTeamScreenshotsModal({
               style={{
                 padding: '8px 14px',
                 borderRadius: '8px',
-                background: '#0f172a',
-                border: '1px solid rgba(6, 182, 212, 0.4)',
-                color: '#38bdf8',
+                background: 'var(--bg-card, #ffffff)',
+                border: '1px solid var(--glass-border, #cbd5e1)',
+                color: 'var(--text-primary, #0f172a)',
                 fontWeight: '700',
                 fontSize: '0.9rem',
-                minWidth: '220px',
+                minWidth: '240px',
                 cursor: 'pointer'
               }}
             >
               {teamLeaders.map(tl => {
                 const count = regularEmployees.filter(e => String(e.tl_id) === String(tl.id)).length;
                 return (
-                  <option key={tl.id} value={tl.id} style={{ background: '#0f172a', color: '#f8fafc' }}>
+                  <option key={tl.id} value={tl.id} style={{ background: 'var(--bg-card, #ffffff)', color: 'var(--text-primary, #0f172a)' }}>
                     👔 {tl.name} ({count} assigned members)
                   </option>
                 );
@@ -361,10 +360,10 @@ export default function ManageTeamScreenshotsModal({
                 alignItems: 'center',
                 gap: '10px',
                 marginLeft: 'auto',
-                background: 'rgba(6, 182, 212, 0.1)',
+                background: 'var(--bg-card, #ffffff)',
                 padding: '6px 14px',
                 borderRadius: '10px',
-                border: '1px solid rgba(6, 182, 212, 0.2)'
+                border: '1px solid var(--glass-border, #e2e8f0)'
               }}
             >
               <div
@@ -372,8 +371,8 @@ export default function ManageTeamScreenshotsModal({
                   width: '28px',
                   height: '28px',
                   borderRadius: '50%',
-                  background: 'rgba(6, 182, 212, 0.25)',
-                  color: '#38bdf8',
+                  background: 'rgba(2, 132, 199, 0.15)',
+                  color: 'var(--accent-cyan, #0284c7)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -383,14 +382,14 @@ export default function ManageTeamScreenshotsModal({
               >
                 {getInitials(activeTL.name)}
               </div>
-              <div style={{ fontSize: '0.8rem' }}>
-                <span style={{ fontWeight: '700', color: '#f8fafc' }}>{activeTL.name}</span>
-                <span style={{ color: '#94a3b8', marginLeft: '6px' }}>({activeTL.email})</span>
+              <div style={{ fontSize: '0.82rem' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text-primary, #0f172a)' }}>{activeTL.name}</span>
+                <span style={{ color: 'var(--text-muted, #64748b)', marginLeft: '6px' }}>({activeTL.email})</span>
               </div>
               <div
                 style={{
                   background: 'rgba(16, 185, 129, 0.15)',
-                  color: '#10b981',
+                  color: '#059669',
                   padding: '2px 8px',
                   borderRadius: '6px',
                   fontSize: '0.75rem',
@@ -407,7 +406,8 @@ export default function ManageTeamScreenshotsModal({
         <div
           style={{
             padding: '14px 24px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            background: 'var(--bg-card, #ffffff)',
+            borderBottom: '1px solid var(--glass-border, #e2e8f0)',
             display: 'flex',
             flexDirection: 'column',
             gap: '12px'
@@ -422,7 +422,7 @@ export default function ManageTeamScreenshotsModal({
                   left: '12px',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  color: '#64748b'
+                  color: 'var(--text-muted, #94a3b8)'
                 }}
               />
               <input
@@ -434,9 +434,9 @@ export default function ManageTeamScreenshotsModal({
                   width: '100%',
                   padding: '8px 12px 8px 36px',
                   borderRadius: '8px',
-                  background: '#0f172a',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#f8fafc',
+                  background: 'var(--bg-tertiary, #f8fafc)',
+                  border: '1px solid var(--glass-border, #cbd5e1)',
+                  color: 'var(--text-primary, #0f172a)',
                   fontSize: '0.85rem'
                 }}
               />
@@ -448,9 +448,9 @@ export default function ManageTeamScreenshotsModal({
               style={{
                 padding: '8px 12px',
                 borderRadius: '8px',
-                background: '#0f172a',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                color: '#cbd5e1',
+                background: 'var(--bg-tertiary, #f8fafc)',
+                border: '1px solid var(--glass-border, #cbd5e1)',
+                color: 'var(--text-primary, #0f172a)',
                 fontSize: '0.85rem',
                 minWidth: '160px'
               }}
@@ -470,9 +470,9 @@ export default function ManageTeamScreenshotsModal({
                 style={{
                   padding: '6px 12px',
                   borderRadius: '6px',
-                  background: 'rgba(6, 182, 212, 0.12)',
-                  color: '#06b6d4',
-                  border: '1px solid rgba(6, 182, 212, 0.3)',
+                  background: 'rgba(2, 132, 199, 0.1)',
+                  color: 'var(--accent-cyan, #0284c7)',
+                  border: '1px solid rgba(2, 132, 199, 0.25)',
                   fontSize: '0.78rem',
                   fontWeight: '700',
                   cursor: 'pointer'
@@ -486,9 +486,9 @@ export default function ManageTeamScreenshotsModal({
                 style={{
                   padding: '6px 12px',
                   borderRadius: '6px',
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  color: '#ef4444',
-                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  color: '#dc2626',
+                  border: '1px solid rgba(239, 68, 68, 0.2)',
                   fontSize: '0.78rem',
                   fontWeight: '700',
                   cursor: 'pointer'
@@ -505,14 +505,14 @@ export default function ManageTeamScreenshotsModal({
               type="button"
               onClick={() => setFilterTab('all')}
               style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '0.78rem',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
                 fontWeight: '700',
                 cursor: 'pointer',
-                background: filterTab === 'all' ? '#06b6d4' : 'rgba(255,255,255,0.05)',
-                color: filterTab === 'all' ? '#0f172a' : '#94a3b8',
-                border: 'none'
+                background: filterTab === 'all' ? 'var(--accent-cyan, #0284c7)' : 'var(--bg-tertiary, #f1f5f9)',
+                color: filterTab === 'all' ? '#ffffff' : 'var(--text-secondary, #475569)',
+                border: filterTab === 'all' ? 'none' : '1px solid var(--glass-border, #e2e8f0)'
               }}
             >
               All Members ({tabCounts.all})
@@ -521,14 +521,14 @@ export default function ManageTeamScreenshotsModal({
               type="button"
               onClick={() => setFilterTab('assigned_this')}
               style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '0.78rem',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
                 fontWeight: '700',
                 cursor: 'pointer',
-                background: filterTab === 'assigned_this' ? '#10b981' : 'rgba(255,255,255,0.05)',
-                color: filterTab === 'assigned_this' ? '#0f172a' : '#94a3b8',
-                border: 'none'
+                background: filterTab === 'assigned_this' ? '#059669' : 'var(--bg-tertiary, #f1f5f9)',
+                color: filterTab === 'assigned_this' ? '#ffffff' : 'var(--text-secondary, #475569)',
+                border: filterTab === 'assigned_this' ? 'none' : '1px solid var(--glass-border, #e2e8f0)'
               }}
             >
               ✓ Visible to this TL ({tabCounts.assignedThis})
@@ -537,14 +537,14 @@ export default function ManageTeamScreenshotsModal({
               type="button"
               onClick={() => setFilterTab('unassigned')}
               style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '0.78rem',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
                 fontWeight: '700',
                 cursor: 'pointer',
-                background: filterTab === 'unassigned' ? '#f59e0b' : 'rgba(255,255,255,0.05)',
-                color: filterTab === 'unassigned' ? '#0f172a' : '#94a3b8',
-                border: 'none'
+                background: filterTab === 'unassigned' ? '#d97706' : 'var(--bg-tertiary, #f1f5f9)',
+                color: filterTab === 'unassigned' ? '#ffffff' : 'var(--text-secondary, #475569)',
+                border: filterTab === 'unassigned' ? 'none' : '1px solid var(--glass-border, #e2e8f0)'
               }}
             >
               ⚪ Unassigned ({tabCounts.unassigned})
@@ -553,14 +553,14 @@ export default function ManageTeamScreenshotsModal({
               type="button"
               onClick={() => setFilterTab('assigned_others')}
               style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '0.78rem',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
                 fontWeight: '700',
                 cursor: 'pointer',
-                background: filterTab === 'assigned_others' ? '#6366f1' : 'rgba(255,255,255,0.05)',
-                color: filterTab === 'assigned_others' ? '#ffffff' : '#94a3b8',
-                border: 'none'
+                background: filterTab === 'assigned_others' ? '#6366f1' : 'var(--bg-tertiary, #f1f5f9)',
+                color: filterTab === 'assigned_others' ? '#ffffff' : 'var(--text-secondary, #475569)',
+                border: filterTab === 'assigned_others' ? 'none' : '1px solid var(--glass-border, #e2e8f0)'
               }}
             >
               👥 Assigned to Other TLs ({tabCounts.assignedOthers})
@@ -576,17 +576,18 @@ export default function ManageTeamScreenshotsModal({
             padding: '16px 24px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px'
+            gap: '8px',
+            background: 'var(--bg-secondary, #f8fafc)'
           }}
         >
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted, #64748b)' }}>
               <div
                 style={{
                   width: '32px',
                   height: '32px',
-                  border: '3px solid rgba(255,255,255,0.1)',
-                  borderTopColor: '#06b6d4',
+                  border: '3px solid var(--glass-border, #e2e8f0)',
+                  borderTopColor: 'var(--accent-cyan, #0284c7)',
                   borderRadius: '50%',
                   animation: 'spin 0.8s linear infinite',
                   margin: '0 auto 12px'
@@ -596,7 +597,7 @@ export default function ManageTeamScreenshotsModal({
               Loading employee hierarchy...
             </div>
           ) : filteredEmployees.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted, #64748b)' }}>
               <FiUsers size={32} style={{ opacity: 0.4, marginBottom: '8px' }} />
               <p style={{ margin: 0, fontWeight: '600' }}>No employees found matching the filter.</p>
             </div>
@@ -615,10 +616,11 @@ export default function ManageTeamScreenshotsModal({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '14px',
-                    padding: '10px 14px',
+                    padding: '12px 16px',
                     borderRadius: '10px',
-                    background: isChecked ? 'rgba(6, 182, 212, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                    border: isChecked ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid rgba(255, 255, 255, 0.05)',
+                    background: isChecked ? 'rgba(2, 132, 199, 0.08)' : 'var(--bg-card, #ffffff)',
+                    border: isChecked ? '1px solid var(--accent-cyan, #0284c7)' : '1px solid var(--glass-border, #e2e8f0)',
+                    boxShadow: isChecked ? '0 2px 8px rgba(2, 132, 199, 0.12)' : '0 1px 3px rgba(0, 0, 0, 0.02)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease'
                   }}
@@ -626,16 +628,16 @@ export default function ManageTeamScreenshotsModal({
                   {/* Custom Checkbox */}
                   <div
                     style={{
-                      width: '20px',
-                      height: '20px',
+                      width: '22px',
+                      height: '22px',
                       borderRadius: '6px',
-                      border: isChecked ? '1px solid #06b6d4' : '1px solid rgba(255, 255, 255, 0.25)',
-                      background: isChecked ? '#06b6d4' : 'transparent',
-                      color: '#0f172a',
+                      border: isChecked ? '1px solid var(--accent-cyan, #0284c7)' : '2px solid var(--glass-border, #cbd5e1)',
+                      background: isChecked ? 'var(--accent-cyan, #0284c7)' : 'var(--bg-card, #ffffff)',
+                      color: '#ffffff',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '0.8rem',
+                      fontSize: '0.85rem',
                       fontWeight: '800',
                       flexShrink: 0
                     }}
@@ -646,16 +648,17 @@ export default function ManageTeamScreenshotsModal({
                   {/* Avatar */}
                   <div
                     style={{
-                      width: '34px',
-                      height: '34px',
-                      borderRadius: '8px',
-                      background: isChecked ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                      color: isChecked ? '#38bdf8' : '#94a3b8',
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '10px',
+                      background: isChecked ? 'rgba(2, 132, 199, 0.18)' : 'var(--bg-tertiary, #f1f5f9)',
+                      color: isChecked ? 'var(--accent-cyan, #0284c7)' : 'var(--text-secondary, #475569)',
+                      border: '1px solid var(--glass-border, #e2e8f0)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontWeight: '700',
-                      fontSize: '0.8rem',
+                      fontWeight: '800',
+                      fontSize: '0.82rem',
                       flexShrink: 0
                     }}
                   >
@@ -665,27 +668,29 @@ export default function ManageTeamScreenshotsModal({
                   {/* Name, ID, Dept */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: '700', color: isChecked ? '#f8fafc' : '#cbd5e1', fontSize: '0.9rem' }}>
+                      <span style={{ fontWeight: '700', color: 'var(--text-primary, #0f172a)', fontSize: '0.92rem' }}>
                         {emp.name}
                       </span>
                       <span
                         style={{
                           fontSize: '0.72rem',
-                          color: '#64748b',
-                          background: 'rgba(255, 255, 255, 0.05)',
+                          color: 'var(--text-muted, #64748b)',
+                          background: 'var(--bg-tertiary, #f1f5f9)',
+                          border: '1px solid var(--glass-border, #e2e8f0)',
                           padding: '1px 6px',
-                          borderRadius: '4px'
+                          borderRadius: '4px',
+                          fontWeight: '600'
                         }}
                       >
                         {emp.id}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
-                      <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary, #475569)', fontWeight: '500' }}>
                         {emp.department || 'General'}
                       </span>
-                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>·</span>
-                      <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)' }}>·</span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)' }}>
                         {emp.role || 'Member'}
                       </span>
                     </div>
@@ -697,9 +702,9 @@ export default function ManageTeamScreenshotsModal({
                       <span
                         style={{
                           background: 'rgba(16, 185, 129, 0.15)',
-                          color: '#10b981',
-                          border: '1px solid rgba(16, 185, 129, 0.3)',
-                          padding: '3px 10px',
+                          color: '#059669',
+                          border: '1px solid rgba(16, 185, 129, 0.35)',
+                          padding: '4px 12px',
                           borderRadius: '6px',
                           fontSize: '0.75rem',
                           fontWeight: '700',
@@ -714,9 +719,9 @@ export default function ManageTeamScreenshotsModal({
                       <span
                         style={{
                           background: 'rgba(239, 68, 68, 0.12)',
-                          color: '#ef4444',
+                          color: '#dc2626',
                           border: '1px solid rgba(239, 68, 68, 0.25)',
-                          padding: '3px 10px',
+                          padding: '4px 12px',
                           borderRadius: '6px',
                           fontSize: '0.75rem',
                           fontWeight: '700'
@@ -728,9 +733,9 @@ export default function ManageTeamScreenshotsModal({
                       <span
                         style={{
                           background: 'rgba(99, 102, 241, 0.12)',
-                          color: '#818cf8',
+                          color: '#4f46e5',
                           border: '1px solid rgba(99, 102, 241, 0.25)',
-                          padding: '3px 10px',
+                          padding: '4px 12px',
                           borderRadius: '6px',
                           fontSize: '0.75rem',
                           fontWeight: '600'
@@ -742,9 +747,10 @@ export default function ManageTeamScreenshotsModal({
                     ) : (
                       <span
                         style={{
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          color: '#64748b',
-                          padding: '3px 10px',
+                          background: 'var(--bg-tertiary, #f1f5f9)',
+                          color: 'var(--text-muted, #64748b)',
+                          border: '1px solid var(--glass-border, #e2e8f0)',
+                          padding: '4px 12px',
                           borderRadius: '6px',
                           fontSize: '0.75rem',
                           fontWeight: '600'
@@ -764,8 +770,8 @@ export default function ManageTeamScreenshotsModal({
         <div
           style={{
             padding: '16px 24px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-            background: 'rgba(15, 23, 42, 0.8)',
+            borderTop: '1px solid var(--glass-border, #e2e8f0)',
+            background: 'var(--bg-secondary, #f8fafc)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -773,10 +779,14 @@ export default function ManageTeamScreenshotsModal({
             gap: '12px'
           }}
         >
-          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-            <span style={{ fontWeight: '700', color: '#f8fafc' }}>{selectedMemberIds.size}</span> member
-            {selectedMemberIds.size === 1 ? '' : 's'} selected for{' '}
-            <span style={{ color: '#38bdf8', fontWeight: '700' }}>{activeTL?.name || 'Team Leader'}</span>
+          <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary, #475569)' }}>
+            <span style={{ fontWeight: '800', color: 'var(--text-primary, #0f172a)' }}>
+              {selectedMemberIds.size}
+            </span>{' '}
+            member{selectedMemberIds.size === 1 ? '' : 's'} selected for{' '}
+            <span style={{ color: 'var(--accent-cyan, #0284c7)', fontWeight: '800' }}>
+              {activeTL?.name || 'Team Leader'}
+            </span>
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -787,9 +797,9 @@ export default function ManageTeamScreenshotsModal({
               style={{
                 padding: '9px 18px',
                 borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                color: '#cbd5e1',
+                background: 'var(--bg-card, #ffffff)',
+                border: '1px solid var(--glass-border, #cbd5e1)',
+                color: 'var(--text-primary, #0f172a)',
                 fontSize: '0.85rem',
                 fontWeight: '600',
                 cursor: 'pointer'
@@ -807,14 +817,14 @@ export default function ManageTeamScreenshotsModal({
                 gap: '8px',
                 padding: '9px 22px',
                 borderRadius: '8px',
-                background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
+                background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
                 border: 'none',
                 color: '#ffffff',
                 fontSize: '0.85rem',
                 fontWeight: '700',
                 cursor: saving ? 'not-allowed' : 'pointer',
                 opacity: saving ? 0.7 : 1,
-                boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)'
+                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.3)'
               }}
             >
               <FiSave />
