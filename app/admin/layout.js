@@ -80,14 +80,114 @@ export default function AdminLayout({ children }) {
     }
   }, []);
 
-  // Auth check
+  // Auth check & Route protection
   useEffect(() => {
-    if (mounted) {
-      if (!user) {
-        router.push("/login");
+    if (!mounted) return;
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const empDetails = employees.find((e) => e.id === user?.id) || user || {};
+    const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
+    const deptStr = `${user?.department || empDetails?.department || ''}`.toLowerCase().trim();
+
+    const isAdmin =
+      dbRoleStr === 'admin' ||
+      dbRoleStr === 'superadmin' ||
+      dbRoleStr === 'management' ||
+      dbRoleStr === 'executive' ||
+      user?.email === 'admin@yopmail.com' ||
+      user?.email === 'pravi@yopmail.com' ||
+      user?.email === 'admin@devicedesk.com';
+
+    // Admins have full access to all /admin/* routes
+    if (isAdmin) return;
+
+    const isIT =
+      dbRoleStr === 'it support' ||
+      dbRoleStr === 'it_support' ||
+      dbRoleStr === 'it engineer' ||
+      dbRoleStr === 'it_engineer' ||
+      dbRoleStr === 'it' ||
+      deptStr === 'it' ||
+      deptStr === 'it support' ||
+      deptStr === 'it_support' ||
+      deptStr === 'information technology' ||
+      deptStr === 'it department' ||
+      deptStr.startsWith('it ') ||
+      deptStr.endsWith(' it') ||
+      deptStr.includes(' it ') ||
+      deptStr.includes('it support');
+
+    const isHR = dbRoleStr === 'hr' || dbRoleStr.includes('hr') || deptStr.includes('hr');
+    const isDNS = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
+
+    // Disallow regular users/employees from /admin altogether
+    if (!isIT && !isHR && !isDNS) {
+      if (dbRoleStr === 'candidate') {
+        router.replace('/candidate-dashboard');
+      } else if (dbRoleStr === 'client') {
+        router.replace('/portal/client');
+      } else if (dbRoleStr === 'marketing') {
+        router.replace('/portal/marketing');
+      } else if (dbRoleStr.includes('leader') || dbRoleStr.includes('tl')) {
+        router.replace('/portal/leader');
+      } else {
+        router.replace('/employee-dashboard');
+      }
+      return;
+    }
+
+    // Role-specific route protection for IT Support
+    if (isIT) {
+      const itForbidden = [
+        '/admin/client',
+        '/admin/marketing',
+        '/admin/projects',
+        '/admin/submissions',
+        '/admin/recruitment',
+        '/admin/candidates',
+        '/admin/packages',
+        '/admin/subscriptions',
+        '/admin/client-requests',
+        '/admin/client-notes',
+        '/admin/management-overview',
+        '/admin/domains',
+        '/admin/leaves',
+        '/admin/attendance',
+        '/admin/screenshots'
+      ];
+      if (itForbidden.some(prefix => pathname.startsWith(prefix))) {
+        router.replace('/admin/tickets');
       }
     }
-  }, [user, mounted, router]);
+
+    // Role-specific route protection for DNS Manager
+    if (isDNS) {
+      if (!pathname.startsWith('/admin/domains')) {
+        router.replace('/admin/domains');
+      }
+    }
+
+    // Role-specific route protection for HR
+    if (isHR) {
+      const hrForbidden = [
+        '/admin/client',
+        '/admin/marketing',
+        '/admin/projects',
+        '/admin/submissions',
+        '/admin/packages',
+        '/admin/subscriptions',
+        '/admin/management-overview',
+        '/admin/domains'
+      ];
+      if (hrForbidden.some(prefix => pathname.startsWith(prefix))) {
+        router.replace('/admin/recruitment');
+      }
+    }
+  }, [user, mounted, pathname, router, employees]);
 
   // Handle body click to close profile dropdown
   useEffect(() => {
@@ -287,7 +387,7 @@ export default function AdminLayout({ children }) {
     .filter(group => group.items.length > 0);
 
   const isNavActive = (item) => {
-    if (item.exact) return pathname === "/admin";
+    if (item.exact) return pathname === "/" || pathname === "/admin";
     return pathname.startsWith(item.path);
   };
 

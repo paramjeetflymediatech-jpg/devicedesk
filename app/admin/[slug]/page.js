@@ -180,8 +180,8 @@ export default function AdminDynamicSlugPage() {
         <p style={{ color: "var(--text-secondary, #94a3b8)", margin: "1rem 0 2rem" }}>
           No admin view, user, system, or department matching &quot;{slug}&quot; was found.
         </p>
-        <Link href="/admin" className="btn-primary" style={{ textDecoration: "none" }}>
-          Return to Admin Hub
+        <Link href="/" className="btn-primary" style={{ textDecoration: "none" }}>
+          Return to Dashboard
         </Link>
       </div>
     </div>
