@@ -67,7 +67,20 @@ export default function ManageScreenshots({ user, onBack, tlId = null }) {
     try {
       let emps = getEmployees() || [];
       if (effectiveTlId) {
-        emps = emps.filter(e => (e.tl_id || '').split(',').map(s => s.trim()).includes(String(effectiveTlId)));
+        const isTLRole = (role) => {
+          const r = (role || '').toLowerCase();
+          return r === 'tl' || r === 'team leader' || r === 'team lead' || r === 'team_lead' || r === 'leader';
+        };
+        const directAssignees = emps.filter(e =>
+          (e.tl_id || '').split(',').map(s => s.trim()).includes(String(effectiveTlId))
+        );
+        const subTlIds = new Set(directAssignees.filter(e => isTLRole(e.role)).map(e => String(e.id)));
+
+        emps = emps.filter(e => {
+          if (String(e.id) === String(effectiveTlId)) return false;
+          const assignedTls = (e.tl_id || '').split(',').map(s => s.trim());
+          return assignedTls.includes(String(effectiveTlId)) || assignedTls.some(id => subTlIds.has(String(id)));
+        });
       }
       setEmployeesList(emps);
     } catch (e) {}

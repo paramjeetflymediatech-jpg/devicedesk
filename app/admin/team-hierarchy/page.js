@@ -226,6 +226,9 @@ export default function TeamHierarchyPage() {
         {teamLeaders.map((tl, idx) => {
           const palette = TL_COLORS[idx % TL_COLORS.length];
           const tlEmps = regularEmployees.filter(e => isEmpAssignedToTL(e, tl.id)).filter(matchSearch);
+          const subTls = teamLeaders.filter(other => String(other.id) !== String(tl.id) && isEmpAssignedToTL(other, tl.id));
+          const parentTlIds = tl.tl_ids || (tl.tl_id || '').split(',').map(s => s.trim()).filter(Boolean);
+          const parentTlNames = parentTlIds.map(id => teamLeaders.find(t => String(t.id) === String(id))?.name).filter(Boolean);
           const isOpen = !collapsed[tl.id];
 
           return (
@@ -258,14 +261,26 @@ export default function TeamHierarchyPage() {
                 >
                   {isOpen ? <FiChevronDown size={15} color={palette.accent} /> : <FiChevronRight size={15} color={palette.accent} />}
                   <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${palette.accent}20`, color: palette.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.8rem', flexShrink: 0 }}>
-                    {getInitials(tl.name)}
+                    {subTls.length > 0 ? '👑' : getInitials(tl.name)}
                   </div>
                   <div>
-                    <span style={{ fontWeight: '700', fontSize: '0.95rem', color: palette.accent }}>{tl.name}</span>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginLeft: '8px' }}>Team Leader</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: '700', fontSize: '0.95rem', color: palette.accent }}>{tl.name}</span>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>Team Leader</span>
+                      {subTls.length > 0 && (
+                        <span style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.35)', padding: '1px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '700' }}>
+                          👑 Senior TL (+{subTls.length} Subordinate TL{subTls.length === 1 ? '' : 's'})
+                        </span>
+                      )}
+                      {parentTlNames.length > 0 && (
+                        <span style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '1px 8px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: '700' }}>
+                          Reports to: {parentTlNames.join(', ')}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span style={{ background: `${palette.accent}18`, color: palette.accent, padding: '3px 12px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: '700', border: `1px solid ${palette.border}`, marginLeft: '8px' }}>
-                    {tlEmps.length} {tlEmps.length === 1 ? 'Member' : 'Members'}
+                    {tlEmps.length} {tlEmps.length === 1 ? 'Regular Member' : 'Regular Members'}
                   </span>
                 </div>
 
@@ -322,8 +337,59 @@ export default function TeamHierarchyPage() {
               {/* Members List */}
               {isOpen && (
                 <div style={{ padding: '10px 14px 14px' }}>
+                  {/* Subordinate Team Leaders (Senior/Main TL Oversight) */}
+                  {subTls.length > 0 && (
+                    <div style={{ marginBottom: '14px', padding: '12px 14px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.07)', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '1rem' }}>👑</span>
+                        <span style={{ fontWeight: '800', fontSize: '0.82rem', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          Subordinate Team Leaders ({subTls.length}) — Full Team Oversight Active
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {subTls.map(subTl => (
+                          <div key={subTl.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(245, 158, 11, 0.2)', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{ width: '30px', height: '30px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '0.75rem' }}>
+                                👑
+                              </div>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  <span style={{ fontWeight: '700', fontSize: '0.88rem', color: 'var(--text-primary)' }}>{subTl.name}</span>
+                                  <span style={{ fontSize: '0.72rem', color: '#b45309', background: 'rgba(245, 158, 11, 0.15)', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>
+                                    TL · {subTl.department || 'General'}
+                                  </span>
+                                  <span style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)', background: 'rgba(2, 132, 199, 0.1)', padding: '1px 6px', borderRadius: '4px', fontWeight: '600' }}>
+                                    👥 {subTl.membersCount || 0} members
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                  "{tl.name}" can view this TL's screenshots + all screenshots of their {subTl.membersCount || 0} team members.
+                                </div>
+                              </div>
+                            </div>
+                            <Link
+                              href={`/admin/screenshots?tlId=${subTl.id}`}
+                              style={{ padding: '4px 10px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', fontSize: '0.75rem', fontWeight: '700', textDecoration: 'none', border: '1px solid rgba(245, 158, 11, 0.3)', whiteSpace: 'nowrap' }}
+                            >
+                              Check Screenshots →
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {subTls.length > 0 && tlEmps.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '14px 0 8px 4px' }}>
+                      <FiUsers size={14} color="var(--text-secondary)" />
+                      <span style={{ fontWeight: '700', fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Directly Assigned Team Members ({tlEmps.length})
+                      </span>
+                    </div>
+                  )}
+
                   {tlEmps.map(emp => <EmployeeRow key={emp.id} emp={emp} palette={palette} currentTlId={tl.id} />)}
-                  {tlEmps.length === 0 && (
+                  {tlEmps.length === 0 && subTls.length === 0 && (
                     <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem', fontStyle: 'italic' }}>
                       {q ? 'No matching members.' : 'No members assigned yet. Click "Decide Members" above to assign.'}
                     </div>

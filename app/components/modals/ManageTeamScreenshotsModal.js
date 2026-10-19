@@ -54,11 +54,12 @@ export default function ManageTeamScreenshotsModal({
         const activeTlId = initialTlId || (tls.length > 0 ? tls[0].id : '');
         setSelectedTlId(activeTlId);
 
-        // Initialize selected members for this TL (supports multi-TL assignments)
+        // Initialize selected members for this TL (supports multi-TL assignments & subordinate TLs)
         if (activeTlId) {
-          const currentMembers = new Set(
-            emps.filter(e => hasTlAssigned(e, activeTlId)).map(e => e.id)
-          );
+          const currentMembers = new Set([
+            ...emps.filter(e => hasTlAssigned(e, activeTlId)).map(e => e.id),
+            ...tls.filter(t => String(t.id) !== String(activeTlId) && hasTlAssigned(t, activeTlId)).map(t => t.id)
+          ]);
           setSelectedMemberIds(currentMembers);
         }
       } else {
@@ -78,12 +79,13 @@ export default function ManageTeamScreenshotsModal({
     }
   }, [isOpen, initialTlId]);
 
-  // When selected TL changes, sync the selectedMemberIds with that TL's existing members
+  // When selected TL changes, sync the selectedMemberIds with that TL's existing members & subordinate TLs
   const handleTlChange = (tlId) => {
     setSelectedTlId(tlId);
-    const currentMembers = new Set(
-      regularEmployees.filter(e => hasTlAssigned(e, tlId)).map(e => e.id)
-    );
+    const currentMembers = new Set([
+      ...regularEmployees.filter(e => hasTlAssigned(e, tlId)).map(e => e.id),
+      ...teamLeaders.filter(t => String(t.id) !== String(tlId) && hasTlAssigned(t, tlId)).map(t => t.id)
+    ]);
     setSelectedMemberIds(currentMembers);
   };
 
@@ -122,6 +124,29 @@ export default function ManageTeamScreenshotsModal({
     return teamLeaders.find(tl => String(tl.id) === String(selectedTlId)) || null;
   }, [teamLeaders, selectedTlId]);
 
+  // Other Team Leaders eligible for subordinate oversight under activeTL
+  const otherTeamLeaders = useMemo(() => {
+    return teamLeaders.filter(tl => String(tl.id) !== String(selectedTlId));
+  }, [teamLeaders, selectedTlId]);
+
+  // Filtered other Team Leaders according to search and department
+  const filteredTeamLeaders = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return otherTeamLeaders.filter(tl => {
+      if (q) {
+        const nameMatch = (tl.name || '').toLowerCase().includes(q);
+        const idMatch = (tl.id || '').toLowerCase().includes(q);
+        const deptMatch = (tl.department || '').toLowerCase().includes(q);
+        const emailMatch = (tl.email || '').toLowerCase().includes(q);
+        if (!nameMatch && !idMatch && !deptMatch && !emailMatch) return false;
+      }
+      if (selectedDept !== 'all' && (tl.department || '') !== selectedDept) {
+        return false;
+      }
+      return true;
+    });
+  }, [otherTeamLeaders, searchQuery, selectedDept]);
+
   // Filtered employees according to search, filter tab, and department
   const filteredEmployees = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -159,7 +184,11 @@ export default function ManageTeamScreenshotsModal({
   const selectAllFiltered = () => {
     setSelectedMemberIds(prev => {
       const next = new Set(prev);
-      filteredEmployees.forEach(e => next.add(e.id));
+      if (filterTab === 'team_leaders') {
+        filteredTeamLeaders.forEach(t => next.add(t.id));
+      } else {
+        filteredEmployees.forEach(e => next.add(e.id));
+      }
       return next;
     });
   };
@@ -167,7 +196,11 @@ export default function ManageTeamScreenshotsModal({
   const deselectAllFiltered = () => {
     setSelectedMemberIds(prev => {
       const next = new Set(prev);
-      filteredEmployees.forEach(e => next.delete(e.id));
+      if (filterTab === 'team_leaders') {
+        filteredTeamLeaders.forEach(t => next.delete(t.id));
+      } else {
+        filteredEmployees.forEach(e => next.delete(e.id));
+      }
       return next;
     });
   };
@@ -177,6 +210,8 @@ export default function ManageTeamScreenshotsModal({
     let assignedThis = 0;
     let assignedOthers = 0;
     let unassigned = 0;
+    let assignedTlsThis = 0;
+
     regularEmployees.forEach(e => {
       const isThis = hasTlAssigned(e, selectedTlId);
       const allAssigned = (e.tl_ids || (e.tl_id || '').split(',')).map(s => s.trim()).filter(Boolean);
@@ -186,13 +221,22 @@ export default function ManageTeamScreenshotsModal({
       else if (otherCount > 0) assignedOthers++;
       else unassigned++;
     });
+
+    otherTeamLeaders.forEach(tl => {
+      if (selectedMemberIds.has(tl.id)) {
+        assignedTlsThis++;
+      }
+    });
+
     return {
       all: regularEmployees.length,
       assignedThis,
       assignedOthers,
-      unassigned
+      unassigned,
+      teamLeaders: otherTeamLeaders.length,
+      assignedTlsThis
     };
-  }, [regularEmployees, selectedTlId]);
+  }, [regularEmployees, otherTeamLeaders, selectedTlId, selectedMemberIds]);
 
   // Save changes via API
   const handleSave = async () => {
@@ -217,8 +261,8 @@ export default function ManageTeamScreenshotsModal({
       if (data.success) {
         await Swal.fire({
           icon: 'success',
-          title: 'Screenshot Permissions Updated!',
-          text: `Team Leader "${activeTL?.name || 'Selected TL'}" can now view screenshots for ${memberIdsArray.length} team member(s). Multiple TL assignments are preserved.`,
+          title: 'Team Permissions Updated!',
+          text: `Permissions updated for "${activeTL?.name || 'Selected TL'}" (${memberIdsArray.length} assigned member(s) & subordinate TLs). Hierarchy changes are saved.`,
           confirmButtonColor: '#0284c7',
           timer: 2500,
           timerProgressBar: true
@@ -493,7 +537,7 @@ export default function ManageTeamScreenshotsModal({
                   cursor: 'pointer'
                 }}
               >
-                Select All ({filteredEmployees.length})
+                Select All ({filterTab === 'team_leaders' ? filteredTeamLeaders.length : filteredEmployees.length})
               </button>
               <button
                 type="button"
@@ -530,7 +574,7 @@ export default function ManageTeamScreenshotsModal({
                 border: filterTab === 'all' ? 'none' : '1px solid var(--glass-border, #e2e8f0)'
               }}
             >
-              All Members ({tabCounts.all})
+              All Regular Members ({tabCounts.all})
             </button>
             <button
               type="button"
@@ -580,6 +624,29 @@ export default function ManageTeamScreenshotsModal({
             >
               👥 Assigned to Other TLs ({tabCounts.assignedOthers})
             </button>
+            {tabCounts.teamLeaders > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilterTab('team_leaders')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  background: filterTab === 'team_leaders' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'rgba(245, 158, 11, 0.1)',
+                  color: filterTab === 'team_leaders' ? '#ffffff' : '#b45309',
+                  border: filterTab === 'team_leaders' ? 'none' : '1px solid rgba(245, 158, 11, 0.35)'
+                }}
+              >
+                👑 Subordinate Team Leaders ({tabCounts.teamLeaders})
+                {tabCounts.assignedTlsThis > 0 && (
+                  <span style={{ marginLeft: '6px', background: filterTab === 'team_leaders' ? '#ffffff' : '#d97706', color: filterTab === 'team_leaders' ? '#d97706' : '#ffffff', padding: '1px 6px', borderRadius: '999px', fontSize: '0.7rem' }}>
+                    {tabCounts.assignedTlsThis} active
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -595,6 +662,48 @@ export default function ManageTeamScreenshotsModal({
             background: 'var(--bg-secondary, #f8fafc)'
           }}
         >
+          {/* Main TL Oversight Active Banner */}
+          {filterTab !== 'team_leaders' && tabCounts.assignedTlsThis > 0 && (
+            <div
+              style={{
+                padding: '10px 16px',
+                borderRadius: '10px',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                marginBottom: '4px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--text-primary, #0f172a)' }}>
+                <span style={{ fontSize: '1.1rem' }}>👑</span>
+                <span>
+                  <strong>Senior TL Oversight Active:</strong> "{activeTL?.name}" has full oversight of{' '}
+                  <strong style={{ color: '#b45309' }}>{tabCounts.assignedTlsThis}</strong> subordinate Team Leader(s) and their team members.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFilterTab('team_leaders')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  background: '#f59e0b',
+                  color: '#ffffff',
+                  fontSize: '0.75rem',
+                  fontWeight: '700',
+                  border: 'none',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Manage Subordinate TLs →
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted, #64748b)' }}>
               <div
@@ -611,6 +720,149 @@ export default function ManageTeamScreenshotsModal({
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               Loading employee hierarchy...
             </div>
+          ) : filterTab === 'team_leaders' ? (
+            filteredTeamLeaders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted, #64748b)' }}>
+                <FiUsers size={32} style={{ opacity: 0.4, marginBottom: '8px' }} />
+                <p style={{ margin: 0, fontWeight: '600' }}>No other Team Leaders found matching the filter.</p>
+              </div>
+            ) : (
+              filteredTeamLeaders.map(tl => {
+                const isChecked = selectedMemberIds.has(tl.id);
+                return (
+                  <div
+                    key={tl.id}
+                    onClick={() => toggleMember(tl.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
+                      padding: '14px 18px',
+                      borderRadius: '12px',
+                      background: isChecked ? 'rgba(245, 158, 11, 0.08)' : 'var(--bg-card, #ffffff)',
+                      border: isChecked ? '1px solid #f59e0b' : '1px solid var(--glass-border, #e2e8f0)',
+                      boxShadow: isChecked ? '0 2px 10px rgba(245, 158, 11, 0.15)' : '0 1px 3px rgba(0, 0, 0, 0.02)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {/* Checkbox */}
+                    <div
+                      style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '6px',
+                        border: isChecked ? '1px solid #f59e0b' : '2px solid var(--glass-border, #cbd5e1)',
+                        background: isChecked ? '#f59e0b' : 'var(--bg-card, #ffffff)',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.85rem',
+                        fontWeight: '800',
+                        flexShrink: 0
+                      }}
+                    >
+                      {isChecked && <FiCheck />}
+                    </div>
+
+                    {/* Crown Avatar */}
+                    <div
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '10px',
+                        background: isChecked ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.1)',
+                        color: '#d97706',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: '800',
+                        fontSize: '1rem',
+                        flexShrink: 0
+                      }}
+                    >
+                      👑
+                    </div>
+
+                    {/* TL Details */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: '800', color: 'var(--text-primary, #0f172a)', fontSize: '0.95rem' }}>
+                          {tl.name}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            color: '#b45309',
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            padding: '1px 8px',
+                            borderRadius: '999px',
+                            fontWeight: '700'
+                          }}
+                        >
+                          Team Leader · {tl.department || 'General'}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            color: 'var(--accent-cyan, #0284c7)',
+                            background: 'rgba(2, 132, 199, 0.1)',
+                            border: '1px solid rgba(2, 132, 199, 0.25)',
+                            padding: '1px 8px',
+                            borderRadius: '999px',
+                            fontWeight: '600'
+                          }}
+                        >
+                          👥 Oversees {tl.membersCount || 0} member{tl.membersCount === 1 ? '' : 's'}
+                        </span>
+                      </div>
+                      <div style={{ marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary, #64748b)' }}>
+                        Full Oversight: "{activeTL?.name}" can view this Team Leader's desktop screenshots + all screenshots of their team members.
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                      {isChecked ? (
+                        <span
+                          style={{
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#059669',
+                            border: '1px solid rgba(16, 185, 129, 0.35)',
+                            padding: '5px 14px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '700',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          ✓ Full Oversight Active
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            color: '#b45309',
+                            border: '1px solid rgba(245, 158, 11, 0.25)',
+                            padding: '5px 14px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '700'
+                          }}
+                        >
+                          + Grant Oversight
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )
           ) : filteredEmployees.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted, #64748b)' }}>
               <FiUsers size={32} style={{ opacity: 0.4, marginBottom: '8px' }} />

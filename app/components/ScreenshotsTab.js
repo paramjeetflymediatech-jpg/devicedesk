@@ -128,8 +128,21 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
           if (empData.success && Array.isArray(empData.data)) {
             let filteredEmps = empData.data;
             if (effectiveTlId) {
-              // Team Leader: Only show their assigned team members (supports multi-TL)
-              filteredEmps = filteredEmps.filter(e => (e.tl_id || '').split(',').map(s => s.trim()).includes(String(effectiveTlId)));
+              // Team Leader / Main TL: Show assigned team members & subordinate Team Leaders + their teams
+              const isTLRole = (role) => {
+                const r = (role || '').toLowerCase();
+                return r === 'tl' || r === 'team leader' || r === 'team lead' || r === 'team_lead' || r === 'leader';
+              };
+              const directAssignees = empData.data.filter(e =>
+                (e.tl_id || '').split(',').map(s => s.trim()).includes(String(effectiveTlId))
+              );
+              const subTlIds = new Set(directAssignees.filter(e => isTLRole(e.role)).map(e => String(e.id)));
+
+              filteredEmps = empData.data.filter(e => {
+                if (String(e.id) === String(effectiveTlId)) return false;
+                const assignedTls = (e.tl_id || '').split(',').map(s => s.trim());
+                return assignedTls.includes(String(effectiveTlId)) || assignedTls.some(id => subTlIds.has(String(id)));
+              });
             } else if (isHRUser) {
               // HR cannot see any HR employees in the dropdown
               filteredEmps = filteredEmps.filter(e => {
@@ -719,11 +732,15 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                 <option value="all" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
                   {adminSelectedTL !== 'all' ? `👥 All Assigned Members (${employeesList.length})` : `👤 All Employees (${employeesList.length})`}
                 </option>
-                {employeesList.map(emp => (
-                  <option key={emp.id} value={emp.id} style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-                    {emp.name} ({emp.id}) - {emp.department || 'General'}
-                  </option>
-                ))}
+                {employeesList.map(emp => {
+                  const roleStr = (emp.role || '').toLowerCase();
+                  const isTLRole = roleStr === 'tl' || roleStr === 'team leader' || roleStr === 'team lead' || roleStr === 'team_lead' || roleStr === 'leader';
+                  return (
+                    <option key={emp.id} value={emp.id} style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                      {isTLRole ? '👑 [Team Leader] ' : ''}{emp.name} ({emp.id}) - {emp.department || emp.role || 'General'}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 

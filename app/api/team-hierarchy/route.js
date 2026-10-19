@@ -14,7 +14,19 @@ export async function GET(request) {
     };
 
     const EXCLUDED_ROLES = ['client', 'admin', 'superadmin', 'candidate'];
-    const teamLeaders = employees.filter(e => isTL(e.role) && e.status !== 'Inactive');
+    const teamLeaders = employees.filter(e => isTL(e.role) && e.status !== 'Inactive').map(tl => {
+      const tlIds = (tl.tl_id || '').split(',').map(s => s.trim()).filter(Boolean);
+      const membersCount = employees.filter(emp => 
+        !isTL(emp.role) && 
+        emp.status !== 'Inactive' && 
+        (emp.tl_id || '').split(',').map(s => s.trim()).includes(String(tl.id))
+      ).length;
+      return {
+        ...tl,
+        tl_ids: tlIds,
+        membersCount
+      };
+    });
     const regularEmployees = employees.filter(e => {
       const r = (e.role || '').toLowerCase();
       return !isTL(e.role) && e.status !== 'Inactive' && !EXCLUDED_ROLES.includes(r);

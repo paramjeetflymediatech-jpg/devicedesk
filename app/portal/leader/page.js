@@ -30,10 +30,21 @@ export default function LeaderOverviewPage() {
         
         if (dataEmp.success) {
           const eodList = dataEod.success ? dataEod.data : [];
-          const members = dataEmp.data.filter(emp => 
-            (emp.role === 'Team Member' || emp.role === 'Employee' || emp.role === 'team member') && 
+          const isTLRole = (role) => {
+            const r = (role || '').toLowerCase();
+            return r === 'tl' || r === 'team leader' || r === 'team lead' || r === 'team_lead' || r === 'leader';
+          };
+          const allEmps = dataEmp.data || [];
+          const directAssignees = allEmps.filter(emp =>
             (emp.tl_id || '').split(',').map(s => s.trim()).includes(String(user.id))
           );
+          const subTlIds = new Set(directAssignees.filter(e => isTLRole(e.role)).map(e => String(e.id)));
+
+          const members = allEmps.filter(emp => {
+            if (String(emp.id) === String(user.id)) return false;
+            const assignedTls = (emp.tl_id || '').split(',').map(s => s.trim());
+            return assignedTls.includes(String(user.id)) || assignedTls.some(id => subTlIds.has(String(id)));
+          });
           const today = new Date().toISOString().split('T')[0];
           
           const mappedMembers = members.map(m => {

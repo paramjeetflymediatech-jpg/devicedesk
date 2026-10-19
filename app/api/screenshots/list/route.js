@@ -70,17 +70,43 @@ export async function GET(req) {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    // Resolve team members if tlId is provided (Supports multiple TL assignments per employee)
+    // Resolve team members if tlId is provided (Supports hierarchical Main TL oversight & multi-TL assignments)
     let teamMemberIds = null;
     if (tlId) {
-      const [members] = await pool.query(
-        `SELECT id FROM employees 
+      // 1. Get directly assigned regular employees and subordinate Team Leaders
+      const [directMembers] = await pool.query(
+        `SELECT id, role FROM employees 
          WHERE FIND_IN_SET(?, tl_id) > 0 
             OR tl_id = ? 
             OR id IN (SELECT employee_id FROM employee_team_leaders WHERE tl_id = ?)`,
         [tlId, tlId, tlId]
       );
-      teamMemberIds = (members || []).map(m => m.id);
+
+      const allIds = new Set((directMembers || []).map(m => String(m.id)));
+
+      // 2. Identify if any of the assigned users are themselves Team Leaders (Main TL oversight)
+      const isTLRole = (role) => {
+        const r = (role || '').toLowerCase();
+        return r === 'tl' || r === 'team leader' || r === 'team lead' || r === 'team_lead' || r === 'leader';
+      };
+
+      const subTlIds = (directMembers || []).filter(m => isTLRole(m.role)).map(m => String(m.id));
+
+      if (subTlIds.length > 0) {
+        // Query all members assigned to these subordinate Team Leaders (Full team oversight)
+        const orClauses = subTlIds.map(() => `FIND_IN_SET(?, tl_id) > 0`).join(' OR ');
+        const placeholders = subTlIds.map(() => '?').join(',');
+        const [subMembers] = await pool.query(
+          `SELECT id FROM employees 
+           WHERE (${orClauses})
+              OR tl_id IN (${placeholders})
+              OR id IN (SELECT employee_id FROM employee_team_leaders WHERE tl_id IN (${placeholders}))`,
+          [...subTlIds, ...subTlIds, ...subTlIds]
+        );
+        (subMembers || []).forEach(m => allIds.add(String(m.id)));
+      }
+
+      teamMemberIds = Array.from(allIds);
 
       // If TL has no team members assigned, return empty results immediately
       if (teamMemberIds.length === 0) {

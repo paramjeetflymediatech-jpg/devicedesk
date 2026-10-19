@@ -34,9 +34,20 @@ export default function TeamAndEODsPage() {
       const dataEod = await resEod.json();
       
       if (dataEmp.success) {
-        const members = (dataEmp.data || []).filter(emp => {
-          const r = (emp.role || '').toLowerCase();
-          return (r === 'team member' || r === 'employee') && (emp.tl_id || '').split(',').map(s => s.trim()).includes(String(user.id));
+        const isTLRole = (role) => {
+          const r = (role || '').toLowerCase();
+          return r === 'tl' || r === 'team leader' || r === 'team lead' || r === 'team_lead' || r === 'leader';
+        };
+        const allEmps = dataEmp.data || [];
+        const directAssignees = allEmps.filter(emp =>
+          (emp.tl_id || '').split(',').map(s => s.trim()).includes(String(user.id))
+        );
+        const subTlIds = new Set(directAssignees.filter(e => isTLRole(e.role)).map(e => String(e.id)));
+
+        const members = allEmps.filter(emp => {
+          if (String(emp.id) === String(user.id)) return false;
+          const assignedTls = (emp.tl_id || '').split(',').map(s => s.trim());
+          return assignedTls.includes(String(user.id)) || assignedTls.some(id => subTlIds.has(String(id)));
         });
         const tasksList = dataTasks.success ? dataTasks.data : (dataTasks.tasks || []);
         const eodList = dataEod.success ? dataEod.data : [];

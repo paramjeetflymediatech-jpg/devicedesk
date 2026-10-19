@@ -244,11 +244,21 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       const eods = eodRes?.data || [];
       const notes = notesRes?.notes || [];
 
-      // Filter employees assigned under THIS team leader
+      // Filter employees assigned under THIS team leader (supports subordinate TL teams)
+      const isTLRole = (role) => {
+        const r = (role || '').toLowerCase();
+        return r === 'tl' || r === 'team leader' || r === 'team lead' || r === 'team_lead' || r === 'leader';
+      };
+      const directAssignees = allEmps.filter((emp) =>
+        (emp.tl_id || '').split(',').map((s) => s.trim()).includes(String(leaderId))
+      );
+      const subTlIds = new Set(directAssignees.filter((e) => isTLRole(e.role)).map((e) => String(e.id)));
+
       const myTeam = allEmps.filter(
         (emp) =>
-          (emp.role === 'Team Member' || emp.role === 'Employee' || emp.role === 'team member') &&
-          (emp.tl_id || '').split(',').map(s => s.trim()).includes(String(leaderId))
+          String(emp.id) !== String(leaderId) &&
+          ((emp.tl_id || '').split(',').map((s) => s.trim()).includes(String(leaderId)) ||
+           (emp.tl_id || '').split(',').map((s) => s.trim()).some((id) => subTlIds.has(String(id))))
       );
 
       const todayStr = new Date().toISOString().split('T')[0];
