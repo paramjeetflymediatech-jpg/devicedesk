@@ -246,6 +246,16 @@ export default function DashboardPage() {
                                   <FiUser className="w-3 h-3" /> TL: {req.tl_name}
                                 </p>
                               )}
+                              {req.drive_url && (
+                                <a 
+                                  href={req.drive_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded mt-1.5"
+                                >
+                                  📁 Drive Folder ↗
+                                </a>
+                              )}
                             </div>
                           </li>
                         ))}

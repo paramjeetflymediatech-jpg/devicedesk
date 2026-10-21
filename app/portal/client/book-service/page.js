@@ -184,6 +184,15 @@ export default function BookServicePage() {
           </div>
           <p style="margin-bottom: 4px; font-weight: 600; color: #334155;">Your Requirements:</p>
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; font-size: 13px;">${req.requirements}</div>
+          ${req.drive_url ? `
+            <div style="margin-top: 10px; padding: 10px 12px; background: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-weight: 700; color: #047857; font-size: 12.5px;">📁 Google Drive Requirements Folder</div>
+                <div style="font-size: 11px; color: #059669;">Your uploaded requirement files and assets</div>
+              </div>
+              <a href="${req.drive_url}" target="_blank" rel="noopener noreferrer" style="background: #059669; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none;">Open Folder ↗</a>
+            </div>
+          ` : ''}
           ${attachmentHtml}
           ${deliverySection}
         </div>
@@ -451,7 +460,20 @@ export default function BookServicePage() {
                             <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.created_at).toLocaleDateString()}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">{req.service_type}</td>
-                              <td className="px-6 py-4 text-sm text-gray-600 line-clamp-2">{req.requirements}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600 line-clamp-2">
+                                <div>{req.requirements}</div>
+                                {req.drive_url && (
+                                  <a 
+                                    href={req.drive_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="inline-flex items-center gap-1 mt-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded"
+                                    title="Open Google Drive folder"
+                                  >
+                                    📁 Drive Folder ↗
+                                  </a>
+                                )}
+                              </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm">
                                 {req.tl_name ? (
                                   <span className="flex items-center gap-1 text-indigo-600 font-medium">
@@ -494,6 +516,17 @@ export default function BookServicePage() {
                           <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100 line-clamp-3">
                             {req.requirements}
                           </div>
+
+                          {req.drive_url && (
+                            <a 
+                              href={req.drive_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md w-fit"
+                            >
+                              📁 Google Drive Folder ↗
+                            </a>
+                          )}
 
                           <div className="flex justify-between items-center mt-1">
                             <div className="text-xs">

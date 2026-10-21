@@ -250,6 +250,16 @@ export default function ClientDashboard() {
                             <td className="px-6 py-4">
                                <p className="text-sm font-medium text-gray-800">{req.service_type || 'Service Request'}</p>
                                <p className="text-xs text-gray-500 mt-1">{new Date(req.created_at).toLocaleString()}</p>
+                               {req.drive_url && (
+                                 <a 
+                                   href={req.drive_url}
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded mt-1.5"
+                                 >
+                                   📁 Drive Folder ↗
+                                 </a>
+                               )}
                             </td>
                             <td className="px-6 py-4">
                               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${req.status === 'Pending' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
@@ -281,6 +291,16 @@ export default function ClientDashboard() {
                           <div>
                             <p className="text-sm font-medium text-gray-800">{req.service_type || 'Service Request'}</p>
                             <p className="text-xs text-gray-500 mt-1">{new Date(req.created_at).toLocaleString()}</p>
+                            {req.drive_url && (
+                              <a 
+                                href={req.drive_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded mt-1"
+                              >
+                                📁 Drive Folder ↗
+                              </a>
+                            )}
                           </div>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${req.status === 'Pending' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
                              {req.status}

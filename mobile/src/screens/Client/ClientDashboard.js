@@ -20,6 +20,7 @@ import { pickFilesOrPhotos } from '../../utils/filePicker';
 import Video from 'react-native-video';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
+import GoogleDriveBadge from '../../components/GoogleDriveBadge';
 import {
   fetchClientPackagesApi,
   fetchPackagesApi,
@@ -1039,6 +1040,9 @@ export default function ClientDashboard({ user, onLogout }) {
                           </View>
                         </View>
                         <Text style={styles.itemDesc}>{req.requirements}</Text>
+
+                        {/* Google Drive Requirements Folder */}
+                        <GoogleDriveBadge source={req} isDark={isDark} themeColors={themeColors} />
 
                         {/* Client's Original Uploaded Requirements Attachments */}
                         {attList.length > 0 && (
@@ -2290,6 +2294,9 @@ export default function ClientDashboard({ user, onLogout }) {
                 <Text style={{ fontSize: 12.5, color: themeColors.textPrimary, lineHeight: 18 }}>
                   {selectedReqDetails?.requirements || 'No additional instructions provided.'}
                 </Text>
+
+                {/* Google Drive Requirements Folder */}
+                <GoogleDriveBadge source={selectedReqDetails} isDark={isDark} themeColors={themeColors} />
 
                 {/* Client's attached files */}
                 {(() => {
