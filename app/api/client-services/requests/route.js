@@ -6,6 +6,8 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get('clientId');
+    const viewerId = searchParams.get('viewerId') || request.headers.get('x-user-id');
+    const viewerRole = searchParams.get('viewerRole') || request.headers.get('x-user-role');
 
     const db = await getDbConnection();
     let rows;
@@ -25,11 +27,6 @@ export async function GET(request) {
     try {
       await db.query(`ALTER TABLE service_requests ADD COLUMN drive_url TEXT DEFAULT NULL`);
     } catch (e) {}
-
-    const { searchParams } = new URL(request.url);
-    const clientId = searchParams.get('clientId');
-    const viewerId = searchParams.get('viewerId') || request.headers.get('x-user-id');
-    const viewerRole = searchParams.get('viewerRole') || request.headers.get('x-user-role');
 
     const baseQuery = `
       SELECT r.*, 
