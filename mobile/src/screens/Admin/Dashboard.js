@@ -1452,17 +1452,17 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
               onPress={() => setActiveTab('employees')}
             >
               <Text style={styles.tabIcon}>👥</Text>
-              <Text style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>
                 Teams
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'attendance' && styles.tabItemActive]}
+              style={[styles.tabItem, { flex: 1.25 }, activeTab === 'attendance' && styles.tabItemActive]}
               onPress={() => setActiveTab('attendance')}
             >
               <Text style={styles.tabIcon}>📋</Text>
-              <Text style={[styles.tabLabel, activeTab === 'attendance' && styles.tabLabelActive]}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.tabLabel, activeTab === 'attendance' && styles.tabLabelActive]}>
                 Attendance
               </Text>
             </TouchableOpacity>
@@ -1472,17 +1472,17 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
               onPress={() => setActiveTab('leaves')}
             >
               <Text style={styles.tabIcon}>🌴</Text>
-              <Text style={[styles.tabLabel, activeTab === 'leaves' && styles.tabLabelActive]}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.tabLabel, activeTab === 'leaves' && styles.tabLabelActive]}>
                 Leaves
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'candidates' && styles.tabItemActive]}
+              style={[styles.tabItem, { flex: 1.2 }, activeTab === 'candidates' && styles.tabItemActive]}
               onPress={() => setActiveTab('candidates')}
             >
               <Text style={styles.tabIcon}>🧑‍💼</Text>
-              <Text style={[styles.tabLabel, activeTab === 'candidates' && styles.tabLabelActive]}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.tabLabel, activeTab === 'candidates' && styles.tabLabelActive]}>
                 Candidates
               </Text>
             </TouchableOpacity>

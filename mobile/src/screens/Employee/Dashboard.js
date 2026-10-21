@@ -1601,7 +1601,12 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
           activeOpacity={0.7}
         >
           <AppIcon name="overview" size={19} color={activeTab === 'overview' ? '#2563eb' : themeColors.textSecondary} />
-          <Text style={[styles.tabLabel, { color: activeTab === 'overview' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'overview' && styles.tabLabelActive]}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={[styles.tabLabel, { color: activeTab === 'overview' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'overview' && styles.tabLabelActive]}
+          >
             Overview
           </Text>
         </TouchableOpacity>
@@ -1612,18 +1617,32 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
           activeOpacity={0.7}
         >
           <AppIcon name="records" size={19} color={activeTab === 'records' ? '#2563eb' : themeColors.textSecondary} />
-          <Text style={[styles.tabLabel, { color: activeTab === 'records' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'records' && styles.tabLabelActive]}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={[styles.tabLabel, { color: activeTab === 'records' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'records' && styles.tabLabelActive]}
+          >
             Tickets
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'attendance' && [styles.tabItemActive, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff' }]]}
+          style={[
+            styles.tabItem,
+            styles.tabItemAttendance,
+            activeTab === 'attendance' && [styles.tabItemActive, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff' }],
+          ]}
           onPress={() => setActiveTab('attendance')}
           activeOpacity={0.7}
         >
           <AppIcon name="attendance" size={19} color={activeTab === 'attendance' ? '#2563eb' : themeColors.textSecondary} />
-          <Text style={[styles.tabLabel, { color: activeTab === 'attendance' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'attendance' && styles.tabLabelActive]}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={[styles.tabLabel, { color: activeTab === 'attendance' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'attendance' && styles.tabLabelActive]}
+          >
             Attendance
           </Text>
         </TouchableOpacity>
@@ -1634,7 +1653,12 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
           activeOpacity={0.7}
         >
           <AppIcon name="tasks" size={19} color={activeTab === 'tasks' ? '#2563eb' : themeColors.textSecondary} />
-          <Text style={[styles.tabLabel, { color: activeTab === 'tasks' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'tasks' && styles.tabLabelActive]}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={[styles.tabLabel, { color: activeTab === 'tasks' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'tasks' && styles.tabLabelActive]}
+          >
             Tasks
           </Text>
         </TouchableOpacity>
@@ -1645,7 +1669,12 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
           activeOpacity={0.7}
         >
           <AppIcon name="chat" size={19} color={activeTab === 'chat' ? '#2563eb' : themeColors.textSecondary} />
-          <Text style={[styles.tabLabel, { color: activeTab === 'chat' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'chat' && styles.tabLabelActive]}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={[styles.tabLabel, { color: activeTab === 'chat' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'chat' && styles.tabLabelActive]}
+          >
             Chat
           </Text>
         </TouchableOpacity>
@@ -2394,7 +2423,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingTop: 8,
     paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     elevation: 8,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -3 },
@@ -2406,9 +2435,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 6,
-    borderRadius: 16,
-    marginHorizontal: 2,
+    paddingHorizontal: 2,
+    borderRadius: 14,
+    marginHorizontal: 1,
+  },
+  tabItemAttendance: {
+    flex: 1.35,
   },
   tabItemActive: {
     borderRadius: 14,
@@ -2418,14 +2450,15 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   tabLabel: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '600',
     marginTop: 3,
-    letterSpacing: 0.1,
+    letterSpacing: 0,
+    textAlign: 'center',
   },
   tabLabelActive: {
     color: '#2563eb',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
