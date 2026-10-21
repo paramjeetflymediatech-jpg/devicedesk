@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiUser, FiSend, FiPlus, FiPaperclip, FiExternalLink, FiDownload, FiEye, FiAlertCircle } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
+import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
 
 export default function ClientNotesPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -77,6 +78,16 @@ export default function ClientNotesPage() {
   const handleAddNote = async (e) => {
     e.preventDefault();
     if (!newNote.trim() && attachments.length === 0) return;
+
+    if (containsPhoneNumber(newNote)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        confirmButtonColor: '#db2777'
+      });
+      return;
+    }
     
     setSubmitting(true);
     try {
@@ -327,7 +338,17 @@ export default function ClientNotesPage() {
                       {note.status}
                     </span>
                   </div>
-                  <p className="text-gray-800 whitespace-pre-wrap mb-2">{note.note}</p>
+                  {note.note.startsWith('[From Team Leader:') ? (
+                    <div className="bg-indigo-50/60 border border-indigo-200/90 rounded-xl p-4 mb-2">
+                      <div className="flex items-center gap-2 mb-2 text-indigo-800 font-bold text-xs">
+                        <span className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] uppercase tracking-wider font-semibold">Priority</span>
+                        <span>🛡️ Discussion Initiated by Team Leader</span>
+                      </div>
+                      <p className="text-gray-900 whitespace-pre-wrap font-medium leading-relaxed">{note.note.replace(/^\[From Team Leader:[^\]]+\]\s*/, '')}</p>
+                    </div>
+                  ) : (
+                    <p className="text-gray-800 whitespace-pre-wrap mb-2">{note.note}</p>
+                  )}
                   
                   {note.attachment && (() => {
                     let urls = [];

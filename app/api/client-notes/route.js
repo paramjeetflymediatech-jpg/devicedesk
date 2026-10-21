@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
+import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const client_id = searchParams.get('client_id');
-    
-    
 
     const db = await getDbConnection();
     let rows;
@@ -45,17 +44,34 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { client_id, note, attachment } = body;
+    const { client_id, note, attachment, sender_role, sender_name, topic, initiated_by_tl } = body;
 
     if (!client_id || !note) {
       return NextResponse.json({ success: false, error: 'client_id and note are required' }, { status: 400 });
+    }
+
+    // Security & Anti-circumvention Policy: Prevent sharing phone / contact numbers
+    if (containsPhoneNumber(note) || (topic && containsPhoneNumber(topic))) {
+      return NextResponse.json({
+        success: false,
+        error: PHONE_POLICY_WARNING
+      }, { status: 400 });
+    }
+
+    let finalNote = String(note).trim();
+    if (sender_role === 'Team Leader' || initiated_by_tl) {
+      const leaderName = sender_name || 'Team Leader';
+      const topicPrefix = topic && topic.trim() ? `[Topic: ${topic.trim()}]\n\n` : '';
+      if (!finalNote.startsWith('[From Team Leader:')) {
+        finalNote = `[From Team Leader: ${leaderName}] ${topicPrefix}${finalNote}`;
+      }
     }
 
     const db = await getDbConnection();
     const id = 'note_' + Date.now();
     await db.execute(
       'INSERT INTO client_notes (id, client_id, note, status, attachment) VALUES (?, ?, ?, ?, ?)',
-      [id, client_id, note, 'Unread', attachment || null]
+      [id, client_id, finalNote, 'Unread', attachment || null]
     );
 
     return NextResponse.json({ success: true, message: 'Note added successfully', id });
@@ -70,6 +86,14 @@ export async function PUT(request) {
     const { id, tl_reply, tl_attachment, replied_by_name } = await request.json();
     if (!id || !tl_reply) {
       return NextResponse.json({ success: false, error: 'id and tl_reply are required' }, { status: 400 });
+    }
+
+    // Security & Anti-circumvention Policy: Prevent sharing phone / contact numbers in replies
+    if (containsPhoneNumber(tl_reply)) {
+      return NextResponse.json({
+        success: false,
+        error: PHONE_POLICY_WARNING
+      }, { status: 400 });
     }
 
     const db = await getDbConnection();

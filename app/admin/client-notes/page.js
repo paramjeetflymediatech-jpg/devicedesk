@@ -4,6 +4,7 @@ import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDo
 import Swal from 'sweetalert2';
 import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
+import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
 
 export default function AdminClientNotesPage() {
   const { user } = useAuth();
@@ -44,6 +45,16 @@ export default function AdminClientNotesPage() {
     const reply = replyText[noteId];
     const noteAttachments = attachments[noteId] || [];
     if ((!reply || !reply.trim()) && noteAttachments.length === 0) return;
+
+    if (containsPhoneNumber(reply)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        confirmButtonColor: '#2563eb'
+      });
+      return;
+    }
 
     try {
       let attachmentUrls = [];

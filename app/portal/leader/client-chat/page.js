@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle } from 'react-icons/fi';
+import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiPlus } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
+import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
 
 export default function LeaderClientChatPage() {
   const { user } = useAuth();
@@ -15,6 +16,15 @@ export default function LeaderClientChatPage() {
   const [uploadStats, setUploadStats] = useState({});
   const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
   const [previewError, setPreviewError] = useState(false);
+
+  // Initiate Discussion with Client Modal states
+  const [isInitiateModalOpen, setIsInitiateModalOpen] = useState(false);
+  const [clientsList, setClientsList] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [discussionTopic, setDiscussionTopic] = useState('');
+  const [discussionMessage, setDiscussionMessage] = useState('');
+  const [discussionFiles, setDiscussionFiles] = useState([]);
+  const [isSubmittingDiscussion, setIsSubmittingDiscussion] = useState(false);
 
   const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
   const isVideoUrl = (url) => typeof url === 'string' && /\.(mp4|webm|mov|ogg)($|\?)/i.test(url);
@@ -31,17 +41,68 @@ export default function LeaderClientChatPage() {
     setLoading(false);
   };
 
+  const fetchClients = async () => {
+    try {
+      const [empRes, reqRes] = await Promise.all([
+        fetch('/api/employees').then(r => r.json()).catch(() => ({ data: [] })),
+        fetch('/api/client-services/requests').then(r => r.json()).catch(() => ({ data: [] }))
+      ]);
+      const map = new Map();
+      if (Array.isArray(reqRes?.data)) {
+        reqRes.data.forEach(r => {
+          const id = r.clientId || r.client_id;
+          if (id && !map.has(id)) {
+            map.set(id, { id, name: r.client_name || r.company_name || id, company: r.company_name || '' });
+          }
+        });
+      }
+      if (Array.isArray(empRes?.data)) {
+        empRes.data.filter(e => e.role === 'Client').forEach(c => {
+          if (!map.has(c.id)) {
+            map.set(c.id, { id: c.id, name: c.name || c.id, company: c.company_name || '' });
+          }
+        });
+      }
+      notes.forEach(n => {
+        if (n.client_id && !map.has(n.client_id)) {
+          map.set(n.client_id, { id: n.client_id, name: n.client_name || n.client_id, company: n.company_name || '' });
+        }
+      });
+      const list = Array.from(map.values());
+      setClientsList(list);
+      if (list.length > 0 && !selectedClientId) {
+        setSelectedClientId(list[0].id);
+      }
+    } catch (e) {}
+  };
+
   useEffect(() => {
     fetchNotes();
-    // Increased polling interval to 15 seconds to reduce constant terminal logs
     const interval = setInterval(fetchNotes, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (isInitiateModalOpen) {
+      fetchClients();
+    }
+  }, [isInitiateModalOpen]);
 
   const handleReply = async (noteId) => {
     const reply = replyText[noteId];
     const noteAttachments = attachments[noteId] || [];
     if ((!reply || !reply.trim()) && noteAttachments.length === 0) return;
+
+    // Contact number prevention check
+    if (containsPhoneNumber(reply)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        confirmButtonColor: '#2563eb'
+      });
+      return;
+    }
 
     try {
       let attachmentUrls = [];
@@ -85,19 +146,98 @@ export default function LeaderClientChatPage() {
     }
   };
 
+  const handleInitiateDiscussion = async (e) => {
+    e.preventDefault();
+    if (!selectedClientId) {
+      Swal.fire('Select Client', 'Please select a client for this discussion.', 'warning');
+      return;
+    }
+    if (!discussionMessage.trim() && discussionFiles.length === 0) {
+      Swal.fire('Empty Message', 'Please enter your message or discussion points.', 'warning');
+      return;
+    }
+
+    // Contact number prevention check
+    if (containsPhoneNumber(discussionMessage) || containsPhoneNumber(discussionTopic)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        confirmButtonColor: '#2563eb'
+      });
+      return;
+    }
+
+    setIsSubmittingDiscussion(true);
+    try {
+      let attachmentUrls = [];
+      if (discussionFiles.length > 0) {
+        try {
+          const urls = await uploadFilesWithProgress(discussionFiles);
+          if (urls && urls.length > 0) attachmentUrls = urls;
+        } catch (err) {
+          throw new Error('Failed to upload files: ' + err.message);
+        }
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+      const res = await fetch('/api/client-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: selectedClientId,
+          note: discussionMessage.trim(),
+          topic: discussionTopic.trim(),
+          sender_role: 'Team Leader',
+          sender_name: user?.name || 'Team Leader',
+          initiated_by_tl: true,
+          attachment: attachmentStr
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        Swal.fire('Sent!', 'Discussion initiated with client successfully.', 'success');
+        setIsInitiateModalOpen(false);
+        setDiscussionTopic('');
+        setDiscussionMessage('');
+        setDiscussionFiles([]);
+        fetchNotes();
+      } else {
+        Swal.fire('Error', data.error || 'Failed to send message', 'error');
+      }
+    } catch (err) {
+      Swal.fire('Error', err.message || 'Network error', 'error');
+    } finally {
+      setIsSubmittingDiscussion(false);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-slate-500">Loading client messages...</div>;
 
   return (
     <div className="flex-1 p-6 bg-slate-50/50 min-h-screen">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-        <FiMessageSquare className="text-blue-600" />
-        Client Messages & Notes
-      </h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <FiMessageSquare className="text-blue-600" />
+            Client Messages & Notes
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">Direct communication stream with your clients for requirement clarifications and updates</p>
+        </div>
+        <button
+          onClick={() => setIsInitiateModalOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all"
+        >
+          <FiPlus size={16} />
+          <span>Initiate Discussion with Client</span>
+        </button>
+      </div>
       
       {notes.length === 0 ? (
         <div className="bg-white p-12 rounded-xl border border-slate-200 text-center text-slate-500 shadow-sm max-w-4xl">
           <FiMessageSquare className="text-4xl mx-auto mb-3 text-slate-300" />
-          No client messages found yet.
+          <p className="text-sm font-semibold text-slate-700">No client messages found yet.</p>
+          <p className="text-xs text-slate-400 mt-1">Click "Initiate Discussion with Client" above to start a conversation with a client.</p>
         </div>
       ) : (
         <div className="grid gap-6 max-w-4xl">
@@ -118,9 +258,19 @@ export default function LeaderClientChatPage() {
                 </span>
               </div>
               
-              <div className="bg-slate-50 p-4 rounded-lg text-slate-800 whitespace-pre-wrap border border-slate-100 leading-relaxed">
-                {note.note}
-              </div>
+              {note.note.startsWith('[From Team Leader:') ? (
+                <div className="bg-indigo-50/70 border border-indigo-200 p-4 rounded-xl text-slate-800 whitespace-pre-wrap leading-relaxed">
+                  <div className="flex items-center gap-2 mb-2 text-indigo-700 font-bold text-xs">
+                    <span className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] uppercase font-semibold">Initiated by Team Leader</span>
+                    <span>Direct Discussion with Client</span>
+                  </div>
+                  <p className="text-slate-800 font-medium">{note.note.replace(/^\[From Team Leader:[^\]]+\]\s*/, '')}</p>
+                </div>
+              ) : (
+                <div className="bg-slate-50 p-4 rounded-lg text-slate-800 whitespace-pre-wrap border border-slate-100 leading-relaxed">
+                  {note.note}
+                </div>
+              )}
               
               {note.attachment && (() => {
                 let urls = [];
@@ -340,6 +490,135 @@ export default function LeaderClientChatPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Initiate Discussion with Client Modal */}
+      {isInitiateModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50/50 to-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                  💬
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">Initiate Discussion with Client</h3>
+                  <p className="text-xs text-slate-400">Send an inquiry, clarification, or brief directly to your client</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsInitiateModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleInitiateDiscussion} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Select Client <span className="text-red-500">*</span>
+                </label>
+                {clientsList.length === 0 ? (
+                  <input
+                    type="text"
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    placeholder="Enter Client ID (e.g. emp_1789...)"
+                    className="w-full text-sm p-2.5 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                ) : (
+                  <select
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">-- Choose Client --</option>
+                    {clientsList.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.company ? `(${c.company})` : ''} — [{c.id}]
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Subject / Topic
+                </label>
+                <input
+                  type="text"
+                  value={discussionTopic}
+                  onChange={(e) => setDiscussionTopic(e.target.value)}
+                  placeholder="e.g. Google Analytics Access, Brief Clarification, Asset Review"
+                  className="w-full text-sm p-2.5 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Message / Discussion Points <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={discussionMessage}
+                  onChange={(e) => setDiscussionMessage(e.target.value)}
+                  placeholder="Write your discussion points, questions, or requirements for the client..."
+                  rows={4}
+                  className="w-full text-sm p-3 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500 leading-relaxed"
+                  required
+                />
+              </div>
+
+              {/* Security policy reminder notice */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs text-amber-800">
+                <FiAlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <span>
+                  <strong>Policy Reminder:</strong> Sharing contact numbers or direct phone details is strictly prohibited. Keep all communication within the company portal.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Optional Attachments
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  onChange={(e) => setDiscussionFiles(Array.from(e.target.files || []))}
+                  className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                />
+                {discussionFiles.length > 0 && (
+                  <p className="text-xs text-slate-500 mt-1.5">
+                    {discussionFiles.length} file(s) selected
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsInitiateModalOpen(false)}
+                  disabled={isSubmittingDiscussion}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingDiscussion}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-xl shadow-xs transition-colors"
+                >
+                  <FiSend size={13} />
+                  <span>{isSubmittingDiscussion ? 'Sending...' : 'Send to Client'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

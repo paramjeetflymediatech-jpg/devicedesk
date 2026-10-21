@@ -39,6 +39,7 @@ import {
   getApiUrl,
 } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
+import { containsPhoneNumber, PHONE_POLICY_WARNING } from '../../utils/contactFilter';
 
 const { width } = Dimensions.get('window');
 
@@ -443,6 +444,14 @@ export default function ClientDashboard({ user, onLogout }) {
   // 4. Submit Project Note
   const handleSendNote = async () => {
     if (!noteInput.trim() && noteAttachments.length === 0) return;
+    if (containsPhoneNumber(noteInput)) {
+      sweetAlert({
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        type: 'warning',
+      });
+      return;
+    }
     setSubmittingNote(true);
     try {
       let attachmentUrls = [];
@@ -1479,7 +1488,9 @@ export default function ClientDashboard({ user, onLogout }) {
                   notes.map((n) => (
                     <View key={n.id} style={styles.noteCard}>
                       <View style={styles.noteClientRow}>
-                        <Text style={styles.noteClientHeader}>You wrote:</Text>
+                        <Text style={[styles.noteClientHeader, n.note?.startsWith('[From Team Leader:') && { color: '#4f46e5', fontWeight: '800' }]}>
+                          {n.note?.startsWith('[From Team Leader:') ? '🛡️ From Team Leader:' : 'You wrote:'}
+                        </Text>
                         <Text style={styles.noteDate}>
                           {new Date(n.created_at || Date.now()).toLocaleDateString()}
                         </Text>

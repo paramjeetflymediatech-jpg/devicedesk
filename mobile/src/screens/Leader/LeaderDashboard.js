@@ -32,10 +32,12 @@ import {
   updateClientRequestStatusApi,
   fetchEmployeesApi,
   fetchAllClientNotesApi,
+  createClientNoteApi,
   replyClientNoteApi,
   getApiUrl,
 } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
+import { containsPhoneNumber, PHONE_POLICY_WARNING } from '../../utils/contactFilter';
 
 const { width } = Dimensions.get('window');
 
@@ -238,6 +240,15 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const [forwardModalVisible, setForwardModalVisible] = useState(false);
   const [forwardEmail, setForwardEmail] = useState('');
   const [forwardingMember, setForwardingMember] = useState(null);
+
+  // 5. Initiate Discussion with Client Modal
+  const [initiateModalVisible, setInitiateModalVisible] = useState(false);
+  const [selectedClientIdForNote, setSelectedClientIdForNote] = useState('');
+  const [newDiscussionTopic, setNewDiscussionTopic] = useState('');
+  const [newDiscussionMessage, setNewDiscussionMessage] = useState('');
+  const [newDiscussionAttachments, setNewDiscussionAttachments] = useState([]);
+  const [submittingDiscussion, setSubmittingDiscussion] = useState(false);
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
 
   const leaderId = user?.id || '';
   const currentUser = user;
@@ -456,6 +467,133 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     }));
   };
 
+  // Pick Discussion Attachments
+  const handlePickDiscussionAttachment = async () => {
+    try {
+      const res = await pickFilesOrPhotos({
+        allowMultiSelection: true,
+        includeCamera: true,
+      });
+      if (res && res.length > 0) {
+        const oversized = res.some(f => (f.size || f.fileSize || 0) > 100 * 1024 * 1024);
+        if (oversized) {
+          sweetAlert({ title: 'File Too Large', text: 'Selected files must be less than 100MB.', type: 'warning' });
+          return;
+        }
+        setNewDiscussionAttachments(prev => [...prev, ...res]);
+      }
+    } catch (e) {}
+  };
+
+  const handleRemoveDiscussionAttachment = (index) => {
+    setNewDiscussionAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Available clients list computed from requests, notes, and employee list
+  const availableClients = useMemo(() => {
+    const map = new Map();
+    (clientRequests || []).forEach(r => {
+      const id = r.clientId || r.client_id;
+      if (id && !map.has(id)) {
+        map.set(id, { id, name: r.client_name || r.company_name || id, company: r.company_name || '' });
+      }
+    });
+    (clientNotes || []).forEach(n => {
+      const id = n.client_id;
+      if (id && !map.has(id)) {
+        map.set(id, { id, name: n.client_name || n.company_name || id, company: n.company_name || '' });
+      }
+    });
+    (teamMembers || []).forEach(emp => {
+      if (emp.role === 'Client' && !map.has(emp.id)) {
+        map.set(emp.id, { id: emp.id, name: emp.name || emp.id, company: emp.company_name || '' });
+      }
+    });
+    return Array.from(map.values());
+  }, [clientRequests, clientNotes, teamMembers]);
+
+  // Initiate new discussion to client
+  const handleInitiateDiscussion = async () => {
+    if (!selectedClientIdForNote) {
+      sweetAlert({ title: 'Select Client', text: 'Please select a client to start the discussion.', type: 'warning' });
+      return;
+    }
+    if (!newDiscussionMessage.trim() && newDiscussionAttachments.length === 0) {
+      sweetAlert({ title: 'Empty Message', text: 'Please enter your message or discussion points.', type: 'warning' });
+      return;
+    }
+    if (containsPhoneNumber(newDiscussionMessage) || containsPhoneNumber(newDiscussionTopic)) {
+      sweetAlert({
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        type: 'warning',
+      });
+      return;
+    }
+
+    setSubmittingDiscussion(true);
+    try {
+      let attachmentUrls = [];
+      if (newDiscussionAttachments.length > 0) {
+        const formData = new FormData();
+        newDiscussionAttachments.forEach((file) => {
+          const fileUri = file.uri || '';
+          formData.append('files', {
+            uri: Platform.OS === 'android' ? fileUri : fileUri.replace('file://', ''),
+            type: file.type || 'application/octet-stream',
+            name: file.name || `file_${Date.now()}`
+          });
+        });
+        const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json',
+            'x-user-id': String(user?.id || '')
+          }
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadRes.ok && uploadData.success && uploadData.fileUrls) {
+          attachmentUrls = uploadData.fileUrls;
+        } else {
+          throw new Error(uploadData?.error || 'Failed to upload attachments');
+        }
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+      const res = await createClientNoteApi({
+        client_id: selectedClientIdForNote,
+        note: newDiscussionMessage.trim(),
+        topic: newDiscussionTopic.trim(),
+        sender_role: 'Team Leader',
+        sender_name: user?.name || 'Team Leader',
+        initiated_by_tl: true,
+        attachment: attachmentStr
+      });
+
+      if (res && res.success) {
+        sweetAlert({
+          title: 'Discussion Sent! 💬',
+          text: 'Your inquiry has been sent directly to the client.',
+          type: 'success',
+        });
+        setInitiateModalVisible(false);
+        setSelectedClientIdForNote('');
+        setNewDiscussionTopic('');
+        setNewDiscussionMessage('');
+        setNewDiscussionAttachments([]);
+        const notesRes = await fetchAllClientNotesApi().catch(() => ({ notes: [] }));
+        if (notesRes?.notes) setClientNotes(notesRes.notes);
+      } else {
+        throw new Error(res?.error || 'Failed to start discussion');
+      }
+    } catch (err) {
+      sweetAlert({ title: 'Error', text: err.message || 'Could not send message.', type: 'error' });
+    } finally {
+      setSubmittingDiscussion(false);
+    }
+  };
+
   // Reply to Client Note
   const handleSendClientReply = async (noteId) => {
     const reply = replyTextMap[noteId];
@@ -464,6 +602,15 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       sweetAlert({
         title: 'Empty Reply',
         text: 'Please type a reply or attach a file before sending.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    if (containsPhoneNumber(reply)) {
+      sweetAlert({
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
         type: 'warning',
       });
       return;
@@ -1545,6 +1692,28 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                   <Text style={styles.unreadCountPillText}>{stats.unreadNotes} Pending</Text>
                 </View>
               </View>
+
+              {/* Initiate Discussion Action Button */}
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: '#2563eb',
+                  paddingHorizontal: 13,
+                  paddingVertical: 9,
+                  borderRadius: 10,
+                  marginTop: 10,
+                  alignSelf: 'flex-start',
+                }}
+                onPress={() => setInitiateModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <AppIcon name="plus" size={14} color="#ffffff" />
+                <Text style={{ color: '#ffffff', fontSize: 12.5, fontWeight: '800' }}>
+                  + Start Discussion with Client
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Filter Pills & Search */}
@@ -1641,8 +1810,15 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
                     {/* Note Body with preserved whitespaces and newlines */}
                     <View style={styles.clientNoteBody}>
+                      {note.note?.startsWith('[From Team Leader:') ? (
+                        <View style={{ marginBottom: 6, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6, backgroundColor: isDark ? 'rgba(79, 70, 229, 0.2)' : '#e0e7ff', alignSelf: 'flex-start' }}>
+                          <Text style={{ fontSize: 10.5, fontWeight: '800', color: isDark ? '#a5b4fc' : '#4338ca' }}>
+                            🛡️ INITIATED BY TEAM LEADER
+                          </Text>
+                        </View>
+                      ) : null}
                       <Text style={styles.clientNoteText} selectable>
-                        {note.note}
+                        {note.note?.startsWith('[From Team Leader:') ? note.note.replace(/^\[From Team Leader:[^\]]+\]\s*/, '') : note.note}
                       </Text>
                     </View>
 
@@ -2348,6 +2524,241 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 <Text style={styles.modalSaveText}>Send EOD 🚀</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ======================================================== */}
+      {/* 5. INITIATE DISCUSSION WITH CLIENT MODAL                  */}
+      {/* ======================================================== */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={initiateModalVisible}
+        onRequestClose={() => setInitiateModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' }}>
+                  <AppIcon name="chat" size={16} color="#2563eb" />
+                </View>
+                <View>
+                  <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                    Start Discussion with Client
+                  </Text>
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary }}>
+                    Send an inquiry, clarification, or brief to client
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setInitiateModalVisible(false)} style={styles.modalCloseBtn}>
+                <AppIcon name="x" size={16} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {/* Client Selection */}
+              <Text style={{ fontSize: 11, fontWeight: '800', color: themeColors.textSecondary, marginTop: 12, marginBottom: 4, textTransform: 'uppercase' }}>
+                Select Client *
+              </Text>
+
+              {availableClients.length === 0 ? (
+                <TextInput
+                  style={[styles.modalInput, { backgroundColor: themeColors.background, color: themeColors.textPrimary, borderColor: themeColors.border }]}
+                  placeholder="Enter Client ID (e.g. emp_1789...)"
+                  placeholderTextColor={themeColors.textSecondary}
+                  value={selectedClientIdForNote}
+                  onChangeText={setSelectedClientIdForNote}
+                />
+              ) : (
+                <View style={{ marginBottom: 8 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalInput,
+                      {
+                        backgroundColor: themeColors.background,
+                        borderColor: themeColors.border,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      },
+                    ]}
+                    onPress={() => setClientPickerOpen(!clientPickerOpen)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ color: selectedClientIdForNote ? themeColors.textPrimary : themeColors.textSecondary, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+                      {selectedClientIdForNote
+                        ? (() => {
+                            const c = availableClients.find((x) => String(x.id) === String(selectedClientIdForNote));
+                            return c ? `${c.name} ${c.company ? `(${c.company})` : ''}` : selectedClientIdForNote;
+                          })()
+                        : '-- Choose a Client --'}
+                    </Text>
+                    <AppIcon name={clientPickerOpen ? 'chevron-up' : 'chevron-down'} size={14} color={themeColors.textSecondary} />
+                  </TouchableOpacity>
+
+                  {clientPickerOpen && (
+                    <View style={{ maxHeight: 150, borderWidth: 1, borderColor: themeColors.border, borderRadius: 8, backgroundColor: themeColors.background, marginTop: 4 }}>
+                      <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true}>
+                        {availableClients.map((c) => (
+                          <TouchableOpacity
+                            key={c.id}
+                            style={{
+                              padding: 10,
+                              borderBottomWidth: 1,
+                              borderBottomColor: themeColors.border,
+                              backgroundColor: selectedClientIdForNote === c.id ? (isDark ? '#1e293b' : '#eff6ff') : 'transparent',
+                            }}
+                            onPress={() => {
+                              setSelectedClientIdForNote(c.id);
+                              setClientPickerOpen(false);
+                            }}
+                          >
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textPrimary }}>
+                              {c.name} {c.company ? `(${c.company})` : ''}
+                            </Text>
+                            <Text style={{ fontSize: 10, color: themeColors.textSecondary, marginTop: 1 }}>
+                              ID: {c.id}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Subject Topic */}
+              <Text style={{ fontSize: 11, fontWeight: '800', color: themeColors.textSecondary, marginTop: 10, marginBottom: 4, textTransform: 'uppercase' }}>
+                Subject / Topic
+              </Text>
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: themeColors.background, color: themeColors.textPrimary, borderColor: themeColors.border }]}
+                placeholder="e.g. Google Analytics Access, Brief Clarification, SEO"
+                placeholderTextColor={themeColors.textSecondary}
+                value={newDiscussionTopic}
+                onChangeText={setNewDiscussionTopic}
+              />
+
+              {/* Message */}
+              <Text style={{ fontSize: 11, fontWeight: '800', color: themeColors.textSecondary, marginTop: 10, marginBottom: 4, textTransform: 'uppercase' }}>
+                Message & Discussion Points *
+              </Text>
+              <TextInput
+                style={[styles.modalInput, { backgroundColor: themeColors.background, color: themeColors.textPrimary, borderColor: themeColors.border, minHeight: 90, textAlignVertical: 'top' }]}
+                placeholder="Type your questions, brief clarification, or requirements for the client..."
+                placeholderTextColor={themeColors.textSecondary}
+                value={newDiscussionMessage}
+                onChangeText={setNewDiscussionMessage}
+                multiline
+                numberOfLines={4}
+              />
+
+              {/* Security Policy Reminder */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: isDark ? 'rgba(217, 119, 6, 0.15)' : '#fef3c7', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: isDark ? '#b45309' : '#fde68a', marginTop: 10 }}>
+                <AppIcon name="alert-circle" size={14} color="#d97706" style={{ marginTop: 2 }} />
+                <Text style={{ flex: 1, fontSize: 11, color: isDark ? '#fbbf24' : '#92400e', lineHeight: 15 }}>
+                  <Text style={{ fontWeight: '800' }}>Policy Reminder: </Text>
+                  Sharing phone numbers or direct contact details is strictly prohibited. Keep all communication within the company portal.
+                </Text>
+              </View>
+
+              {/* Attachments */}
+              <View style={{ marginTop: 12 }}>
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    paddingVertical: 9,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: '#2563eb',
+                    backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                  }}
+                  onPress={handlePickDiscussionAttachment}
+                  activeOpacity={0.7}
+                >
+                  <AppIcon name="paperclip" size={14} color="#2563eb" />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563eb' }}>
+                    Attach Files / Photos ({newDiscussionAttachments.length})
+                  </Text>
+                </TouchableOpacity>
+
+                {newDiscussionAttachments.length > 0 && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {newDiscussionAttachments.map((f, fIdx) => (
+                      <View
+                        key={fIdx}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          backgroundColor: isDark ? '#0f172a' : '#f1f5f9',
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                          borderWidth: 1,
+                          borderColor: themeColors.border,
+                          gap: 4,
+                        }}
+                      >
+                        <Text style={{ fontSize: 11, color: themeColors.textPrimary, maxWidth: 140 }} numberOfLines={1}>
+                          {f.name || `File ${fIdx + 1}`}
+                        </Text>
+                        <TouchableOpacity onPress={() => handleRemoveDiscussionAttachment(fIdx)}>
+                          <AppIcon name="x" size={12} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Action Buttons */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, marginBottom: 8 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 10,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: themeColors.border,
+                  }}
+                  onPress={() => setInitiateModalVisible(false)}
+                  disabled={submittingDiscussion}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textSecondary }}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1.5,
+                    paddingVertical: 12,
+                    borderRadius: 10,
+                    alignItems: 'center',
+                    backgroundColor: '#2563eb',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                  onPress={handleInitiateDiscussion}
+                  disabled={submittingDiscussion}
+                >
+                  {submittingDiscussion ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <>
+                      <AppIcon name="send" size={13} color="#ffffff" />
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: '#ffffff' }}>Send to Client</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
