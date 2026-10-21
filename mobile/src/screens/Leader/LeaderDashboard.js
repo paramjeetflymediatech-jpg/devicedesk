@@ -1282,17 +1282,23 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           <View>
             <View style={styles.searchContainer}>
               <View style={styles.searchInputWrap}>
-                <AppIcon name="search" size={16} color={themeColors.textSecondary} />
+                <AppIcon name="search" size={16} color={isDark ? '#94a3b8' : '#64748b'} />
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Search client, service, requirements..."
-                  placeholderTextColor={themeColors.textSecondary}
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
+                  returnKeyType="search"
                 />
                 {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <AppIcon name="x" size={14} color={themeColors.textSecondary} />
+                  <TouchableOpacity
+                    style={styles.searchClearBtn}
+                    onPress={() => setSearchQuery('')}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    activeOpacity={0.7}
+                  >
+                    <AppIcon name="x" size={12} color={isDark ? '#cbd5e1' : '#475569'} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1525,17 +1531,23 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           <View>
             <View style={styles.searchContainer}>
               <View style={styles.searchInputWrap}>
-                <AppIcon name="search" size={16} color={themeColors.textSecondary} />
+                <AppIcon name="search" size={16} color={isDark ? '#94a3b8' : '#64748b'} />
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Search team member by name or role..."
-                  placeholderTextColor={themeColors.textSecondary}
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
+                  returnKeyType="search"
                 />
                 {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <AppIcon name="x" size={14} color={themeColors.textSecondary} />
+                  <TouchableOpacity
+                    style={styles.searchClearBtn}
+                    onPress={() => setSearchQuery('')}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    activeOpacity={0.7}
+                  >
+                    <AppIcon name="x" size={12} color={isDark ? '#cbd5e1' : '#475569'} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -1745,13 +1757,37 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
               >
                 <AppIcon name="plus" size={15} color="#ffffff" />
                 <Text style={styles.initiateHeroBtnText}>
-                  + Initiate Discussion with Client
+                  Initiate Discussion with Client
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* Filter Pills & Search */}
             <View style={styles.clientChatFilterContainer}>
+              {/* Executive Search Bar */}
+              <View style={styles.searchInputWrap}>
+                <AppIcon name="search" size={16} color={isDark ? '#94a3b8' : '#64748b'} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search client name, ID, or note message..."
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                  value={notesSearch}
+                  onChangeText={setNotesSearch}
+                  returnKeyType="search"
+                />
+                {notesSearch.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.searchClearBtn}
+                    onPress={() => setNotesSearch('')}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    activeOpacity={0.7}
+                  >
+                    <AppIcon name="x" size={12} color={isDark ? '#cbd5e1' : '#475569'} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Status Filter Pills */}
               <View style={styles.clientChatPillRow}>
                 {['ALL', 'UNREAD', 'REPLIED'].map((f) => (
                   <TouchableOpacity
@@ -1773,22 +1809,6 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                     </Text>
                   </TouchableOpacity>
                 ))}
-              </View>
-
-              <View style={styles.searchBarContainer}>
-                <AppIcon name="search" size={15} color={themeColors.textSecondary} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search client ID or message..."
-                  placeholderTextColor={themeColors.textSecondary}
-                  value={notesSearch}
-                  onChangeText={setNotesSearch}
-                />
-                {notesSearch.length > 0 && (
-                  <TouchableOpacity onPress={() => setNotesSearch('')}>
-                    <AppIcon name="x" size={14} color={themeColors.textSecondary} />
-                  </TouchableOpacity>
-                )}
               </View>
             </View>
 
@@ -2815,19 +2835,25 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
             </View>
 
             {/* Search Input */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: themeColors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: themeColors.background, marginBottom: 12 }}>
-              <AppIcon name="search" size={15} color={themeColors.textSecondary} />
+            <View style={[styles.searchInputWrap, { marginBottom: 12 }]}>
+              <AppIcon name="search" size={16} color={isDark ? '#94a3b8' : '#64748b'} />
               <TextInput
-                style={{ flex: 1, fontSize: 12.5, color: themeColors.textPrimary, marginLeft: 8, padding: 0 }}
+                style={styles.searchInput}
                 placeholder="Search by name, company, or ID..."
-                placeholderTextColor={themeColors.textSecondary}
+                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                 value={clientSearchQuery}
                 onChangeText={setClientSearchQuery}
                 autoFocus
+                returnKeyType="search"
               />
               {clientSearchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setClientSearchQuery('')}>
-                  <AppIcon name="x" size={13} color={themeColors.textSecondary} />
+                <TouchableOpacity
+                  style={styles.searchClearBtn}
+                  onPress={() => setClientSearchQuery('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                >
+                  <AppIcon name="x" size={12} color={isDark ? '#cbd5e1' : '#475569'} />
                 </TouchableOpacity>
               )}
             </View>
@@ -3425,25 +3451,56 @@ function getStyles(themeColors, isDark) {
       lineHeight: 16,
     },
     searchContainer: {
-      marginBottom: 12,
-      gap: 8,
+      marginBottom: 14,
+      gap: 10,
     },
     searchInputWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      backgroundColor: themeColors.cardBg,
-      borderWidth: 1,
-      borderColor: themeColors.border,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      gap: 10,
+      backgroundColor: isDark ? '#0f172a' : '#ffffff',
+      borderWidth: 1.5,
+      borderColor: isDark ? '#334155' : '#e2e8f0',
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      minHeight: 46,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0 : 0.05,
+      shadowRadius: 3,
+      elevation: 2,
     },
     searchInput: {
       flex: 1,
-      fontSize: 13,
+      fontSize: 13.5,
+      fontWeight: '500',
       color: themeColors.textPrimary,
-      padding: 0,
+      paddingVertical: Platform.OS === 'ios' ? 8 : 4,
+      paddingHorizontal: 0,
+    },
+    searchClearBtn: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: isDark ? '#334155' : '#e2e8f0',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    searchBarContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: isDark ? '#0f172a' : '#ffffff',
+      borderWidth: 1.5,
+      borderColor: isDark ? '#334155' : '#e2e8f0',
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      minHeight: 46,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0 : 0.05,
+      shadowRadius: 3,
+      elevation: 2,
     },
     chipRow: {
       flexDirection: 'row',
@@ -3985,16 +4042,16 @@ function getStyles(themeColors, isDark) {
       fontWeight: '700',
     },
     clientChatFilterContainer: {
-      marginBottom: 14,
-      gap: 10,
+      marginBottom: 16,
+      gap: 12,
     },
     clientChatPillRow: {
       flexDirection: 'row',
-      gap: 6,
+      gap: 8,
     },
     filterPill: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
       borderRadius: 20,
       backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
       borderWidth: 1,
@@ -4005,7 +4062,7 @@ function getStyles(themeColors, isDark) {
       borderColor: '#2563eb',
     },
     filterPillText: {
-      fontSize: 11.5,
+      fontSize: 12,
       fontWeight: '600',
       color: themeColors.textSecondary,
     },
