@@ -638,6 +638,24 @@ export default function AppIcon({ name, size = 20, color = '#2563eb', style }) {
         </Svg>
       );
 
+    case 'folder':
+    case 'folder-open':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+          <Path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        </Svg>
+      );
+
+    case 'google-drive':
+    case 'drive':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+          <Path d="M7.71 3.5L1.15 15h6.43L14.14 3.5H7.71z" fill="#0F9D58" />
+          <Path d="M16.29 3.5H9.86L16.42 15h6.43L16.29 3.5z" fill="#4285F4" />
+          <Path d="M4 19.5L1.5 15h13l2.5 4.5H4z" fill="#FFBA00" />
+        </Svg>
+      );
+
     default:
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>

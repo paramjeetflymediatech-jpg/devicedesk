@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
+import GoogleDriveBadge from '../../components/GoogleDriveBadge';
 import {
   fetchClientRequestsApi,
   fetchEmployeesApi,
@@ -625,6 +626,9 @@ export default function ManageClientRequests({ currentUser, onBack }) {
                   {req.requirements}
                 </Text>
 
+                {/* Detected Google Drive Requirement Folder */}
+                <GoogleDriveBadge source={req} isDark={isDark} themeColors={themeColors} />
+
                 {/* Attachments Preview Strip */}
                 {reqFiles.length > 0 && (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
@@ -878,6 +882,8 @@ export default function ManageClientRequests({ currentUser, onBack }) {
                       {selectedReq?.requirements || 'No description provided.'}
                     </Text>
                   </View>
+                  {/* Detected Google Drive Requirement Folder in Details Modal */}
+                  <GoogleDriveBadge source={selectedReq} isDark={isDark} themeColors={themeColors} />
                 </View>
 
                 {/* Client Attachments Section */}

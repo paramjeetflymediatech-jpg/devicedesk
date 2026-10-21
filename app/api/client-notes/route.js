@@ -10,10 +10,29 @@ export async function GET(request) {
 
     const db = await getDbConnection();
     let rows;
-    if (client_id) {
-      [rows] = await db.query('SELECT * FROM client_notes WHERE client_id = ? ORDER BY created_at DESC', [client_id]);
-    } else {
-      [rows] = await db.query('SELECT * FROM client_notes ORDER BY created_at DESC');
+    const baseQuery = `
+      SELECT cn.*, 
+        COALESCE(c.name, cd.company_name, cn.client_id) as client_name,
+        cd.company_name,
+        c.email as client_email
+      FROM client_notes cn
+      LEFT JOIN employees c ON (cn.client_id COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci)
+      LEFT JOIN client_details cd ON (cn.client_id COLLATE utf8mb4_unicode_ci = cd.client_id COLLATE utf8mb4_unicode_ci)
+    `;
+
+    try {
+      if (client_id) {
+        [rows] = await db.query(`${baseQuery} WHERE cn.client_id = ? ORDER BY cn.created_at DESC`, [client_id]);
+      } else {
+        [rows] = await db.query(`${baseQuery} ORDER BY cn.created_at DESC`);
+      }
+    } catch (joinErr) {
+      console.warn('client-notes join fallback:', joinErr.message);
+      if (client_id) {
+        [rows] = await db.query('SELECT * FROM client_notes WHERE client_id = ? ORDER BY created_at DESC', [client_id]);
+      } else {
+        [rows] = await db.query('SELECT * FROM client_notes ORDER BY created_at DESC');
+      }
     }
     
     return NextResponse.json({ success: true, notes: rows });

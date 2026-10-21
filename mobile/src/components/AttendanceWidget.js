@@ -309,55 +309,98 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     });
   };
 
+  const statusBg = onBreak
+    ? themeColors.warningBg || 'rgba(245, 158, 11, 0.12)'
+    : punchedIn
+    ? themeColors.successBg || 'rgba(16, 185, 129, 0.12)'
+    : isDark ? 'rgba(100, 116, 139, 0.15)' : 'rgba(100, 116, 139, 0.08)';
+
+  const statusColor = onBreak
+    ? '#f59e0b'
+    : punchedIn
+    ? '#10b981'
+    : themeColors.textMuted || '#64748b';
+
+  const statusBorder = onBreak
+    ? 'rgba(245, 158, 11, 0.3)'
+    : punchedIn
+    ? 'rgba(16, 185, 129, 0.3)'
+    : themeColors.border;
+
   return (
     <View style={[styles.container, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+      {/* Top Header Row with Status Pill & Shift Title */}
       <View style={styles.headerRow}>
-        <View style={styles.statusBadgeContainer}>
-          <View style={[
-            styles.statusDot,
-            { backgroundColor: onBreak ? '#f59e0b' : punchedIn ? '#3fb950' : '#8b949e' }
-          ]} />
-          <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>
-            {onBreak ? 'On Break' : punchedIn ? 'Active Work' : 'Punched Out'}
-          </Text>
+        <View>
+          <Text style={[styles.widgetHeading, { color: themeColors.textPrimary }]}>Daily Attendance</Text>
+          <Text style={[styles.widgetSubheading, { color: themeColors.textSecondary }]}>Log shift hours & office presence</Text>
         </View>
 
-        {punchedIn && (
-          <View style={styles.timersContainer}>
-            <View style={styles.timerBlock}>
-              <Text style={[styles.timerLabel, { color: themeColors.textSecondary }]}>💻 Work Time</Text>
-              <Text style={[styles.timerValue, { color: themeColors.textPrimary }]}>{formatHMS(workSeconds)}</Text>
-            </View>
-            <View style={styles.timerBlock}>
-              <Text style={[styles.timerLabel, { color: themeColors.textSecondary }]}>☕ Break Time</Text>
-              <Text style={[styles.timerValue, { color: '#f59e0b' }]}>{formatHMS(breakSeconds)}</Text>
-            </View>
-          </View>
-        )}
+        <View style={[styles.statusBadgeContainer, { backgroundColor: statusBg, borderColor: statusBorder }]}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <Text style={[styles.statusTitle, { color: statusColor }]}>
+            {onBreak ? 'On Break' : punchedIn ? 'Active Shift' : 'Punched Out'}
+          </Text>
+        </View>
       </View>
+
+      {/* Dual Timers Grid (Visible when punched in) */}
+      {punchedIn && (
+        <View style={styles.timersGrid}>
+          <View style={[styles.timerTile, { backgroundColor: isDark ? '#141418' : '#f8fafc', borderColor: themeColors.border }]}>
+            <View style={styles.timerTileHeader}>
+              <Text style={{ fontSize: 13 }}>⏱️</Text>
+              <Text style={[styles.timerLabel, { color: themeColors.textSecondary }]}>Work Time</Text>
+            </View>
+            <Text style={[styles.timerValue, { color: themeColors.textPrimary }]}>
+              {formatHMS(workSeconds)}
+            </Text>
+          </View>
+
+          <View style={[styles.timerTile, { backgroundColor: isDark ? '#141418' : '#f8fafc', borderColor: themeColors.border }]}>
+            <View style={styles.timerTileHeader}>
+              <Text style={{ fontSize: 13 }}>☕</Text>
+              <Text style={[styles.timerLabel, { color: themeColors.textSecondary }]}>Break Taken</Text>
+            </View>
+            <Text style={[styles.timerValue, { color: '#f59e0b' }]}>
+              {formatHMS(breakSeconds)}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Live Employee Current Location Bar */}
       <View style={[
         styles.locationBar,
-        { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: themeColors.border }
+        { backgroundColor: isDark ? '#141418' : '#f8fafc', borderColor: themeColors.border }
       ]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 6 }}>
-          {isLocationFetching ? (
-            <ActivityIndicator size="small" color="#2563eb" />
-          ) : (
-            <Text style={{ fontSize: 13 }}>📍</Text>
-          )}
-          <Text
-            style={[styles.locationText, { color: themeColors.textPrimary }]}
-            numberOfLines={1}
-          >
-            {employeeLocation}
-          </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 }}>
+          <View style={styles.locationIconWrap}>
+            {isLocationFetching ? (
+              <ActivityIndicator size="small" color="#2563eb" />
+            ) : (
+              <Text style={{ fontSize: 12 }}>📍</Text>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.locationLabel, { color: themeColors.textSecondary }]}>Verified Location</Text>
+            <Text
+              style={[styles.locationText, { color: themeColors.textPrimary }]}
+              numberOfLines={1}
+            >
+              {employeeLocation}
+            </Text>
+          </View>
         </View>
 
-        <TouchableOpacity onPress={fetchCurrentLocation} disabled={isLocationFetching} style={styles.refreshLocBtn}>
+        <TouchableOpacity 
+          onPress={fetchCurrentLocation} 
+          disabled={isLocationFetching} 
+          style={[styles.refreshLocBtn, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: isDark ? '#334155' : '#bfdbfe' }]}
+          activeOpacity={0.7}
+        >
           <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>
-            {isLocationFetching ? 'Fetching...' : 'Refresh 🔄'}
+            {isLocationFetching ? '...' : 'Refresh ↻'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -367,9 +410,9 @@ export default function AttendanceWidget({ user, onStatusChange }) {
           <TextInput
             style={[
               styles.input,
-              { backgroundColor: isDark ? '#0f172a' : '#ffffff', color: themeColors.textPrimary, borderColor: themeColors.border }
+              { backgroundColor: isDark ? '#121215' : '#f8fafc', color: themeColors.textPrimary, borderColor: themeColors.border }
             ]}
-            placeholder="Add login remarks (optional)..."
+            placeholder="Add login remarks or shift notes (optional)..."
             placeholderTextColor={themeColors.textSecondary}
             value={remarks}
             onChangeText={setRemarks}
@@ -378,14 +421,18 @@ export default function AttendanceWidget({ user, onStatusChange }) {
             style={[styles.punchBtn, submitting && styles.punchBtnDisabled]}
             onPress={() => handlePunchAction('PUNCH_IN', { remarks })}
             disabled={submitting}
+            activeOpacity={0.88}
           >
             {submitting ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <ActivityIndicator size="small" color="#ffffff" />
-                <Text style={styles.punchBtnText}>Processing...</Text>
+                <Text style={styles.punchBtnText}>Securing punch...</Text>
               </View>
             ) : (
-              <Text style={styles.punchBtnText}>📥 Punch In</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 16 }}>📥</Text>
+                <Text style={styles.punchBtnText}>Punch In for Shift</Text>
+              </View>
             )}
           </TouchableOpacity>
         </View>
@@ -394,16 +441,21 @@ export default function AttendanceWidget({ user, onStatusChange }) {
           {!onBreak ? (
             <>
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#f59e0b' }, submitting && { opacity: 0.5 }]}
+                style={[styles.actionBtn, styles.breakBtn, submitting && { opacity: 0.5 }]}
                 onPress={() => setShowBreakModal(true)}
                 disabled={submitting}
+                activeOpacity={0.85}
               >
-                <Text style={styles.actionBtnText}>☕ Start Break</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 15 }}>☕</Text>
+                  <Text style={styles.actionBtnText}>Take a Break</Text>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: '#da3633' }, submitting && { opacity: 0.5 }]}
+                style={[styles.actionBtn, styles.punchOutBtn, submitting && { opacity: 0.5 }]}
                 onPress={handlePunchOutClick}
                 disabled={submitting}
+                activeOpacity={0.85}
               >
                 {submitting ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -411,23 +463,30 @@ export default function AttendanceWidget({ user, onStatusChange }) {
                     <Text style={styles.actionBtnText}>Processing...</Text>
                   </View>
                 ) : (
-                  <Text style={styles.actionBtnText}>📤 Punch Out</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 15 }}>⏹️</Text>
+                    <Text style={styles.actionBtnText}>Punch Out</Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </>
           ) : (
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#3fb950', flex: 1 }, submitting && { opacity: 0.5 }]}
+              style={[styles.actionBtn, styles.resumeBtn, submitting && { opacity: 0.5 }]}
               onPress={() => handlePunchAction('END_BREAK')}
               disabled={submitting}
+              activeOpacity={0.85}
             >
               {submitting ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <ActivityIndicator size="small" color="#ffffff" />
-                  <Text style={styles.actionBtnText}>Processing...</Text>
+                  <Text style={styles.actionBtnText}>Resuming shift...</Text>
                 </View>
               ) : (
-                <Text style={styles.actionBtnText}>▶️ End Break / Resume Work</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 16 }}>▶️</Text>
+                  <Text style={styles.actionBtnText}>End Break & Resume Shift</Text>
+                </View>
               )}
             </TouchableOpacity>
           )}
@@ -564,16 +623,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#161b22',
     borderWidth: 1,
     borderColor: '#30363d',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   loadingContainer: {
     backgroundColor: '#161b22',
     borderWidth: 1,
     borderColor: '#30363d',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 18,
+    padding: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -583,109 +647,156 @@ const styles = StyleSheet.create({
     color: '#8b949e',
     marginLeft: 10,
     fontSize: 13,
+    fontWeight: '600',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
+  },
+  widgetHeading: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  widgetSubheading: {
+    fontSize: 11.5,
+    marginTop: 2,
+    fontWeight: '500',
   },
   statusBadgeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginRight: 6,
   },
   statusTitle: {
-    color: '#f0f6fc',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   cutoffWarningBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
     marginBottom: 12,
     alignItems: 'center',
   },
   cutoffWarningText: {
-    color: '#f85149',
-    fontSize: 12,
+    color: '#ef4444',
+    fontSize: 11.5,
     fontWeight: '700',
   },
-  timersContainer: {
+  timersGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  timerTile: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  timerTileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  timerBlock: {
-    marginLeft: 12,
-    alignItems: 'flex-end',
+    gap: 6,
+    marginBottom: 4,
   },
   timerLabel: {
-    color: '#8b949e',
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   timerValue: {
-    color: '#58a6ff',
-    fontSize: 13,
+    fontSize: 22,
     fontWeight: '800',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
   },
   actionContainer: {
     flexDirection: 'column',
-    gap: 8,
+    gap: 10,
   },
   locationBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 9,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    marginVertical: 10,
+    marginBottom: 12,
+  },
+  locationIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationLabel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   locationText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
+    marginTop: 1,
   },
   refreshLocBtn: {
-    paddingLeft: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   input: {
     backgroundColor: '#0d1117',
     borderWidth: 1,
     borderColor: '#30363d',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     color: '#f0f6fc',
     fontSize: 13,
-    marginBottom: 6,
   },
   punchBtn: {
-    backgroundColor: '#238636',
-    borderRadius: 10,
-    paddingVertical: 12,
+    backgroundColor: '#2563eb',
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
   punchBtnDisabled: {
-    backgroundColor: '#30363d',
     opacity: 0.5,
   },
   punchBtnText: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14.5,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -693,35 +804,52 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  breakBtn: {
+    backgroundColor: '#f59e0b',
+    shadowColor: '#f59e0b',
+  },
+  punchOutBtn: {
+    backgroundColor: '#ef4444',
+    shadowColor: '#ef4444',
+  },
+  resumeBtn: {
+    backgroundColor: '#10b981',
+    shadowColor: '#10b981',
   },
   actionBtnText: {
     color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13.5,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(9, 9, 11, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
     borderRadius: 24,
-    padding: 24,
+    padding: 22,
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 380,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
     elevation: 12,
   },
   modalTitle: {

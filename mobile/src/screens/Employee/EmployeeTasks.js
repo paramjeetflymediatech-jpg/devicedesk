@@ -19,6 +19,7 @@ import { getApiUrl, fetchClientRequestsApi, updateTaskStatusApi } from '../../ut
 import { sweetAlert } from '../../utils/sweetAlert';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
+import GoogleDriveBadge from '../../components/GoogleDriveBadge';
 
 export default function EmployeeTasks({ currentUser }) {
   const { isDark, themeColors } = useTheme();
@@ -426,23 +427,31 @@ export default function EmployeeTasks({ currentUser }) {
 
   return (
     <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-      <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
+      {/* Modern Executive Header */}
+      <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.borderLight || themeColors.border }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="tasks" size={22} color={themeColors.textPrimary} />
-              <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>My Tasks</Text>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={styles.headerIconSquircle}>
+                <AppIcon name="tasks" size={18} color="#ffffff" />
+              </View>
+              <View>
+                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>My Tasks</Text>
+                <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>
+                  {tasks.filter(t => t.status !== 'Completed').length} active • {tasks.filter(t => t.status === 'Completed').length} completed
+                </Text>
+              </View>
             </View>
-            <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>Manage assigned duties and track working time</Text>
           </View>
 
           <TouchableOpacity 
             style={styles.createTaskBtn}
             onPress={() => setShowSelfModal(true)}
+            activeOpacity={0.82}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <AppIcon name="plus" size={15} color="#ffffff" />
-              <Text style={styles.createTaskBtnText}>Add Task</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <AppIcon name="plus" size={13} color="#ffffff" />
+              <Text style={styles.createTaskBtnText}>New Task</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -454,8 +463,18 @@ export default function EmployeeTasks({ currentUser }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3b82f6']} />}
       >
         {tasks.length === 0 ? (
-          <View style={[styles.emptyContainer, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
-            <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No tasks currently assigned to you.</Text>
+          <View style={[styles.emptyContainer, { backgroundColor: themeColors.cardBg, borderColor: themeColors.borderLight || themeColors.border }]}>
+            <View style={styles.emptyIconCircle}>
+              <AppIcon name="check" size={24} color={themeColors.textSecondary} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>All Caught Up</Text>
+            <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No pending tasks currently assigned to your sprint.</Text>
+            <TouchableOpacity 
+              style={[styles.emptyActionBtn, { borderColor: themeColors.borderLight || themeColors.border }]}
+              onPress={() => setShowSelfModal(true)}
+            >
+              <Text style={[styles.emptyActionBtnText, { color: themeColors.primary || '#3b82f6' }]}>+ Create Self Task</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           tasks.map(task => {
@@ -471,21 +490,32 @@ export default function EmployeeTasks({ currentUser }) {
               task.project_id && (String(r.id) === String(task.project_id) || String(r._id) === String(task.project_id))
             );
             const cardClientFiles = getClientAttachments(task, matchingReq);
+            const running = isTaskRunning(task);
 
             return (
-              <View key={task.id} style={[styles.taskCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
+              <View 
+                key={task.id} 
+                style={[
+                  styles.taskCard, 
+                  { 
+                    backgroundColor: themeColors.cardBg, 
+                    borderColor: running ? (themeColors.primary || '#3b82f6') : (themeColors.borderLight || themeColors.border) 
+                  },
+                  running && styles.taskCardRunning
+                ]}
+              >
                 <View style={styles.taskHeader}>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <Text style={[styles.taskTitle, { color: themeColors.textPrimary }]}>{task.title}</Text>
                     {isClientRequestTask ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
-                        <AppIcon name="users" size={12} color={isDark ? '#a78bfa' : '#7c3aed'} />
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: isDark ? '#a78bfa' : '#7c3aed' }}>
-                          Client Request {task.assignedByName ? `• Assigned by ${task.assignedByName}` : ''}
+                      <View style={[styles.clientRequestPill, { backgroundColor: isDark ? 'rgba(168, 85, 247, 0.14)' : '#f3e8ff', borderColor: isDark ? 'rgba(168, 85, 247, 0.3)' : '#e9d5ff' }]}>
+                        <AppIcon name="users" size={11} color={isDark ? '#c084fc' : '#7c3aed'} />
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: isDark ? '#c084fc' : '#7c3aed' }}>
+                          Client Request {task.assignedByName ? `• ${task.assignedByName}` : ''}
                         </Text>
                       </View>
                     ) : task.assignedByName && !isSelfTask ? (
-                      <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>
+                      <Text style={[styles.assignedByText, { color: themeColors.textSecondary }]}>
                         Assigned by {task.assignedByName}
                       </Text>
                     ) : null}
@@ -493,24 +523,29 @@ export default function EmployeeTasks({ currentUser }) {
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <View style={[
-                      styles.statusBadge,
-                      task.status === 'Completed' ? styles.badgeSuccess :
-                      task.isRunning ? styles.badgeProgress : styles.badgePending
+                      styles.statusPill,
+                      task.status === 'Completed' ? styles.statusPillSuccess :
+                      running ? styles.statusPillRunning : styles.statusPillPending
                     ]}>
+                      <View style={[
+                        styles.statusDot,
+                        task.status === 'Completed' ? { backgroundColor: '#10b981' } :
+                        running ? { backgroundColor: '#3b82f6' } : { backgroundColor: '#f59e0b' }
+                      ]} />
                       <Text style={[
-                        styles.statusText,
+                        styles.statusPillText,
                         task.status === 'Completed' && { color: isDark ? '#34d399' : '#059669' },
-                        task.isRunning && { color: isDark ? '#60a5fa' : '#2563eb' },
-                        task.status !== 'Completed' && !task.isRunning && { color: isDark ? '#fbbf24' : '#d97706' }
+                        running && { color: isDark ? '#60a5fa' : '#2563eb' },
+                        task.status !== 'Completed' && !running && { color: isDark ? '#fbbf24' : '#d97706' }
                       ]}>
-                        {task.status === 'Completed' ? 'Completed' : task.isRunning ? 'Running' : task.status}
+                        {task.status === 'Completed' ? 'Completed' : running ? 'In Progress' : task.status}
                       </Text>
                     </View>
 
                     {isSelfTask && task.status !== 'Completed' && (
                       <View style={{ flexDirection: 'row', gap: 4 }}>
                         <TouchableOpacity
-                          style={[styles.smallBtn, { backgroundColor: '#38bdf8' }]}
+                          style={[styles.smallBtn, { backgroundColor: isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe', borderColor: isDark ? 'rgba(56, 189, 248, 0.3)' : '#bae6fd', borderWidth: 1 }]}
                           onPress={() => {
                             setEditTaskId(task.id);
                             setEditTitle(task.title);
@@ -519,13 +554,13 @@ export default function EmployeeTasks({ currentUser }) {
                             setEditModalVisible(true);
                           }}
                         >
-                          <AppIcon name="edit" size={14} color="#ffffff" />
+                          <AppIcon name="edit" size={13} color={isDark ? '#38bdf8' : '#0284c7'} />
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[styles.smallBtn, { backgroundColor: '#ef4444' }]}
+                          style={[styles.smallBtn, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2', borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca', borderWidth: 1 }]}
                           onPress={() => handleDeleteSelfTask(task)}
                         >
-                          <AppIcon name="trash" size={14} color="#ffffff" />
+                          <AppIcon name="trash" size={13} color={isDark ? '#f87171' : '#dc2626'} />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -533,41 +568,50 @@ export default function EmployeeTasks({ currentUser }) {
                 </View>
 
                 {task.description ? (
-                  <Text style={styles.taskDesc} numberOfLines={3}>{task.description}</Text>
+                  <Text style={[styles.taskDesc, { color: themeColors.textSecondary }]} numberOfLines={3}>{task.description}</Text>
                 ) : null}
+
+                {/* Detected Google Drive Requirement Folder */}
+                <GoogleDriveBadge source={[task, matchingReq]} isDark={isDark} themeColors={themeColors} />
 
                 {/* Client attachments badge on card if present */}
                 {cardClientFiles.length > 0 && (
                   <TouchableOpacity 
-                    style={[styles.attachmentBadge, { backgroundColor: isDark ? 'rgba(124, 58, 237, 0.18)' : '#ede9fe', borderColor: isDark ? '#7c3aed' : '#c4b5fd' }]}
+                    style={[styles.attachmentBadge, { backgroundColor: isDark ? 'rgba(124, 58, 237, 0.14)' : '#f5f3ff', borderColor: isDark ? 'rgba(124, 58, 237, 0.35)' : '#ddd6fe' }]}
                     onPress={() => handleOpenDetails(task)}
+                    activeOpacity={0.8}
                   >
                     <AppIcon name="paperclip" size={12} color={isDark ? '#c4b5fd' : '#6d28d9'} />
                     <Text style={{ fontSize: 11, fontWeight: '700', color: isDark ? '#c4b5fd' : '#6d28d9' }}>
-                      {cardClientFiles.length} Client Attachment{cardClientFiles.length > 1 ? 's' : ''} • Tap to View
+                      {cardClientFiles.length} Client Attachment{cardClientFiles.length > 1 ? 's' : ''} • Tap to Preview
                     </Text>
                   </TouchableOpacity>
                 )}
 
-                <View style={styles.divider} />
-
-                <View style={styles.durationRow}>
-                  <Text style={styles.durationLabel}>Time Logged:</Text>
-                  <Text style={styles.durationValue}>
+                {/* Time Logged Executive Capsule */}
+                <View style={[styles.durationCapsule, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc', borderColor: themeColors.borderLight || themeColors.border }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AppIcon name="clock" size={13} color={running ? (themeColors.primary || '#3b82f6') : themeColors.textSecondary} />
+                    <Text style={[styles.durationCapsuleLabel, { color: themeColors.textSecondary }]}>Time Logged</Text>
+                  </View>
+                  <Text style={[
+                    styles.durationCapsuleValue, 
+                    { color: running ? (themeColors.primary || '#3b82f6') : themeColors.textPrimary }
+                  ]}>
                     {formatHMS(calculateTotalDuration(task))}
                   </Text>
                 </View>
 
                 {task.attachments && task.attachments.length > 0 && (
-                  <View style={{ marginBottom: 10 }}>
+                  <View style={{ marginBottom: 12 }}>
                     <Text style={[styles.attachmentHeaderLabel, { color: themeColors.textSecondary }]}>Proof Attachments:</Text>
                     {task.attachments.map((url, idx) => (
                       <TouchableOpacity 
                         key={idx} 
                         onPress={() => handleOpenAttachment(url)}
-                        style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2, gap: 4 }}
+                        style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2, gap: 5 }}
                       >
-                        <AppIcon name="paperclip" size={14} color={isDark ? '#60a5fa' : '#2563eb'} />
+                        <AppIcon name="paperclip" size={13} color={isDark ? '#60a5fa' : '#2563eb'} />
                         <Text style={{ fontSize: 12, color: isDark ? '#60a5fa' : '#2563eb', textDecorationLine: 'underline' }}>
                           Attachment #{idx + 1}
                         </Text>
@@ -576,60 +620,65 @@ export default function EmployeeTasks({ currentUser }) {
                   </View>
                 )}
 
+                {/* Card Actions Container */}
                 <View style={styles.cardActionsContainer}>
                   <TouchableOpacity
-                    style={styles.viewDetailsBtn}
+                    style={[styles.viewDetailsBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9', borderColor: themeColors.borderLight || themeColors.border }]}
                     onPress={() => handleOpenDetails(task)}
+                    activeOpacity={0.78}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      <AppIcon name="eye" size={14} color={isDark ? '#60a5fa' : '#2563eb'} />
-                      <Text style={styles.btnTextViewDetails}>View Details</Text>
+                      <AppIcon name="eye" size={13} color={themeColors.textSecondary} />
+                      <Text style={[styles.btnTextViewDetails, { color: themeColors.textPrimary }]}>Details</Text>
                     </View>
                   </TouchableOpacity>
 
                   <View style={styles.actionsRow}>
                     {task.status !== 'Completed' ? (
                       <>
-                        {!isTaskRunning(task) ? (
+                        {!running ? (
                           <TouchableOpacity
-                            style={styles.startBtn}
+                            style={[styles.actionBtnPrimary, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.16)' : '#eff6ff', borderColor: isDark ? 'rgba(59, 130, 246, 0.4)' : '#bfdbfe' }]}
                             onPress={() => handleStart(task.id)}
+                            activeOpacity={0.8}
                           >
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                              <AppIcon name="play" size={13} color={isDark ? '#60a5fa' : '#2563eb'} />
-                              <Text style={styles.btnTextStart}>
+                              <AppIcon name="play" size={12} color={isDark ? '#60a5fa' : '#2563eb'} />
+                              <Text style={[styles.actionBtnPrimaryText, { color: isDark ? '#60a5fa' : '#2563eb' }]}>
                                 {isTaskStarted(task) ? 'Resume' : 'Start'}
                               </Text>
                             </View>
                           </TouchableOpacity>
                         ) : (
                           <TouchableOpacity
-                            style={styles.stopBtn}
+                            style={[styles.actionBtnWarning, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#fffbeb', borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#fde68a' }]}
                             onPress={() => handleStop(task.id)}
+                            activeOpacity={0.8}
                           >
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                              <AppIcon name="pause" size={13} color={isDark ? '#fbbf24' : '#d97706'} />
-                              <Text style={styles.btnTextStop}>Pause</Text>
+                              <AppIcon name="pause" size={12} color={isDark ? '#fbbf24' : '#d97706'} />
+                              <Text style={[styles.actionBtnWarningText, { color: isDark ? '#fbbf24' : '#d97706' }]}>Pause</Text>
                             </View>
                           </TouchableOpacity>
                         )}
 
                         {isTaskStarted(task) && (
                           <TouchableOpacity
-                            style={styles.completeBtn}
+                            style={[styles.actionBtnSuccess, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.16)' : '#ecfdf5', borderColor: isDark ? 'rgba(16, 185, 129, 0.4)' : '#a7f3d0' }]}
                             onPress={() => handleCompletePress(task.id)}
+                            activeOpacity={0.8}
                           >
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                              <AppIcon name="check" size={13} color={isDark ? '#34d399' : '#059669'} />
-                              <Text style={styles.btnTextComplete}>Complete</Text>
+                              <AppIcon name="check" size={12} color={isDark ? '#34d399' : '#059669'} />
+                              <Text style={[styles.actionBtnSuccessText, { color: isDark ? '#34d399' : '#059669' }]}>Complete</Text>
                             </View>
                           </TouchableOpacity>
                         )}
                       </>
                     ) : (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <AppIcon name="check" size={14} color="#059669" />
-                        <Text style={styles.completedText}>
+                      <View style={[styles.completedBadge, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5', borderColor: isDark ? 'rgba(16, 185, 129, 0.25)' : '#a7f3d0' }]}>
+                        <AppIcon name="check" size={12} color={isDark ? '#34d399' : '#059669'} />
+                        <Text style={[styles.completedBadgeText, { color: isDark ? '#34d399' : '#059669' }]}>
                           Done {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : ''}
                         </Text>
                       </View>
@@ -805,6 +854,9 @@ export default function EmployeeTasks({ currentUser }) {
                           </Text>
                         </View>
                       ) : null}
+
+                      {/* Detected Google Drive Folder in Task Details Modal */}
+                      <GoogleDriveBadge source={[selectedTask, selectedLinkedRequest]} isDark={isDark} themeColors={themeColors} />
 
                       {/* Client Attached Files */}
                       <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0' }}>
@@ -1139,53 +1191,98 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     backgroundColor: themeColors.background,
   },
   header: {
-    padding: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     backgroundColor: themeColors.headerBg,
     borderBottomWidth: 1,
-    borderColor: themeColors.border,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: isDark ? 0.2 : 0.04,
-    shadowRadius: 6,
+    borderColor: themeColors.borderLight || themeColors.border,
+  },
+  headerIconSquircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: themeColors.primary || '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: themeColors.primary || '#3b82f6',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
     elevation: 3,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     color: themeColors.textPrimary,
     letterSpacing: -0.3,
   },
   headerSub: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: themeColors.textSecondary,
-    marginTop: 4,
+    marginTop: 2,
+    fontWeight: '500',
   },
   scrollContent: {
-    padding: 18,
+    padding: 16,
+    paddingBottom: 32,
   },
   emptyContainer: {
-    padding: 40,
+    padding: 36,
     alignItems: 'center',
-    borderRadius: 16,
+    justifyContent: 'center',
+    borderRadius: 18,
     borderWidth: 1,
+    marginTop: 20,
+  },
+  emptyIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
   },
   emptyText: {
     color: themeColors.textSecondary,
-    fontSize: 14.5,
-    fontStyle: 'italic',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  emptyActionBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  emptyActionBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   taskCard: {
     backgroundColor: themeColors.cardBg,
     borderWidth: 1,
-    borderColor: themeColors.border,
-    borderRadius: 18,
+    borderColor: themeColors.borderLight || themeColors.border,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 14,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: isDark ? 0.2 : 0.04,
-    shadowRadius: 6,
+    shadowOpacity: isDark ? 0.25 : 0.05,
+    shadowRadius: 8,
     elevation: 2,
+  },
+  taskCardRunning: {
+    borderLeftWidth: 3.5,
+    borderLeftColor: themeColors.primary || '#3b82f6',
+    shadowColor: themeColors.primary || '#3b82f6',
+    shadowOpacity: isDark ? 0.25 : 0.12,
   },
   taskHeader: {
     flexDirection: 'row',
@@ -1194,35 +1291,55 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     marginBottom: 8,
   },
   taskTitle: {
-    fontSize: 15.5,
+    fontSize: 15,
     fontWeight: '800',
     color: themeColors.textPrimary,
+    lineHeight: 20,
+  },
+  clientRequestPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  assignedByText: {
+    fontSize: 11.5,
+    marginTop: 3,
+    fontWeight: '500',
   },
   taskDesc: {
-    fontSize: 13,
-    color: themeColors.textSecondary,
+    fontSize: 12.5,
     lineHeight: 18,
     marginBottom: 10,
   },
-  divider: {
-    height: 1,
-    backgroundColor: themeColors.border,
-    marginVertical: 10,
-  },
-  durationRow: {
+  durationCapsule: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
     marginBottom: 12,
   },
-  durationLabel: {
-    color: themeColors.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
+  durationCapsuleLabel: {
+    fontSize: 12,
+    fontWeight: '600',
   },
-  durationValue: {
-    color: isDark ? '#60a5fa' : '#2563eb',
-    fontWeight: '800',
+  durationCapsuleValue: {
     fontSize: 13,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  divider: {
+    height: 1,
+    backgroundColor: themeColors.borderLight || themeColors.border,
+    marginVertical: 10,
   },
   attachmentHeaderLabel: {
     fontSize: 11,
@@ -1233,21 +1350,18 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 2,
     flexWrap: 'wrap',
     gap: 8,
   },
   viewDetailsBtn: {
-    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.12)' : '#eff6ff',
-    borderWidth: 1,
-    borderColor: isDark ? 'rgba(59, 130, 246, 0.35)' : '#bfdbfe',
     borderRadius: 10,
+    borderWidth: 1,
     paddingVertical: 7,
     paddingHorizontal: 12,
   },
   btnTextViewDetails: {
-    color: isDark ? '#60a5fa' : '#2563eb',
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '700',
   },
   actionsRow: {
@@ -1256,71 +1370,78 @@ const getStyles = (themeColors, isDark) => StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
-  startBtn: {
-    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
-    borderWidth: 1,
-    borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe',
+  actionBtnPrimary: {
     borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-  },
-  btnTextStart: {
-    color: isDark ? '#60a5fa' : '#2563eb',
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  stopBtn: {
-    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb',
     borderWidth: 1,
-    borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#fde68a',
-    borderRadius: 10,
     paddingVertical: 7,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
   },
-  btnTextStop: {
-    color: isDark ? '#fbbf24' : '#d97706',
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  completeBtn: {
-    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
-    borderWidth: 1,
-    borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0',
-    borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-  },
-  btnTextComplete: {
-    color: isDark ? '#34d399' : '#059669',
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  completedText: {
-    color: themeColors.textSecondary,
+  actionBtnPrimaryText: {
     fontSize: 12,
-    fontStyle: 'italic',
+    fontWeight: '700',
   },
-  statusBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+  actionBtnWarning: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
+  },
+  actionBtnWarningText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  actionBtnSuccess: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
+  },
+  actionBtnSuccessText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
   },
-  badgePending: {
-    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb',
-    borderColor: isDark ? 'rgba(245, 158, 11, 0.35)' : '#fde68a',
+  completedBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
   },
-  badgeProgress: {
-    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusPillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  statusPillPending: {
+    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#fffbeb',
+    borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#fde68a',
+  },
+  statusPillRunning: {
+    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.14)' : '#eff6ff',
     borderColor: isDark ? 'rgba(59, 130, 246, 0.35)' : '#bfdbfe',
   },
-  badgeSuccess: {
-    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
-    borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : '#a7f3d0',
-  },
-  statusText: {
-    fontSize: 10.5,
-    fontWeight: '800',
+  statusPillSuccess: {
+    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#ecfdf5',
+    borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0',
   },
   modalOverlay: {
     flex: 1,

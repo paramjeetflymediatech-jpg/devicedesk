@@ -21,6 +21,7 @@ import { pickFilesOrPhotos } from '../../utils/filePicker';
 import { getTasks, saveTasks } from '../../store/store';
 import Video from 'react-native-video';
 import AppIcon from '../../components/AppIcon';
+import GoogleDriveBadge from '../../components/GoogleDriveBadge';
 import ManageScreenshots from '../Admin/ManageScreenshots';
 import { useTheme } from '../../utils/ThemeContext';
 import {
@@ -71,11 +72,27 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const [tasksList, setTasksList] = useState([]);
   const [clientRequests, setClientRequests] = useState([]);
   const [clientNotes, setClientNotes] = useState([]);
+  const [clientNamesMap, setClientNamesMap] = useState({});
   const [replyTextMap, setReplyTextMap] = useState({});
   const [replyAttachmentsMap, setReplyAttachmentsMap] = useState({});
   const [submittingReplyId, setSubmittingReplyId] = useState(null);
   const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
   const [previewError, setPreviewError] = useState(false);
+
+  const getClientDisplayName = useCallback((clientId, note) => {
+    if (note?.client_name && note.client_name !== note.client_id) {
+      return note.company_name ? `${note.client_name} (${note.company_name})` : note.client_name;
+    }
+    if (note?.company_name) return note.company_name;
+    const strId = String(clientId || note?.client_id || '');
+    if (clientNamesMap[strId]) return clientNamesMap[strId];
+    const matched = (clientRequests || []).find((r) => String(r.clientId || r.client_id) === strId);
+    if (matched?.client_name) {
+      return matched.company_name ? `${matched.client_name} (${matched.company_name})` : matched.client_name;
+    }
+    if (matched?.company_name) return matched.company_name;
+    return strId ? `Client ${strId}` : 'Client';
+  }, [clientNamesMap, clientRequests]);
 
   // Audio player state & ref
   const audioPlayerRef = useRef(null);
@@ -291,6 +308,23 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       // Filter client requests assigned to THIS team leader
       const myRequests = allReqs.filter((r) => String(r.assigned_tl_id) === String(leaderId));
 
+      // Build client names mapping
+      const nameMap = {};
+      allEmps.forEach((e) => {
+        if (e.id && e.name) nameMap[String(e.id)] = e.name;
+      });
+      allReqs.forEach((r) => {
+        const cId = String(r.clientId || r.client_id || '');
+        const cName = r.client_name || r.company_name;
+        if (cId && cName) nameMap[cId] = r.company_name && r.client_name ? `${r.client_name} (${r.company_name})` : cName;
+      });
+      notes.forEach((n) => {
+        const cId = String(n.client_id || '');
+        const cName = n.client_name || n.company_name;
+        if (cId && cName && cName !== cId) nameMap[cId] = n.company_name && n.client_name ? `${n.client_name} (${n.company_name})` : cName;
+      });
+      setClientNamesMap(nameMap);
+
       setTeamMembers(mappedMembers);
       setTasksList(tasks);
       setClientRequests(myRequests);
@@ -373,10 +407,11 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const filteredNotes = useMemo(() => {
     return clientNotes.filter((n) => {
       const q = (notesSearch || '').toLowerCase();
+      const clientName = (getClientDisplayName(n.client_id, n) || '').toLowerCase();
       const client = String(n.client_id || '').toLowerCase();
       const content = String(n.note || '').toLowerCase();
       const reply = String(n.tl_reply || '').toLowerCase();
-      const matchSearch = client.includes(q) || content.includes(q) || reply.includes(q);
+      const matchSearch = clientName.includes(q) || client.includes(q) || content.includes(q) || reply.includes(q);
       if (!matchSearch) return false;
 
       const isUnread = (n.status || '').toLowerCase() === 'unread' || !n.tl_reply;
@@ -384,7 +419,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       if (notesFilter === 'REPLIED') return !isUnread;
       return true;
     });
-  }, [clientNotes, notesSearch, notesFilter]);
+  }, [clientNotes, notesSearch, notesFilter, getClientDisplayName]);
 
   const toggleEodExpand = (id) => {
     setExpandedEods((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -856,75 +891,96 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         )}
 
         {/* TOP SEGMENTED TAB SWITCHER */}
-        <View style={styles.tabSwitcher}>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'overview' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('overview')}
-            activeOpacity={0.8}
+        <View style={styles.tabSwitcherWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabSwitcherContent}
           >
-            <AppIcon name="grid" size={14} color={activeTab === 'overview' ? '#ffffff' : themeColors.textSecondary} />
-            <Text style={[styles.tabButtonText, activeTab === 'overview' && styles.tabButtonTextActive]}>
-              Overview
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                activeTab === 'overview' ? styles.tabButtonActive : [styles.tabButtonInactive, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc', borderColor: themeColors.borderLight || themeColors.border }]
+              ]}
+              onPress={() => setActiveTab('overview')}
+              activeOpacity={0.78}
+            >
+              <AppIcon name="grid" size={14} color={activeTab === 'overview' ? '#ffffff' : themeColors.textSecondary} />
+              <Text style={[styles.tabButtonText, activeTab === 'overview' ? styles.tabButtonTextActive : { color: themeColors.textPrimary }]}>
+                Overview
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'requests' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('requests')}
-            activeOpacity={0.8}
-          >
-            <AppIcon name="inbox" size={14} color={activeTab === 'requests' ? '#ffffff' : themeColors.textSecondary} />
-            <Text style={[styles.tabButtonText, activeTab === 'requests' && styles.tabButtonTextActive]}>
-              Requests
-            </Text>
-            {stats.pendingRequests > 0 && (
-              <View style={[styles.tabBadge, activeTab === 'requests' ? styles.tabBadgeActive : styles.tabBadgeInactive]}>
-                <Text style={[styles.tabBadgeText, activeTab === 'requests' && { color: '#2563eb' }]}>
-                  {stats.pendingRequests}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                activeTab === 'requests' ? styles.tabButtonActive : [styles.tabButtonInactive, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc', borderColor: themeColors.borderLight || themeColors.border }]
+              ]}
+              onPress={() => setActiveTab('requests')}
+              activeOpacity={0.78}
+            >
+              <AppIcon name="inbox" size={14} color={activeTab === 'requests' ? '#ffffff' : themeColors.textSecondary} />
+              <Text style={[styles.tabButtonText, activeTab === 'requests' ? styles.tabButtonTextActive : { color: themeColors.textPrimary }]}>
+                Requests
+              </Text>
+              {stats.pendingRequests > 0 && (
+                <View style={[styles.tabBadge, activeTab === 'requests' ? styles.tabBadgeActive : styles.tabBadgeInactive]}>
+                  <Text style={[styles.tabBadgeText, activeTab === 'requests' ? { color: '#2563eb' } : { color: '#ffffff' }]}>
+                    {stats.pendingRequests}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'client-chat' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('client-chat')}
-            activeOpacity={0.8}
-          >
-            <AppIcon name="chat" size={14} color={activeTab === 'client-chat' ? '#ffffff' : themeColors.textSecondary} />
-            <Text style={[styles.tabButtonText, activeTab === 'client-chat' && styles.tabButtonTextActive]}>
-              Client Chat
-            </Text>
-            {stats.unreadNotes > 0 && (
-              <View style={[styles.tabBadge, activeTab === 'client-chat' ? styles.tabBadgeActive : styles.tabBadgeInactive]}>
-                <Text style={[styles.tabBadgeText, activeTab === 'client-chat' && { color: '#2563eb' }]}>
-                  {stats.unreadNotes}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                activeTab === 'client-chat' ? styles.tabButtonActive : [styles.tabButtonInactive, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc', borderColor: themeColors.borderLight || themeColors.border }]
+              ]}
+              onPress={() => setActiveTab('client-chat')}
+              activeOpacity={0.78}
+            >
+              <AppIcon name="chat" size={14} color={activeTab === 'client-chat' ? '#ffffff' : themeColors.textSecondary} />
+              <Text style={[styles.tabButtonText, activeTab === 'client-chat' ? styles.tabButtonTextActive : { color: themeColors.textPrimary }]}>
+                Client Chat
+              </Text>
+              {stats.unreadNotes > 0 && (
+                <View style={[styles.tabBadge, activeTab === 'client-chat' ? styles.tabBadgeActive : styles.tabBadgeInactive]}>
+                  <Text style={[styles.tabBadgeText, activeTab === 'client-chat' ? { color: '#2563eb' } : { color: '#ffffff' }]}>
+                    {stats.unreadNotes}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'team' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('team')}
-            activeOpacity={0.8}
-          >
-            <AppIcon name="users" size={14} color={activeTab === 'team' ? '#ffffff' : themeColors.textSecondary} />
-            <Text style={[styles.tabButtonText, activeTab === 'team' && styles.tabButtonTextActive]}>
-              Team ({stats.totalMembers})
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                activeTab === 'team' ? styles.tabButtonActive : [styles.tabButtonInactive, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc', borderColor: themeColors.borderLight || themeColors.border }]
+              ]}
+              onPress={() => setActiveTab('team')}
+              activeOpacity={0.78}
+            >
+              <AppIcon name="users" size={14} color={activeTab === 'team' ? '#ffffff' : themeColors.textSecondary} />
+              <Text style={[styles.tabButtonText, activeTab === 'team' ? styles.tabButtonTextActive : { color: themeColors.textPrimary }]}>
+                Team ({stats.totalMembers})
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'screenshots' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('screenshots')}
-            activeOpacity={0.8}
-          >
-            <AppIcon name="monitor" size={14} color={activeTab === 'screenshots' ? '#ffffff' : themeColors.textSecondary} />
-            <Text style={[styles.tabButtonText, activeTab === 'screenshots' && styles.tabButtonTextActive]}>
-              Screenshots
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                activeTab === 'screenshots' ? styles.tabButtonActive : [styles.tabButtonInactive, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f8fafc', borderColor: themeColors.borderLight || themeColors.border }]
+              ]}
+              onPress={() => setActiveTab('screenshots')}
+              activeOpacity={0.78}
+            >
+              <AppIcon name="monitor" size={14} color={activeTab === 'screenshots' ? '#ffffff' : themeColors.textSecondary} />
+              <Text style={[styles.tabButtonText, activeTab === 'screenshots' ? styles.tabButtonTextActive : { color: themeColors.textPrimary }]}>
+                Screenshots
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
 
         {/* ======================================================== */}
@@ -1139,6 +1195,9 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       <Text style={styles.reportContentText} numberOfLines={2}>
                         {req.requirements || 'No specific description provided.'}
                       </Text>
+
+                      {/* Detected Google Drive Requirement Folder */}
+                      <GoogleDriveBadge source={req} isDark={isDark} themeColors={themeColors} />
 
                       {/* Client Attachments in Request Card */}
                       {(() => {
@@ -1547,14 +1606,16 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                     <View style={styles.clientNoteHeader}>
                       <View style={styles.clientNoteUserRow}>
                         <View style={styles.clientAvatar}>
-                          <AppIcon name="user" size={16} color="#2563eb" />
+                          <Text style={{ fontSize: 13, fontWeight: '800', color: '#2563eb' }}>
+                            {(getClientDisplayName(note.client_id, note) || 'C').charAt(0).toUpperCase()}
+                          </Text>
                         </View>
-                        <View>
-                          <Text style={styles.clientNoteTitle}>
-                            Client: <Text style={{ fontWeight: '800' }}>{note.client_id || 'Unknown Client'}</Text>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={styles.clientNoteTitle} numberOfLines={1}>
+                            {getClientDisplayName(note.client_id, note)}
                           </Text>
                           <Text style={styles.clientNoteTime}>
-                            {note.created_at ? new Date(note.created_at).toLocaleString() : 'Recent'}
+                            ID: {note.client_id || 'N/A'} • {note.created_at ? new Date(note.created_at).toLocaleString() : 'Recent'}
                           </Text>
                         </View>
                       </View>
@@ -1617,6 +1678,9 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                         </View>
                       );
                     })()}
+
+                    {/* Detected Google Drive Folder in Client Note */}
+                    <GoogleDriveBadge source={note} isDark={isDark} themeColors={themeColors} />
 
                     {/* TL Reply Display or Reply Box */}
                     {note.tl_reply && replyTextMap[note.id] === undefined ? (
@@ -1928,6 +1992,9 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                   <Text style={{ fontSize: 12.5, color: themeColors.textPrimary }}>
                     {selectedRequest.requirements || 'No specific requirements provided.'}
                   </Text>
+
+                  {/* Detected Google Drive Requirement Folder in Details Modal */}
+                  <GoogleDriveBadge source={selectedRequest} isDark={isDark} themeColors={themeColors} />
 
                   {/* Client Attached Files / Briefs */}
                   {(() => {
@@ -2667,52 +2734,59 @@ function getStyles(themeColors, isDark) {
       fontSize: 12,
       fontWeight: '600',
     },
-    tabSwitcher: {
+    tabSwitcherWrapper: {
+      marginBottom: 16,
+      marginHorizontal: -4,
+    },
+    tabSwitcherContent: {
       flexDirection: 'row',
-      backgroundColor: themeColors.headerBg,
-      borderRadius: 10,
-      padding: 4,
-      borderWidth: 1,
-      borderColor: themeColors.border,
-      marginBottom: 14,
-      gap: 4,
+      alignItems: 'center',
+      paddingHorizontal: 4,
+      gap: 8,
     },
     tabButton: {
-      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 4,
-      paddingVertical: 8,
-      borderRadius: 8,
+      gap: 6,
+      paddingVertical: 9,
+      paddingHorizontal: 14,
+      borderRadius: 12,
     },
     tabButtonActive: {
       backgroundColor: '#2563eb',
+      shadowColor: '#2563eb',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.3,
+      shadowRadius: 5,
+      elevation: 3,
+    },
+    tabButtonInactive: {
+      borderWidth: 1,
     },
     tabButtonText: {
-      fontSize: 11.5,
+      fontSize: 12.5,
       fontWeight: '600',
-      color: themeColors.textSecondary,
     },
     tabButtonTextActive: {
       color: '#ffffff',
       fontWeight: '700',
     },
     tabBadge: {
-      paddingHorizontal: 5,
-      paddingVertical: 1,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
       borderRadius: 10,
+      marginLeft: 2,
     },
     tabBadgeActive: {
       backgroundColor: '#ffffff',
     },
     tabBadgeInactive: {
-      backgroundColor: '#2563eb',
+      backgroundColor: '#ef4444',
     },
     tabBadgeText: {
-      fontSize: 10,
+      fontSize: 10.5,
       fontWeight: '800',
-      color: '#ffffff',
     },
     kpiGrid: {
       gap: 10,

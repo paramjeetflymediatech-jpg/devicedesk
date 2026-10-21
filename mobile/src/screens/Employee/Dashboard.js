@@ -765,111 +765,117 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
         );
 
       case 'overview':
-      default:
+      default: {
+        const getGreeting = () => {
+          const hr = new Date().getHours();
+          if (hr < 12) return 'Good morning';
+          if (hr < 17) return 'Good afternoon';
+          return 'Good evening';
+        };
+        const formattedDate = new Date().toLocaleDateString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        });
+
         return (
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#3b82f6']} />}
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.rowBetween}>
-              <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>My Workspace</Text>
+            {/* Executive Workspace Greeting Banner */}
+            <View style={styles.heroGreetingWrap}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.heroGreetingSub, { color: themeColors.textSecondary }]}>
+                  {formattedDate} • {user.department || 'Operations'}
+                </Text>
+                <Text style={[styles.heroGreetingTitle, { color: themeColors.textPrimary }]}>
+                  {getGreeting()}, {empDetails.name?.split(' ')[0] || 'Team'} 👋
+                </Text>
+              </View>
+
+              <View style={[styles.roleChip, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff', borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe' }]}>
+                <Text style={[styles.roleChipText, { color: '#2563eb' }]}>
+                  {empDetails.role || 'Member'}
+                </Text>
+              </View>
             </View>
 
-            {/* Profile & Live Location Overview Header */}
+            {/* Profile & Live Telemetry Overview Header */}
             <View style={[styles.profileCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-                <View style={{ flex: 1, minWidth: 150 }}>
-                  <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>👤 {empDetails.name}</Text>
-                  <Text style={[styles.profileMeta, { color: themeColors.textSecondary, marginTop: 2 }]}>Department: {user.department || 'Operations'}</Text>
+              <View style={styles.profileHeaderRow}>
+                <View style={styles.profileLeftCol}>
+                  <View style={styles.profileAvatarThumb}>
+                    <Text style={styles.profileAvatarThumbText}>
+                      {empDetails.name ? empDetails.name.charAt(0).toUpperCase() : 'U'}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, minWidth: 120 }}>
+                    <Text style={[styles.profileName, { color: themeColors.textPrimary }]} numberOfLines={1}>
+                      {empDetails.name}
+                    </Text>
+                    <Text style={[styles.profileMeta, { color: themeColors.textSecondary }]}>
+                      {empDetails.email || 'employee@devicedesk.com'}
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Location Badge */}
                 <TouchableOpacity
-                  style={{
-                    backgroundColor: isDark ? '#0f172a' : '#f1f5f9',
-                    paddingHorizontal: 10,
-                    paddingVertical: 6,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: themeColors.border,
-                    alignSelf: 'flex-start',
-                  }}
+                  style={[styles.locationChip, { backgroundColor: isDark ? '#141418' : '#f8fafc', borderColor: themeColors.border }]}
                   onPress={fetchOverviewLocation}
                   activeOpacity={0.8}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Text style={{ fontSize: 11 }}>📍</Text>
-                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#2563eb' }}>Current Location</Text>
+                    <Text style={{ fontSize: 10 }}>📍</Text>
+                    <Text style={{ fontSize: 10.5, fontWeight: '800', color: '#2563eb' }}>Location</Text>
                   </View>
-                  <Text style={{ fontSize: 10.5, color: themeColors.textPrimary, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+                  <Text style={{ fontSize: 10.5, color: themeColors.textPrimary, fontWeight: '700', marginTop: 1 }} numberOfLines={1}>
                     {overviewLocation}
                   </Text>
                 </TouchableOpacity>
               </View>
 
-              <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: themeColors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={[styles.profileMeta, { color: themeColors.textSecondary }]}>Ticket Limit Status: {totalRaised} / {ticketLimit} used</Text>
-                <TouchableOpacity onPress={fetchOverviewLocation} disabled={isLocLoading}>
-                  <Text style={{ fontSize: 10.5, color: '#2563eb', fontWeight: '800' }}>
-                    {isLocLoading ? 'Locating...' : 'Refresh 🔄'}
+              <View style={[styles.profileBottomBar, { borderTopColor: themeColors.border }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 13 }}>🎫</Text>
+                  <Text style={[styles.profileMeta, { color: themeColors.textSecondary, marginTop: 0 }]}>
+                    Ticket Quota: <Text style={{ fontWeight: '700', color: themeColors.textPrimary }}>{totalRaised} / {ticketLimit} active</Text>
+                  </Text>
+                </View>
+
+                <TouchableOpacity onPress={fetchOverviewLocation} disabled={isLocLoading} style={styles.refreshLocPill}>
+                  <Text style={{ fontSize: 11, color: '#2563eb', fontWeight: '800' }}>
+                    {isLocLoading ? 'Locating...' : 'Refresh ↻'}
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Quick Action: Daily EOD & Work Submissions Banner */}
-            {/* <TouchableOpacity
-              style={[
-                styles.card,
-                {
-                  backgroundColor: isDark ? '#1e1b4b22' : '#f5f3ff',
-                  borderColor: isDark ? '#4338ca' : '#c7d2fe',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: 14,
-                  marginBottom: 16,
-                }
-              ]}
-              onPress={() => setActiveTab('eod')}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                <Text style={{ fontSize: 24, marginRight: 12 }}>📋</Text>
-                <View>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>Daily EOD & Deliverables</Text>
-                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>Submit daily work bullets & project deliverables</Text>
-                </View>
-              </View>
-              <View style={{ backgroundColor: '#6366f1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
-                <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Submit EOD ➔</Text>
-              </View>
-            </TouchableOpacity> */}
-
             {/* Quick Action: Apply Leave Banner */}
             <TouchableOpacity
               style={[
-                styles.card,
+                styles.actionCardBanner,
                 {
-                  backgroundColor: isDark ? '#1e293b' : '#eff6ff',
-                  borderColor: isDark ? '#334155' : '#bfdbfe',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: 14,
-                  marginBottom: 16,
+                  backgroundColor: isDark ? '#141418' : '#f8faff',
+                  borderColor: isDark ? '#27272a' : '#dbeafe',
                 }
               ]}
               onPress={() => setActiveTab('apply-leave')}
+              activeOpacity={0.88}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                <Text style={{ fontSize: 24, marginRight: 12 }}>🌴</Text>
-                <View>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>Need Time Off?</Text>
-                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>Apply for Casual, Sick, or Earned Leave</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
+                <View style={[styles.actionIconSquircle, { backgroundColor: isDark ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff' }]}>
+                  <Text style={{ fontSize: 20 }}>🌴</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.actionBannerTitle, { color: themeColors.textPrimary }]}>Request Time Off</Text>
+                  <Text style={[styles.actionBannerSub, { color: themeColors.textSecondary }]}>Casual, Sick or Annual leaves</Text>
                 </View>
               </View>
-              <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
-                <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Apply Leave ➔</Text>
+              <View style={styles.actionArrowBtn}>
+                <Text style={styles.actionArrowBtnText}>Apply ➔</Text>
               </View>
             </TouchableOpacity>
 
@@ -877,32 +883,31 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             {isMarketingUser && (
               <TouchableOpacity
                 style={[
-                  styles.card,
+                  styles.actionCardBanner,
                   {
-                    backgroundColor: isDark ? '#083344' : '#ecfeff',
+                    backgroundColor: isDark ? '#0c222e' : '#ecfeff',
                     borderColor: isDark ? '#155e75' : '#a5f3fc',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: 14,
-                    marginBottom: 16,
+                    marginTop: 10,
                   },
                 ]}
                 onPress={() => setActiveTab('marketing-trips')}
+                activeOpacity={0.88}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                  <Text style={{ fontSize: 24, marginRight: 12 }}>🚗</Text>
-                  <View>
-                    <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>
-                      Marketing Field Trips & Live Radar
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
+                  <View style={[styles.actionIconSquircle, { backgroundColor: isDark ? 'rgba(8, 145, 178, 0.25)' : '#cffafe' }]}>
+                    <Text style={{ fontSize: 20 }}>🚗</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.actionBannerTitle, { color: themeColors.textPrimary }]}>
+                      Marketing Field Radar
                     </Text>
-                    <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>
-                      Rapido / Taxi-style GPS route planner & live tracking
+                    <Text style={[styles.actionBannerSub, { color: themeColors.textSecondary }]}>
+                      GPS route planner & visit log
                     </Text>
                   </View>
                 </View>
-                <View style={{ backgroundColor: '#0891b2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
-                  <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Live Radar ➔</Text>
+                <View style={[styles.actionArrowBtn, { backgroundColor: '#0891b2' }]}>
+                  <Text style={styles.actionArrowBtnText}>Live Radar ➔</Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -911,25 +916,59 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             <AttendanceWidget user={user} />
 
             {/* Assigned Hardware */}
-            <Text style={[styles.subTitle, { color: themeColors.textPrimary }]}>Assigned Hardware Inventory</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.subTitle, { color: themeColors.textPrimary, marginTop: 0 }]}>Assigned Equipment</Text>
+              <View style={[styles.countBadge, { backgroundColor: isDark ? '#141418' : '#eff6ff', borderColor: isDark ? '#27272a' : '#bfdbfe' }]}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#2563eb' }}>{activeSystems.length} Machine{activeSystems.length !== 1 ? 's' : ''}</Text>
+              </View>
+            </View>
+
             {activeSystems.length === 0 ? (
               <View style={[styles.noSystemCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
-                <Text style={[styles.noSystemText, { color: themeColors.textPrimary }]}>No hardware system currently assigned to you.</Text>
-                <Text style={[styles.noSystemSubText, { color: themeColors.textSecondary }]}>If you require a machine, please contact IT Support.</Text>
+                <Text style={{ fontSize: 28, marginBottom: 6 }}>💻</Text>
+                <Text style={[styles.noSystemText, { color: themeColors.textPrimary }]}>No hardware currently assigned to you.</Text>
+                <Text style={[styles.noSystemSubText, { color: themeColors.textSecondary }]}>If you need a system, reach out to IT Support via the Tickets tab.</Text>
               </View>
             ) : (
               activeSystems.map(sys => (
                 <View key={sys.id} style={[styles.systemCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
                   <View style={styles.systemHeader}>
-                    <Text style={[styles.systemNo, { color: themeColors.textPrimary }]}>{sys.systemNumber}</Text>
-                    <Text style={[styles.systemModel, { color: themeColors.textSecondary }]}>{sys.model}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={[styles.systemIconWrap, { backgroundColor: isDark ? '#141418' : '#eff6ff' }]}>
+                        <Text style={{ fontSize: 18 }}>🖥️</Text>
+                      </View>
+                      <View>
+                        <Text style={[styles.systemNo, { color: themeColors.textPrimary }]}>{sys.systemNumber}</Text>
+                        <Text style={[styles.systemModel, { color: themeColors.textSecondary }]}>{sys.model || 'Office Workstation'}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.systemStatusActiveBadge}>
+                      <View style={styles.systemStatusDot} />
+                      <Text style={styles.systemStatusActiveText}>Active</Text>
+                    </View>
                   </View>
-                  <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-                  <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>🖥️ OS: {sys.os}</Text>
-                  <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>🧠 CPU: {sys.cpu}</Text>
-                  <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>🎮 GPU: {sys.gpu || 'Integrated'}</Text>
-                  <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>💾 Memory/Storage: {sys.ram} / {sys.storage}</Text>
-                  <Text style={[styles.specItem, { color: themeColors.textSecondary }]}>🏷️ Status: {sys.status}</Text>
+
+                  <View style={styles.specsMatrix}>
+                    <View style={[styles.specChip, { backgroundColor: isDark ? '#141418' : '#f8fafc', borderColor: themeColors.border }]}>
+                      <Text style={[styles.specChipLabel, { color: themeColors.textSecondary }]}>🧠 CPU</Text>
+                      <Text style={[styles.specChipVal, { color: themeColors.textPrimary }]} numberOfLines={1}>{sys.cpu || 'N/A'}</Text>
+                    </View>
+
+                    <View style={[styles.specChip, { backgroundColor: isDark ? '#141418' : '#f8fafc', borderColor: themeColors.border }]}>
+                      <Text style={[styles.specChipLabel, { color: themeColors.textSecondary }]}>⚡ MEMORY</Text>
+                      <Text style={[styles.specChipVal, { color: themeColors.textPrimary }]} numberOfLines={1}>{sys.ram || 'N/A'}</Text>
+                    </View>
+
+                    <View style={[styles.specChip, { backgroundColor: isDark ? '#141418' : '#f8fafc', borderColor: themeColors.border }]}>
+                      <Text style={[styles.specChipLabel, { color: themeColors.textSecondary }]}>💾 STORAGE</Text>
+                      <Text style={[styles.specChipVal, { color: themeColors.textPrimary }]} numberOfLines={1}>{sys.storage || 'N/A'}</Text>
+                    </View>
+
+                    <View style={[styles.specChip, { backgroundColor: isDark ? '#141418' : '#f8fafc', borderColor: themeColors.border }]}>
+                      <Text style={[styles.specChipLabel, { color: themeColors.textSecondary }]}>💿 OPERATING SYSTEM</Text>
+                      <Text style={[styles.specChipVal, { color: themeColors.textPrimary }]} numberOfLines={1}>{sys.os || 'N/A'}</Text>
+                    </View>
+                  </View>
                 </View>
               ))
             )}
@@ -1059,46 +1098,56 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             )}
           </ScrollView>
         );
+      }
     }
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header bar */}
-      <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderBottomColor: themeColors.border }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <TouchableOpacity
             onPress={() => setIsDrawerOpen(true)}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-            style={styles.hamburgerBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={[styles.hamburgerBtn, { backgroundColor: isDark ? '#141418' : '#f1f5f9', borderColor: themeColors.border }]}
+            activeOpacity={0.7}
           >
-            <AppIcon name="menu" size={22} color="#2563eb" />
+            <AppIcon name="menu" size={20} color={isDark ? '#f8fafc' : '#0f172a'} />
           </TouchableOpacity>
-          <View style={{ marginLeft: 10 }}>
+
+          <View>
             <Image
               source={isDark ? require('../../assets/flymedia_logo_white.png') : require('../../assets/flymedia_logo.png')}
-              style={{ width: 140, height: 36 }}
+              style={{ width: 130, height: 32 }}
               resizeMode="contain"
             />
           </View>
         </View>
+
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {/* Quick Theme Switcher Button */}
           <TouchableOpacity
-            style={styles.logoutBtn}
-            onPress={() => {
-              sweetAlert({
-                title: 'Log Out',
-                text: 'Are you sure you want to log out of your session?',
-                type: 'warning',
-                showCancel: true,
-                onConfirm: onLogout,
-              });
-            }}
+            style={[styles.headerIconBtn, { backgroundColor: isDark ? '#141418' : '#f1f5f9', borderColor: themeColors.border }]}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="logout" size={15} color="#dc2626" />
-              <Text style={styles.logoutBtnText}>Log Out</Text>
+            <AppIcon name={isDark ? 'sun' : 'moon'} size={17} color={isDark ? '#f59e0b' : '#64748b'} />
+          </TouchableOpacity>
+
+          {/* User Profile Avatar Pill that opens Drawer */}
+          <TouchableOpacity
+            style={[styles.headerAvatarPill, { backgroundColor: isDark ? '#141418' : '#f1f5f9', borderColor: themeColors.border }]}
+            onPress={() => setIsDrawerOpen(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.headerAvatarCircle}>
+              <Text style={styles.headerAvatarText}>
+                {empDetails.name ? empDetails.name.charAt(0).toUpperCase() : 'U'}
+              </Text>
             </View>
+            <View style={styles.headerOnlineDot} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1514,7 +1563,13 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
             </ScrollView>
 
             <TouchableOpacity
-              style={styles.drawerLogoutBtn}
+              style={[
+                styles.drawerLogoutBtn,
+                {
+                  backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                  borderColor: isDark ? 'rgba(239, 68, 68, 0.28)' : '#fca5a5',
+                }
+              ]}
               onPress={() => {
                 setIsDrawerOpen(false);
                 sweetAlert({
@@ -1525,61 +1580,72 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                   onConfirm: onLogout,
                 });
               }}
+              activeOpacity={0.8}
             >
-              <Text style={styles.drawerLogoutText}>Log Out 🚪</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <AppIcon name="logout" size={15} color={isDark ? '#f87171' : '#dc2626'} />
+                <Text style={[styles.drawerLogoutText, { color: isDark ? '#f87171' : '#dc2626' }]}>
+                  Sign Out of Session
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {/* Main Sections Bottom Footer */}
-      <View style={[styles.tabBar, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
+      {/* Main Sections Bottom Navigation Bar */}
+      <View style={[styles.tabBar, { backgroundColor: isDark ? '#09090b' : '#ffffff', borderTopColor: themeColors.border }]}>
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'overview' && styles.tabItemActive]}
+          style={[styles.tabItem, activeTab === 'overview' && [styles.tabItemActive, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff' }]]}
           onPress={() => setActiveTab('overview')}
+          activeOpacity={0.7}
         >
-          <AppIcon name="overview" size={20} color={activeTab === 'overview' ? '#2563eb' : themeColors.textSecondary} />
-          <Text style={[styles.tabLabel, { color: themeColors.textSecondary }, activeTab === 'overview' && styles.tabLabelActive]}>
+          <AppIcon name="overview" size={19} color={activeTab === 'overview' ? '#2563eb' : themeColors.textSecondary} />
+          <Text style={[styles.tabLabel, { color: activeTab === 'overview' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'overview' && styles.tabLabelActive]}>
             Overview
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'records' && styles.tabItemActive]}
+          style={[styles.tabItem, activeTab === 'records' && [styles.tabItemActive, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff' }]]}
           onPress={() => setActiveTab('records')}
+          activeOpacity={0.7}
         >
-          <AppIcon name="records" size={20} color={activeTab === 'records' ? '#2563eb' : themeColors.textSecondary} />
-          <Text style={[styles.tabLabel, { color: themeColors.textSecondary }, activeTab === 'records' && styles.tabLabelActive]}>
-            My Tickets
+          <AppIcon name="records" size={19} color={activeTab === 'records' ? '#2563eb' : themeColors.textSecondary} />
+          <Text style={[styles.tabLabel, { color: activeTab === 'records' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'records' && styles.tabLabelActive]}>
+            Tickets
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'attendance' && styles.tabItemActive]}
+          style={[styles.tabItem, activeTab === 'attendance' && [styles.tabItemActive, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff' }]]}
           onPress={() => setActiveTab('attendance')}
+          activeOpacity={0.7}
         >
-          <AppIcon name="attendance" size={20} color={activeTab === 'attendance' ? '#2563eb' : themeColors.textSecondary} />
-          <Text style={[styles.tabLabel, { color: themeColors.textSecondary }, activeTab === 'attendance' && styles.tabLabelActive]}>
+          <AppIcon name="attendance" size={19} color={activeTab === 'attendance' ? '#2563eb' : themeColors.textSecondary} />
+          <Text style={[styles.tabLabel, { color: activeTab === 'attendance' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'attendance' && styles.tabLabelActive]}>
             Attendance
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'tasks' && styles.tabItemActive]}
+          style={[styles.tabItem, activeTab === 'tasks' && [styles.tabItemActive, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff' }]]}
           onPress={() => setActiveTab('tasks')}
+          activeOpacity={0.7}
         >
-          <AppIcon name="tasks" size={20} color={activeTab === 'tasks' ? '#2563eb' : themeColors.textSecondary} />
-          <Text style={[styles.tabLabel, { color: themeColors.textSecondary }, activeTab === 'tasks' && styles.tabLabelActive]}>
-            My Tasks
+          <AppIcon name="tasks" size={19} color={activeTab === 'tasks' ? '#2563eb' : themeColors.textSecondary} />
+          <Text style={[styles.tabLabel, { color: activeTab === 'tasks' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'tasks' && styles.tabLabelActive]}>
+            Tasks
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'chat' && styles.tabItemActive]}
+          style={[styles.tabItem, activeTab === 'chat' && [styles.tabItemActive, { backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff' }]]}
           onPress={() => setActiveTab('chat')}
+          activeOpacity={0.7}
         >
-          <AppIcon name="chat" size={20} color={activeTab === 'chat' ? '#2563eb' : themeColors.textSecondary} />
-          <Text style={[styles.tabLabel, { color: themeColors.textSecondary }, activeTab === 'chat' && styles.tabLabelActive]}>
+          <AppIcon name="chat" size={19} color={activeTab === 'chat' ? '#2563eb' : themeColors.textSecondary} />
+          <Text style={[styles.tabLabel, { color: activeTab === 'chat' ? '#2563eb' : themeColors.textSecondary }, activeTab === 'chat' && styles.tabLabelActive]}>
             Chat
           </Text>
         </TouchableOpacity>
@@ -1718,104 +1784,234 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: '#e2e8f0',
     backgroundColor: '#ffffff',
     zIndex: 10,
-    elevation: 4,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0f172a',
-    letterSpacing: -0.5,
-  },
-  headerSub: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  logoutBtn: {
-    backgroundColor: '#fef2f2',
+  hamburgerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#fca5a5',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  logoutBtnText: {
-    color: '#dc2626',
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarPill: {
+    padding: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+    position: 'relative',
+  },
+  headerAvatarCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarText: {
+    color: '#ffffff',
     fontSize: 13,
+    fontWeight: '800',
+  },
+  headerOnlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10b981',
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+    position: 'absolute',
+    bottom: 1,
+    right: 1,
+  },
+  heroGreetingWrap: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+    marginTop: 2,
+  },
+  heroGreetingSub: {
+    fontSize: 11,
     fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  heroGreetingTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    marginTop: 2,
+  },
+  roleChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  roleChipText: {
+    fontSize: 11,
+    fontWeight: '800',
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    padding: 18,
-    paddingBottom: 30,
+    padding: 16,
+    paddingBottom: 32,
   },
   rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  syncBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#eff6ff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-  },
-  syncBtnText: {
-    color: '#2563eb',
-    fontSize: 12.5,
-    fontWeight: '600',
+    marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
     color: '#0f172a',
-    marginBottom: 14,
     letterSpacing: -0.3,
   },
   subTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#1e293b',
-    marginTop: 22,
-    marginBottom: 12,
+    letterSpacing: -0.2,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  countBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   profileCard: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  profileHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  profileLeftCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  profileAvatarThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatarThumbText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  profileName: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  profileMeta: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  locationChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+    maxWidth: 150,
+  },
+  profileBottomBar: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  refreshLocPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  actionCardBanner: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
   },
-  profileName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
-    marginBottom: 6,
+  actionIconSquircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  profileMeta: {
-    fontSize: 13,
-    color: '#475569',
-    marginTop: 4,
+  actionBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  actionBannerSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  actionArrowBtn: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9,
+  },
+  actionArrowBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '800',
   },
   noSystemCard: {
     backgroundColor: '#ffffff',
@@ -1827,13 +2023,11 @@ const styles = StyleSheet.create({
   },
   noSystemText: {
     fontSize: 14,
-    color: '#334155',
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
   },
   noSystemSubText: {
     fontSize: 12,
-    color: '#64748b',
     textAlign: 'center',
     marginTop: 5,
   },
@@ -1841,13 +2035,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 14,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowRadius: 8,
     elevation: 2,
   },
   systemHeader: {
@@ -1855,47 +2049,71 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  systemIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   systemNo: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#2563eb',
-  },
-  systemNumberText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#2563eb',
-  },
-  systemStatusActive: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#059669',
-    backgroundColor: '#ecfdf5',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
-    overflow: 'hidden',
-  },
-  systemDetailsGrid: {
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    paddingTop: 8,
+    letterSpacing: -0.2,
   },
   systemModel: {
-    fontSize: 14,
-    color: '#475569',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 1,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-    marginVertical: 10,
+  systemStatusActiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
   },
-  specItem: {
-    fontSize: 13,
-    color: '#475569',
-    marginTop: 4,
+  systemStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+    marginRight: 5,
+  },
+  systemStatusActiveText: {
+    color: '#10b981',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  specsMatrix: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(100, 116, 139, 0.1)',
+  },
+  specChip: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  specChipLabel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  specChipVal: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 3,
   },
   historyRow: {
     flexDirection: 'row',
@@ -2174,32 +2392,40 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#ffffff',
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+    paddingHorizontal: 8,
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: 16,
+    marginHorizontal: 2,
   },
   tabItemActive: {
-    borderTopWidth: 2,
-    borderTopColor: '#2563eb',
-    marginTop: -8,
-    paddingTop: 8,
+    borderRadius: 14,
   },
   tabIcon: {
     fontSize: 18,
     marginBottom: 2,
   },
   tabLabel: {
-    fontSize: 11,
-    color: '#64748b',
+    fontSize: 10.5,
+    fontWeight: '600',
+    marginTop: 3,
+    letterSpacing: 0.1,
   },
   tabLabelActive: {
     color: '#2563eb',
-    fontWeight: '700',
+    fontWeight: '800',
   },
   modalOverlay: {
     flex: 1,
