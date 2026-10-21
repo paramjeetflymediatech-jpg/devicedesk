@@ -1,7 +1,7 @@
 'use client';
 import Swal from 'sweetalert2';
 import { useState, useEffect } from 'react';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiEdit3, FiDownload , FiUser} from 'react-icons/fi';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiEdit3, FiDownload, FiUser, FiExternalLink } from 'react-icons/fi';
 
 export default function BookServicePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -436,133 +436,235 @@ export default function BookServicePage() {
             )}
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="p-6 border-b border-gray-50"><h3 className="text-lg font-bold text-gray-800">Your Recent Requests</h3></div>
+              <div className="p-5 md:p-6 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3 bg-gradient-to-r from-white via-white to-pink-50/20">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-lg font-bold text-gray-900">Your Recent Requests</h3>
+                    <span className="text-xs font-semibold px-2.5 py-0.5 bg-pink-50 text-pink-700 border border-pink-100 rounded-full">
+                      {requests.length} {requests.length === 1 ? 'Request' : 'Requests'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Track the progress, assigned Team Leader, drive folders, and deliverables for each booked requirement
+                  </p>
+                </div>
+              </div>
+
               <div className="p-0">
                 {requests.length === 0 ? (
-                  <div className="p-6 text-center text-gray-400 py-10">You haven't made any service requests yet.</div>
+                  <div className="p-12 text-center">
+                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-pink-50 flex items-center justify-center text-pink-500 text-xl">
+                      📋
+                    </div>
+                    <h4 className="text-sm font-semibold text-gray-700">No Service Requests Found</h4>
+                    <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+                      Fill out the form above to book a requirement with your assigned Team Leader.
+                    </p>
+                  </div>
                 ) : (
                   <>
                     {/* Desktop View */}
                     <div className="hidden md:block overflow-x-auto w-full">
-                      <table className="w-full text-left">
-                        <thead className="bg-gray-50/50">
-                          <tr>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Service</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/3">Requirement</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned TL</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Status</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-gray-100 bg-gray-50/70 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th className="px-6 py-3.5 whitespace-nowrap">Date</th>
+                            <th className="px-6 py-3.5 whitespace-nowrap">Service</th>
+                            <th className="px-6 py-3.5 min-w-[260px]">Requirements & Assets</th>
+                            <th className="px-6 py-3.5 whitespace-nowrap">Assigned TL</th>
+                            <th className="px-6 py-3.5 whitespace-nowrap">Status</th>
+                            <th className="px-6 py-3.5 text-right whitespace-nowrap">Action</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {currentRequests.map(req => (
-                            <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(req.created_at).toLocaleDateString()}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-800">{req.service_type}</td>
-                              <td className="px-6 py-4 text-sm text-gray-600 line-clamp-2">
-                                <div>{req.requirements}</div>
-                                {req.drive_url && (
-                                  <a 
-                                    href={req.drive_url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="inline-flex items-center gap-1 mt-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded"
-                                    title="Open Google Drive folder"
-                                  >
-                                    📁 Drive Folder ↗
-                                  </a>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                {req.tl_name ? (
-                                  <span className="flex items-center gap-1 text-indigo-600 font-medium">
-                                    <FiUser size={13} /> {req.tl_name}
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                          {currentRequests.map(req => {
+                            const isCompleted = req.status === 'Completed';
+                            const isInProgress = req.status === 'In Progress' || req.status === 'Assigned' || req.status === 'Working';
+                            return (
+                              <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
+                                <td className="px-6 py-4 align-top whitespace-nowrap">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  </div>
+                                  <div className="text-[11px] text-gray-400 mt-0.5">
+                                    {new Date(req.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 align-top whitespace-nowrap">
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-pink-50 text-pink-700 border border-pink-100">
+                                    {req.service_type}
                                   </span>
-                                ) : (
-                                  <span className="text-gray-400 text-xs">Pending</span>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right">
-                                <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${req.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                                  {req.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right">
-                                <button onClick={() => handleViewDelivery(req)} className="text-pink-600 hover:text-pink-800 text-sm font-medium transition-colors bg-pink-50 hover:bg-pink-100 px-3 py-1.5 rounded-lg">
-                                  {req.status === 'Completed' ? 'View Delivery 🚀' : 'View Details 👁️'}
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="px-6 py-4 align-top">
+                                  <div className="max-w-md">
+                                    <p className="text-sm text-gray-700 line-clamp-2 leading-relaxed">
+                                      {req.requirements || <span className="italic text-gray-400">No written details</span>}
+                                    </p>
+                                    {req.drive_url && (
+                                      <div className="mt-2">
+                                        <a
+                                          href={req.drive_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/90 rounded-md transition-all shadow-2xs group"
+                                          title="Open Google Drive folder"
+                                        >
+                                          <span className="text-emerald-600 text-sm">📁</span>
+                                          <span>Drive Folder</span>
+                                          <FiExternalLink className="w-3 h-3 text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
+                                        </a>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 align-top whitespace-nowrap">
+                                  {req.tl_name ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                      <FiUser className="w-3.5 h-3.5 text-indigo-500" />
+                                      <span>{req.tl_name}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-gray-400 bg-gray-50 border border-gray-200/60 italic">
+                                      Pending assignment
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 align-top whitespace-nowrap">
+                                  {isCompleted ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                      {req.status}
+                                    </span>
+                                  ) : isInProgress ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                      {req.status}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                      {req.status || 'Pending'}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 align-top text-right whitespace-nowrap">
+                                  <button
+                                    onClick={() => handleViewDelivery(req)}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                      isCompleted
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs hover:shadow'
+                                        : 'bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200'
+                                    }`}
+                                  >
+                                    {isCompleted ? '🚀 View Delivery' : '👁️ View Details'}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
 
                     {/* Mobile View */}
                     <div className="md:hidden divide-y divide-gray-100">
-                      {currentRequests.map(req => (
-                        <div key={req.id} className="p-4 flex flex-col gap-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="text-sm font-bold text-gray-800">{req.service_type}</p>
-                              <p className="text-xs text-gray-500 mt-1">{new Date(req.created_at).toLocaleDateString()}</p>
+                      {currentRequests.map(req => {
+                        const isCompleted = req.status === 'Completed';
+                        const isInProgress = req.status === 'In Progress' || req.status === 'Assigned' || req.status === 'Working';
+                        return (
+                          <div key={req.id} className="p-4 sm:p-5 flex flex-col gap-3 hover:bg-gray-50/40 transition-colors">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-pink-50 text-pink-700 border border-pink-100">
+                                    {req.service_type}
+                                  </span>
+                                  {isCompleted ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                      {req.status}
+                                    </span>
+                                  ) : isInProgress ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                      {req.status}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                      {req.status || 'Pending'}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-gray-400 mt-1">
+                                  {new Date(req.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(req.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
                             </div>
-                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${req.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                              {req.status}
-                            </span>
-                          </div>
-                          
-                          <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100 line-clamp-3">
-                            {req.requirements}
-                          </div>
 
-                          {req.drive_url && (
-                            <a 
-                              href={req.drive_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md w-fit"
-                            >
-                              📁 Google Drive Folder ↗
-                            </a>
-                          )}
-
-                          <div className="flex justify-between items-center mt-1">
-                            <div className="text-xs">
-                              <span className="text-gray-500 block mb-1">Assigned TL:</span>
-                              {req.tl_name ? (
-                                <span className="flex items-center gap-1 text-indigo-600 font-medium">
-                                  <FiUser size={12} /> {req.tl_name}
-                                </span>
-                              ) : (
-                                <span className="text-gray-400 italic">Pending</span>
+                            <div className="text-sm text-gray-700 bg-gray-50/80 p-3.5 rounded-xl border border-gray-100">
+                              <p className="line-clamp-3 leading-relaxed">
+                                {req.requirements || <span className="italic text-gray-400">No written details</span>}
+                              </p>
+                              {req.drive_url && (
+                                <div className="mt-2.5 pt-2.5 border-t border-gray-200/60">
+                                  <a
+                                    href={req.drive_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md transition-all"
+                                  >
+                                    <span>📁</span>
+                                    <span>Google Drive Folder</span>
+                                    <FiExternalLink className="w-3 h-3 text-emerald-600" />
+                                  </a>
+                                </div>
                               )}
                             </div>
-                            
-                            <div>
-                              <button onClick={() => handleViewDelivery(req)} className="text-pink-600 hover:text-pink-800 font-semibold text-xs px-3 py-1.5 bg-pink-50 rounded-lg">
-                                {req.status === 'Completed' ? 'View Delivery 🚀' : 'View Details 👁️'}
+
+                            <div className="flex items-center justify-between gap-3 pt-1">
+                              <div className="text-xs">
+                                <span className="text-gray-400 text-[10px] uppercase tracking-wider block font-medium">Assigned TL</span>
+                                {req.tl_name ? (
+                                  <span className="inline-flex items-center gap-1 text-indigo-700 font-semibold mt-0.5">
+                                    <FiUser className="w-3.5 h-3.5 text-indigo-500" />
+                                    <span>{req.tl_name}</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 italic text-[11px]">Pending assignment</span>
+                                )}
+                              </div>
+
+                              <button
+                                onClick={() => handleViewDelivery(req)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                  isCompleted
+                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
+                                    : 'bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200'
+                                }`}
+                              >
+                                {isCompleted ? '🚀 View Delivery' : '👁️ View Details'}
                               </button>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
+
                     {totalPages > 1 && (
-                      <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 bg-gray-50/30">
+                      <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 bg-gray-50/50">
                         <button 
                           onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
                           disabled={currentPage === 1}
-                          className="px-3 py-1.5 text-sm border border-gray-200 rounded bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+                          className="px-3.5 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
                         >
                           Previous
                         </button>
-                        <span className="text-sm text-gray-500 font-medium">Page {currentPage} of {totalPages}</span>
+                        <span className="text-xs text-gray-500 font-medium">Page {currentPage} of {totalPages}</span>
                         <button 
                           onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
                           disabled={currentPage === totalPages}
-                          className="px-3 py-1.5 text-sm border border-gray-200 rounded bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+                          className="px-3.5 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
                         >
                           Next
                         </button>
