@@ -240,6 +240,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const [forwardingMember, setForwardingMember] = useState(null);
 
   const leaderId = user?.id || '';
+  const currentUser = user;
 
   // Load all team leader data matching web portal endpoints
   const loadData = useCallback(async () => {
@@ -1197,7 +1198,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       </Text>
 
                       {/* Detected Google Drive Requirement Folder - ONLY shown if assigned to this Team Leader or Admin */}
-                      {((String(req.assigned_tl_id) === String(currentUser?.id || leaderId)) || currentUser?.role === 'Admin' || currentUser?.role === 'Management') && (
+                      {((String(req.assigned_tl_id) === String(user?.id || leaderId)) || user?.role === 'Admin' || user?.role === 'Management') && (
                         <GoogleDriveBadge source={req} isDark={isDark} themeColors={themeColors} />
                       )}
 
@@ -1996,7 +1997,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                   </Text>
 
                   {/* Detected Google Drive Requirement Folder in Details Modal - ONLY shown if assigned to this Team Leader or Admin */}
-                  {((String(selectedRequest.assigned_tl_id) === String(currentUser?.id || leaderId)) || currentUser?.role === 'Admin' || currentUser?.role === 'Management') && (
+                  {((String(selectedRequest.assigned_tl_id) === String(user?.id || leaderId)) || user?.role === 'Admin' || user?.role === 'Management') && (
                     <GoogleDriveBadge source={selectedRequest} isDark={isDark} themeColors={themeColors} />
                   )}
 
