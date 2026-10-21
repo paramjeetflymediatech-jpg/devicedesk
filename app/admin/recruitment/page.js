@@ -169,13 +169,14 @@ export default function HrRecruitmentPage() {
           })
         });
 
-        // 2. Mark the test as Evaluated
+        // 2. Mark the test as Evaluated with decision status and feedback
         await fetch('/api/candidates/evaluate-test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             test_id: selectedTest.id,
-            status: 'Evaluated'
+            status: evaluateForm.status || 'Evaluated',
+            feedback: evaluateForm.feedback || ''
           })
         });
 

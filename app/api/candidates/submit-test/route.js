@@ -44,10 +44,14 @@ export async function POST(request) {
 
     const finalScore = `${score} / ${mcqData.length}`;
 
+    // Ensure submitted_at column exists
+    try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN submitted_at TIMESTAMP NULL DEFAULT NULL`); } catch (e) {}
+    try { await db.execute(`ALTER TABLE candidate_tests ADD COLUMN score INT DEFAULT NULL`); } catch (e) {}
+
     // Update test
     await db.execute(
-      `UPDATE candidate_tests SET status = 'Completed', test_data = ? WHERE id = ?`,
-      [JSON.stringify(evaluatedData), testId]
+      `UPDATE candidate_tests SET status = 'Completed', test_data = ?, score = ?, submitted_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [JSON.stringify(evaluatedData), score, testId]
     );
 
     return NextResponse.json({ 
