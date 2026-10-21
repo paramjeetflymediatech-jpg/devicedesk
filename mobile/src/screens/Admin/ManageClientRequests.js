@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
 import GoogleDriveBadge from '../../components/GoogleDriveBadge';
+import { extractDriveLinks, isDriveUrl, openDriveLink } from '../../utils/driveHelper';
 import {
   fetchClientRequestsApi,
   fetchEmployeesApi,
@@ -146,6 +147,10 @@ export default function ManageClientRequests({ currentUser, onBack }) {
   const [assignModalVisible, setAssignModalVisible] = useState(false);
   const [targetReq, setTargetReq] = useState(null);
   const [savingTl, setSavingTl] = useState(false);
+  const [assignDriveLink, setAssignDriveLink] = useState('');
+  const [selectedTlId, setSelectedTlId] = useState(null);
+  const [selectedTlName, setSelectedTlName] = useState('');
+  const [savingDrive, setSavingDrive] = useState(false);
 
   // Detail Modal
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -218,26 +223,36 @@ export default function ManageClientRequests({ currentUser, onBack }) {
 
   const handleOpenAssignModal = (req) => {
     setTargetReq(req);
+    const detectedLinks = extractDriveLinks(req);
+    const existingLink = req?.drive_url || req?.drive_link || (detectedLinks.length > 0 ? detectedLinks[0] : '');
+    setAssignDriveLink(existingLink || '');
+    setSelectedTlId(req?.assigned_tl_id || null);
+    setSelectedTlName(req?.tl_name || '');
     setAssignModalVisible(true);
   };
 
-  const handleAssignTL = async (tlId, tlName) => {
+  const handleAssignTL = async (tlId, tlName, customDrive) => {
     if (!targetReq) return;
     try {
       setSavingTl(true);
+      const drivePayload = (customDrive !== undefined ? customDrive : assignDriveLink).trim();
       const res = await updateClientRequestApi({
         id: targetReq.id,
         assigned_tl_id: tlId || null,
+        drive_url: drivePayload || null,
       });
 
       if (res && res.success) {
         sweetAlert({
           title: 'Success',
-          text: tlName ? `Assigned to ${tlName}` : 'TL unassigned successfully',
+          text: tlName ? `Assigned to ${tlName} with Drive folder synced` : (tlId === null ? 'TL unassigned successfully' : 'Updated successfully'),
           type: 'success',
         });
         setAssignModalVisible(false);
         setTargetReq(null);
+        if (selectedReq && selectedReq.id === targetReq.id) {
+          setSelectedReq(prev => prev ? ({ ...prev, assigned_tl_id: tlId || null, tl_name: tlName, drive_url: drivePayload || prev.drive_url }) : null);
+        }
         loadData();
       } else {
         sweetAlert({
@@ -255,6 +270,45 @@ export default function ManageClientRequests({ currentUser, onBack }) {
       });
     } finally {
       setSavingTl(false);
+    }
+  };
+
+  const handleSaveDriveLinkOnly = async () => {
+    if (!targetReq) return;
+    try {
+      setSavingDrive(true);
+      const link = assignDriveLink.trim();
+      const res = await updateClientRequestApi({
+        id: targetReq.id,
+        drive_url: link || null,
+      });
+      if (res && res.success) {
+        sweetAlert({
+          title: 'Drive Link Saved',
+          text: 'Google Drive folder link has been saved to this client request.',
+          type: 'success',
+        });
+        setTargetReq(prev => ({ ...prev, drive_url: link }));
+        if (selectedReq && selectedReq.id === targetReq.id) {
+          setSelectedReq(prev => prev ? ({ ...prev, drive_url: link }) : null);
+        }
+        loadData();
+      } else {
+        sweetAlert({
+          title: 'Error',
+          text: res?.error || 'Failed to save Google Drive folder link.',
+          type: 'error',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to save Drive link:', err);
+      sweetAlert({
+        title: 'Error',
+        text: 'Network error while saving Drive link.',
+        type: 'error',
+      });
+    } finally {
+      setSavingDrive(false);
     }
   };
 
@@ -695,7 +749,7 @@ export default function ManageClientRequests({ currentUser, onBack }) {
         )}
       </ScrollView>
 
-      {/* ASSIGN TEAM LEADER MODAL */}
+      {/* ASSIGN TEAM LEADER & GOOGLE DRIVE MODAL */}
       <Modal visible={assignModalVisible} transparent animationType="slide" onRequestClose={() => setAssignModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalSheet}>
@@ -718,21 +772,114 @@ export default function ManageClientRequests({ currentUser, onBack }) {
               <View style={{ padding: 40, alignItems: 'center' }}>
                 <ActivityIndicator size="large" color="#3b82f6" />
                 <Text style={{ marginTop: 12, color: themeColors.textSecondary, fontWeight: '600' }}>
-                  Updating assignment...
+                  Updating assignment & Drive folder...
                 </Text>
               </View>
             ) : (
-              <ScrollView style={{ maxHeight: 380, paddingHorizontal: 16 }}>
+              <ScrollView style={{ maxHeight: 460, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false}>
+                {/* 1. Client Requirement Brief Preview */}
+                <View style={styles.assignReqBox}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 13 }}>{SERVICE_ICONS[targetReq?.service_type] || '💼'}</Text>
+                      <Text style={styles.assignReqService}>{targetReq?.service_type || 'Service Request'}</Text>
+                    </View>
+                    <Text style={styles.assignReqDate}>
+                      {targetReq?.created_at ? new Date(targetReq.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    </Text>
+                  </View>
+                  <Text style={styles.assignReqDesc} numberOfLines={3}>
+                    {targetReq?.requirements || 'No requirement details specified.'}
+                  </Text>
+                </View>
+
+                {/* 2. Google Drive Requirements Section */}
+                <View style={styles.assignDriveSection}>
+                  <View style={styles.assignDriveHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                      <AppIcon name="google-drive" size={18} color="#059669" />
+                      <Text style={styles.assignDriveTitle}>Google Drive Requirements Folder</Text>
+                    </View>
+                    {(assignDriveLink || targetReq?.drive_url) ? (
+                      <View style={styles.assignDriveActiveBadge}>
+                        <Text style={styles.assignDriveActiveBadgeText}>Active Folder</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <Text style={styles.assignDriveDesc}>
+                    Check or attach the client's Google Drive folder link. Team Leader and specialists will access this directly in the app.
+                  </Text>
+
+                  {/* Active Google Drive Badge Preview */}
+                  {(assignDriveLink || targetReq?.drive_url) ? (
+                    <View style={{ marginVertical: 6 }}>
+                      <GoogleDriveBadge source={assignDriveLink || targetReq} isDark={isDark} themeColors={themeColors} />
+                    </View>
+                  ) : null}
+
+                  {/* Link Input Row */}
+                  <View style={styles.assignDriveInputWrap}>
+                    <AppIcon name="folder" size={16} color={themeColors.textSecondary} />
+                    <TextInput
+                      style={styles.assignDriveInput}
+                      placeholder="Paste Google Drive folder URL (https://drive.google.com/...)"
+                      placeholderTextColor={themeColors.textSecondary + '80'}
+                      value={assignDriveLink}
+                      onChangeText={setAssignDriveLink}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    {assignDriveLink ? (
+                      <TouchableOpacity onPress={() => setAssignDriveLink('')} style={{ padding: 4 }}>
+                        <AppIcon name="close" size={14} color={themeColors.textSecondary} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  {/* Action Row */}
+                  <View style={styles.assignDriveBtnRow}>
+                    {isDriveUrl(assignDriveLink) && (
+                      <TouchableOpacity
+                        style={styles.assignDriveTestBtn}
+                        onPress={() => openDriveLink(assignDriveLink)}
+                        activeOpacity={0.7}
+                      >
+                        <AppIcon name="google-drive" size={13} color="#059669" />
+                        <Text style={styles.assignDriveTestBtnText}>Open Folder ↗</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      style={[styles.assignDriveSaveBtn, savingDrive && { opacity: 0.6 }]}
+                      onPress={handleSaveDriveLinkOnly}
+                      disabled={savingDrive}
+                      activeOpacity={0.7}
+                    >
+                      {savingDrive ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <Text style={styles.assignDriveSaveBtnText}>Save Link Only</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* 3. Team Leader Delegation */}
                 <Text style={styles.subHeading}>Choose a Team Leader to delegate this client:</Text>
 
                 {/* Unassign Option */}
                 <TouchableOpacity
                   style={[
                     styles.tlCard,
-                    !targetReq?.assigned_tl_id && styles.tlCardSelected,
+                    selectedTlId === null && styles.tlCardSelected,
                     { borderColor: '#ef4444' }
                   ]}
-                  onPress={() => handleAssignTL(null, null)}
+                  onPress={() => {
+                    setSelectedTlId(null);
+                    setSelectedTlName('');
+                    handleAssignTL(null, null);
+                  }}
                   activeOpacity={0.7}
                 >
                   <View style={[styles.tlAvatar, { backgroundColor: '#fee2e2' }]}>
@@ -742,7 +889,7 @@ export default function ManageClientRequests({ currentUser, onBack }) {
                     <Text style={[styles.tlName, { color: '#ef4444' }]}>Leave Unassigned</Text>
                     <Text style={styles.tlRole}>Remove current TL assignment</Text>
                   </View>
-                  {!targetReq?.assigned_tl_id && (
+                  {selectedTlId === null && (
                     <View style={[styles.radioDot, { backgroundColor: '#ef4444' }]}>
                       <AppIcon name="check" size={14} color="#ffffff" />
                     </View>
@@ -757,12 +904,16 @@ export default function ManageClientRequests({ currentUser, onBack }) {
                   </View>
                 ) : (
                   teamLeaders.map(tl => {
-                    const isSelected = targetReq?.assigned_tl_id === tl.id;
+                    const isSelected = selectedTlId === tl.id;
                     return (
                       <TouchableOpacity
                         key={tl.id}
                         style={[styles.tlCard, isSelected && styles.tlCardSelected]}
-                        onPress={() => handleAssignTL(tl.id, tl.name)}
+                        onPress={() => {
+                          setSelectedTlId(tl.id);
+                          setSelectedTlName(tl.name);
+                          handleAssignTL(tl.id, tl.name);
+                        }}
                         activeOpacity={0.7}
                       >
                         <View style={styles.tlAvatar}>
@@ -788,9 +939,27 @@ export default function ManageClientRequests({ currentUser, onBack }) {
             )}
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.cancelFooterBtn} onPress={() => setAssignModalVisible(false)} activeOpacity={0.7}>
-                <Text style={styles.cancelFooterBtnText}>Close</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity style={[styles.cancelFooterBtn, { flex: 1 }]} onPress={() => setAssignModalVisible(false)} activeOpacity={0.7}>
+                  <Text style={styles.cancelFooterBtnText}>Close</Text>
+                </TouchableOpacity>
+
+                {selectedTlId && (
+                  <TouchableOpacity
+                    style={[styles.confirmAssignBtn, { flex: 2 }]}
+                    onPress={() => {
+                      const tlObj = teamLeaders.find(t => t.id === selectedTlId);
+                      handleAssignTL(selectedTlId, tlObj?.name || selectedTlName || 'Team Leader');
+                    }}
+                    activeOpacity={0.8}
+                    disabled={savingTl}
+                  >
+                    <Text style={styles.confirmAssignBtnText}>
+                      Assign & Sync Drive 🚀
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
         </View>
@@ -884,6 +1053,19 @@ export default function ManageClientRequests({ currentUser, onBack }) {
                   </View>
                   {/* Detected Google Drive Requirement Folder in Details Modal */}
                   <GoogleDriveBadge source={selectedReq} isDark={isDark} themeColors={themeColors} />
+                  <TouchableOpacity
+                    style={styles.detailDriveActionBtn}
+                    onPress={() => {
+                      setDetailModalVisible(false);
+                      handleOpenAssignModal(selectedReq);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <AppIcon name="google-drive" size={15} color={isDark ? '#34d399' : '#059669'} />
+                    <Text style={styles.detailDriveActionBtnText}>
+                      {selectedReq?.drive_url ? 'Edit Drive Folder & Assign TL →' : '+ Add Drive Folder & Assign to TL'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Client Attachments Section */}
@@ -1542,6 +1724,149 @@ const getStyles = (themeColors, isDark) =>
       fontSize: 14,
       fontWeight: '700',
       color: themeColors.textPrimary,
+    },
+    confirmAssignBtn: {
+      backgroundColor: '#3b82f6',
+      paddingVertical: 12,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    confirmAssignBtnText: {
+      fontSize: 13.5,
+      fontWeight: '700',
+      color: '#ffffff',
+    },
+    assignReqBox: {
+      backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: themeColors.border,
+      marginTop: 6,
+      marginBottom: 12,
+    },
+    assignReqService: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: themeColors.textPrimary,
+    },
+    assignReqDate: {
+      fontSize: 11,
+      color: themeColors.textSecondary,
+    },
+    assignReqDesc: {
+      fontSize: 12.5,
+      color: themeColors.textSecondary,
+      lineHeight: 18,
+      marginTop: 4,
+    },
+    assignDriveSection: {
+      backgroundColor: isDark ? '#064e3b18' : '#ecfdf5',
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: isDark ? '#05966940' : '#a7f3d0',
+      marginBottom: 14,
+    },
+    assignDriveHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 4,
+    },
+    assignDriveTitle: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: isDark ? '#34d399' : '#047857',
+    },
+    assignDriveActiveBadge: {
+      backgroundColor: isDark ? '#065f46' : '#d1fae5',
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    assignDriveActiveBadgeText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: isDark ? '#a7f3d0' : '#065f46',
+    },
+    assignDriveDesc: {
+      fontSize: 11.5,
+      color: isDark ? '#a7f3d0' : '#065f46',
+      lineHeight: 16,
+      marginBottom: 8,
+    },
+    assignDriveInputWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? '#18181b' : '#ffffff',
+      borderWidth: 1,
+      borderColor: isDark ? '#05966960' : '#6ee7b7',
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      gap: 8,
+    },
+    assignDriveInput: {
+      flex: 1,
+      fontSize: 12.5,
+      color: themeColors.textPrimary,
+      padding: 0,
+    },
+    assignDriveBtnRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+    },
+    assignDriveTestBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+      borderWidth: 1,
+      borderColor: '#059669',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 8,
+    },
+    assignDriveTestBtnText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+      color: '#059669',
+    },
+    assignDriveSaveBtn: {
+      backgroundColor: '#059669',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 80,
+    },
+    assignDriveSaveBtnText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+      color: '#ffffff',
+    },
+    detailDriveActionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: isDark ? '#064e3b22' : '#ecfdf5',
+      borderWidth: 1,
+      borderColor: isDark ? '#05966950' : '#a7f3d0',
+      borderRadius: 10,
+      paddingVertical: 10,
+      marginTop: 8,
+    },
+    detailDriveActionBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: isDark ? '#34d399' : '#059669',
     },
     sectionCard: {
       backgroundColor: isDark ? '#0f172a' : '#f8fafc',

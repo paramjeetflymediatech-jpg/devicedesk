@@ -22,6 +22,9 @@ export async function GET(request) {
     try {
       await db.query(`ALTER TABLE service_requests ADD COLUMN attachment TEXT DEFAULT NULL`);
     } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN drive_url TEXT DEFAULT NULL`);
+    } catch (e) {}
 
     const baseQuery = `
       SELECT r.*, 
@@ -72,7 +75,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { clientId, service_type, requirements, attachment } = await request.json();
+    const { clientId, service_type, requirements, attachment, drive_url } = await request.json();
     if (!clientId || !service_type || !requirements) {
       return NextResponse.json({ success: false, error: 'Missing required fields (service type or requirements).' }, { status: 400 });
     }
@@ -85,6 +88,9 @@ export async function POST(request) {
     } catch (e) {}
     try {
       await db.query(`ALTER TABLE service_requests ADD COLUMN assigned_tl_id VARCHAR(50)`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN drive_url TEXT`);
     } catch (e) {}
 
     // Verify client has an active package before allowing service booking
@@ -106,9 +112,9 @@ export async function POST(request) {
     const now = new Date().toISOString();
 
     await db.query(
-      `INSERT INTO service_requests (id, clientId, service_type, requirements, status, created_at, attachment)
-       VALUES (?, ?, ?, ?, 'Pending', ?, ?)`,
-      [id, clientId, service_type, requirements, now, attachment || null]
+      `INSERT INTO service_requests (id, clientId, service_type, requirements, status, created_at, attachment, drive_url)
+       VALUES (?, ?, ?, ?, 'Pending', ?, ?, ?)`,
+      [id, clientId, service_type, requirements, now, attachment || null, drive_url || null]
     );
 
     // Notify Management (Admins & Management)
@@ -138,23 +144,46 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, status, assigned_tl_id } = await request.json();
+    const { id, status, assigned_tl_id, drive_url } = await request.json();
     if (!id) {
       return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 });
     }
 
     const db = await getDbConnection();
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN drive_url TEXT`);
+    } catch (e) {}
     
-    // Update assigned_tl_id if provided
-    if (assigned_tl_id !== undefined) {
-      await db.query(`UPDATE service_requests SET assigned_tl_id = ? WHERE id = ?`, [assigned_tl_id || null, id]);
+    // Update assigned_tl_id and/or drive_url if provided
+    if (assigned_tl_id !== undefined || drive_url !== undefined) {
+      const updates = [];
+      const params = [];
+      if (assigned_tl_id !== undefined) {
+        updates.push('assigned_tl_id = ?');
+        params.push(assigned_tl_id || null);
+      }
+      if (drive_url !== undefined) {
+        updates.push('drive_url = ?');
+        params.push(drive_url || null);
+      }
+      if (status !== undefined) {
+        updates.push('status = ?');
+        params.push(status);
+      }
+      params.push(id);
+      await db.query(`UPDATE service_requests SET ${updates.join(', ')} WHERE id = ?`, params);
+
       if (assigned_tl_id) {
-        await sendNotification(
-          assigned_tl_id,
-          'New Client Request',
-          'A new client requirement has been assigned to you.',
-          '/portal/leader/client-requests'
-        );
+        try {
+          await sendNotification(
+            assigned_tl_id,
+            'New Client Request',
+            'A new client requirement has been assigned to you.',
+            '/portal/leader/client-requests'
+          );
+        } catch (notifErr) {
+          console.error('Failed to send notification to TL:', notifErr);
+        }
       }
       return NextResponse.json({ success: true });
     }
