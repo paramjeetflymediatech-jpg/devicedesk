@@ -250,6 +250,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const [submittingDiscussion, setSubmittingDiscussion] = useState(false);
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [clientSearchQuery, setClientSearchQuery] = useState('');
+  const [manualClientIdInput, setManualClientIdInput] = useState('');
 
   const leaderId = user?.id || '';
   const currentUser = user;
@@ -2589,326 +2590,395 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         animationType="slide"
         transparent={true}
         visible={initiateModalVisible}
-        onRequestClose={() => setInitiateModalVisible(false)}
+        onRequestClose={() => {
+          if (clientPickerOpen) {
+            setClientPickerOpen(false);
+          } else {
+            setInitiateModalVisible(false);
+          }
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.discussionModalSheet, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
-            {/* Modal Header */}
-            <View style={[styles.discussionModalHeader, { borderBottomColor: themeColors.border }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isDark ? '#1e3a8a' : '#dbeafe', alignItems: 'center', justifyContent: 'center' }}>
-                  <AppIcon name="chat" size={18} color="#2563eb" />
-                </View>
-                <View>
-                  <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
-                    Start Discussion with Client
-                  </Text>
-                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
-                    Send an inquiry, clarification, or brief to client
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={() => setInitiateModalVisible(false)} style={styles.modalCloseBtn}>
-                <AppIcon name="x" size={16} color={themeColors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              {/* Client Selection */}
-              <Text style={styles.inputLabel}>RECIPIENT CLIENT *</Text>
-              {selectedClientObj ? (
-                <View style={[styles.clientSelectCard, { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: '#2563eb' }]}>
-                  <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                    <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 13 }}>
-                      {(selectedClientObj.name || 'C').charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary }} numberOfLines={1}>
-                      {selectedClientObj.name}
-                    </Text>
-                    <Text style={{ fontSize: 10.5, color: themeColors.textSecondary }}>
-                      {selectedClientObj.company ? `${selectedClientObj.company} • ` : ''}ID: {selectedClientObj.id}
-                    </Text>
-                  </View>
+            {clientPickerOpen ? (
+              /* ======================================================== */
+              /* SUBVIEW 1: CLIENT SELECTION & SEARCH                     */
+              /* ======================================================== */
+              <View style={{ width: '100%' }}>
+                {/* Picker Header */}
+                <View style={[styles.discussionModalHeader, { borderBottomColor: themeColors.border }]}>
                   <TouchableOpacity
-                    style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isDark ? '#334155' : '#e2e8f0' }}
-                    onPress={() => setClientPickerOpen(true)}
+                    onPress={() => setClientPickerOpen(false)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textPrimary }}>Change</Text>
+                    <AppIcon name="arrow-left" size={16} color="#2563eb" />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563eb' }}>Back</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Choose Client</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setClientPickerOpen(false);
+                      setInitiateModalVisible(false);
+                    }}
+                    style={styles.modalCloseBtn}
+                  >
+                    <AppIcon name="x" size={16} color={themeColors.textSecondary} />
                   </TouchableOpacity>
                 </View>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.clientEmptyTrigger, { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: themeColors.border }]}
-                  onPress={() => setClientPickerOpen(true)}
-                  activeOpacity={0.7}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <AppIcon name="user" size={16} color="#2563eb" />
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: themeColors.textSecondary }}>
-                      Tap to choose an assigned client...
-                    </Text>
-                  </View>
-                  <AppIcon name="chevron-down" size={14} color={themeColors.textSecondary} />
-                </TouchableOpacity>
-              )}
 
-              {/* Quick Topic Suggestions */}
-              <Text style={styles.inputLabel}>DISCUSSION TOPIC</Text>
-              <View style={styles.topicChipRow}>
-                {['Access Credentials', 'Brief Clarification', 'Asset Request', 'Deliverables Review', 'Urgent Query'].map((topic) => {
-                  const isSelected = newDiscussionTopic === topic;
-                  return (
+                {/* Search Input */}
+                <View style={[styles.searchInputWrap, { marginBottom: 12 }]}>
+                  <AppIcon name="search" size={16} color={isDark ? '#94a3b8' : '#64748b'} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search by name, company, or ID..."
+                    placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                    value={clientSearchQuery}
+                    onChangeText={setClientSearchQuery}
+                    autoFocus
+                    returnKeyType="search"
+                  />
+                  {clientSearchQuery.length > 0 && (
                     <TouchableOpacity
-                      key={topic}
-                      style={[
-                        styles.topicChipItem,
-                        {
-                          backgroundColor: isSelected ? '#2563eb' : (isDark ? '#1e293b' : '#f1f5f9'),
-                          borderColor: isSelected ? '#2563eb' : themeColors.border,
-                        },
-                      ]}
-                      onPress={() => setNewDiscussionTopic(isSelected ? '' : topic)}
-                    >
-                      <Text
-                        style={[
-                          styles.topicChipItemText,
-                          { color: isSelected ? '#ffffff' : themeColors.textSecondary },
-                        ]}
-                      >
-                        {topic}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <TextInput
-                style={[styles.discussionInput, { backgroundColor: isDark ? '#0f172a' : '#ffffff', color: themeColors.textPrimary, borderColor: themeColors.border }]}
-                placeholder="Or type custom subject (e.g. Google Analytics Access)"
-                placeholderTextColor={themeColors.textSecondary}
-                value={newDiscussionTopic}
-                onChangeText={setNewDiscussionTopic}
-              />
-
-              {/* Message */}
-              <Text style={styles.inputLabel}>MESSAGE & DISCUSSION POINTS *</Text>
-              <TextInput
-                style={[styles.discussionTextarea, { backgroundColor: isDark ? '#0f172a' : '#ffffff', color: themeColors.textPrimary, borderColor: themeColors.border }]}
-                placeholder="Write your questions, requirements, or clarification points for the client..."
-                placeholderTextColor={themeColors.textSecondary}
-                value={newDiscussionMessage}
-                onChangeText={setNewDiscussionMessage}
-                multiline
-                numberOfLines={4}
-              />
-
-              {/* Security Policy Reminder */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 7, backgroundColor: isDark ? 'rgba(217, 119, 6, 0.15)' : '#fef3c7', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: isDark ? '#b45309' : '#fde68a', marginBottom: 12 }}>
-                <AppIcon name="alert-circle" size={15} color="#d97706" style={{ marginTop: 1 }} />
-                <Text style={{ flex: 1, fontSize: 11, color: isDark ? '#fbbf24' : '#92400e', lineHeight: 15 }}>
-                  <Text style={{ fontWeight: '800' }}>Policy Notice: </Text>
-                  Sharing phone numbers or direct contact details is strictly prohibited. Keep all communication within the company portal.
-                </Text>
-              </View>
-
-              {/* Attachments */}
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 7,
-                  paddingVertical: 10,
-                  borderRadius: 10,
-                  borderWidth: 1.5,
-                  borderStyle: 'dashed',
-                  borderColor: '#2563eb',
-                  backgroundColor: isDark ? '#1e293b' : '#eff6ff',
-                }}
-                onPress={handlePickDiscussionAttachment}
-                activeOpacity={0.7}
-              >
-                <AppIcon name="paperclip" size={15} color="#2563eb" />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563eb' }}>
-                  Attach Files / Photos ({newDiscussionAttachments.length})
-                </Text>
-              </TouchableOpacity>
-
-              {newDiscussionAttachments.length > 0 && (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                  {newDiscussionAttachments.map((f, fIdx) => (
-                    <View
-                      key={fIdx}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        backgroundColor: isDark ? '#0f172a' : '#f1f5f9',
-                        paddingHorizontal: 8,
-                        paddingVertical: 4.5,
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: themeColors.border,
-                        gap: 4,
-                      }}
-                    >
-                      <Text style={{ fontSize: 11, color: themeColors.textPrimary, maxWidth: 140 }} numberOfLines={1}>
-                        {f.name || `File ${fIdx + 1}`}
-                      </Text>
-                      <TouchableOpacity onPress={() => handleRemoveDiscussionAttachment(fIdx)}>
-                        <AppIcon name="x" size={12} color="#ef4444" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {/* Modal Buttons */}
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, marginBottom: 8 }}>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    paddingVertical: 12,
-                    borderRadius: 12,
-                    alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: themeColors.border,
-                  }}
-                  onPress={() => setInitiateModalVisible(false)}
-                  disabled={submittingDiscussion}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textSecondary }}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={{
-                    flex: 1.5,
-                    paddingVertical: 12,
-                    borderRadius: 12,
-                    alignItems: 'center',
-                    backgroundColor: '#2563eb',
-                    flexDirection: 'row',
-                    justifyContent: 'center',
-                    gap: 6,
-                    shadowColor: '#2563eb',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 4,
-                    elevation: 3,
-                  }}
-                  onPress={handleInitiateDiscussion}
-                  disabled={submittingDiscussion}
-                >
-                  {submittingDiscussion ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <>
-                      <AppIcon name="send" size={14} color="#ffffff" />
-                      <Text style={{ fontSize: 13, fontWeight: '800', color: '#ffffff' }}>Send to Client</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* DEDICATED CLIENT SEARCH & PICKER MODAL */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={clientPickerOpen}
-        onRequestClose={() => setClientPickerOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.discussionModalSheet, { maxHeight: '82%', backgroundColor: themeColors.cardBg, borderColor: themeColors.border }]}>
-            <View style={[styles.discussionModalHeader, { borderBottomColor: themeColors.border }]}>
-              <View>
-                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Choose Client</Text>
-                <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>Select a client to message</Text>
-              </View>
-              <TouchableOpacity onPress={() => setClientPickerOpen(false)} style={styles.modalCloseBtn}>
-                <AppIcon name="x" size={16} color={themeColors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Search Input */}
-            <View style={[styles.searchInputWrap, { marginBottom: 12 }]}>
-              <AppIcon name="search" size={16} color={isDark ? '#94a3b8' : '#64748b'} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search by name, company, or ID..."
-                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
-                value={clientSearchQuery}
-                onChangeText={setClientSearchQuery}
-                autoFocus
-                returnKeyType="search"
-              />
-              {clientSearchQuery.length > 0 && (
-                <TouchableOpacity
-                  style={styles.searchClearBtn}
-                  onPress={() => setClientSearchQuery('')}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  activeOpacity={0.7}
-                >
-                  <AppIcon name="x" size={12} color={isDark ? '#cbd5e1' : '#475569'} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled">
-              {filteredAvailableClients.length === 0 ? (
-                <View style={{ padding: 24, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 13, color: themeColors.textSecondary }}>No clients found matching "{clientSearchQuery}".</Text>
-                </View>
-              ) : (
-                filteredAvailableClients.map((c) => {
-                  const isSelected = String(selectedClientIdForNote) === String(c.id);
-                  return (
-                    <TouchableOpacity
-                      key={c.id}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        padding: 12,
-                        borderRadius: 12,
-                        borderWidth: 1.5,
-                        borderColor: isSelected ? '#2563eb' : themeColors.border,
-                        backgroundColor: isSelected ? (isDark ? '#1e293b' : '#eff6ff') : (isDark ? '#0f172a' : '#ffffff'),
-                        marginBottom: 8,
-                      }}
-                      onPress={() => {
-                        setSelectedClientIdForNote(c.id);
-                        setClientPickerOpen(false);
-                        setClientSearchQuery('');
-                      }}
+                      style={styles.searchClearBtn}
+                      onPress={() => setClientSearchQuery('')}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       activeOpacity={0.7}
                     >
-                      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isSelected ? '#2563eb' : '#dbeafe', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '800', color: isSelected ? '#ffffff' : '#1d4ed8' }}>
-                          {(c.name || 'C').charAt(0).toUpperCase()}
+                      <AppIcon name="x" size={12} color={isDark ? '#cbd5e1' : '#475569'} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled" style={{ maxHeight: 340 }}>
+                  {filteredAvailableClients.length === 0 ? (
+                    <View style={{ padding: 20, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 13, color: themeColors.textSecondary, textAlign: 'center' }}>
+                        {clientSearchQuery
+                          ? `No clients matching "${clientSearchQuery}".`
+                          : 'No assigned clients found in recent requests or notes.'}
+                      </Text>
+                    </View>
+                  ) : (
+                    filteredAvailableClients.map((c) => {
+                      const isSelected = String(selectedClientIdForNote) === String(c.id);
+                      return (
+                        <TouchableOpacity
+                          key={c.id}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            padding: 12,
+                            borderRadius: 12,
+                            borderWidth: 1.5,
+                            borderColor: isSelected ? '#2563eb' : themeColors.border,
+                            backgroundColor: isSelected ? (isDark ? '#1e293b' : '#eff6ff') : (isDark ? '#0f172a' : '#ffffff'),
+                            marginBottom: 8,
+                          }}
+                          onPress={() => {
+                            setSelectedClientIdForNote(c.id);
+                            setClientPickerOpen(false);
+                            setClientSearchQuery('');
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isSelected ? '#2563eb' : '#dbeafe', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                            <Text style={{ fontSize: 13, fontWeight: '800', color: isSelected ? '#ffffff' : '#1d4ed8' }}>
+                              {(c.name || 'C').charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary }} numberOfLines={1}>
+                              {c.name}
+                            </Text>
+                            <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
+                              {c.company ? `${c.company} • ` : ''}ID: {c.id}
+                            </Text>
+                          </View>
+                          {isSelected && (
+                            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }}>
+                              <AppIcon name="check" size={13} color="#ffffff" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+
+                  {/* Manual Client ID Input */}
+                  <View style={{ marginTop: 6, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: themeColors.border, backgroundColor: isDark ? '#0f172a' : '#f8fafc', marginBottom: 12 }}>
+                    <Text style={{ fontSize: 10.5, fontWeight: '800', color: themeColors.textSecondary, marginBottom: 6, textTransform: 'uppercase' }}>
+                      Or Enter Client ID Manually
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TextInput
+                        style={[
+                          styles.discussionInput,
+                          {
+                            flex: 1,
+                            marginBottom: 0,
+                            backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                            color: themeColors.textPrimary,
+                            borderColor: themeColors.border,
+                            paddingVertical: 6,
+                            fontSize: 12.5,
+                          },
+                        ]}
+                        placeholder="e.g. emp_1739... or client_abc"
+                        placeholderTextColor={themeColors.textSecondary}
+                        value={manualClientIdInput}
+                        onChangeText={setManualClientIdInput}
+                        autoCapitalize="none"
+                      />
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: manualClientIdInput.trim() ? '#2563eb' : (isDark ? '#334155' : '#cbd5e1'),
+                          paddingHorizontal: 14,
+                          borderRadius: 10,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        disabled={!manualClientIdInput.trim()}
+                        onPress={() => {
+                          if (manualClientIdInput.trim()) {
+                            setSelectedClientIdForNote(manualClientIdInput.trim());
+                            setManualClientIdInput('');
+                            setClientPickerOpen(false);
+                          }
+                        }}
+                      >
+                        <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 12 }}>Set</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </ScrollView>
+              </View>
+            ) : (
+              /* ======================================================== */
+              /* SUBVIEW 2: DISCUSSION FORM                               */
+              /* ======================================================== */
+              <View style={{ width: '100%' }}>
+                {/* Modal Header */}
+                <View style={[styles.discussionModalHeader, { borderBottomColor: themeColors.border }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isDark ? '#1e3a8a' : '#dbeafe', alignItems: 'center', justifyContent: 'center' }}>
+                      <AppIcon name="chat" size={18} color="#2563eb" />
+                    </View>
+                    <View>
+                      <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                        Start Discussion with Client
+                      </Text>
+                      <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
+                        Send an inquiry, clarification, or brief to client
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity onPress={() => setInitiateModalVisible(false)} style={styles.modalCloseBtn}>
+                    <AppIcon name="x" size={16} color={themeColors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                  {/* Client Selection */}
+                  <Text style={styles.inputLabel}>RECIPIENT CLIENT *</Text>
+                  {selectedClientObj ? (
+                    <View style={[styles.clientSelectCard, { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: '#2563eb' }]}>
+                      <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                        <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 13 }}>
+                          {(selectedClientObj.name || 'C').charAt(0).toUpperCase()}
                         </Text>
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary }} numberOfLines={1}>
-                          {c.name}
+                          {selectedClientObj.name}
                         </Text>
-                        <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
-                          {c.company ? `${c.company} • ` : ''}ID: {c.id}
+                        <Text style={{ fontSize: 10.5, color: themeColors.textSecondary }}>
+                          {selectedClientObj.company ? `${selectedClientObj.company} • ` : ''}ID: {selectedClientObj.id}
                         </Text>
                       </View>
-                      {isSelected && (
-                        <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }}>
-                          <AppIcon name="check" size={13} color="#ffffff" />
+                      <TouchableOpacity
+                        style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: isDark ? '#334155' : '#e2e8f0' }}
+                        onPress={() => setClientPickerOpen(true)}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.textPrimary }}>Change</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.clientEmptyTrigger, { backgroundColor: isDark ? '#0f172a' : '#f8fafc', borderColor: themeColors.border }]}
+                      onPress={() => setClientPickerOpen(true)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <AppIcon name="user" size={16} color="#2563eb" />
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: themeColors.textSecondary }}>
+                          Tap to choose an assigned client...
+                        </Text>
+                      </View>
+                      <AppIcon name="chevron-down" size={14} color={themeColors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Quick Topic Suggestions */}
+                  <Text style={styles.inputLabel}>DISCUSSION TOPIC</Text>
+                  <View style={styles.topicChipRow}>
+                    {['Access Credentials', 'Brief Clarification', 'Asset Request', 'Deliverables Review', 'Urgent Query'].map((topic) => {
+                      const isSelected = newDiscussionTopic === topic;
+                      return (
+                        <TouchableOpacity
+                          key={topic}
+                          style={[
+                            styles.topicChipItem,
+                            {
+                              backgroundColor: isSelected ? '#2563eb' : (isDark ? '#1e293b' : '#f1f5f9'),
+                              borderColor: isSelected ? '#2563eb' : themeColors.border,
+                            },
+                          ]}
+                          onPress={() => setNewDiscussionTopic(isSelected ? '' : topic)}
+                        >
+                          <Text
+                            style={[
+                              styles.topicChipItemText,
+                              { color: isSelected ? '#ffffff' : themeColors.textSecondary },
+                            ]}
+                          >
+                            {topic}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <TextInput
+                    style={[styles.discussionInput, { backgroundColor: isDark ? '#0f172a' : '#ffffff', color: themeColors.textPrimary, borderColor: themeColors.border }]}
+                    placeholder="Or type custom subject (e.g. Google Analytics Access)"
+                    placeholderTextColor={themeColors.textSecondary}
+                    value={newDiscussionTopic}
+                    onChangeText={setNewDiscussionTopic}
+                  />
+
+                  {/* Message */}
+                  <Text style={styles.inputLabel}>MESSAGE & DISCUSSION POINTS *</Text>
+                  <TextInput
+                    style={[styles.discussionTextarea, { backgroundColor: isDark ? '#0f172a' : '#ffffff', color: themeColors.textPrimary, borderColor: themeColors.border }]}
+                    placeholder="Write your questions, requirements, or clarification points for the client..."
+                    placeholderTextColor={themeColors.textSecondary}
+                    value={newDiscussionMessage}
+                    onChangeText={setNewDiscussionMessage}
+                    multiline
+                    numberOfLines={4}
+                  />
+
+                  {/* Security Policy Reminder */}
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 7, backgroundColor: isDark ? 'rgba(217, 119, 6, 0.15)' : '#fef3c7', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: isDark ? '#b45309' : '#fde68a', marginBottom: 12 }}>
+                    <AppIcon name="alert-circle" size={15} color="#d97706" style={{ marginTop: 1 }} />
+                    <Text style={{ flex: 1, fontSize: 11, color: isDark ? '#fbbf24' : '#92400e', lineHeight: 15 }}>
+                      <Text style={{ fontWeight: '800' }}>Policy Notice: </Text>
+                      Sharing phone numbers or direct contact details is strictly prohibited. Keep all communication within the company portal.
+                    </Text>
+                  </View>
+
+                  {/* Attachments */}
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 7,
+                      paddingVertical: 10,
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderStyle: 'dashed',
+                      borderColor: '#2563eb',
+                      backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                    }}
+                    onPress={handlePickDiscussionAttachment}
+                    activeOpacity={0.7}
+                  >
+                    <AppIcon name="paperclip" size={15} color="#2563eb" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563eb' }}>
+                      Attach Files / Photos ({newDiscussionAttachments.length})
+                    </Text>
+                  </TouchableOpacity>
+
+                  {newDiscussionAttachments.length > 0 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                      {newDiscussionAttachments.map((f, fIdx) => (
+                        <View
+                          key={fIdx}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: isDark ? '#0f172a' : '#f1f5f9',
+                            paddingHorizontal: 8,
+                            paddingVertical: 4.5,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: themeColors.border,
+                            gap: 4,
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, color: themeColors.textPrimary, maxWidth: 140 }} numberOfLines={1}>
+                            {f.name || `File ${fIdx + 1}`}
+                          </Text>
+                          <TouchableOpacity onPress={() => handleRemoveDiscussionAttachment(fIdx)}>
+                            <AppIcon name="x" size={12} color="#ef4444" />
+                          </TouchableOpacity>
                         </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Modal Buttons */}
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, marginBottom: 8 }}>
+                    <TouchableOpacity
+                      style={{
+                        flex: 1,
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        borderWidth: 1,
+                        borderColor: themeColors.border,
+                      }}
+                      onPress={() => setInitiateModalVisible(false)}
+                      disabled={submittingDiscussion}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textSecondary }}>Cancel</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={{
+                        flex: 1.5,
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        backgroundColor: '#2563eb',
+                        flexDirection: 'row',
+                        justifyContent: 'center',
+                        gap: 6,
+                        shadowColor: '#2563eb',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 4,
+                        elevation: 3,
+                      }}
+                      onPress={handleInitiateDiscussion}
+                      disabled={submittingDiscussion}
+                    >
+                      {submittingDiscussion ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <>
+                          <AppIcon name="send" size={14} color="#ffffff" />
+                          <Text style={{ fontSize: 13, fontWeight: '800', color: '#ffffff' }}>Send to Client</Text>
+                        </>
                       )}
                     </TouchableOpacity>
-                  );
-                })
-              )}
-            </ScrollView>
+                  </View>
+                </ScrollView>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
