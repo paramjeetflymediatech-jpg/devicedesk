@@ -571,8 +571,10 @@ export default function EmployeeTasks({ currentUser }) {
                   <Text style={[styles.taskDesc, { color: themeColors.textSecondary }]} numberOfLines={3}>{task.description}</Text>
                 ) : null}
 
-                {/* Detected Google Drive Requirement Folder */}
-                <GoogleDriveBadge source={[task, matchingReq]} isDark={isDark} themeColors={themeColors} />
+                {/* Detected Google Drive Requirement Folder - ONLY visible to Admin and assigned Team Leader */}
+                {(currentUser?.role === 'Admin' || currentUser?.role === 'Management' || (matchingReq && String(matchingReq.assigned_tl_id) === String(currentUser?.id))) && (
+                  <GoogleDriveBadge source={[task, matchingReq]} isDark={isDark} themeColors={themeColors} />
+                )}
 
                 {/* Client attachments badge on card if present */}
                 {cardClientFiles.length > 0 && (
@@ -855,8 +857,10 @@ export default function EmployeeTasks({ currentUser }) {
                         </View>
                       ) : null}
 
-                      {/* Detected Google Drive Folder in Task Details Modal */}
-                      <GoogleDriveBadge source={[selectedTask, selectedLinkedRequest]} isDark={isDark} themeColors={themeColors} />
+                      {/* Detected Google Drive Folder in Task Details Modal - ONLY visible to Admin and assigned Team Leader */}
+                      {(currentUser?.role === 'Admin' || currentUser?.role === 'Management' || (selectedLinkedRequest && String(selectedLinkedRequest.assigned_tl_id) === String(currentUser?.id))) && (
+                        <GoogleDriveBadge source={[selectedTask, selectedLinkedRequest]} isDark={isDark} themeColors={themeColors} />
+                      )}
 
                       {/* Client Attached Files */}
                       <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0' }}>

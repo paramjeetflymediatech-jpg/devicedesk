@@ -1196,8 +1196,10 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                         {req.requirements || 'No specific description provided.'}
                       </Text>
 
-                      {/* Detected Google Drive Requirement Folder */}
-                      <GoogleDriveBadge source={req} isDark={isDark} themeColors={themeColors} />
+                      {/* Detected Google Drive Requirement Folder - ONLY shown if assigned to this Team Leader or Admin */}
+                      {((String(req.assigned_tl_id) === String(currentUser?.id || leaderId)) || currentUser?.role === 'Admin' || currentUser?.role === 'Management') && (
+                        <GoogleDriveBadge source={req} isDark={isDark} themeColors={themeColors} />
+                      )}
 
                       {/* Client Attachments in Request Card */}
                       {(() => {
@@ -1993,8 +1995,10 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                     {selectedRequest.requirements || 'No specific requirements provided.'}
                   </Text>
 
-                  {/* Detected Google Drive Requirement Folder in Details Modal */}
-                  <GoogleDriveBadge source={selectedRequest} isDark={isDark} themeColors={themeColors} />
+                  {/* Detected Google Drive Requirement Folder in Details Modal - ONLY shown if assigned to this Team Leader or Admin */}
+                  {((String(selectedRequest.assigned_tl_id) === String(currentUser?.id || leaderId)) || currentUser?.role === 'Admin' || currentUser?.role === 'Management') && (
+                    <GoogleDriveBadge source={selectedRequest} isDark={isDark} themeColors={themeColors} />
+                  )}
 
                   {/* Client Attached Files / Briefs */}
                   {(() => {

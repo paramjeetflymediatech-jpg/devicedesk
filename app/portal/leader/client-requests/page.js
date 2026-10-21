@@ -34,7 +34,8 @@ export default function ClientRequestsPage() {
             details: req.requirements,
             date: new Date(req.created_at).toLocaleDateString(),
             status: req.status || 'Pending Assignment',
-            attachment: req.attachment
+            attachment: req.attachment,
+            drive_url: req.drive_url
           }));
           setClientRequests(user ? mappedReqs.filter(r => r.assigned_tl_id === user.id) : []);
         }
@@ -118,6 +119,8 @@ export default function ClientRequestsPage() {
           <p style="margin-bottom: 8px;"><strong>Status:</strong> ${req.status}</p>
           <p style="margin-bottom: 8px;"><strong>Requirements:</strong></p>
           <div style="background: #f1f5f9; padding: 12px; border-radius: 6px; max-height: 250px; overflow-y: auto; white-space: pre-wrap; margin-top: 5px;">${req.details}</div>
+          ${req.drive_url ? `<p style="margin-top: 15px; margin-bottom: 5px;"><strong>Google Drive Requirements Folder:</strong></p>
+          <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 10px; border-radius: 6px;"><a href="${req.drive_url}" target="_blank" rel="noopener noreferrer" style="color: #059669; font-weight: 600; text-decoration: underline;">📁 Open Google Drive Requirements Folder ↗</a></div>` : ''}
           ${req.attachment ? `<p style="margin-top: 15px; margin-bottom: 5px;"><strong>Client Attachment:</strong></p>
           <div style="background: #e0f2fe; padding: 10px; border-radius: 6px;"><a href="${req.attachment}" target="_blank" style="color: #2563eb; text-decoration: underline;">View Attached File</a></div>` : ''}
           ${extraHtml}

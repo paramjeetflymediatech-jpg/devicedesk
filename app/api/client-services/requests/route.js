@@ -26,6 +26,11 @@ export async function GET(request) {
       await db.query(`ALTER TABLE service_requests ADD COLUMN drive_url TEXT DEFAULT NULL`);
     } catch (e) {}
 
+    const { searchParams } = new URL(request.url);
+    const clientId = searchParams.get('clientId');
+    const viewerId = searchParams.get('viewerId') || request.headers.get('x-user-id');
+    const viewerRole = searchParams.get('viewerRole') || request.headers.get('x-user-role');
+
     const baseQuery = `
       SELECT r.*, 
         c.name as client_name, 
@@ -53,6 +58,19 @@ export async function GET(request) {
       );
     }
 
+    // Role-based visibility for drive_url:
+    // Only Admin, the assigned Team Leader, or the client who owns the request should see drive_url
+    if (viewerRole && !['Admin', 'Management', 'admin', 'management'].includes(viewerRole)) {
+      rows = rows.map(r => {
+        const isAssignedTl = viewerId && String(r.assigned_tl_id) === String(viewerId);
+        const isClientOwner = viewerId && String(r.clientId) === String(viewerId);
+        if (!isAssignedTl && !isClientOwner) {
+          return { ...r, drive_url: null };
+        }
+        return r;
+      });
+    }
+
     return NextResponse.json({ success: true, data: rows });
   } catch (err) {
     console.error('Fetch Service Requests Error:', err);
@@ -71,6 +89,26 @@ export async function GET(request) {
       return NextResponse.json({ success: false, error: err.message }, { status: 500 });
     }
   }
+}
+
+function extractDriveUrl(source) {
+  if (!source) return null;
+  const regex = /https?:\/\/(?:drive|docs|sheets)\.google\.com\/[^\s"')<>]+/i;
+  if (typeof source === 'string') {
+    const match = source.match(regex);
+    if (match) return match[0];
+  } else if (Array.isArray(source)) {
+    for (const item of source) {
+      const found = extractDriveUrl(item);
+      if (found) return found;
+    }
+  } else if (typeof source === 'object') {
+    for (const val of Object.values(source)) {
+      const found = extractDriveUrl(val);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 export async function POST(request) {
@@ -108,13 +146,19 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
+    // Auto-detect and save Google Drive link if provided directly or mentioned in requirements/attachment
+    let autoDriveUrl = drive_url && String(drive_url).trim() ? String(drive_url).trim() : null;
+    if (!autoDriveUrl) {
+      autoDriveUrl = extractDriveUrl(requirements) || extractDriveUrl(attachment) || null;
+    }
+
     const id = 'req_' + Date.now() + Math.random().toString(36).substring(2, 7);
     const now = new Date().toISOString();
 
     await db.query(
       `INSERT INTO service_requests (id, clientId, service_type, requirements, status, created_at, attachment, drive_url)
        VALUES (?, ?, ?, ?, 'Pending', ?, ?, ?)`,
-      [id, clientId, service_type, requirements, now, attachment || null, drive_url || null]
+      [id, clientId, service_type, requirements, now, attachment || null, autoDriveUrl || null]
     );
 
     // Notify Management (Admins & Management)

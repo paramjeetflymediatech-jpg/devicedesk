@@ -26,7 +26,7 @@ export default function BookServicePage() {
     setMyClientId(clientId);
   }, []);
   const [requests, setRequests] = useState([]);
-  const [form, setForm] = useState({ service_type: 'SEO', requirements: '', file: null });
+  const [form, setForm] = useState({ service_type: 'SEO', requirements: '', drive_url: '', file: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -227,6 +227,9 @@ export default function BookServicePage() {
         }
       }
 
+      // Auto-extract Google Drive link from drive_url input or requirements text
+      const detectedDrive = (form.drive_url || '').trim() || (form.requirements.match(/https?:\/\/(?:drive|docs|sheets)\.google\.com\/[^\s"')<>]+/i)?.[0] || null);
+
       const res = await fetch('/api/client-services/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -234,12 +237,13 @@ export default function BookServicePage() {
           clientId: myClientId, 
           service_type: form.service_type, 
           requirements: form.requirements,
-          attachment: attachmentUrl
+          attachment: attachmentUrl,
+          drive_url: detectedDrive
         })
       });
       const data = await res.json();
       if (data.success) {
-        setForm({ ...form, requirements: "", file: null });
+        setForm({ ...form, requirements: "", drive_url: "", file: null });
         fetchRequests();
         Swal.fire('Success', 'Requirement submitted successfully!', 'success');
       }
@@ -389,6 +393,18 @@ export default function BookServicePage() {
                     value={form.requirements}
                     onChange={(e) => setForm({ ...form, requirements: e.target.value })}
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Google Drive Requirements Folder (Optional)</label>
+                  <input 
+                    type="url"
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all text-sm"
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    value={form.drive_url || ''}
+                    onChange={(e) => setForm({ ...form, drive_url: e.target.value })}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">📁 You can paste your Google Drive folder link containing requirements, assets, or brand guidelines here or directly in the requirements box above.</p>
                 </div>
 
                 <div>

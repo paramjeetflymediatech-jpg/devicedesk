@@ -71,6 +71,7 @@ export default function ClientDashboard({ user, onLogout }) {
   const [showBookServiceModal, setShowBookServiceModal] = useState(false);
   const [serviceType, setServiceType] = useState('SEO');
   const [serviceReqs, setServiceReqs] = useState('');
+  const [serviceDriveUrl, setServiceDriveUrl] = useState('');
   const [serviceAttachments, setServiceAttachments] = useState([]);
   const [uploadingServiceAttachments, setUploadingServiceAttachments] = useState(false);
   const [submittingService, setSubmittingService] = useState(false);
@@ -321,16 +322,21 @@ export default function ClientDashboard({ user, onLogout }) {
       const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
       const selectedService = serviceType || validPkgs[0]?.name || 'Service Booking';
 
+      // Auto-extract Google Drive link from serviceDriveUrl input or requirements text
+      const detectedDrive = (serviceDriveUrl || '').trim() || (serviceReqs.match(/https?:\/\/(?:drive|docs|sheets)\.google\.com\/[^\s"')<>]+/i)?.[0] || null);
+
       const res = await createClientRequestApi({
         clientId,
         service_type: selectedService,
         requirements: serviceReqs.trim(),
         attachment: attachmentStr,
+        drive_url: detectedDrive,
       });
       if (res && res.success) {
         sweetAlert({ title: 'Service Request Sent! 🚀', text: 'Our team will review and contact you shortly.', type: 'success' });
         setShowBookServiceModal(false);
         setServiceReqs('');
+        setServiceDriveUrl('');
         setServiceAttachments([]);
         fetchClientRequestsApi(clientId).then(r => r.success && setRequests(r.data || []));
       } else {
@@ -1819,6 +1825,26 @@ export default function ClientDashboard({ user, onLogout }) {
               value={serviceReqs}
               onChangeText={setServiceReqs}
             />
+
+            {/* Google Drive Folder Link (Optional) */}
+            <View style={{ marginTop: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <AppIcon name="google-drive" size={15} color="#059669" />
+                <Text style={styles.inputLabel}>Google Drive Requirements Folder (Optional)</Text>
+              </View>
+              <TextInput
+                style={[styles.input, { paddingVertical: 8 }]}
+                placeholder="https://drive.google.com/drive/folders/..."
+                placeholderTextColor={themeColors.textSecondary}
+                value={serviceDriveUrl}
+                onChangeText={setServiceDriveUrl}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, marginTop: 2 }}>
+                📁 You can also paste your Google Drive folder link directly in the requirements box above.
+              </Text>
+            </View>
 
             {/* Attachments Section */}
             <View style={{ marginTop: 10 }}>
