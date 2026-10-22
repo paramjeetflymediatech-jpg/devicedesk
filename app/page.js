@@ -2928,7 +2928,18 @@ export default function Home() {
         </header>
 
         {/* Page Container */}
-        <main className="page-container" style={{ overflowY: currentView === "chat" ? "hidden" : "auto" }}>
+        <main 
+          className="page-container" 
+          style={{ 
+            overflowY: currentView === "chat" ? "hidden" : "auto",
+            padding: currentView === "chat" ? "12px 16px" : undefined,
+            height: currentView === "chat" ? "calc(100dvh - 76px)" : undefined,
+            maxHeight: currentView === "chat" ? "calc(100dvh - 76px)" : undefined,
+            display: currentView === "chat" ? "flex" : undefined,
+            flexDirection: currentView === "chat" ? "column" : undefined,
+            boxSizing: "border-box"
+          }}
+        >
 
           {/* ================= VIEW: ATTENDANCE ================= */}
           {currentView === "attendance" && !isITSupport && !isDnsManager && (
@@ -2949,9 +2960,13 @@ export default function Home() {
             <div 
               className="page-section active" 
               style={{ 
-                height: "calc(100vh - 150px)", 
+                flex: 1,
+                height: "100%", 
+                minHeight: 0,
                 padding: 0, 
-                display: currentView === "chat" ? "block" : "none" 
+                display: currentView === "chat" ? "flex" : "none",
+                flexDirection: "column",
+                overflow: "hidden"
               }}
             >
               <ChatView user={user} />

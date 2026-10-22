@@ -2453,8 +2453,8 @@ export default function ChatView({ user }) {
       display: "flex",
       width: "100%",
       height: "100%",
-      minHeight: "550px",
-      borderRadius: "20px",
+      minHeight: 0,
+      borderRadius: "16px",
       background: "var(--bg-secondary)",
       border: "1px solid var(--glass-border)",
       overflow: "hidden",
@@ -2871,7 +2871,8 @@ export default function ChatView({ user }) {
       <div className={`chat-main-panel ${!showMobileSidebar ? "flex" : "hidden"} md:!flex flex-grow h-full overflow-hidden`} style={{
         flexGrow: 1,
         background: "var(--bg-primary)",
-        position: "relative"
+        position: "relative",
+        minHeight: 0
       }}>
         {/* Middle Column: Chat Feed */}
         <div style={{
@@ -2879,6 +2880,7 @@ export default function ChatView({ user }) {
           display: "flex",
           flexDirection: "column",
           height: "100%",
+          minHeight: 0,
           minWidth: 0,
           borderRight: showDetailsPanel ? "1px solid var(--glass-border)" : "none"
         }}>
@@ -2893,12 +2895,13 @@ export default function ChatView({ user }) {
           <>
         {/* Chat Header */}
         <div style={{
-          padding: "1.25rem",
+          padding: "0.85rem 1.25rem",
           borderBottom: "1px solid var(--glass-border)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          background: "var(--bg-secondary)"
+          background: "var(--bg-secondary)",
+          flexShrink: 0
         }}>
           <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
             {/* Mobile Back Button (only shown when sidebar is closed) */}
@@ -3201,11 +3204,12 @@ export default function ChatView({ user }) {
           onScroll={handleScroll}
           style={{
             flexGrow: 1,
+            minHeight: 0,
             overflowY: "auto",
-            padding: "1.5rem",
+            padding: "1.25rem",
             display: "flex",
             flexDirection: "column",
-            gap: "1.5rem"
+            gap: "1.25rem"
           }}
         >
           {isLoadingMore && (
@@ -3843,9 +3847,10 @@ export default function ChatView({ user }) {
 
         {/* Input Control Area */}
         <div style={{
-          padding: "1.25rem",
+          padding: "0.75rem 1rem",
           borderTop: "1px solid var(--glass-border)",
-          background: "var(--bg-secondary)"
+          background: "var(--bg-secondary)",
+          flexShrink: 0
         }}>
           {isUserBlocked(activeChatId) || isUserBlockingMe(activeChatId) ? (
             <div style={{
@@ -5618,8 +5623,20 @@ export default function ChatView({ user }) {
         @media (min-width: 768px) {
           .chat-sidebar {
             display: flex !important;
+            width: 320px !important;
+          }
+          .chat-main-panel {
+            display: flex !important;
           }
           .chat-back-button {
+            display: none !important;
+          }
+        }
+        @media (max-width: 767px) {
+          .chat-sidebar.hidden {
+            display: none !important;
+          }
+          .chat-main-panel.hidden {
             display: none !important;
           }
         }
