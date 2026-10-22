@@ -436,6 +436,77 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
     }
   };
 
+  // Delete Employee Group (all screenshots & registration if user cannot use/inactive)
+  const handleDeleteEmployeeGroup = async (empId, empName, captureCount, e) => {
+    if (e) e.stopPropagation();
+
+    const titleText = captureCount > 0 
+      ? `Delete Screenshots for ${empName}?` 
+      : `Remove ${empName} from Monitoring?`;
+
+    const descriptionText = captureCount > 0
+      ? `Are you sure you want to permanently delete all ${captureCount} activity screenshots and desktop registration for "${empName}" (${empId})? This cannot be undone.`
+      : `Are you sure you want to remove the monitoring registration for "${empName}" (${empId})? This user cannot use or is no longer using the tracking agent.`;
+
+    const result = await Swal.fire({
+      title: titleText,
+      text: descriptionText,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: captureCount > 0 ? 'Yes, Delete Screenshots' : 'Yes, Remove Registration',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      didOpen: () => {
+        if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+      }
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(`/api/screenshots/delete?employeeId=${encodeURIComponent(empId)}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setScreenshots(prev => prev.filter(item => (item.employeeId || '').toLowerCase() !== empId.toLowerCase()));
+        setAgentRegistrations(prev => prev.filter(item => (item.employeeId || '').toLowerCase() !== empId.toLowerCase()));
+        Swal.fire({
+          icon: 'success',
+          title: 'Removed!',
+          text: data.message || `Screenshots and registration for ${empName} have been removed.`,
+          timer: 1800,
+          showConfirmButton: false,
+          didOpen: () => {
+            if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+          }
+        });
+        fetchScreenshots(true);
+      } else {
+        Swal.fire({
+          title: 'Error',
+          text: data.error || 'Failed to delete employee screenshots',
+          icon: 'error',
+          didOpen: () => {
+            if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Delete employee group failed:', err);
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to delete: ' + err.message,
+        icon: 'error',
+        didOpen: () => {
+          if (Swal.getContainer()) Swal.getContainer().style.zIndex = '999999';
+        }
+      });
+    }
+  };
+
   // Delete All Screenshots Handler with SweetAlert2
   const handleDeleteAll = async () => {
     const result = await Swal.fire({
@@ -1130,7 +1201,7 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                       </div>
 
                       {/* Right Corner Buttons */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto' }}>
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: '600' }}>
                           Latest: {group.captures.length > 0 ? new Date(group.captures[0].capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently Registered'}
                         </span>
@@ -1160,6 +1231,32 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                           <span>{isCollapsed ? `Show ${group.captures.length} Screenshots` : 'Hide Screenshots'}</span>
                           <span style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s ease', display: 'inline-block', fontSize: '0.75rem' }}>▼</span>
                         </button>
+
+                        {canDeleteScreenshots && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteEmployeeGroup(group.employeeId, group.employeeName, group.captures.length, e)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '8px 14px',
+                              borderRadius: '20px',
+                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                              color: 'var(--status-critical)',
+                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                              fontSize: '0.8rem',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            className="hover:bg-red-500 hover:text-white"
+                            title={group.captures.length > 0 ? `Delete all ${group.captures.length} screenshots for ${group.employeeName}` : `Remove ${group.employeeName} from monitoring`}
+                          >
+                            <FiTrash2 size={13} />
+                            <span>Delete</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1208,27 +1305,52 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                               Automated activity screenshots stream every 3 minutes while the agent is running on their PC.
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={fetchScreenshots}
-                              style={{
-                                marginTop: '4px',
-                                padding: '6px 14px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--glass-border)',
-                                backgroundColor: 'var(--bg-primary)',
-                                color: 'var(--accent-blue)',
-                                fontWeight: '700',
-                                fontSize: '0.78rem',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                              }}
-                            >
-                              🔄 Refresh Captures Stream
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={fetchScreenshots}
+                                style={{
+                                  padding: '6px 14px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--glass-border)',
+                                  backgroundColor: 'var(--bg-primary)',
+                                  color: 'var(--accent-blue)',
+                                  fontWeight: '700',
+                                  fontSize: '0.78rem',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                }}
+                              >
+                                🔄 Refresh Captures Stream
+                              </button>
+
+                              {canDeleteScreenshots && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleDeleteEmployeeGroup(group.employeeId, group.employeeName, 0, e)}
+                                  style={{
+                                    padding: '6px 14px',
+                                    borderRadius: '6px',
+                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    color: 'var(--status-critical)',
+                                    fontWeight: '700',
+                                    fontSize: '0.78rem',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                  }}
+                                  className="hover:bg-red-500 hover:text-white"
+                                  title="Remove this user registration if user cannot use"
+                                >
+                                  <FiTrash2 size={13} /> Remove Inactive Registration
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>

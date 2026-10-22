@@ -38,15 +38,22 @@ export async function DELETE(req) {
       return NextResponse.json({ success: true, message: 'Screenshot deleted successfully' });
     }
 
-    // Option C: Delete all screenshots for a specific employee
+    // Option C: Delete all screenshots for a specific employee & clean up agent registrations
     if (employeeId) {
       const [rows] = await pool.query(`SELECT imageUrl FROM screenshots WHERE employeeId = ?`, [employeeId]);
       await pool.query(`DELETE FROM screenshots WHERE employeeId = ?`, [employeeId]);
 
+      // Also clean up from agent_registrations so inactive or unused employee cards are removed
+      try {
+        await pool.query(`DELETE FROM agent_registrations WHERE employeeId = ?`, [employeeId]);
+      } catch (regErr) {
+        console.warn('Error clearing agent_registrations:', regErr.message);
+      }
+
       // Non-blocking background file cleanup
       Promise.allSettled(rows.map(r => r.imageUrl ? deleteFile(r.imageUrl) : Promise.resolve())).catch(() => {});
 
-      return NextResponse.json({ success: true, message: `All screenshots for employee ${employeeId} deleted` });
+      return NextResponse.json({ success: true, message: `All screenshots and registration for employee ${employeeId} deleted successfully` });
     }
 
   } catch (err) {
