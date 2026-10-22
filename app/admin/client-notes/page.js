@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiCheckCircle, FiSearch, FiBriefcase, FiMail, FiPhone } from 'react-icons/fi';
+import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiCheckCircle, FiSearch, FiBriefcase, FiMail, FiPhone, FiPlus } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
@@ -23,6 +23,15 @@ export default function AdminClientNotesPage() {
   const [uploadStats, setUploadStats] = useState({});
   const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
   const [previewError, setPreviewError] = useState(false);
+
+  // Initiate Discussion with Client Modal states
+  const [isInitiateModalOpen, setIsInitiateModalOpen] = useState(false);
+  const [clientsList, setClientsList] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [discussionTopic, setDiscussionTopic] = useState('');
+  const [discussionMessage, setDiscussionMessage] = useState('');
+  const [discussionFiles, setDiscussionFiles] = useState([]);
+  const [isSubmittingDiscussion, setIsSubmittingDiscussion] = useState(false);
 
   const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
   const isVideoUrl = (url) => typeof url === 'string' && /\.(mp4|webm|mov|ogg)($|\?)/i.test(url);
@@ -68,6 +77,112 @@ export default function AdminClientNotesPage() {
     const interval = setInterval(fetchNotes, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchClients = async () => {
+    try {
+      const [empRes, reqRes] = await Promise.all([
+        fetch('/api/employees').then(r => r.json()).catch(() => ({ data: [] })),
+        fetch('/api/client-services/requests').then(r => r.json()).catch(() => ({ data: [] }))
+      ]);
+      const map = new Map();
+      if (Array.isArray(reqRes?.data)) {
+        reqRes.data.forEach(r => {
+          const id = r.clientId || r.client_id;
+          if (id && !map.has(id)) {
+            map.set(id, { id, name: r.client_name || r.company_name || id, company: r.company_name || '' });
+          }
+        });
+      }
+      if (Array.isArray(empRes?.data)) {
+        empRes.data.filter(e => e.role === 'Client').forEach(c => {
+          if (!map.has(c.id)) {
+            map.set(c.id, { id: c.id, name: c.name || c.id, company: c.company_name || '' });
+          }
+        });
+      }
+      notes.forEach(n => {
+        if (n.client_id && !map.has(n.client_id)) {
+          map.set(n.client_id, { id: n.client_id, name: n.client_name || n.client_id, company: n.company_name || '' });
+        }
+      });
+      const list = Array.from(map.values());
+      setClientsList(list);
+      if (list.length > 0 && !selectedClientId) {
+        setSelectedClientId(list[0].id);
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (isInitiateModalOpen) {
+      fetchClients();
+    }
+  }, [isInitiateModalOpen]);
+
+  const handleInitiateDiscussion = async (e) => {
+    e.preventDefault();
+    if (!selectedClientId) {
+      Swal.fire('Required', 'Please select a client to message', 'warning');
+      return;
+    }
+    if (!discussionMessage.trim()) {
+      Swal.fire('Required', 'Please enter a message or discussion point', 'warning');
+      return;
+    }
+
+    if (containsPhoneNumber(discussionMessage) || (discussionTopic && containsPhoneNumber(discussionTopic))) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        confirmButtonColor: '#2563eb'
+      });
+      return;
+    }
+
+    setIsSubmittingDiscussion(true);
+    try {
+      let attachmentUrls = [];
+      if (discussionFiles.length > 0) {
+        try {
+          const urls = await uploadFilesWithProgress(discussionFiles);
+          if (urls && urls.length > 0) attachmentUrls = urls;
+        } catch (err) {
+          throw err;
+        }
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+      const res = await fetch('/api/client-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: selectedClientId,
+          note: discussionMessage.trim(),
+          topic: discussionTopic.trim(),
+          sender_role: 'Admin',
+          sender_name: user?.name || 'Admin',
+          initiated_by_admin: true,
+          attachment: attachmentStr
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        Swal.fire('Sent!', 'Discussion initiated with client successfully.', 'success');
+        setIsInitiateModalOpen(false);
+        setDiscussionTopic('');
+        setDiscussionMessage('');
+        setDiscussionFiles([]);
+        fetchNotes();
+      } else {
+        Swal.fire('Error', data.error || 'Failed to send note', 'error');
+      }
+    } catch (err) {
+      Swal.fire('Error', err.message || 'Network error', 'error');
+    } finally {
+      setIsSubmittingDiscussion(false);
+    }
+  };
 
   const handleReply = async (noteId) => {
     const reply = replyText[noteId];
@@ -167,9 +282,17 @@ export default function AdminClientNotesPage() {
           </p>
         </div>
 
-        {/* Search & Filter Header Controls */}
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
+        {/* Actions, Search & Filter Header Controls */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          <button
+            onClick={() => setIsInitiateModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold rounded-xl shadow-md hover:shadow-cyan-500/20 transition-all shrink-0 cursor-pointer"
+          >
+            <FiPlus size={15} />
+            <span>Initiate Discussion with Client</span>
+          </button>
+
+          <div className="relative flex-1 md:w-56">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
             <input
               type="text"
@@ -311,9 +434,39 @@ export default function AdminClientNotesPage() {
                 </span>
               </div>
               
-              <div style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', border: '1px solid var(--glass-border)', lineHeight: '1.6' }}>
-                {renderTextWithLinks(note.note)}
-              </div>
+              {note.note.startsWith('[From Admin:') ? (
+                <div className="rounded-xl p-4 border border-amber-500/30 bg-amber-500/10 mb-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white uppercase tracking-wider">
+                      Priority Notice
+                    </span>
+                    <span className="text-xs font-bold text-amber-500 dark:text-amber-400">
+                      👑 Discussion Initiated by Administration
+                    </span>
+                  </div>
+                  <div style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                    {renderTextWithLinks(note.note.replace(/^\[From Admin:[^\]]+\]\s*/, ''))}
+                  </div>
+                </div>
+              ) : note.note.startsWith('[From Team Leader:') ? (
+                <div className="rounded-xl p-4 border border-indigo-500/30 bg-indigo-500/10 mb-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 text-white uppercase tracking-wider">
+                      Priority Discussion
+                    </span>
+                    <span className="text-xs font-bold text-indigo-400">
+                      🛡️ Discussion Initiated by Team Leader
+                    </span>
+                  </div>
+                  <div style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                    {renderTextWithLinks(note.note.replace(/^\[From Team Leader:[^\]]+\]\s*/, ''))}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', border: '1px solid var(--glass-border)', lineHeight: '1.6' }}>
+                  {renderTextWithLinks(note.note)}
+                </div>
+              )}
 
               {/* Google Drive Folder / File Card */}
               <GoogleDriveBadge source={[note.note, note.attachment]} />
@@ -552,6 +705,187 @@ export default function AdminClientNotesPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Initiate Discussion with Client Modal */}
+      {isInitiateModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSubmittingDiscussion) {
+              setIsInitiateModalOpen(false);
+            }
+          }}
+        >
+          <div 
+            className="rounded-2xl shadow-2xl border max-w-lg w-full max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150"
+            style={{
+              background: 'var(--bg-primary, #ffffff)',
+              borderColor: 'var(--glass-border, #e2e8f0)',
+              color: 'var(--text-primary, #1e293b)'
+            }}
+          >
+            {/* Modal Header */}
+            <div 
+              className="shrink-0 p-4 sm:p-5 border-b flex items-center justify-between"
+              style={{
+                borderColor: 'var(--glass-border, #f1f5f9)',
+                background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(59, 130, 246, 0.05))'
+              }}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 flex items-center justify-center font-bold shrink-0">
+                  💬
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold truncate" style={{ color: 'var(--text-primary)' }}>Initiate Discussion with Client</h3>
+                  <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>Send an inquiry, notice, or requirement directly to client</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsInitiateModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 ml-2 cursor-pointer"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body & Footer in Form */}
+            <form onSubmit={handleInitiateDiscussion} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1 min-h-0">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                    Select Client <span className="text-red-500">*</span>
+                  </label>
+                  {clientsList.length === 0 ? (
+                    <input
+                      type="text"
+                      value={selectedClientId}
+                      onChange={(e) => setSelectedClientId(e.target.value)}
+                      placeholder="Enter Client ID (e.g. emp_1789...)"
+                      className="w-full text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500"
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--glass-border)',
+                        color: 'var(--text-primary)'
+                      }}
+                      required
+                    />
+                  ) : (
+                    <select
+                      value={selectedClientId}
+                      onChange={(e) => setSelectedClientId(e.target.value)}
+                      className="w-full text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--glass-border)',
+                        color: 'var(--text-primary)'
+                      }}
+                      required
+                    >
+                      <option value="">-- Choose Client --</option>
+                      {clientsList.map(c => (
+                        <option key={c.id} value={c.id} style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                          {c.name} {c.company ? `(${c.company})` : ''} — [{c.id}]
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                    Subject / Topic
+                  </label>
+                  <input
+                    type="text"
+                    value={discussionTopic}
+                    onChange={(e) => setDiscussionTopic(e.target.value)}
+                    placeholder="e.g. Google Drive Assets, Requirement Update, Review Clarification"
+                    className="w-full text-sm p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--glass-border)',
+                      color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                    Message / Note Details <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={discussionMessage}
+                    onChange={(e) => setDiscussionMessage(e.target.value)}
+                    placeholder="Write your note, inquiry, or discussion points for the client..."
+                    rows={3}
+                    className="w-full text-sm p-3 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500 leading-relaxed resize-y"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--glass-border)',
+                      color: 'var(--text-primary)'
+                    }}
+                    required
+                  />
+                </div>
+
+                {/* Security policy reminder notice */}
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400">
+                  <FiAlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <span>
+                    <strong>Policy Reminder:</strong> Sharing contact numbers or direct phone details is strictly prohibited. Keep all communication within the company portal.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                    Optional Attachments
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(e) => setDiscussionFiles(Array.from(e.target.files || []))}
+                    className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-500/10 file:text-cyan-600 dark:file:text-cyan-400 hover:file:bg-cyan-500/20 cursor-pointer"
+                  />
+                  {discussionFiles.length > 0 && (
+                    <p className="text-xs text-slate-400 mt-1.5">
+                      {discussionFiles.length} file(s) selected
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer (Pinned at bottom) */}
+              <div 
+                className="shrink-0 px-4 sm:px-5 py-3 border-t flex items-center justify-end gap-2"
+                style={{
+                  background: 'var(--bg-secondary)',
+                  borderColor: 'var(--glass-border)'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsInitiateModalOpen(false)}
+                  disabled={isSubmittingDiscussion}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl transition-colors hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingDiscussion}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-800 text-white rounded-xl shadow-md transition-colors cursor-pointer"
+                >
+                  <FiSend size={13} />
+                  <span>{isSubmittingDiscussion ? 'Sending...' : 'Send to Client'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

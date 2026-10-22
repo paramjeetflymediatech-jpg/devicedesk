@@ -1488,8 +1488,16 @@ export default function ClientDashboard({ user, onLogout }) {
                   notes.map((n) => (
                     <View key={n.id} style={styles.noteCard}>
                       <View style={styles.noteClientRow}>
-                        <Text style={[styles.noteClientHeader, n.note?.startsWith('[From Team Leader:') && { color: '#4f46e5', fontWeight: '800' }]}>
-                          {n.note?.startsWith('[From Team Leader:') ? '🛡️ From Team Leader:' : 'You wrote:'}
+                        <Text style={[
+                          styles.noteClientHeader,
+                          n.note?.startsWith('[From Admin:') && { color: '#f59e0b', fontWeight: '800' },
+                          n.note?.startsWith('[From Team Leader:') && { color: '#4f46e5', fontWeight: '800' }
+                        ]}>
+                          {n.note?.startsWith('[From Admin:')
+                            ? '👑 From Admin:'
+                            : n.note?.startsWith('[From Team Leader:')
+                            ? '🛡️ From Team Leader:'
+                            : 'You wrote:'}
                         </Text>
                         <Text style={styles.noteDate}>
                           {new Date(n.created_at || Date.now()).toLocaleDateString()}

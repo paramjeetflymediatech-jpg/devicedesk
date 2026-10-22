@@ -344,7 +344,15 @@ export default function ClientNotesPage() {
                       {note.status}
                     </span>
                   </div>
-                  {note.note.startsWith('[From Team Leader:') ? (
+                  {note.note.startsWith('[From Admin:') ? (
+                    <div className="bg-amber-50/70 border border-amber-200/90 rounded-xl p-4 mb-2">
+                      <div className="flex items-center gap-2 mb-2 text-amber-800 font-bold text-xs">
+                        <span className="px-2 py-0.5 rounded bg-amber-600 text-white text-[10px] uppercase tracking-wider font-semibold">Priority</span>
+                        <span>👑 Discussion Initiated by Administration</span>
+                      </div>
+                      <p className="text-gray-900 whitespace-pre-wrap font-medium leading-relaxed">{note.note.replace(/^\[From Admin:[^\]]+\]\s*/, '')}</p>
+                    </div>
+                  ) : note.note.startsWith('[From Team Leader:') ? (
                     <div className="bg-indigo-50/60 border border-indigo-200/90 rounded-xl p-4 mb-2">
                       <div className="flex items-center gap-2 mb-2 text-indigo-800 font-bold text-xs">
                         <span className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] uppercase tracking-wider font-semibold">Priority</span>

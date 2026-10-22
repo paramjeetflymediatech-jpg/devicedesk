@@ -95,7 +95,13 @@ export async function POST(request) {
     }
 
     let finalNote = String(note).trim();
-    if (sender_role === 'Team Leader' || initiated_by_tl) {
+    if (sender_role === 'Admin' || body.initiated_by_admin) {
+      const adminName = sender_name || 'Admin';
+      const topicPrefix = topic && topic.trim() ? `[Topic: ${topic.trim()}]\n\n` : '';
+      if (!finalNote.startsWith('[From Admin:')) {
+        finalNote = `[From Admin: ${adminName}] ${topicPrefix}${finalNote}`;
+      }
+    } else if (sender_role === 'Team Leader' || initiated_by_tl) {
       const leaderName = sender_name || 'Team Leader';
       const topicPrefix = topic && topic.trim() ? `[Topic: ${topic.trim()}]\n\n` : '';
       if (!finalNote.startsWith('[From Team Leader:')) {
