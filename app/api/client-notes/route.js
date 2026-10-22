@@ -11,9 +11,11 @@ export async function GET(request) {
     let rows;
     const baseQuery = `
       SELECT cn.*, 
-        COALESCE(c.name, cd.company_name, cn.client_id) as client_name,
+        COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(cd.company_name), ''), cn.client_id) as client_name,
         cd.company_name,
-        c.email as client_email
+        c.email as client_email,
+        c.avatarUrl as client_avatar,
+        cd.phone as client_phone
       FROM client_notes cn
       LEFT JOIN employees c ON (cn.client_id COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci)
       LEFT JOIN client_details cd ON (cn.client_id COLLATE utf8mb4_unicode_ci = cd.client_id COLLATE utf8mb4_unicode_ci)
@@ -31,6 +33,40 @@ export async function GET(request) {
         [rows] = await db.query('SELECT * FROM client_notes WHERE client_id = ? ORDER BY created_at DESC', [client_id]);
       } else {
         [rows] = await db.query('SELECT * FROM client_notes ORDER BY created_at DESC');
+      }
+
+      // If join query failed, attempt manual enrich from employees and client_details
+      if (rows && rows.length > 0) {
+        const clientIds = [...new Set(rows.map(r => r.client_id).filter(Boolean))];
+        if (clientIds.length > 0) {
+          try {
+            const placeholders = clientIds.map(() => '?').join(',');
+            const [emps] = await db.query(`SELECT id, name, email, avatarUrl FROM employees WHERE id IN (${placeholders})`, clientIds);
+            let details = [];
+            try {
+              const [d] = await db.query(`SELECT client_id, company_name, phone FROM client_details WHERE client_id IN (${placeholders})`, clientIds);
+              details = d;
+            } catch (dErr) {}
+
+            const empMap = new Map((emps || []).map(e => [String(e.id), e]));
+            const detailMap = new Map((details || []).map(d => [String(d.client_id), d]));
+
+            rows = rows.map(r => {
+              const emp = empMap.get(String(r.client_id));
+              const det = detailMap.get(String(r.client_id));
+              return {
+                ...r,
+                client_name: emp?.name || det?.company_name || r.client_id,
+                company_name: det?.company_name || null,
+                client_email: emp?.email || null,
+                client_avatar: emp?.avatarUrl || null,
+                client_phone: det?.phone || null
+              };
+            });
+          } catch (enrichErr) {
+            console.error('Failed fallback fetch for client names:', enrichErr);
+          }
+        }
       }
     }
     

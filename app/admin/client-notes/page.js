@@ -1,16 +1,20 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle } from 'react-icons/fi';
+import Link from 'next/link';
+import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiCheckCircle, FiSearch, FiBuilding, FiMail, FiPhone } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
+import Pagination from '@/app/components/Pagination.js';
 
 export default function AdminClientNotesPage() {
   const { user } = useAuth();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const notesPerPage = 10;
   const [replyText, setReplyText] = useState({});
   const [attachments, setAttachments] = useState({}); // attachments[noteId] will be an array of files
@@ -98,41 +102,182 @@ export default function AdminClientNotesPage() {
     }
   };
 
+  const filteredNotes = notes.filter(note => {
+    const matchesStatus = statusFilter === 'All' || note.status === statusFilter;
+    if (!matchesStatus) return false;
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      (note.client_name && note.client_name.toLowerCase().includes(term)) ||
+      (note.client_id && note.client_id.toLowerCase().includes(term)) ||
+      (note.company_name && note.company_name.toLowerCase().includes(term)) ||
+      (note.client_email && note.client_email.toLowerCase().includes(term)) ||
+      (note.note && note.note.toLowerCase().includes(term))
+    );
+  });
+
   const indexOfLastNote = currentPage * notesPerPage;
   const indexOfFirstNote = indexOfLastNote - notesPerPage;
-  const currentNotes = notes.slice(indexOfFirstNote, indexOfLastNote);
-  const totalPages = Math.ceil(notes.length / notesPerPage);
+  const currentNotes = filteredNotes.slice(indexOfFirstNote, indexOfLastNote);
+  const totalPages = Math.ceil(filteredNotes.length / notesPerPage);
+
+  const unreadCount = notes.filter(n => n.status === 'Unread').length;
+  const repliedCount = notes.filter(n => n.status === 'Replied').length;
 
   if (loading) return <div className="p-8 text-center text-slate-500">Loading client messages...</div>;
 
   return (
     <div className="page-container p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <FiMessageSquare style={{ color: 'var(--accent-cyan)' }} /> Client Messages & Notes
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <FiMessageSquare style={{ color: 'var(--accent-cyan)' }} /> Client Messages & Notes
+          </h1>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+            View and respond to incoming communications from verified clients.
+          </p>
+        </div>
+
+        {/* Search & Filter Header Controls */}
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <input
+              type="text"
+              placeholder="Search by client name, ID, or text..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl outline-none transition-all"
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--glass-border)',
+                color: 'var(--text-primary)'
+              }}
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <FiX size={12} />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)' }}>
+            <button
+              onClick={() => { setStatusFilter('All'); setCurrentPage(1); }}
+              className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${statusFilter === 'All' ? 'bg-cyan-500 text-white font-bold shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              All ({notes.length})
+            </button>
+            <button
+              onClick={() => { setStatusFilter('Unread'); setCurrentPage(1); }}
+              className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${statusFilter === 'Unread' ? 'bg-amber-500 text-white font-bold shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Unread ({unreadCount})
+            </button>
+            <button
+              onClick={() => { setStatusFilter('Replied'); setCurrentPage(1); }}
+              className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${statusFilter === 'Replied' ? 'bg-emerald-500 text-white font-bold shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Replied ({repliedCount})
+            </button>
+          </div>
+        </div>
       </div>
       
-      {notes.length === 0 ? (
+      {filteredNotes.length === 0 ? (
         <div style={{ background: 'var(--glass-bg)', padding: '3rem', borderRadius: '12px', border: '1px solid var(--glass-border)', textAlign: 'center', color: 'var(--text-secondary)' }}>
           <FiMessageSquare size={48} style={{ margin: '0 auto 12px', color: 'var(--text-muted)' }} />
-          No client messages found yet.
+          {searchTerm || statusFilter !== 'All' ? 'No messages match your search or filter.' : 'No client messages found yet.'}
         </div>
       ) : (
         <div className="grid gap-6">
-          {currentNotes.map(note => (
+          {currentNotes.map(note => {
+            const hasCustomName = note.client_name && note.client_name !== note.client_id;
+            const displayName = hasCustomName ? note.client_name : (note.company_name || 'Client: ' + note.client_id);
+
+            return (
             <div key={note.id} className="flex flex-col gap-4" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-              <div className="flex justify-between items-start ">
-                <div className="flex items-center gap-3">
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                    <FiUser />
+              <div className="flex justify-between items-start gap-4">
+                <div className="flex items-start sm:items-center gap-3 min-w-0">
+                  <div className="relative shrink-0">
+                    {note.client_avatar ? (
+                      <img
+                        src={note.client_avatar}
+                        alt={displayName}
+                        className="w-11 h-11 rounded-full object-cover border border-cyan-500/20"
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(59, 130, 246, 0.15))',
+                          color: 'var(--accent-cyan)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 'bold',
+                          fontSize: '1.05rem',
+                          border: '1px solid rgba(6, 182, 212, 0.25)'
+                        }}
+                      >
+                        {hasCustomName ? displayName.charAt(0).toUpperCase() : <FiUser size={18} />}
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>Client ID: {note.client_id}</p>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{new Date(note.created_at).toLocaleString()}</p>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-bold text-base tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                        {displayName}
+                      </h3>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" title="Registered & Verified Client">
+                        <FiCheckCircle size={11} className="text-emerald-500 shrink-0" /> Verified Client
+                      </span>
+                      <Link
+                        href={`/admin/client?search=${encodeURIComponent(note.client_name || note.client_id)}`}
+                        target="_blank"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 hover:underline transition-colors ml-1"
+                        title="Verify Client Profile in Client Records"
+                      >
+                        Verify Record <FiExternalLink size={10} />
+                      </Link>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-slate-400 font-medium">Client ID:</span>
+                        <code className="px-1.5 py-0.5 rounded font-mono text-[11px] bg-slate-100 dark:bg-slate-800 text-cyan-600 dark:text-cyan-400 font-semibold">{note.client_id}</code>
+                      </span>
+                      {note.company_name && (
+                        <span className="inline-flex items-center gap-1">
+                          <FiBuilding size={12} className="text-slate-400" />
+                          <span>{note.company_name}</span>
+                        </span>
+                      )}
+                      {note.client_email && (
+                        <span className="inline-flex items-center gap-1">
+                          <FiMail size={12} className="text-slate-400" />
+                          <span>{note.client_email}</span>
+                        </span>
+                      )}
+                      {note.client_phone && (
+                        <span className="inline-flex items-center gap-1">
+                          <FiPhone size={12} className="text-slate-400" />
+                          <span>{note.client_phone}</span>
+                        </span>
+                      )}
+                      <span>• {new Date(note.created_at).toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
-                <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${note.status === 'Unread' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                <span className={`px-2.5 py-1 rounded-md text-xs font-bold border shrink-0 ${note.status === 'Unread' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                   {note.status}
                 </span>
               </div>
@@ -259,7 +404,22 @@ export default function AdminClientNotesPage() {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
+        </div>
+      )}
+
+      {/* Universal Pagination */}
+      {filteredNotes.length > 0 && totalPages > 1 && (
+        <div className="mt-6 flex justify-center">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredNotes.length}
+            pageSize={notesPerPage}
+            onPageChange={setCurrentPage}
+            itemName="messages"
+          />
         </div>
       )}
 

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiPlus } from 'react-icons/fi';
+import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiPlus, FiCheckCircle, FiBuilding, FiMail, FiPhone } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
@@ -243,17 +243,63 @@ export default function LeaderClientChatPage() {
         <div className="grid gap-6 max-w-4xl">
           {notes.map(note => (
             <div key={note.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
-              <div className="flex justify-between items-start border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                    <FiUser />
+              <div className="flex justify-between items-start border-b border-slate-100 pb-4 gap-4">
+                <div className="flex items-start sm:items-center gap-3 min-w-0">
+                  <div className="relative shrink-0">
+                    {note.client_avatar ? (
+                      <img
+                        src={note.client_avatar}
+                        alt={note.client_name || note.client_id}
+                        className="w-11 h-11 rounded-full object-cover border border-blue-200"
+                      />
+                    ) : (
+                      <div className="w-11 h-11 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-base border border-blue-200">
+                        {note.client_name && note.client_name !== note.client_id ? (
+                          note.client_name.charAt(0).toUpperCase()
+                        ) : (
+                          <FiUser size={18} />
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-800">Client ID: {note.client_id}</p>
-                    <p className="text-xs text-slate-500">{new Date(note.created_at).toLocaleString()}</p>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-bold text-slate-900 text-base">
+                        {note.client_name && note.client_name !== note.client_id ? note.client_name : (note.company_name || 'Client: ' + note.client_id)}
+                      </p>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200" title="Verified Client">
+                        <FiCheckCircle size={11} className="text-emerald-600 shrink-0" /> Verified Client
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-500">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-slate-400 font-medium">Client ID:</span>
+                        <code className="px-1.5 py-0.5 rounded font-mono text-[11px] bg-slate-100 text-blue-700 font-semibold">{note.client_id}</code>
+                      </span>
+                      {note.company_name && (
+                        <span className="inline-flex items-center gap-1">
+                          <FiBuilding size={12} className="text-slate-400" />
+                          <span>{note.company_name}</span>
+                        </span>
+                      )}
+                      {note.client_email && (
+                        <span className="inline-flex items-center gap-1">
+                          <FiMail size={12} className="text-slate-400" />
+                          <span>{note.client_email}</span>
+                        </span>
+                      )}
+                      {note.client_phone && (
+                        <span className="inline-flex items-center gap-1">
+                          <FiPhone size={12} className="text-slate-400" />
+                          <span>{note.client_phone}</span>
+                        </span>
+                      )}
+                      <span>• {new Date(note.created_at).toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
-                <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${note.status === 'Unread' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                <span className={`px-2.5 py-1 rounded-md text-xs font-bold border shrink-0 ${note.status === 'Unread' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                   {note.status}
                 </span>
               </div>
