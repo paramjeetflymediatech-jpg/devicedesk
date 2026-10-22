@@ -4,6 +4,7 @@ import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, Fi
 import Swal from 'sweetalert2';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
+import GoogleDriveBadge from '@/app/components/GoogleDriveBadge.js';
 
 export default function ClientNotesPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -349,6 +350,9 @@ export default function ClientNotesPage() {
                   ) : (
                     <p className="text-gray-800 whitespace-pre-wrap mb-2">{note.note}</p>
                   )}
+
+                  {/* Google Drive Folder / Link Card */}
+                  <GoogleDriveBadge source={[note.note, note.attachment]} />
                   
                   {note.attachment && (() => {
                     let urls = [];
@@ -383,6 +387,7 @@ export default function ClientNotesPage() {
                     <div className="mt-2 p-3 bg-pink-50 border-l-4 border-pink-500 rounded-r-lg">
                       <p className="text-xs font-bold text-pink-700 mb-1">Team Leader Reply:</p>
                       <p className="text-sm text-pink-900 whitespace-pre-wrap">{note.tl_reply}</p>
+                      <GoogleDriveBadge source={[note.tl_reply, note.tl_attachment]} />
                       {note.tl_attachment && (() => {
                         let urls = [];
                         try {

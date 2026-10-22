@@ -6,6 +6,7 @@ import { io } from "socket.io-client";
 import EmojiPicker from 'emoji-picker-react';
 import { FiPaperclip, FiCamera, FiMic, FiSend, FiMessageSquare, FiUsers, FiBriefcase, FiDownload, FiFile, FiCornerUpRight, FiCornerUpLeft, FiX, FiMoreVertical, FiPlay, FiPause , FiMapPin , FiTrash2 , FiInfo, FiFolder, FiImage, FiLink, FiArrowLeft, FiEdit2, FiSmile, FiCheck } from "react-icons/fi";
 import { BiCheckDouble } from "react-icons/bi";
+import GoogleDriveBadge, { isDriveUrl, GoogleDriveIcon } from "./GoogleDriveBadge";
 
 export default function ChatView({ user }) {
   const [employees, setEmployees] = useState([]);
@@ -2366,6 +2367,7 @@ export default function ChatView({ user }) {
     const media = [];
     const docs = [];
     const links = [];
+    const drive = [];
 
     const urlRegex = /(https?:\/\/[^\s]+)/g;
 
@@ -2388,22 +2390,38 @@ export default function ChatView({ user }) {
           fileSize: msg.fileSize,
           type: msg.messageType
         });
-      } else if (msg.messageType === "text" && typeof msg.content === "string") {
-        const matches = msg.content.match(urlRegex);
-        if (matches) {
-          matches.forEach(url => {
-            links.push({
-              id: `${msg.id}_${url}`,
-              senderName: msg.senderName,
-              timestamp: msg.timestamp,
-              url: url
-            });
-          });
-        }
+      }
+
+      // Check text or attachment urls for links & drive folders
+      const textToCheck = `${msg.content || ""} ${msg.fileUrl || ""}`;
+      const matches = textToCheck.match(urlRegex);
+      if (matches) {
+        matches.forEach(url => {
+          const cleanUrl = url.replace(/[.,;)]+$/, "");
+          if (isDriveUrl(cleanUrl)) {
+            if (!drive.some(d => d.url === cleanUrl)) {
+              drive.push({
+                id: `${msg.id}_${cleanUrl}`,
+                senderName: msg.senderName,
+                timestamp: msg.timestamp,
+                url: cleanUrl
+              });
+            }
+          } else {
+            if (!links.some(l => l.url === cleanUrl)) {
+              links.push({
+                id: `${msg.id}_${cleanUrl}`,
+                senderName: msg.senderName,
+                timestamp: msg.timestamp,
+                url: cleanUrl
+              });
+            }
+          }
+        });
       }
     });
 
-    return { media, docs, links };
+    return { media, docs, links, drive };
   };
 
   const groupedMessages = getGroupedMessages();
@@ -3369,6 +3387,7 @@ export default function ChatView({ user }) {
                                   ) : (
                                     <div>{renderMessageText(msg.content, isOwn)}</div>
                                   )}
+                                  <GoogleDriveBadge source={msg.content} compact />
                                 </div>
                               )}
 
@@ -3386,6 +3405,7 @@ export default function ChatView({ user }) {
                                     style={{ maxWidth: "100%", maxHeight: "250px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer" }}
                                     onClick={() => setPreviewMediaUrl(msg.fileUrl)}
                                   />
+                                  <GoogleDriveBadge source={[msg.content, msg.fileUrl]} compact />
                                 </div>
                               )}
 
@@ -3402,6 +3422,7 @@ export default function ChatView({ user }) {
                                     controls
                                     style={{ maxWidth: "100%", maxHeight: "250px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}
                                   />
+                                  <GoogleDriveBadge source={[msg.content, msg.fileUrl]} compact />
                                 </div>
                               )}
 
@@ -3447,6 +3468,8 @@ export default function ChatView({ user }) {
                                       <span style={{ fontSize: "0.65rem", opacity: 0.8 }}>Download ({msg.fileSize || "Unknown"})</span>
                                     </div>
                                   </a>
+                                  {msg.content && !msg.content.startsWith("<FiCornerUpRight /> Forwarded") && <div style={{ marginTop: "6px" }}>{renderMessageText(msg.content, isOwn)}</div>}
+                                  <GoogleDriveBadge source={[msg.content, msg.fileUrl]} compact />
                                 </div>
                               )}
                             </div>
@@ -4560,11 +4583,12 @@ export default function ChatView({ user }) {
                 <h5 style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase" }}>Shared Contents</h5>
                 
                 {/* Media Filters tabs */}
-                <div style={{ display: "flex", gap: "4px", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "10px" }}>
+                <div style={{ display: "flex", gap: "4px", borderBottom: "1px solid var(--glass-border)", paddingBottom: "6px", marginBottom: "10px", overflowX: "auto" }}>
                   {[
                     { id: "all", label: <><span style={{marginRight: "4px"}}><FiFolder /></span> All</> },
                     { id: "media", label: <><span style={{marginRight: "4px"}}><FiImage /></span> Media</> },
                     { id: "docs", label: <><span style={{marginRight: "4px"}}><FiFile /></span> Docs</> },
+                    { id: "drive", label: <span style={{display: "inline-flex", alignItems: "center", gap: "4px"}}><GoogleDriveIcon size={12} /> Drive</span> },
                     { id: "links", label: <><span style={{marginRight: "4px"}}><FiLink /></span> Links</> }
                   ].map(tab => (
                     <button
@@ -4580,7 +4604,8 @@ export default function ChatView({ user }) {
                         padding: "6px 8px",
                         borderRadius: "6px",
                         flexGrow: 1,
-                        textAlign: "center"
+                        textAlign: "center",
+                        whiteSpace: "nowrap"
                       }}
                     >
                       {tab.label}
@@ -4591,7 +4616,7 @@ export default function ChatView({ user }) {
                 {/* Filtered Content Area */}
                 <div style={{ flexGrow: 1 }}>
                   {(() => {
-                    const { media, docs, links } = getSharedMediaAndFiles();
+                    const { media, docs, links, drive = [] } = getSharedMediaAndFiles();
                     
                     if (mediaFilter === "media") {
                       if (media.length === 0) return <div style={{ fontSize: "0.75rem", fontStyle: "italic", color: "var(--text-muted)", padding: "10px 0" }}>No photos/videos shared</div>;
@@ -4665,6 +4690,20 @@ export default function ChatView({ user }) {
                       );
                     }
 
+                    if (mediaFilter === "drive") {
+                      if (!drive || drive.length === 0) return <div style={{ fontSize: "0.75rem", fontStyle: "italic", color: "var(--text-muted)", padding: "10px 0" }}>No Google Drive links shared</div>;
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                          {drive.map(dr => (
+                            <div key={dr.id} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                              <GoogleDriveBadge url={dr.url} compact />
+                              <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", paddingLeft: "4px" }}>Shared by {dr.senderName}</div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+
                     if (mediaFilter === "links") {
                       if (links.length === 0) return <div style={{ fontSize: "0.75rem", fontStyle: "italic", color: "var(--text-muted)", padding: "10px 0" }}>No web links shared</div>;
                       return (
@@ -4698,6 +4737,7 @@ export default function ChatView({ user }) {
                     const allItems = [
                       ...media.map(m => ({ ...m, category: "media" })),
                       ...docs.map(d => ({ ...d, category: "docs" })),
+                      ...drive.map(dr => ({ ...dr, category: "drive" })),
                       ...links.map(l => ({ ...l, category: "links" }))
                     ].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
 
@@ -4771,6 +4811,14 @@ export default function ChatView({ user }) {
                                 </div>
                                 <span style={{ fontSize: "0.9rem" }}><FiDownload /></span>
                               </a>
+                            );
+                          }
+                          if (item.category === "drive") {
+                            return (
+                              <div key={item.id} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                <GoogleDriveBadge url={item.url} compact />
+                                <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", paddingLeft: "4px" }}>Shared by {item.senderName}</div>
+                              </div>
                             );
                           }
                           // link

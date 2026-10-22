@@ -7,6 +7,7 @@ import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
 import Pagination from '@/app/components/Pagination.js';
+import GoogleDriveBadge from '@/app/components/GoogleDriveBadge.js';
 
 export default function AdminClientNotesPage() {
   const { user } = useAuth();
@@ -26,6 +27,29 @@ export default function AdminClientNotesPage() {
   const isImageUrl = (url) => typeof url === 'string' && /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url);
   const isVideoUrl = (url) => typeof url === 'string' && /\.(mp4|webm|mov|ogg)($|\?)/i.test(url);
   const isAudioUrl = (url) => typeof url === 'string' && /\.(mp3|wav|ogg|m4a)($|\?)/i.test(url);
+
+  const renderTextWithLinks = (text) => {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-cyan-500 hover:text-cyan-400 underline font-semibold break-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
 
   const fetchNotes = async () => {
     try {
@@ -283,8 +307,11 @@ export default function AdminClientNotesPage() {
               </div>
               
               <div style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', border: '1px solid var(--glass-border)', lineHeight: '1.6' }}>
-                {note.note}
+                {renderTextWithLinks(note.note)}
               </div>
+
+              {/* Google Drive Folder / File Card */}
+              <GoogleDriveBadge source={[note.note, note.attachment]} />
               
               {note.attachment && (() => {
                 let urls = [];
@@ -316,7 +343,8 @@ export default function AdminClientNotesPage() {
                     <span>{note.replied_by_name ? `Reply from ${note.replied_by_name}` : 'Your Reply'}</span>
                     <span style={{ fontSize: '0.6rem', background: 'rgba(168, 85, 247, 0.15)', padding: '2px 6px', borderRadius: '4px', color: '#a855f7' }}>Replied</span>
                   </p>
-                  <p style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{note.tl_reply}</p>
+                  <p style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{renderTextWithLinks(note.tl_reply)}</p>
+                  <GoogleDriveBadge source={[note.tl_reply, note.tl_attachment]} />
                   {note.tl_attachment && (() => {
                     let urls = [];
                     try {

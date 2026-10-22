@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
+import GoogleDriveBadge from '@/app/components/GoogleDriveBadge.js';
 
 export default function LeaderClientChatPage() {
   const { user } = useAuth();
@@ -16,6 +17,29 @@ export default function LeaderClientChatPage() {
   const [uploadStats, setUploadStats] = useState({});
   const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
   const [previewError, setPreviewError] = useState(false);
+
+  const renderTextWithLinks = (text) => {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-700 underline font-semibold break-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
 
   // Initiate Discussion with Client Modal states
   const [isInitiateModalOpen, setIsInitiateModalOpen] = useState(false);
@@ -310,13 +334,16 @@ export default function LeaderClientChatPage() {
                     <span className="px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] uppercase font-semibold">Initiated by Team Leader</span>
                     <span>Direct Discussion with Client</span>
                   </div>
-                  <p className="text-slate-800 font-medium">{note.note.replace(/^\[From Team Leader:[^\]]+\]\s*/, '')}</p>
+                  <p className="text-slate-800 font-medium">{renderTextWithLinks(note.note.replace(/^\[From Team Leader:[^\]]+\]\s*/, ''))}</p>
                 </div>
               ) : (
                 <div className="bg-slate-50 p-4 rounded-lg text-slate-800 whitespace-pre-wrap border border-slate-100 leading-relaxed">
-                  {note.note}
+                  {renderTextWithLinks(note.note)}
                 </div>
               )}
+
+              {/* Google Drive Folder / File Card */}
+              <GoogleDriveBadge source={[note.note, note.attachment]} />
               
               {note.attachment && (() => {
                 let urls = [];
@@ -348,7 +375,8 @@ export default function LeaderClientChatPage() {
                     <span>{note.replied_by_name ? `Reply from ${note.replied_by_name}` : 'Your Reply'}</span>
                     <span className="text-[10px] bg-blue-100 px-2 py-0.5 rounded text-blue-600">Replied</span>
                   </p>
-                  <p className="text-blue-900 whitespace-pre-wrap leading-relaxed">{note.tl_reply}</p>
+                  <p className="text-blue-900 whitespace-pre-wrap leading-relaxed">{renderTextWithLinks(note.tl_reply)}</p>
+                  <GoogleDriveBadge source={[note.tl_reply, note.tl_attachment]} />
                   {note.tl_attachment && (() => {
                     let urls = [];
                     try {

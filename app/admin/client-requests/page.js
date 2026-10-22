@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { FiList, FiCheck, FiX, FiUser, FiEye, FiDownload, FiExternalLink, FiFileText, FiImage } from 'react-icons/fi';
 import Swal from 'sweetalert2';
+import GoogleDriveBadge from '@/app/components/GoogleDriveBadge.js';
 
 function parseAttachments(val) {
   if (!val) return [];
@@ -176,6 +177,7 @@ export default function ClientRequestsPage() {
                         >
                           <FiEye size={15} /> View Details
                         </button>
+                        <GoogleDriveBadge source={req} compact />
                       </div>
                     </td>
                     <td style={{ padding: '16px' }}>
@@ -271,6 +273,7 @@ export default function ClientRequestsPage() {
               <div style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', background: 'rgba(0,0,0,0.25)', padding: '14px', borderRadius: '8px', maxHeight: '220px', overflowY: 'auto', border: '1px solid var(--glass-border)', lineHeight: '1.5' }}>
                 {selectedReq.requirements}
               </div>
+              <GoogleDriveBadge source={selectedReq} />
             </div>
 
             {/* Client Attachments Section */}
