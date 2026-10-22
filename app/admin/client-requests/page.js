@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiList, FiCheck, FiX, FiUser, FiEye, FiDownload, FiExternalLink, FiFileText, FiImage } from 'react-icons/fi';
+import { FiList, FiCheck, FiX, FiUser, FiEye, FiDownload, FiExternalLink, FiFileText, FiImage, FiSearch } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import GoogleDriveBadge from '@/app/components/GoogleDriveBadge.js';
+import Pagination from '@/app/components/Pagination.js';
 
 function parseAttachments(val) {
   if (!val) return [];
@@ -51,6 +52,12 @@ export default function ClientRequestsPage() {
   const [selectedReq, setSelectedReq] = useState(null);
   const [deliveryFiles, setDeliveryFiles] = useState([]);
   const [previewMediaUrl, setPreviewMediaUrl] = useState(null);
+
+  // Search and Pagination states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     if (selectedReq) {
@@ -137,102 +144,230 @@ export default function ClientRequestsPage() {
 
   const clientAttachments = selectedReq ? parseAttachments(selectedReq.attachment || selectedReq.file_url || selectedReq.fileUrl) : [];
 
+  // Filter and Pagination logic
+  const filteredRequests = requests.filter(req => {
+    if (statusFilter === 'Unassigned' && req.assigned_tl_id) return false;
+    if (statusFilter === 'Assigned' && !req.assigned_tl_id) return false;
+
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase().trim();
+    const clientName = (req.client_name || '').toLowerCase();
+    const clientId = (req.clientId || '').toLowerCase();
+    const serviceType = (req.service_type || '').toLowerCase();
+    const requirements = (req.requirements || '').toLowerCase();
+    const tlName = (req.tl_name || getTLName(req.assigned_tl_id) || '').toLowerCase();
+
+    return (
+      clientName.includes(term) ||
+      clientId.includes(term) ||
+      serviceType.includes(term) ||
+      requirements.includes(term) ||
+      tlName.includes(term)
+    );
+  });
+
+  const totalPages = Math.ceil(filteredRequests.length / pageSize) || 1;
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const indexOfFirstReq = (safeCurrentPage - 1) * pageSize;
+  const currentRequests = filteredRequests.slice(indexOfFirstReq, indexOfFirstReq + pageSize);
+
+  const unassignedCount = requests.filter(r => !r.assigned_tl_id).length;
+  const assignedCount = requests.filter(r => !!r.assigned_tl_id).length;
+
   return (
     <div className="page-container p-6">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <FiList /> Client Service Requests (All)
-        </h1>
+      {/* Header with Title and Search/Filters */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <FiList style={{ color: 'var(--accent-blue)' }} /> Client Service Requests
+          </h1>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+            Manage client service bookings, review requirements & attachments, and assign Team Leaders.
+          </p>
+        </div>
+
+        {/* Search & Filter Controls */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          {/* Search Input */}
+          <div className="relative flex-1 md:w-72">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <input
+              type="text"
+              placeholder="Search by client name, ID, service, or TL..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl outline-none transition-all"
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--glass-border)',
+                color: 'var(--text-primary)'
+              }}
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setCurrentPage(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                title="Clear search"
+              >
+                <FiX size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Quick Filter Tabs */}
+          <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)' }}>
+            <button
+              type="button"
+              onClick={() => { setStatusFilter('All'); setCurrentPage(1); }}
+              className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer ${statusFilter === 'All' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              All ({requests.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStatusFilter('Unassigned'); setCurrentPage(1); }}
+              className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer ${statusFilter === 'Unassigned' ? 'bg-amber-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              Unassigned ({unassignedCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStatusFilter('Assigned'); setCurrentPage(1); }}
+              className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors cursor-pointer ${statusFilter === 'Assigned' ? 'bg-emerald-600 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              Assigned ({assignedCount})
+            </button>
+          </div>
+        </div>
       </div>
 
       {loading ? (
         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading requests...</div>
       ) : (
-        <div style={{ overflowX: 'auto', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.02)' }}>
-                <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Client</th>
-                <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Requirements</th>
-                <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Attachments</th>
-                <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Date</th>
-                <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Assigned TL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {requests.map(req => {
-                const reqFiles = parseAttachments(req.attachment || req.file_url || req.fileUrl);
-                return (
-                  <tr key={req.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                    <td style={{ padding: '16px', color: 'var(--text-primary)', fontWeight: '600' }}>{req.client_name || req.clientId}</td>
-                    <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {req.service_type}: {req.requirements}
-                        </span>
-                        <button 
-                          onClick={() => setSelectedReq(req)}
-                          style={{ color: 'var(--accent-blue)', background: 'rgba(59, 130, 246, 0.1)', padding: '6px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
-                          title="View Full Requirement & Attachments"
-                        >
-                          <FiEye size={15} /> View Details
-                        </button>
-                        <GoogleDriveBadge source={req} compact />
-                      </div>
-                    </td>
-                    <td style={{ padding: '16px' }}>
-                      {reqFiles.length > 0 ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600' }}>
-                            📎 {reqFiles.length} {reqFiles.length === 1 ? 'file' : 'files'}
-                          </span>
+        <>
+          <div style={{ overflowX: 'auto', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.02)' }}>
+                  <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Client</th>
+                  <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Requirements</th>
+                  <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Attachments</th>
+                  <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Date</th>
+                  <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Assigned TL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentRequests.map(req => {
+                  const reqFiles = parseAttachments(req.attachment || req.file_url || req.fileUrl);
+                  return (
+                    <tr key={req.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                      <td style={{ padding: '16px' }}>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '0.9rem' }}>
+                          {req.client_name || req.clientId}
                         </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>None</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>{new Date(req.created_at).toLocaleDateString()}</td>
-                    <td style={{ padding: '16px' }}>
-                      {editingReqId === req.id ? (
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <select 
-                            value={selectedTlId} 
-                            onChange={(e) => setSelectedTlId(e.target.value)}
-                            style={{ padding: '6px', borderRadius: '4px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)' }}
-                          >
-                            <option value="">Select TL</option>
-                            {teamLeaders.map(tl => (
-                              <option key={tl.id} value={tl.id}>{tl.name}</option>
-                            ))}
-                          </select>
-                          <button onClick={() => handleSaveTL(req.id)} style={{ color: 'var(--status-healthy)', background: 'none', border: 'none', cursor: 'pointer' }}><FiCheck size={18} /></button>
-                          <button onClick={() => setEditingReqId(null)} style={{ color: 'var(--status-critical)', background: 'none', border: 'none', cursor: 'pointer' }}><FiX size={18} /></button>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <span style={{ color: req.assigned_tl_id ? 'var(--text-primary)' : 'var(--status-critical)', fontWeight: '500' }}>
-                            {req.assigned_tl_id ? getTLName(req.assigned_tl_id) : '⚠️ Unassigned'}
+                        {req.client_name && req.clientId && req.client_name !== req.clientId && (
+                          <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontFamily: 'monospace', marginTop: '2px' }}>
+                            ID: {req.clientId}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {req.service_type}: {req.requirements}
                           </span>
                           <button 
-                            onClick={() => { setEditingReqId(req.id); setSelectedTlId(req.assigned_tl_id || ''); }}
-                            style={{ padding: '4px 8px', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-cyan)', borderRadius: '6px', fontSize: '0.75rem', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+                            onClick={() => setSelectedReq(req)}
+                            style={{ color: 'var(--accent-blue)', background: 'rgba(59, 130, 246, 0.1)', padding: '6px 10px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
+                            title="View Full Requirement & Attachments"
                           >
-                            {req.assigned_tl_id ? 'Reassign' : 'Assign TL'}
+                            <FiEye size={15} /> View Details
                           </button>
+                          <GoogleDriveBadge source={req} compact />
                         </div>
-                      )}
+                      </td>
+                      <td style={{ padding: '16px' }}>
+                        {reqFiles.length > 0 ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ background: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600' }}>
+                              📎 {reqFiles.length} {reqFiles.length === 1 ? 'file' : 'files'}
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>None</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>{new Date(req.created_at).toLocaleDateString()}</td>
+                      <td style={{ padding: '16px' }}>
+                        {editingReqId === req.id ? (
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <select 
+                              value={selectedTlId} 
+                              onChange={(e) => setSelectedTlId(e.target.value)}
+                              style={{ padding: '6px', borderRadius: '4px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)' }}
+                            >
+                              <option value="">Select TL</option>
+                              {teamLeaders.map(tl => (
+                                <option key={tl.id} value={tl.id}>{tl.name}</option>
+                              ))}
+                            </select>
+                            <button onClick={() => handleSaveTL(req.id)} style={{ color: 'var(--status-healthy)', background: 'none', border: 'none', cursor: 'pointer' }}><FiCheck size={18} /></button>
+                            <button onClick={() => setEditingReqId(null)} style={{ color: 'var(--status-critical)', background: 'none', border: 'none', cursor: 'pointer' }}><FiX size={18} /></button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ color: req.assigned_tl_id ? 'var(--text-primary)' : 'var(--status-critical)', fontWeight: '500' }}>
+                              {req.assigned_tl_id ? getTLName(req.assigned_tl_id) : '⚠️ Unassigned'}
+                            </span>
+                            <button 
+                              onClick={() => { setEditingReqId(req.id); setSelectedTlId(req.assigned_tl_id || ''); }}
+                              style={{ padding: '4px 8px', background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-cyan)', borderRadius: '6px', fontSize: '0.75rem', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+                            >
+                              {req.assigned_tl_id ? 'Reassign' : 'Assign TL'}
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredRequests.length === 0 && (
+                  <tr>
+                    <td colSpan="5" style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      {searchTerm || statusFilter !== 'All' 
+                        ? `No requests match your search or filter.` 
+                        : 'No client requests found.'}
                     </td>
                   </tr>
-                );
-              })}
-              {requests.length === 0 && (
-                <tr>
-                  <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No client requests found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Universal Pagination */}
+          <div className="mt-4">
+            <Pagination
+              currentPage={safeCurrentPage}
+              totalPages={totalPages}
+              totalItems={filteredRequests.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              itemName="requests"
+            />
+          </div>
+        </>
       )}
 
       {/* Modal for viewing full requirement & Interactive Attachment Viewer */}
