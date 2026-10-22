@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiCheckCircle, FiSearch, FiBuilding, FiMail, FiPhone } from 'react-icons/fi';
+import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiCheckCircle, FiSearch, FiBriefcase, FiMail, FiPhone } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
@@ -257,7 +257,7 @@ export default function AdminClientNotesPage() {
                       </span>
                       {note.company_name && (
                         <span className="inline-flex items-center gap-1">
-                          <FiBuilding size={12} className="text-slate-400" />
+                          <FiBriefcase size={12} className="text-slate-400" />
                           <span>{note.company_name}</span>
                         </span>
                       )}
