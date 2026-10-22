@@ -31,7 +31,7 @@ export function containsPhoneNumber(text) {
     const match = cleaned.match(regex);
     if (match) {
       const digitsOnly = match[0].replace(/\D/g, '');
-      if (digitsOnly.length >= 10 && digitsOnly.length <= 15) {
+      if (digitsOnly.length >= 3 && digitsOnly.length <= 15) {
         return true;
       }
       if (/^[6-9]\d{9}$/.test(digitsOnly)) {
@@ -45,7 +45,7 @@ export function containsPhoneNumber(text) {
   const kwMatch = cleaned.match(keywordRegex);
   if (kwMatch) {
     const digits = kwMatch[1].replace(/\D/g, '');
-    if (digits.length >= 8 && digits.length <= 15) return true;
+    if (digits.length >= 3 && digits.length <= 15) return true;
   }
 
   return false;

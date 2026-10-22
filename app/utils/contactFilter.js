@@ -16,7 +16,7 @@ export function containsPhoneNumber(text) {
   const spacedMatch = cleaned.match(/(?:\d[\s.,_-]){7,}\d/);
   if (spacedMatch) {
     const digitsOnly = spacedMatch[0].replace(/\D/g, '');
-    if (digitsOnly.length >= 8 && digitsOnly.length <= 15) return true;
+    if (digitsOnly.length >= 3 && digitsOnly.length <= 15) return true;
   }
 
   // 2. Standard phone formats (Indian 10-digit mobile, international, etc.)
