@@ -495,6 +495,47 @@ export default function AdminClientNotesPage() {
                 );
               })()}
 
+              {/* Client Reply if sent by Client */}
+              {note.client_reply && (
+                <div style={{ background: 'rgba(16, 185, 129, 0.08)', borderLeft: '4px solid #10b981', padding: '1rem', borderRadius: '0 8px 8px 0', marginTop: '8px' }}>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#10b981', marginBottom: '4px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <span className="flex items-center gap-1.5">
+                      <FiCheckCircle size={14} /> Client Reply ({note.client_name || note.client_id})
+                    </span>
+                    {note.client_replied_at && (
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                        {new Date(note.client_replied_at).toLocaleString()}
+                      </span>
+                    )}
+                  </p>
+                  <p style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{renderTextWithLinks(note.client_reply)}</p>
+                  <GoogleDriveBadge source={[note.client_reply, note.client_reply_attachment]} />
+                  {note.client_reply_attachment && (() => {
+                    let urls = [];
+                    try {
+                      urls = JSON.parse(note.client_reply_attachment);
+                      if (!Array.isArray(urls)) urls = [note.client_reply_attachment];
+                    } catch(e) {
+                      urls = [note.client_reply_attachment];
+                    }
+                    return (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {urls.map((url, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setPreviewAttachmentUrl(url)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 'bold', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)', cursor: 'pointer' }}
+                          >
+                            <FiPaperclip size={14} /> View Client Reply Attachment {urls.length > 1 ? idx+1 : ''}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               {note.tl_reply ? (
                 <div style={{ background: 'rgba(168, 85, 247, 0.05)', borderLeft: '4px solid #a855f7', padding: '1rem', borderRadius: '0 8px 8px 0', marginTop: '8px' }}>
                   <p style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#a855f7', marginBottom: '4px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px' }}>

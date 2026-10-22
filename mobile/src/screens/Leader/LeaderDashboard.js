@@ -1916,6 +1916,59 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                     {/* Detected Google Drive Folder in Client Note */}
                     <GoogleDriveBadge source={note} isDark={isDark} themeColors={themeColors} />
 
+                    {/* Client Reply if sent by Client */}
+                    {note.client_reply ? (
+                      <View style={[styles.tlReplyBox, { borderColor: '#10b981', backgroundColor: isDark ? '#064e3b22' : '#ecfdf5', marginBottom: 10 }]}>
+                        <View style={styles.tlReplyHeaderRow}>
+                          <Text style={[styles.tlReplyHeading, { color: '#10b981' }]}>
+                            💬 CLIENT REPLY ({note.client_name || note.client_id})
+                          </Text>
+                          {note.client_replied_at && (
+                            <Text style={{ fontSize: 10, color: themeColors.textSecondary }}>
+                              {new Date(note.client_replied_at).toLocaleDateString()}
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={[styles.tlReplyText, { color: themeColors.textPrimary }]} selectable>
+                          {note.client_reply}
+                        </Text>
+                        {note.client_reply_attachment && (() => {
+                          let urls = [];
+                          try {
+                            urls = JSON.parse(note.client_reply_attachment);
+                            if (!Array.isArray(urls)) urls = [note.client_reply_attachment];
+                          } catch(e) {
+                            urls = [note.client_reply_attachment];
+                          }
+                          return (
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                              {urls.map((url, idx) => (
+                                <TouchableOpacity
+                                  key={idx}
+                                  style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    backgroundColor: isDark ? '#0f172a' : '#f0fdf4',
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 6,
+                                    borderRadius: 8,
+                                    borderWidth: 1,
+                                    borderColor: isDark ? '#22c55e' : '#bbf7d0',
+                                    gap: 5
+                                  }}
+                                  onPress={() => handleOpenAttachment(url)}
+                                >
+                                  <Text style={{ fontSize: 11, fontWeight: '700', color: isDark ? '#86efac' : '#16a34a' }}>
+                                    📎 View Client Reply Attachment {urls.length > 1 ? idx + 1 : ''}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          );
+                        })()}
+                      </View>
+                    ) : null}
+
                     {/* TL Reply Display or Reply Box */}
                     {note.tl_reply && replyTextMap[note.id] === undefined ? (
                       <View style={styles.tlReplyBox}>

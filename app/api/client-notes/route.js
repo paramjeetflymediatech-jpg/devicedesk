@@ -125,9 +125,47 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, tl_reply, tl_attachment, replied_by_name } = await request.json();
-    if (!id || !tl_reply) {
-      return NextResponse.json({ success: false, error: 'id and tl_reply are required' }, { status: 400 });
+    const body = await request.json();
+    const { id, tl_reply, tl_attachment, replied_by_name, client_reply, client_reply_attachment } = body;
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 });
+    }
+
+    const db = await getDbConnection();
+    try {
+      await db.execute(`ALTER TABLE client_notes ADD COLUMN client_reply TEXT DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.execute(`ALTER TABLE client_notes ADD COLUMN client_reply_attachment TEXT DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.execute(`ALTER TABLE client_notes ADD COLUMN client_replied_at TIMESTAMP NULL DEFAULT NULL`);
+    } catch (e) {}
+
+    // 1. Client replying to Admin / Team Leader note
+    if (client_reply !== undefined) {
+      if (!String(client_reply).trim() && !client_reply_attachment) {
+        return NextResponse.json({ success: false, error: 'client_reply or attachment is required' }, { status: 400 });
+      }
+
+      if (containsPhoneNumber(client_reply)) {
+        return NextResponse.json({
+          success: false,
+          error: PHONE_POLICY_WARNING
+        }, { status: 400 });
+      }
+
+      await db.execute(
+        'UPDATE client_notes SET client_reply = ?, client_reply_attachment = ?, client_replied_at = NOW(), status = ? WHERE id = ?',
+        [String(client_reply).trim(), client_reply_attachment || null, 'Replied', id]
+      );
+
+      return NextResponse.json({ success: true, message: 'Client reply sent successfully' });
+    }
+
+    // 2. Team Leader / Admin replying to Client note
+    if (!tl_reply) {
+      return NextResponse.json({ success: false, error: 'reply is required' }, { status: 400 });
     }
 
     // Security & Anti-circumvention Policy: Prevent sharing phone / contact numbers in replies
@@ -138,7 +176,6 @@ export async function PUT(request) {
       }, { status: 400 });
     }
 
-    const db = await getDbConnection();
     await db.execute(
       'UPDATE client_notes SET tl_reply = ?, status = ?, tl_attachment = ?, replied_by_name = ? WHERE id = ?', 
       [tl_reply, 'Replied', tl_attachment || null, replied_by_name || 'Admin', id]

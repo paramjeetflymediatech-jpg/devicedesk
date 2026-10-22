@@ -650,6 +650,9 @@ async function initializeDatabase(db) {
   try { await db.execute(`ALTER TABLE client_notes ADD COLUMN attachment TEXT DEFAULT NULL`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_notes ADD COLUMN tl_attachment TEXT DEFAULT NULL`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_notes ADD COLUMN replied_by_name VARCHAR(150) DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_notes ADD COLUMN client_reply TEXT DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_notes ADD COLUMN client_reply_attachment TEXT DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_notes ADD COLUMN client_replied_at TIMESTAMP NULL DEFAULT NULL`); } catch (err) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS work_submissions (

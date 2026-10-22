@@ -374,6 +374,47 @@ export default function LeaderClientChatPage() {
                 );
               })()}
 
+              {/* Client Reply if sent by Client */}
+              {note.client_reply && (
+                <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-lg mt-2 shadow-sm">
+                  <p className="text-xs font-bold text-emerald-800 mb-1 uppercase tracking-wide flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5">
+                      <FiCheckCircle size={14} className="text-emerald-600" /> Client Reply ({note.client_name || note.client_id})
+                    </span>
+                    {note.client_replied_at && (
+                      <span className="text-[11px] font-normal text-slate-500">
+                        {new Date(note.client_replied_at).toLocaleString()}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-emerald-950 whitespace-pre-wrap leading-relaxed">{renderTextWithLinks(note.client_reply)}</p>
+                  <GoogleDriveBadge source={[note.client_reply, note.client_reply_attachment]} />
+                  {note.client_reply_attachment && (() => {
+                    let urls = [];
+                    try {
+                      urls = JSON.parse(note.client_reply_attachment);
+                      if (!Array.isArray(urls)) urls = [note.client_reply_attachment];
+                    } catch(e) {
+                      urls = [note.client_reply_attachment];
+                    }
+                    return (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {urls.map((url, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setPreviewAttachmentUrl(url)}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100/70 hover:bg-emerald-200 hover:shadow-sm px-3 py-1.5 rounded-lg border border-emerald-200 transition-all w-fit"
+                          >
+                            <FiPaperclip size={14} /> View Client Reply Attachment {urls.length > 1 ? idx+1 : ''}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               {note.tl_reply ? (
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mt-2 shadow-sm">
                   <p className="text-xs font-bold text-blue-800 mb-1 uppercase tracking-wide flex items-center gap-2">

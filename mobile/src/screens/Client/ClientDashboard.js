@@ -1585,6 +1585,50 @@ export default function ClientDashboard({ user, onLogout }) {
                       ) : (
                         <Text style={styles.pendingReplyText}>⏳ Awaiting team response...</Text>
                       )}
+
+                      {/* Client Reply if sent by Client */}
+                      {n.client_reply ? (
+                        <View style={[styles.replyBox, { borderColor: '#10b981', backgroundColor: isDark ? '#064e3b22' : '#ecfdf5', marginTop: 8 }]}>
+                          <Text style={[styles.replyHeader, { color: '#10b981' }]}>💬 Your Reply:</Text>
+                          <Text style={[styles.replyText, { color: isDark ? '#e2e8f0' : '#1e293b' }]}>{n.client_reply}</Text>
+
+                          {/* Client Reply Attachments */}
+                          {n.client_reply_attachment && (() => {
+                            let urls = [];
+                            try {
+                              urls = JSON.parse(n.client_reply_attachment);
+                              if (!Array.isArray(urls)) urls = [n.client_reply_attachment];
+                            } catch(e) {
+                              urls = [n.client_reply_attachment];
+                            }
+                            return (
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                                {urls.map((url, idx) => (
+                                  <TouchableOpacity
+                                    key={idx}
+                                    style={{
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      backgroundColor: isDark ? '#0f172a' : '#f0fdf4',
+                                      paddingHorizontal: 10,
+                                      paddingVertical: 6,
+                                      borderRadius: 8,
+                                      borderWidth: 1,
+                                      borderColor: isDark ? '#22c55e' : '#bbf7d0',
+                                      gap: 5
+                                    }}
+                                    onPress={() => handleOpenAttachment(url)}
+                                  >
+                                    <Text style={{ fontSize: 11, fontWeight: '700', color: isDark ? '#86efac' : '#16a34a' }}>
+                                      📎 View Your Attachment {urls.length > 1 ? idx + 1 : ''}
+                                    </Text>
+                                  </TouchableOpacity>
+                                ))}
+                              </View>
+                            );
+                          })()}
+                        </View>
+                      ) : null}
                     </View>
                   ))
                 )}

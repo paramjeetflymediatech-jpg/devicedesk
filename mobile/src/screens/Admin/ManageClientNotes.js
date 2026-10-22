@@ -257,6 +257,7 @@ export default function ManageClientNotes({ currentUser, onBack }) {
             filteredNotes.map((item) => {
               const clientAttach = parseAttachments(item.attachment);
               const tlAttach = parseAttachments(item.tl_attachment);
+              const clientReplyAttach = parseAttachments(item.client_reply_attachment);
               const currentPendingAttach = replyAttachmentsMap[item.id] || [];
               const isSending = submittingReplyId === item.id;
 
@@ -277,9 +278,9 @@ export default function ManageClientNotes({ currentUser, onBack }) {
                         ID: {item.client_id} • 📅 {item.created_at ? new Date(item.created_at).toLocaleString() : 'N/A'}
                       </Text>
                     </View>
-                    <View style={[styles.statusTag, { backgroundColor: item.tl_reply ? '#dcfce7' : '#fef3c7' }]}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: item.tl_reply ? '#15803d' : '#b45309' }}>
-                        {item.tl_reply ? 'Replied' : 'Pending'}
+                    <View style={[styles.statusTag, { backgroundColor: (item.tl_reply || item.client_reply) ? '#dcfce7' : '#fef3c7' }]}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: (item.tl_reply || item.client_reply) ? '#15803d' : '#b45309' }}>
+                        {item.client_reply ? 'Client Replied' : item.tl_reply ? 'Replied' : 'Pending'}
                       </Text>
                     </View>
                   </View>
@@ -314,6 +315,52 @@ export default function ManageClientNotes({ currentUser, onBack }) {
                       </View>
                     )}
                   </View>
+
+                  {/* Client Reply if sent by Client */}
+                  {item.client_reply ? (
+                    <View style={[styles.replyBox, { backgroundColor: isDark ? '#064e3b22' : '#ecfdf5', borderColor: '#10b981', marginBottom: 8 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ fontSize: 13 }}>✅</Text>
+                          <Text style={[styles.replySender, { color: '#10b981' }]}>
+                            Client Reply ({item.client_name || item.client_id}):
+                          </Text>
+                        </View>
+                        {item.client_replied_at && (
+                          <Text style={{ fontSize: 10, color: themeColors.textSecondary }}>
+                            {new Date(item.client_replied_at).toLocaleDateString()}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={[styles.replyBodyText, { color: themeColors.textPrimary }]}>
+                        {item.client_reply}
+                      </Text>
+
+                      {/* Client Reply Attachments */}
+                      {clientReplyAttach.length > 0 && (
+                        <View style={styles.attachGrid}>
+                          {clientReplyAttach.map((attUrl, aIdx) => (
+                            <TouchableOpacity
+                              key={aIdx}
+                              style={[styles.attachChip, { backgroundColor: isDark ? '#064e3b' : '#bbf7d0' }]}
+                              onPress={() => {
+                                if (isImageUrl(attUrl) || isVideoUrl(attUrl) || isAudioUrl(attUrl)) {
+                                  setPreviewAttachmentUrl(attUrl);
+                                  setPreviewError(false);
+                                } else {
+                                  Linking.openURL(attUrl).catch(() => {});
+                                }
+                              }}
+                            >
+                              <Text style={{ fontSize: 12 }}>
+                                {isImageUrl(attUrl) ? '🖼️ Reply Image' : isVideoUrl(attUrl) ? '🎥 Reply Video' : isAudioUrl(attUrl) ? '🎵 Reply Audio' : '📎 Reply File'}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  ) : null}
 
                   {/* Existing Reply Section */}
                   {item.tl_reply ? (

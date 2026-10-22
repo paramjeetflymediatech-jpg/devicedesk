@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiUser, FiSend, FiPlus, FiPaperclip, FiExternalLink, FiDownload, FiEye, FiAlertCircle } from 'react-icons/fi';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiUser, FiSend, FiPlus, FiPaperclip, FiExternalLink, FiDownload, FiEye, FiAlertCircle, FiCheck, FiCheckCircle } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
@@ -21,6 +21,9 @@ export default function ClientNotesPage() {
   const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
   const [previewError, setPreviewError] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [replyText, setReplyText] = useState({});
+  const [replyAttachments, setReplyAttachments] = useState({});
+  const [replyingNotes, setReplyingNotes] = useState({});
   const itemsPerPage = 5;
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -137,6 +140,69 @@ export default function ClientNotesPage() {
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleClientReply = async (noteId) => {
+    const reply = (replyText[noteId] || '').trim();
+    const noteFiles = replyAttachments[noteId] || [];
+
+    if (!reply && noteFiles.length === 0) {
+      Swal.fire('Required', 'Please enter a reply or attach a file', 'warning');
+      return;
+    }
+
+    if (containsPhoneNumber(reply)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        confirmButtonColor: '#db2777'
+      });
+      return;
+    }
+
+    setReplyingNotes(prev => ({ ...prev, [noteId]: true }));
+    try {
+      let attachmentUrls = [];
+      if (noteFiles.length > 0) {
+        try {
+          const urls = await uploadFilesWithProgress(noteFiles);
+          if (urls && urls.length > 0) attachmentUrls = urls;
+        } catch (err) {
+          throw err;
+        }
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+      const res = await fetch('/api/client-notes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: noteId,
+          client_reply: reply,
+          client_reply_attachment: attachmentStr
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Reply Sent!',
+          text: 'Your reply has been sent directly to the team.',
+          confirmButtonColor: '#db2777'
+        });
+        setReplyText(prev => ({ ...prev, [noteId]: '' }));
+        setReplyAttachments(prev => ({ ...prev, [noteId]: [] }));
+        fetchNotes();
+      } else {
+        Swal.fire('Error', data.error || 'Failed to send reply', 'error');
+      }
+    } catch (err) {
+      Swal.fire('Error', err.message || 'Network error occurred', 'error');
+    } finally {
+      setReplyingNotes(prev => ({ ...prev, [noteId]: false }));
     }
   };
 
@@ -398,7 +464,9 @@ export default function ClientNotesPage() {
 
                   {note.tl_reply && (
                     <div className="mt-2 p-3 bg-pink-50 border-l-4 border-pink-500 rounded-r-lg">
-                      <p className="text-xs font-bold text-pink-700 mb-1">Team Leader Reply:</p>
+                      <p className="text-xs font-bold text-pink-700 mb-1">
+                        {note.replied_by_name ? `Reply from ${note.replied_by_name}:` : 'Team Leader Reply:'}
+                      </p>
                       <p className="text-sm text-pink-900 whitespace-pre-wrap">{note.tl_reply}</p>
                       <GoogleDriveBadge source={[note.tl_reply, note.tl_attachment]} />
                       {note.tl_attachment && (() => {
@@ -423,12 +491,122 @@ export default function ClientNotesPage() {
                                 }}
                                 className="inline-flex items-center gap-1.5 text-xs font-bold text-pink-700 bg-pink-100/60 border border-pink-200 hover:bg-pink-200 hover:shadow-sm px-3 py-1.5 rounded-lg transition-all"
                               >
-                                <FiPaperclip size={14} /> View TL Attachment {urls.length > 1 ? idx+1 : ''}
+                                <FiPaperclip size={14} /> View Attachment {urls.length > 1 ? idx+1 : ''}
                               </button>
                             ))}
                           </div>
                         );
                       })()}
+                    </div>
+                  )}
+
+                  {/* Client Reply if already sent */}
+                  {note.client_reply && (
+                    <div className="mt-2.5 p-3.5 bg-emerald-50/70 border-l-4 border-emerald-500 rounded-r-xl">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                          <FiCheckCircle className="text-emerald-600" /> Your Reply to this Discussion:
+                        </span>
+                        {note.client_replied_at && (
+                          <span className="text-[11px] text-emerald-600 font-normal">
+                            {new Date(note.client_replied_at).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-emerald-950 whitespace-pre-wrap font-medium leading-relaxed">
+                        {note.client_reply}
+                      </p>
+                      <GoogleDriveBadge source={[note.client_reply, note.client_reply_attachment]} />
+                      {note.client_reply_attachment && (() => {
+                        let urls = [];
+                        try {
+                          urls = JSON.parse(note.client_reply_attachment);
+                          if (!Array.isArray(urls)) urls = [note.client_reply_attachment];
+                        } catch(e) {
+                          urls = [note.client_reply_attachment];
+                        }
+                        urls = urls.filter(Boolean);
+                        if (urls.length === 0) return null;
+                        return (
+                          <div className="mt-2.5 flex flex-wrap gap-2">
+                            {urls.map((url, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setPreviewError(false);
+                                  setPreviewAttachmentUrl(url);
+                                }}
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100/70 border border-emerald-200 hover:bg-emerald-200 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                              >
+                                <FiPaperclip size={13} /> View Attached File {urls.length > 1 ? idx + 1 : ''}
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Reply Input Box for Client if note was sent by Admin/TL or has a reply, and client hasn't replied yet */}
+                  {!note.client_reply && (note.note.startsWith('[From Admin:') || note.note.startsWith('[From Team Leader:') || note.tl_reply) && (
+                    <div className="mt-2.5 pt-3 border-t border-gray-100 flex flex-col gap-2.5 bg-gray-50/50 p-3 rounded-xl border">
+                      <label className="text-xs font-bold text-gray-700 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <FiSend className="text-pink-600" size={13} /> Reply to this discussion:
+                        </span>
+                        <span className="text-[11px] text-gray-400 font-normal">Direct response to Admin & Team Leader</span>
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Type your response, clarification, or feedback here..."
+                        value={replyText[note.id] || ''}
+                        onChange={(e) => setReplyText(prev => ({ ...prev, [note.id]: e.target.value }))}
+                        className="w-full text-sm p-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:outline-hidden leading-relaxed resize-y"
+                      />
+
+                      {/* Selected files preview */}
+                      {replyAttachments[note.id] && replyAttachments[note.id].length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {replyAttachments[note.id].map((file, idx) => (
+                            <span key={idx} className="text-xs text-pink-700 bg-pink-50 border border-pink-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                              <span className="truncate max-w-[180px]">{file.name}</span>
+                              <FiX 
+                                className="cursor-pointer text-pink-800 hover:text-red-600" 
+                                onClick={() => {
+                                  const updated = replyAttachments[note.id].filter((_, i) => i !== idx);
+                                  setReplyAttachments(prev => ({ ...prev, [note.id]: updated }));
+                                }}
+                              />
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-gray-100 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 cursor-pointer transition-colors">
+                          <FiPaperclip size={14} /> Attach Files
+                          <input 
+                            type="file" 
+                            multiple 
+                            className="hidden" 
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              setReplyAttachments(prev => ({ ...prev, [note.id]: [...(prev[note.id] || []), ...files] }));
+                            }}
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => handleClientReply(note.id)}
+                          disabled={replyingNotes[note.id]}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                        >
+                          <FiSend size={13} />
+                          <span>{replyingNotes[note.id] ? 'Sending...' : 'Send Reply'}</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
