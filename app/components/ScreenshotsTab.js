@@ -499,7 +499,7 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1600px', margin: '0 auto' }}>
+    <div className="p-3 sm:p-6 max-w-[1600px] mx-auto w-full">
 
       {/* 1. Header Banner & Title */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
@@ -608,7 +608,7 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
       </div>
 
       {/* 2. Top Summary KPI Widgets */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', padding: '18px', borderRadius: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: '600' }}>
             <span>Today's Total Captures</span>
@@ -666,18 +666,18 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
       <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', padding: '16px 20px', borderRadius: '14px', marginBottom: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
-          {/* Row 1: Responsive Grid Inputs */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', alignItems: 'center', width: '100%' }}>
+          {/* Row 1: Responsive Flex Inputs */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', width: '100%' }}>
 
             {/* Search Input */}
-            <div style={{ position: 'relative', width: '100%' }}>
+            <div style={{ position: 'relative', flex: '1 1 220px', minWidth: '180px' }}>
               <FiSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
                 type="text"
                 placeholder="Search Employee, ID, IP..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '9px 32px 9px 36px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+                style={{ width: '100%', height: '38px', padding: '8px 32px 8px 36px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
               />
               {searchQuery && (
                 <button
@@ -692,7 +692,7 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
 
             {/* Team Leader Filter (Admin Only) */}
             {isAdminUser && (
-              <div style={{ position: 'relative', width: '100%' }}>
+              <div style={{ position: 'relative', flex: '1 1 180px', minWidth: '160px' }}>
                 <select
                   value={adminSelectedTL}
                   onChange={e => {
@@ -701,7 +701,8 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                   }}
                   style={{
                     width: '100%',
-                    padding: '9px 12px',
+                    height: '38px',
+                    padding: '8px 12px',
                     borderRadius: '8px',
                     border: adminSelectedTL !== 'all' ? '1px solid #818cf8' : '1px solid var(--glass-border)',
                     fontSize: '0.85rem',
@@ -723,11 +724,11 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
             )}
 
             {/* Employee Dropdown Filter */}
-            <div style={{ position: 'relative', width: '100%' }}>
+            <div style={{ position: 'relative', flex: '1 1 220px', minWidth: '180px' }}>
               <select
                 value={selectedEmployee}
                 onChange={e => setSelectedEmployee(e.target.value)}
-                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)', backgroundColor: 'var(--bg-tertiary)' }}
+                style={{ width: '100%', height: '38px', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)', backgroundColor: 'var(--bg-tertiary)' }}
               >
                 <option value="all" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
                   {adminSelectedTL !== 'all' ? `👥 All Assigned Members (${employeesList.length})` : `👤 All Employees (${employeesList.length})`}
@@ -745,11 +746,11 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
             </div>
 
             {/* Department Dropdown Filter */}
-            <div style={{ position: 'relative', width: '100%' }}>
+            <div style={{ position: 'relative', flex: '1 1 180px', minWidth: '160px' }}>
               <select
                 value={selectedDepartment}
                 onChange={e => setSelectedDepartment(e.target.value)}
-                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)', backgroundColor: 'var(--bg-tertiary)' }}
+                style={{ width: '100%', height: '38px', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)', backgroundColor: 'var(--bg-tertiary)' }}
               >
                 <option value="all" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>🏢 All Departments ({departmentsList.length})</option>
                 {departmentsList.map(dept => (
@@ -759,27 +760,31 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
             </div>
 
             {/* Date Filter with Today Quick Selector */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '6px', flex: '1 1 270px', minWidth: '240px' }}>
               <input
                 type="date"
                 value={selectedDate}
                 onChange={e => setSelectedDate(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', fontWeight: '600', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+                style={{ flex: 1, minWidth: '120px', height: '38px', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', fontWeight: '600', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
               />
               <button
                 type="button"
                 onClick={() => setSelectedDate(getTodayDateStr())}
                 title="Filter Today"
                 style={{
-                  padding: '7px 10px',
-                  borderRadius: '6px',
+                  height: '38px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
                   border: selectedDate === getTodayDateStr() ? '1px solid var(--accent-blue)' : '1px solid var(--glass-border)',
                   backgroundColor: selectedDate === getTodayDateStr() ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
                   color: selectedDate === getTodayDateStr() ? '#ffffff' : 'var(--text-primary)',
-                  fontSize: '0.75rem',
+                  fontSize: '0.78rem',
                   fontWeight: '700',
                   cursor: 'pointer',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
               >
                 Today
@@ -789,19 +794,33 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                   type="button"
                   onClick={() => setSelectedDate('')}
                   title="Show All Dates"
-                  style={{ background: 'none', border: 'none', color: 'var(--status-critical)', fontSize: '0.78rem', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  style={{
+                    height: '38px',
+                    padding: '0 10px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    color: 'var(--status-critical, #ef4444)',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
-                  All
+                  Clear
                 </button>
               )}
             </div>
 
             {/* Display Range / Limit Filter */}
-            <div style={{ position: 'relative', width: '100%' }}>
+            <div style={{ position: 'relative', flex: '1 1 190px', minWidth: '170px' }}>
               <select
                 value={limitFilter}
                 onChange={e => setLimitFilter(e.target.value)}
-                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', fontWeight: '700', color: 'var(--accent-cyan)', backgroundColor: 'var(--bg-tertiary)' }}
+                style={{ width: '100%', height: '38px', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.85rem', fontWeight: '700', color: 'var(--accent-cyan)', backgroundColor: 'var(--bg-tertiary)' }}
               >
                 <option value="all" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>📸 All Whole Day (Unlimited)</option>
                 <option value="500" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>📸 Up to 500 Captures</option>

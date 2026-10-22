@@ -38,50 +38,38 @@ export default function AdminSystemsPage() {
   const paginatedSystems = filteredSystems.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-primary, #0f172a)", color: "var(--text-primary, #f8fafc)", padding: "2rem" }}>
-      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+    <div className="w-full max-w-full font-sans">
+      <div className="max-w-[1400px] mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--accent-cyan, #06b6d4)", textDecoration: "none", fontSize: "0.85rem", marginBottom: "8px" }}>
+            <Link href="/admin" className="inline-flex items-center gap-1.5 text-xs text-[var(--accent-cyan,#06b6d4)] hover:underline mb-2">
               <FiArrowLeft /> Back to Dashboard
             </Link>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>
-              <FiMonitor style={{ color: "var(--accent-cyan, #06b6d4)" }} /> Hardware Fleet Management
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary,#f8fafc)] flex items-center gap-3">
+              <FiMonitor className="text-[var(--accent-cyan,#06b6d4)]" /> Hardware Fleet Management
             </h1>
-            <p style={{ color: "var(--text-secondary, #94a3b8)", fontSize: "0.875rem", marginTop: "4px" }}>
-              Manage systems, hardware specifications, and system routing slugs.
+            <p className="text-xs sm:text-sm text-[var(--text-secondary,#94a3b8)] mt-1">
+              Manage systems, hardware specifications, and system routing slugs ({filteredSystems.length} machines).
             </p>
           </div>
         </div>
 
         {/* Toolbar */}
-        <div style={{ 
-          display: "flex", 
-          gap: "12px", 
-          marginBottom: "1.5rem", 
-          background: "rgba(255, 255, 255, 0.02)", 
-          padding: "1rem", 
-          borderRadius: "12px", 
-          border: "1px solid var(--glass-border, rgba(255, 255, 255, 0.08))",
-          flexWrap: "wrap",
-          alignItems: "center"
-        }}>
-          <div style={{ position: "relative", flex: "1", minWidth: "260px" }}>
-            <FiSearch style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted, #64748b)" }} />
+        <div className="flex flex-col sm:flex-row gap-3 p-3 sm:p-4 rounded-xl bg-white/[0.02] border border-[var(--glass-border,rgba(255,255,255,0.08))]">
+          <div className="relative flex-1 min-w-0">
+            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted,#64748b)]" />
             <input 
               type="text" 
-              className="form-control"
+              className="form-control w-full pl-10 pr-4 h-10 text-sm rounded-lg bg-[var(--bg-tertiary,#1e293b)] text-[var(--text-primary,#f8fafc)] border border-[var(--glass-border,rgba(255,255,255,0.1))]"
               placeholder="Search by system number, slug, CPU, or assigned employee..." 
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-              style={{ paddingLeft: "36px", width: "100%", height: "40px" }}
             />
           </div>
           <select 
-            className="form-control"
+            className="form-control w-full sm:w-44 h-10 text-sm rounded-lg px-3 bg-[var(--bg-tertiary,#1e293b)] text-[var(--text-primary,#f8fafc)] border border-[var(--glass-border,rgba(255,255,255,0.1))]"
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-            style={{ minWidth: "140px", height: "40px" }}
           >
             <option value="All">All Status</option>
             <option value="Active">Active</option>
@@ -90,87 +78,158 @@ export default function AdminSystemsPage() {
           </select>
         </div>
 
-        <div className="table-wrapper" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border, rgba(255,255,255,0.1))", borderRadius: "16px", overflowX: "auto" }}>
-          <table className="custom-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "rgba(255,255,255,0.04)", textAlign: "left" }}>
-                <th style={{ padding: "14px 16px" }}>System Number</th>
-                <th style={{ padding: "14px 16px" }}>System Slug</th>
-                <th style={{ padding: "14px 16px" }}>Processor / CPU</th>
-                <th style={{ padding: "14px 16px" }}>Memory & Storage</th>
-                <th style={{ padding: "14px 16px" }}>Assigned To</th>
-                <th style={{ padding: "14px 16px" }}>Status</th>
-                <th style={{ padding: "14px 16px", textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedSystems.map((sys) => {
-                const sysSlug = getSystemSlug(sys);
-                const assigned = employees.find((e) => e.id === sys.assignedTo);
-                const empSlug = assigned ? getEmployeeSlug(assigned) : "";
+        {/* Mobile View: Cards */}
+        <div className="block md:hidden space-y-3">
+          {paginatedSystems.map((sys) => {
+            const sysSlug = getSystemSlug(sys);
+            const assigned = employees.find((e) => e.id === sys.assignedTo);
+            const empSlug = assigned ? getEmployeeSlug(assigned) : "";
 
-                return (
-                  <tr key={sys.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                    <td style={{ padding: "14px 16px", fontWeight: 700 }}>
-                      <Link href={`/admin/systems/${sysSlug}`} style={{ color: "var(--text-primary, #f8fafc)", textDecoration: "none" }}>
-                        {sys.systemNumber || sys.id}
-                      </Link>
-                    </td>
-                    <td style={{ padding: "14px 16px" }}>
+            return (
+              <div 
+                key={sys.id} 
+                className="p-4 rounded-xl bg-white/[0.03] border border-[var(--glass-border,rgba(255,255,255,0.08))] space-y-3"
+              >
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <Link href={`/admin/systems/${sysSlug}`} className="text-base font-bold text-[var(--text-primary,#f8fafc)] hover:text-[var(--accent-cyan,#06b6d4)]">
+                      {sys.systemNumber || sys.id}
+                    </Link>
+                    <div className="mt-1">
                       <Link
                         href={`/admin/systems/${sysSlug}`}
-                        className="timer-badge"
-                        style={{
-                          fontSize: "0.72rem",
-                          color: "var(--accent-purple, #a855f7)",
-                          borderColor: "rgba(168, 85, 247, 0.4)",
-                          background: "rgba(168, 85, 247, 0.08)",
-                          textDecoration: "none",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px"
-                        }}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold text-[var(--accent-purple,#a855f7)] bg-[rgba(168,85,247,0.1)] border border-[rgba(168,85,247,0.3)]"
                       >
-                        <FiLink style={{ fontSize: "0.65rem" }} /> @{sysSlug}
+                        <FiLink className="text-[10px]" /> @{sysSlug}
                       </Link>
-                    </td>
-                    <td style={{ padding: "14px 16px", fontSize: "0.85rem", color: "var(--text-secondary, #94a3b8)" }}>
+                    </div>
+                  </div>
+                  <span className={`status-tag ${sys.status === "Active" ? "resolved" : "open"} text-xs px-2.5 py-1 rounded-full`}>
+                    {sys.status || "Active"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-white/[0.06]">
+                  <div className="space-y-0.5">
+                    <span className="text-[var(--text-muted,#64748b)] flex items-center gap-1">
+                      <FiCpu className="text-[11px]" /> CPU
+                    </span>
+                    <span className="font-medium text-[var(--text-secondary,#94a3b8)] truncate block">
                       {sys.cpu || "—"}
-                    </td>
-                    <td style={{ padding: "14px 16px", fontSize: "0.85rem" }}>
+                    </span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[var(--text-muted,#64748b)] flex items-center gap-1">
+                      <FiHardDrive className="text-[11px]" /> RAM / Storage
+                    </span>
+                    <span className="font-medium text-[var(--text-secondary,#94a3b8)] truncate block">
                       {sys.ram || "N/A"} / {sys.storage || "N/A"}
-                    </td>
-                    <td style={{ padding: "14px 16px" }}>
-                      {assigned ? (
-                        <Link href={`/admin/users/${empSlug}`} style={{ color: "var(--accent-cyan, #06b6d4)", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
-                          {assigned.name}
-                        </Link>
-                      ) : (
-                        <span style={{ color: "var(--text-muted, #64748b)", fontSize: "0.85rem" }}>Unassigned</span>
-                      )}
-                    </td>
-                    <td style={{ padding: "14px 16px" }}>
-                      <span className={`status-tag ${sys.status === "Active" ? "resolved" : "open"}`} style={{ fontSize: "0.75rem" }}>
-                        {sys.status || "Active"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "14px 16px", textAlign: "right" }}>
-                      <Link href={`/admin/systems/${sysSlug}`} className="btn-action start" style={{ padding: "4px 10px", fontSize: "0.75rem", textDecoration: "none" }}>
-                        Details &rarr;
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center pt-2 border-t border-white/[0.06]">
+                  <div className="text-xs">
+                    <span className="text-[var(--text-muted,#64748b)] block text-[11px]">Assigned To</span>
+                    {assigned ? (
+                      <Link href={`/admin/users/${empSlug}`} className="text-[var(--accent-cyan,#06b6d4)] font-semibold hover:underline">
+                        {assigned.name}
                       </Link>
+                    ) : (
+                      <span className="text-[var(--text-muted,#64748b)]">Unassigned</span>
+                    )}
+                  </div>
+                  <Link 
+                    href={`/admin/systems/${sysSlug}`} 
+                    className="btn-action start text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-1"
+                  >
+                    Details &rarr;
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+          {filteredSystems.length === 0 && (
+            <div className="text-center py-10 text-[var(--text-muted)] bg-white/[0.02] rounded-xl border border-[var(--glass-border)]">
+              No systems found matching criteria.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop View: Table */}
+        <div className="hidden md:block rounded-xl border border-[var(--glass-border,rgba(255,255,255,0.1))] bg-white/[0.02] overflow-hidden">
+          <div className="overflow-x-auto w-full">
+            <table className="custom-table w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white/[0.04] text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary,#94a3b8)] border-b border-white/[0.08]">
+                  <th className="py-3.5 px-4">System Number</th>
+                  <th className="py-3.5 px-4">System Slug</th>
+                  <th className="py-3.5 px-4">Processor / CPU</th>
+                  <th className="py-3.5 px-4">Memory & Storage</th>
+                  <th className="py-3.5 px-4">Assigned To</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05] text-sm">
+                {paginatedSystems.map((sys) => {
+                  const sysSlug = getSystemSlug(sys);
+                  const assigned = employees.find((e) => e.id === sys.assignedTo);
+                  const empSlug = assigned ? getEmployeeSlug(assigned) : "";
+
+                  return (
+                    <tr key={sys.id} className="hover:bg-white/[0.03] transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-[var(--text-primary,#f8fafc)] whitespace-nowrap">
+                        <Link href={`/admin/systems/${sysSlug}`} className="hover:text-[var(--accent-cyan,#06b6d4)]">
+                          {sys.systemNumber || sys.id}
+                        </Link>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <Link
+                          href={`/admin/systems/${sysSlug}`}
+                          className="timer-badge text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold text-[var(--accent-purple,#a855f7)] bg-[rgba(168,85,247,0.08)] border border-[rgba(168,85,247,0.4)]"
+                        >
+                          <FiLink className="text-[10px]" /> @{sysSlug}
+                        </Link>
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-[var(--text-secondary,#94a3b8)] max-w-xs truncate">
+                        {sys.cpu || "—"}
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-[var(--text-secondary,#94a3b8)] whitespace-nowrap">
+                        {sys.ram || "N/A"} / {sys.storage || "N/A"}
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {assigned ? (
+                          <Link href={`/admin/users/${empSlug}`} className="text-[var(--accent-cyan,#06b6d4)] text-xs font-semibold hover:underline">
+                            {assigned.name}
+                          </Link>
+                        ) : (
+                          <span className="text-[var(--text-muted,#64748b)] text-xs">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className={`status-tag ${sys.status === "Active" ? "resolved" : "open"} text-xs px-2.5 py-1 rounded-full`}>
+                          {sys.status || "Active"}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <Link href={`/admin/systems/${sysSlug}`} className="btn-action start text-xs px-3 py-1 rounded-md">
+                          Details &rarr;
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredSystems.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="text-center py-12 text-[var(--text-muted)]">
+                      No systems found matching criteria.
                     </td>
                   </tr>
-                );
-              })}
-              {filteredSystems.length === 0 && (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
-                    No systems found matching criteria.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Pagination */}
