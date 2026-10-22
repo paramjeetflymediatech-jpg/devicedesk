@@ -31,6 +31,8 @@ async function ensureCandidateTestsTable(db) {
     { name: 'file_url', def: "TEXT DEFAULT NULL" },
     { name: 'test_instructions', def: "TEXT DEFAULT NULL" },
     { name: 'status', def: "VARCHAR(50) DEFAULT 'Pending'" },
+    { name: 'candidate_name', def: "VARCHAR(150) DEFAULT NULL" },
+    { name: 'candidate_email', def: "VARCHAR(150) DEFAULT NULL" },
   ];
 
   for (const col of columnsToAdd) {
@@ -91,9 +93,9 @@ export async function POST(request) {
     const dbTestInstructions = testType === 'mcq' ? 'Please complete the multiple choice questions below.' : testInstructions;
 
     await db.execute(
-      `INSERT INTO candidate_tests (id, candidate_employee_id, test_title, test_instructions, file_url, test_type, test_data)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [testId, empId, testTitle, dbTestInstructions, fileUrl || '', dbTestType, dbTestData]
+      `INSERT INTO candidate_tests (id, candidate_employee_id, test_title, test_instructions, file_url, test_type, test_data, candidate_name, candidate_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [testId, empId, testTitle, dbTestInstructions, fileUrl || '', dbTestType, dbTestData, reg.name || '', reg.email || '']
     );
 
     // 6. Send Email Notification

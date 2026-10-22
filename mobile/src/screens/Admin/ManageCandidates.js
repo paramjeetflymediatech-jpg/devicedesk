@@ -80,6 +80,7 @@ export default function ManageCandidates({ currentUser, onBack }) {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEvaluateModal, setShowEvaluateModal] = useState(false);
+  const [showTestDetailsModal, setShowTestDetailsModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Selected Entities
@@ -126,18 +127,168 @@ export default function ManageCandidates({ currentUser, onBack }) {
 
   const loadData = async () => {
     try {
-      if (subTab === 'pool') {
-        const poolRes = await fetchCandidatesPoolApi();
-        if (poolRes && poolRes.success) {
-          setCandidates(poolRes.data || []);
+      // Fetch both list and pool concurrently so counts and cross-matching are always available
+      const [listRes, poolRes] = await Promise.all([
+        fetchCandidatesListApi().catch(() => ({ success: false })),
+        fetchCandidatesPoolApi().catch(() => ({ success: false })),
+      ]);
+
+      const poolData = (poolRes && poolRes.success && Array.isArray(poolRes.data)) ? poolRes.data : [];
+      setCandidates(poolData);
+
+      const rawRegs = (listRes && listRes.success && Array.isArray(listRes.registrations)) ? listRes.registrations : [];
+      setRegistrations(rawRegs);
+
+      const rawTests = (listRes && listRes.success && Array.isArray(listRes.tests)) ? listRes.tests : [];
+
+      // Resolve candidate details for each test
+      const resolvedTests = rawTests.map((t) => {
+        let resolvedName = t.candidate_name;
+        let resolvedEmail = t.candidate_email;
+        let resolvedPhone = t.candidate_phone || '';
+        let resolvedPosition = t.candidate_position || '';
+
+        if (resolvedName === 'null' || resolvedName === 'undefined' || resolvedName === 'N/A') resolvedName = '';
+        if (resolvedEmail === 'null' || resolvedEmail === 'undefined' || resolvedEmail === 'N/A') resolvedEmail = '';
+
+        const isNameEmpty = !resolvedName || resolvedName.trim() === '' || resolvedName.toLowerCase() === 'candidate';
+
+        if (isNameEmpty) {
+          // 1. Direct ID match
+          let match = rawRegs.find(r => r.id === t.candidate_employee_id);
+
+          // 2. Email match
+          if (!match && resolvedEmail) {
+            match = rawRegs.find(r => r.email && r.email.toLowerCase() === resolvedEmail.toLowerCase());
+          }
+
+          // 3. Proximity timestamp match
+          if (!match) {
+            const getNumericTs = (str) => {
+              if (!str) return NaN;
+              const nums = str.replace(/[^0-9]/g, '').slice(0, 13);
+              return nums.length >= 10 ? parseInt(nums, 10) : NaN;
+            };
+            const testTs = getNumericTs(t.candidate_employee_id) || getNumericTs(t.id);
+            if (!isNaN(testTs)) {
+              let closest = null;
+              let minDiff = 25 * 60 * 1000; // within 25 minutes
+              for (const r of rawRegs) {
+                const regTs = getNumericTs(r.id);
+                if (!isNaN(regTs)) {
+                  const diff = Math.abs(testTs - regTs);
+                  if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = r;
+                  }
+                }
+              }
+              if (closest) match = closest;
+            }
+          }
+
+          // 4. Candidate Pool match
+          if (!match && poolData.length > 0) {
+            if (resolvedEmail) {
+              match = poolData.find(c => c.email && c.email.toLowerCase() === resolvedEmail.toLowerCase());
+            }
+            if (!match) {
+              match = poolData.find(c => c.id === t.candidate_employee_id);
+            }
+            if (!match) {
+              const getNumericTs = (str) => {
+                if (!str) return NaN;
+                const nums = str.replace(/[^0-9]/g, '').slice(0, 13);
+                return nums.length >= 10 ? parseInt(nums, 10) : NaN;
+              };
+              const testTs = getNumericTs(t.candidate_employee_id) || getNumericTs(t.id);
+              if (!isNaN(testTs)) {
+                let closest = null;
+                let minDiff = 60 * 60 * 1000;
+                for (const c of poolData) {
+                  const poolTs = getNumericTs(c.id);
+                  if (!isNaN(poolTs)) {
+                    const diff = Math.abs(testTs - poolTs);
+                    if (diff < minDiff) {
+                      minDiff = diff;
+                      closest = c;
+                    }
+                  }
+                }
+                if (closest) match = closest;
+              }
+            }
+          }
+
+          // 5. Match by role or unclaimed approved registration
+          if (!match) {
+            const testTitleLower = (t.title || t.test_title || '').toLowerCase();
+            const poolMatch = poolData.find(c => c.role_applied && testTitleLower.includes(c.role_applied.toLowerCase()));
+            if (poolMatch) match = poolMatch;
+          }
+
+          if (match) {
+            resolvedName = match.name || resolvedName;
+            resolvedEmail = resolvedEmail || match.email || '';
+            resolvedPhone = resolvedPhone || match.phone || '';
+            resolvedPosition = resolvedPosition || match.position_applied || match.role_applied || '';
+          }
         }
-      } else {
-        const listRes = await fetchCandidatesListApi();
-        if (listRes && listRes.success) {
-          setTests(listRes.tests || []);
-          setRegistrations(listRes.registrations || []);
+
+        // Fill remaining phone/position
+        if (resolvedName && (!resolvedPhone || !resolvedPosition)) {
+          const regMatch = rawRegs.find(r => 
+            (r.name && r.name.toLowerCase() === resolvedName.toLowerCase()) ||
+            (resolvedEmail && r.email && r.email.toLowerCase() === resolvedEmail.toLowerCase())
+          );
+          if (regMatch) {
+            resolvedPhone = resolvedPhone || regMatch.phone || '';
+            resolvedPosition = resolvedPosition || regMatch.position_applied || regMatch.role_applied || '';
+          }
+          if (!resolvedPhone || !resolvedPosition) {
+            const poolMatch = poolData.find(c => 
+              (c.name && c.name.toLowerCase() === resolvedName.toLowerCase()) ||
+              (resolvedEmail && c.email && c.email.toLowerCase() === resolvedEmail.toLowerCase())
+            );
+            if (poolMatch) {
+              resolvedPhone = resolvedPhone || poolMatch.phone || '';
+              resolvedPosition = resolvedPosition || poolMatch.role_applied || '';
+            }
+          }
         }
-      }
+
+        // Score calculation from test_data
+        let calculatedScore = t.score;
+        let totalCount = t.total_questions || null;
+        let parsedQuestions = null;
+
+        if (t.test_data) {
+          try {
+            const p = typeof t.test_data === 'string' ? JSON.parse(t.test_data) : t.test_data;
+            if (Array.isArray(p)) {
+              parsedQuestions = p;
+              totalCount = p.length;
+              const correct = p.filter(q => q.isCorrect === true || q.isCorrect === 'true' || q.isCorrect === 1).length;
+              if (calculatedScore === null || calculatedScore === undefined) {
+                calculatedScore = correct;
+              }
+            }
+          } catch (e) {}
+        }
+
+        return {
+          ...t,
+          candidate_name: (resolvedName && resolvedName !== 'Candidate') ? resolvedName : (resolvedEmail ? resolvedEmail.split('@')[0] : 'Applicant Candidate'),
+          candidate_email: resolvedEmail || '',
+          candidate_phone: resolvedPhone || '',
+          candidate_position: resolvedPosition || '',
+          score: calculatedScore,
+          total_questions: totalCount,
+          parsedQuestions,
+        };
+      });
+
+      setTests(resolvedTests);
     } catch (err) {
       console.error('Failed to load candidate data:', err);
     } finally {
@@ -393,6 +544,8 @@ export default function ManageCandidates({ currentUser, onBack }) {
       !searchQuery ||
       (t.candidate_name || '').toLowerCase().includes(query) ||
       (t.candidate_email || '').toLowerCase().includes(query) ||
+      (t.candidate_phone || '').toLowerCase().includes(query) ||
+      (t.candidate_position || '').toLowerCase().includes(query) ||
       (t.title || t.test_title || '').toLowerCase().includes(query) ||
       (t.status || '').toLowerCase().includes(query)
     );
@@ -523,41 +676,43 @@ export default function ManageCandidates({ currentUser, onBack }) {
                     </View>
 
                     {/* Action Buttons */}
-                    <View style={styles.actionsRow}>
-                      {reg.resume_url ? (
-                        <TouchableOpacity
-                          style={[styles.miniBtn, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}
-                          onPress={() => Linking.openURL(reg.resume_url).catch(() => {})}
-                        >
-                          <Text style={[styles.miniBtnText, { color: themeColors.textPrimary }]}>📄 Resume</Text>
-                        </TouchableOpacity>
-                      ) : null}
+                    <View style={styles.actionsContainer}>
+                      <View style={styles.actionsRow}>
+                        {reg.resume_url ? (
+                          <TouchableOpacity
+                            style={[styles.miniBtn, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}
+                            onPress={() => Linking.openURL(reg.resume_url).catch(() => {})}
+                          >
+                            <Text style={[styles.miniBtnText, { color: themeColors.textPrimary }]}>📄 Resume</Text>
+                          </TouchableOpacity>
+                        ) : null}
 
-                      <TouchableOpacity
-                        style={[styles.miniBtn, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: '#3b82f6', borderWidth: 1 }]}
-                        onPress={() => {
-                          setSelectedReg(reg);
-                          setShowDetailsModal(true);
-                        }}
-                      >
-                        <Text style={[styles.miniBtnText, { color: '#3b82f6' }]}>👁️ Details</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.miniBtn, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: '#3b82f6', borderWidth: 1 }]}
+                          onPress={() => {
+                            setSelectedReg(reg);
+                            setShowDetailsModal(true);
+                          }}
+                        >
+                          <Text style={[styles.miniBtnText, { color: '#3b82f6' }]}>👁️ Details</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.miniBtn, { backgroundColor: isDark ? '#451a1a' : '#fee2e2', borderColor: '#ef4444', borderWidth: 1 }]}
+                          onPress={() => handleDeleteApplication(reg)}
+                        >
+                          <Text style={[styles.miniBtnText, { color: '#ef4444' }]}>🗑️ Delete</Text>
+                        </TouchableOpacity>
+                      </View>
 
                       {!isApproved && !isRejected && (
                         <TouchableOpacity
-                          style={[styles.miniBtn, { backgroundColor: '#10b981' }]}
+                          style={[styles.primaryApproveBtn, { backgroundColor: '#10b981' }]}
                           onPress={() => handleOpenApprove(reg)}
                         >
-                          <Text style={[styles.miniBtnText, { color: '#ffffff' }]}>✅ Approve & Test</Text>
+                          <Text style={styles.primaryApproveBtnText}>✅ Approve & Assign Test</Text>
                         </TouchableOpacity>
                       )}
-
-                      <TouchableOpacity
-                        style={[styles.miniBtn, { backgroundColor: isDark ? '#451a1a' : '#fee2e2', borderColor: '#ef4444', borderWidth: 1 }]}
-                        onPress={() => handleDeleteApplication(reg)}
-                      >
-                        <Text style={[styles.miniBtnText, { color: '#ef4444' }]}>🗑️ Delete</Text>
-                      </TouchableOpacity>
                     </View>
                   </View>
                 );
@@ -639,54 +794,148 @@ export default function ManageCandidates({ currentUser, onBack }) {
                 <Text style={{ fontSize: 36, marginBottom: 12 }}>🎯</Text>
                 <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Test Submissions</Text>
                 <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
-                  Candidate test submissions and scores will appear here.
+                  {searchQuery ? 'No test tasks match your search filter.' : 'Candidate test submissions and scores will appear here.'}
                 </Text>
               </View>
             ) : (
               filteredTests.map((t) => {
-                const isDone = t.status === 'Evaluated' || t.status === 'Selected' || t.status === 'Passed';
+                const isCompleted = t.status === 'Completed';
+                const isEvaluated = t.status === 'Evaluated' || t.status === 'Selected' || t.status === 'Passed';
+                const isRejected = t.status === 'Rejected';
+
+                const statusBg = isCompleted ? '#dcfce7' : isEvaluated ? '#e0e7ff' : isRejected ? '#fee2e2' : '#fef3c7';
+                const statusColor = isCompleted ? '#15803d' : isEvaluated ? '#3730a3' : isRejected ? '#b91c1c' : '#b45309';
+                const statusLabel = isCompleted ? '✓ Submitted' : isEvaluated ? `🏆 ${t.status}` : isRejected ? '✕ Rejected' : '⏳ In Progress';
+
+                const hasScore = t.score !== null && t.score !== undefined && t.total_questions;
+                const scorePercent = hasScore ? Math.round((t.score / t.total_questions) * 100) : 0;
+                const isPassing = scorePercent >= 50;
+
                 return (
                   <View key={t.id} style={[styles.itemCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                    {/* Header: Candidate Name, Position, Status */}
                     <View style={styles.cardHeaderRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>{t.candidate_name || 'Candidate'}</Text>
-                        <Text style={[styles.cardSubTitle, { color: '#06b6d4' }]}>🎯 {t.title || t.test_title || 'Assessment Test'}</Text>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>
+                          {t.candidate_name || 'Candidate'}
+                        </Text>
+                        {t.candidate_position ? (
+                          <Text style={[styles.cardSubTitle, { color: '#3b82f6' }]}>
+                            💼 {t.candidate_position}
+                          </Text>
+                        ) : null}
                       </View>
-                      <View style={[styles.statusBadge, { backgroundColor: isDone ? '#dcfce7' : '#fef3c7' }]}>
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: isDone ? '#15803d' : '#b45309' }}>
-                          {t.status || 'Pending'}
+                      <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: statusColor }}>
+                          {statusLabel}
                         </Text>
                       </View>
                     </View>
 
-                    <View style={styles.infoMetaRow}>
-                      <Text style={[styles.infoMetaText, { color: themeColors.textSecondary }]}>📧 {t.candidate_email || 'N/A'}</Text>
-                      {t.score !== null && t.score !== undefined ? (
-                        <Text style={[styles.infoMetaText, { color: '#10b981', fontWeight: 'bold' }]}>
-                          🏆 Score: {t.score} / {t.total_questions || 10}
+                    {/* Test Info Banner */}
+                    <View style={[styles.testMetaBanner, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: themeColors.border }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#0284c7' }}>
+                          🎯 {t.title || t.test_title || 'Skill Assessment'}
+                        </Text>
+                        <View style={[styles.testTypeChip, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}>
+                          <Text style={{ fontSize: 10.5, fontWeight: '700', color: themeColors.textSecondary }}>
+                            {t.test_type === 'mcq' ? `MCQ Quiz (${t.total_questions || 'N/A'} Qs)` : 'Written Task'}
+                          </Text>
+                        </View>
+                      </View>
+                      {t.created_at ? (
+                        <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 4 }}>
+                          📅 Assigned: {new Date(t.created_at).toLocaleDateString()}
                         </Text>
                       ) : null}
                     </View>
 
-                    <View style={styles.actionsRow}>
-                      <TouchableOpacity
-                        style={[styles.miniBtn, { backgroundColor: '#3b82f6' }]}
-                        onPress={() => {
-                          setSelectedTest(t);
-                          setEvalStatus(t.status || 'Selected');
-                          setEvalFeedback(t.feedback || '');
-                          setShowEvaluateModal(true);
-                        }}
-                      >
-                        <Text style={[styles.miniBtnText, { color: '#ffffff' }]}>⚖️ Evaluate Candidate</Text>
-                      </TouchableOpacity>
+                    {/* Contact Details */}
+                    <View style={styles.infoMetaRow}>
+                      {t.candidate_email ? (
+                        <TouchableOpacity onPress={() => Linking.openURL(`mailto:${t.candidate_email}`).catch(() => {})}>
+                          <Text style={[styles.infoMetaText, { color: '#3b82f6' }]}>📧 {t.candidate_email}</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      {t.candidate_phone ? (
+                        <TouchableOpacity onPress={() => Linking.openURL(`tel:${t.candidate_phone}`).catch(() => {})}>
+                          <Text style={[styles.infoMetaText, { color: '#10b981' }]}>📞 {t.candidate_phone}</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
 
-                      <TouchableOpacity
-                        style={[styles.miniBtn, { backgroundColor: isDark ? '#451a1a' : '#fee2e2', borderColor: '#ef4444', borderWidth: 1 }]}
-                        onPress={() => handleDeleteTest(t)}
-                      >
-                        <Text style={[styles.miniBtnText, { color: '#ef4444' }]}>🗑️ Delete</Text>
-                      </TouchableOpacity>
+                    {/* Score / Performance Box */}
+                    {hasScore ? (
+                      <View style={[styles.scoreBox, { backgroundColor: isDark ? '#064e3b22' : '#ecfdf5', borderColor: '#10b98144' }]}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={{ fontSize: 15 }}>🏆</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '800', color: '#10b981' }}>
+                              Score: {t.score} / {t.total_questions}
+                            </Text>
+                          </View>
+                          <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, backgroundColor: isPassing ? '#10b98122' : '#f59e0b22' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: isPassing ? '#10b981' : '#f59e0b' }}>
+                              {scorePercent}% • {isPassing ? 'Passed' : 'Needs Review'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ) : null}
+
+                    {/* Instructions snippet */}
+                    {t.test_instructions && t.test_instructions !== 'Please complete the multiple choice questions below.' ? (
+                      <View style={[styles.instructionsBox, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: themeColors.border }]}>
+                        <Text style={{ fontSize: 11.5, color: themeColors.textSecondary }} numberOfLines={2}>
+                          📋 <Text style={{ fontWeight: '600' }}>Instructions: </Text>{t.test_instructions}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {/* Feedback quote snippet */}
+                    {t.feedback ? (
+                      <View style={[styles.feedbackSnippet, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: '#3b82f644' }]}>
+                        <Text style={{ fontSize: 12, color: themeColors.textSecondary, fontStyle: 'italic' }}>
+                          💬 Feedback: "{t.feedback}"
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {/* Action Buttons */}
+                    <View style={styles.actionsContainer}>
+                      <View style={styles.actionsRow}>
+                        {t.parsedQuestions && t.parsedQuestions.length > 0 ? (
+                          <TouchableOpacity
+                            style={[styles.miniBtn, { backgroundColor: isDark ? '#1e293b' : '#eff6ff', borderColor: '#0ea5e9', borderWidth: 1 }]}
+                            onPress={() => {
+                              setSelectedTest(t);
+                              setShowTestDetailsModal(true);
+                            }}
+                          >
+                            <Text style={[styles.miniBtnText, { color: '#0ea5e9' }]}>👁️ View Answers</Text>
+                          </TouchableOpacity>
+                        ) : null}
+
+                        <TouchableOpacity
+                          style={[styles.miniBtn, { backgroundColor: '#3b82f6' }]}
+                          onPress={() => {
+                            setSelectedTest(t);
+                            setEvalStatus(t.status === 'Completed' ? 'Selected' : (t.status || 'Selected'));
+                            setEvalFeedback(t.feedback || '');
+                            setShowEvaluateModal(true);
+                          }}
+                        >
+                          <Text style={[styles.miniBtnText, { color: '#ffffff' }]}>⚖️ Evaluate</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.miniBtn, { backgroundColor: isDark ? '#451a1a' : '#fee2e2', borderColor: '#ef4444', borderWidth: 1 }]}
+                          onPress={() => handleDeleteTest(t)}
+                        >
+                          <Text style={[styles.miniBtnText, { color: '#ef4444' }]}>🗑️ Delete</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 );
@@ -838,38 +1087,64 @@ export default function ManageCandidates({ currentUser, onBack }) {
             </View>
 
             <View style={{ padding: 16 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: themeColors.textPrimary }}>
-                Candidate: {selectedTest?.candidate_name}
-              </Text>
-              <Text style={{ fontSize: 12, color: themeColors.textSecondary, marginBottom: 12 }}>
-                Test: {selectedTest?.title || selectedTest?.test_title}
-              </Text>
+              {/* Candidate Info Header */}
+              <View style={[styles.evalCandidateBanner, { backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderColor: themeColors.border }]}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: themeColors.textPrimary }}>
+                  {selectedTest?.candidate_name || 'Candidate'}
+                </Text>
+                {selectedTest?.candidate_position ? (
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#3b82f6', marginTop: 2 }}>
+                    💼 {selectedTest?.candidate_position}
+                  </Text>
+                ) : null}
+                {selectedTest?.candidate_email ? (
+                  <Text style={{ fontSize: 11.5, color: themeColors.textSecondary, marginTop: 2 }}>
+                    📧 {selectedTest?.candidate_email}
+                  </Text>
+                ) : null}
+                <Text style={{ fontSize: 11.5, color: '#0284c7', marginTop: 2 }}>
+                  🎯 {selectedTest?.title || selectedTest?.test_title || 'Assessment'}
+                </Text>
+                {selectedTest?.score !== null && selectedTest?.score !== undefined && selectedTest?.total_questions ? (
+                  <View style={{ marginTop: 6, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: isDark ? '#064e3b33' : '#dcfce7', alignSelf: 'flex-start' }}>
+                    <Text style={{ fontSize: 11.5, fontWeight: '800', color: '#15803d' }}>
+                      🏆 Submission Score: {selectedTest.score} / {selectedTest.total_questions} ({Math.round((selectedTest.score / selectedTest.total_questions) * 100)}%)
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
 
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Evaluation Decision:</Text>
-              <View style={{ flexDirection: 'row', gap: 6, marginVertical: 8 }}>
-                {['Selected', 'Passed', 'Under Review', 'Rejected'].map(status => (
-                  <TouchableOpacity
-                    key={status}
-                    style={[
-                      styles.selectorPill,
-                      evalStatus === status && styles.selectorPillActive,
-                      { borderColor: themeColors.border }
-                    ]}
-                    onPress={() => setEvalStatus(status)}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: evalStatus === status ? '#fff' : themeColors.textPrimary }}>
-                      {status}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={{ flexDirection: 'row', gap: 6, marginVertical: 8, flexWrap: 'wrap' }}>
+                {['Selected', 'Passed', 'Under Review', 'Rejected'].map(status => {
+                  const isActive = evalStatus === status;
+                  let pillBg = isActive ? '#3b82f6' : (isDark ? '#1e293b' : '#f8fafc');
+                  if (isActive && status === 'Selected') pillBg = '#10b981';
+                  if (isActive && status === 'Rejected') pillBg = '#ef4444';
+
+                  return (
+                    <TouchableOpacity
+                      key={status}
+                      style={[
+                        styles.selectorPill,
+                        { backgroundColor: pillBg, borderColor: isActive ? pillBg : themeColors.border }
+                      ]}
+                      onPress={() => setEvalStatus(status)}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: isActive ? '#fff' : themeColors.textPrimary }}>
+                        {status}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               <Text style={[styles.fieldLabel, { color: themeColors.textSecondary, marginTop: 10 }]}>Feedback / Notes:</Text>
               <TextInput
-                style={[styles.inputBox, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', color: themeColors.textPrimary, borderColor: themeColors.border, minHeight: 60 }]}
+                style={[styles.inputBox, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', color: themeColors.textPrimary, borderColor: themeColors.border, minHeight: 65, textAlignVertical: 'top' }]}
                 value={evalFeedback}
                 onChangeText={setEvalFeedback}
-                placeholder="Enter feedback for HR records..."
+                placeholder="Enter feedback or interview notes for HR records..."
                 placeholderTextColor={themeColors.textSecondary}
                 multiline
               />
@@ -890,6 +1165,136 @@ export default function ManageCandidates({ currentUser, onBack }) {
                 ) : (
                   <Text style={styles.submitBtnText}>Save Evaluation</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal: Test Submission Answers / Details */}
+      <Modal
+        visible={showTestDetailsModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTestDetailsModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { backgroundColor: themeColors.card, borderColor: themeColors.border, maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                  Test Answers: {selectedTest?.candidate_name || 'Candidate'}
+                </Text>
+                <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>
+                  {selectedTest?.title || selectedTest?.test_title || 'Assessment'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowTestDetailsModal(false)}>
+                <Text style={{ fontSize: 18, color: themeColors.textPrimary }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Score header */}
+            {selectedTest?.score !== null && selectedTest?.score !== undefined && selectedTest?.total_questions ? (
+              <View style={{ padding: 12, backgroundColor: isDark ? '#064e3b22' : '#ecfdf5', borderBottomWidth: 1, borderBottomColor: '#10b98133', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#10b981' }}>
+                  Final Score: {selectedTest.score} / {selectedTest.total_questions} ({Math.round((selectedTest.score / selectedTest.total_questions) * 100)}%)
+                </Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: selectedTest.score >= (selectedTest.total_questions / 2) ? '#10b981' : '#f59e0b' }}>
+                  {selectedTest.score >= (selectedTest.total_questions / 2) ? '✓ Passed' : '⚠️ Needs Review'}
+                </Text>
+              </View>
+            ) : null}
+
+            <ScrollView style={{ padding: 14 }}>
+              {selectedTest?.parsedQuestions && selectedTest.parsedQuestions.length > 0 ? (
+                selectedTest.parsedQuestions.map((q, idx) => {
+                  const isCorrect = q.isCorrect === true || q.isCorrect === 'true' || q.isCorrect === 1;
+                  const candidateChoice = q.candidateChoice;
+                  const correctIndex = q.correctIndex;
+
+                  return (
+                    <View key={idx} style={[styles.questionItemCard, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: isCorrect ? '#10b98155' : '#ef444455', marginBottom: 12, padding: 12 }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: themeColors.textSecondary }}>
+                          Question {idx + 1}
+                        </Text>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: isCorrect ? '#10b981' : '#ef4444' }}>
+                          {isCorrect ? '✓ Correct (+1)' : '✗ Incorrect (0)'}
+                        </Text>
+                      </View>
+
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textPrimary, marginBottom: 8 }}>
+                        {q.question}
+                      </Text>
+
+                      {/* Options */}
+                      {Array.isArray(q.options) && q.options.map((opt, optIdx) => {
+                        const isChosenByCandidate = candidateChoice === optIdx;
+                        const isTheCorrectOption = correctIndex === optIdx;
+
+                        let optBg = 'transparent';
+                        let optBorder = themeColors.border;
+                        let optTextColor = themeColors.textPrimary;
+                        let badgeText = '';
+
+                        if (isTheCorrectOption) {
+                          optBg = isDark ? '#064e3b33' : '#dcfce7';
+                          optBorder = '#10b981';
+                          optTextColor = '#15803d';
+                          badgeText = '✓ Correct Answer';
+                        }
+                        if (isChosenByCandidate && !isCorrect) {
+                          optBg = isDark ? '#451a1a33' : '#fee2e2';
+                          optBorder = '#ef4444';
+                          optTextColor = '#b91c1c';
+                          badgeText = '✗ Candidate Choice';
+                        } else if (isChosenByCandidate && isCorrect) {
+                          badgeText = '✓ Candidate Choice (Correct)';
+                        }
+
+                        return (
+                          <View
+                            key={optIdx}
+                            style={{
+                              padding: 8,
+                              borderRadius: 6,
+                              borderWidth: 1,
+                              borderColor: optBorder,
+                              backgroundColor: optBg,
+                              marginBottom: 4,
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <Text style={{ fontSize: 12, color: optTextColor, flex: 1, fontWeight: isTheCorrectOption || isChosenByCandidate ? '700' : '400' }}>
+                              {String.fromCharCode(65 + optIdx)}. {opt}
+                            </Text>
+                            {badgeText ? (
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: optTextColor, marginLeft: 6 }}>
+                                {badgeText}
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={{ color: themeColors.textSecondary, textAlign: 'center', marginVertical: 20 }}>
+                  No question-level response details found for this submission.
+                </Text>
+              )}
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { borderTopColor: themeColors.border }]}>
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: '#3b82f6' }]}
+                onPress={() => setShowTestDetailsModal(false)}
+              >
+                <Text style={styles.submitBtnText}>Done</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1028,23 +1433,44 @@ function getStyles(colors, isDark) {
     infoMetaText: {
       fontSize: 12,
     },
-    actionsRow: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: 8,
+    actionsContainer: {
       marginTop: 12,
       paddingTop: 10,
       borderTopWidth: 1,
       borderTopColor: 'rgba(150,150,150,0.15)',
+      gap: 8,
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: 8,
     },
     miniBtn: {
       paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingVertical: 7,
       borderRadius: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     miniBtnText: {
       fontSize: 12,
       fontWeight: '700',
+    },
+    primaryApproveBtn: {
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 2,
+    },
+    primaryApproveBtnText: {
+      color: '#ffffff',
+      fontSize: 12.5,
+      fontWeight: '800',
     },
     feedbackSnippet: {
       padding: 8,
@@ -1144,6 +1570,35 @@ function getStyles(colors, isDark) {
       color: '#fff',
       fontSize: 13,
       fontWeight: '700',
+    },
+    testMetaBanner: {
+      marginTop: 8,
+      padding: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+    },
+    testTypeChip: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    scoreBox: {
+      padding: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      marginTop: 8,
+    },
+    instructionsBox: {
+      padding: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      marginTop: 8,
+    },
+    evalCandidateBanner: {
+      padding: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      marginBottom: 14,
     },
   });
 }

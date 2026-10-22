@@ -116,8 +116,79 @@ export default function HrRecruitmentPage() {
       const res = await fetch('/api/candidates/list');
       const data = await res.json();
       if (data.success) {
-        setRegistrations(data.registrations || []);
-        setAssignedTests(data.tests || []);
+        const rawRegs = data.registrations || [];
+        let rawTests = data.tests || [];
+
+        const resolvedTests = rawTests.map(t => {
+          let resolvedName = t.candidate_name;
+          let resolvedEmail = t.candidate_email;
+          let resolvedPhone = t.candidate_phone || '';
+          let resolvedPosition = t.candidate_position || '';
+
+          if (resolvedName === 'null' || resolvedName === 'undefined' || resolvedName === 'N/A') resolvedName = '';
+          if (resolvedEmail === 'null' || resolvedEmail === 'undefined' || resolvedEmail === 'N/A') resolvedEmail = '';
+
+          const isNameEmpty = !resolvedName || resolvedName.trim() === '' || resolvedName.toLowerCase() === 'candidate';
+
+          if (isNameEmpty) {
+            let match = rawRegs.find(r => r.id === t.candidate_employee_id);
+            if (!match && resolvedEmail) {
+              match = rawRegs.find(r => r.email && r.email.toLowerCase() === resolvedEmail.toLowerCase());
+            }
+            if (!match) {
+              const getNumericTs = (str) => {
+                if (!str) return NaN;
+                const nums = str.replace(/[^0-9]/g, '').slice(0, 13);
+                return nums.length >= 10 ? parseInt(nums, 10) : NaN;
+              };
+              const testTs = getNumericTs(t.candidate_employee_id) || getNumericTs(t.id);
+              if (!isNaN(testTs)) {
+                let closest = null;
+                let minDiff = 25 * 60 * 1000;
+                for (const r of rawRegs) {
+                  const regTs = getNumericTs(r.id);
+                  if (!isNaN(regTs)) {
+                    const diff = Math.abs(testTs - regTs);
+                    if (diff < minDiff) {
+                      minDiff = diff;
+                      closest = r;
+                    }
+                  }
+                }
+                if (closest) match = closest;
+              }
+            }
+
+            if (match) {
+              resolvedName = match.name;
+              resolvedEmail = resolvedEmail || match.email;
+              resolvedPhone = resolvedPhone || match.phone;
+              resolvedPosition = resolvedPosition || match.position_applied || match.role_applied;
+            }
+          }
+
+          if (resolvedName && (!resolvedPhone || !resolvedPosition)) {
+            const regMatch = rawRegs.find(r => 
+              (r.name && r.name.toLowerCase() === resolvedName.toLowerCase()) ||
+              (resolvedEmail && r.email && r.email.toLowerCase() === resolvedEmail.toLowerCase())
+            );
+            if (regMatch) {
+              resolvedPhone = resolvedPhone || regMatch.phone || '';
+              resolvedPosition = resolvedPosition || regMatch.position_applied || regMatch.role_applied || '';
+            }
+          }
+
+          return {
+            ...t,
+            candidate_name: (resolvedName && resolvedName !== 'Candidate') ? resolvedName : (resolvedEmail ? resolvedEmail.split('@')[0] : 'Applicant Candidate'),
+            candidate_email: resolvedEmail || '',
+            candidate_phone: resolvedPhone || '',
+            candidate_position: resolvedPosition || ''
+          };
+        });
+
+        setRegistrations(rawRegs);
+        setAssignedTests(resolvedTests);
       }
     } catch (err) {
       console.error('Error fetching candidates:', err);
