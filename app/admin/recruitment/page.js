@@ -724,15 +724,19 @@ export default function HrRecruitmentPage() {
             <tbody>
               {assignedTests.map(test => {
                 let scoreDisplay = null;
-                if (test.test_type === 'mcq' && test.status === 'Completed' && test.test_data) {
+                if (test.score !== null && test.score !== undefined) {
+                  scoreDisplay = `${test.score}${test.total_questions ? ` / ${test.total_questions}` : ''}`;
+                } else if (test.test_data) {
                   try {
                     const data = typeof test.test_data === 'string' ? JSON.parse(test.test_data) : test.test_data;
-                    const correctCount = data.filter(q => q.isCorrect).length;
-                    scoreDisplay = `${correctCount} / ${data.length}`;
+                    if (Array.isArray(data) && data.length > 0) {
+                      const correctCount = data.filter(q => q.isCorrect).length;
+                      scoreDisplay = `${correctCount} / ${data.length}`;
+                    }
                   } catch (e) {}
                 }
 
-                const isCompleted = test.status === 'Completed';
+                const isCompleted = test.status === 'Completed' || test.status === 'completed';
 
                 return (
                   <tr key={test.id} style={{ borderBottom: '1px solid var(--glass-border)', transition: 'background 0.2s' }}>
@@ -778,31 +782,29 @@ export default function HrRecruitmentPage() {
                     </td>
                     <td style={{ padding: '16px', textAlign: 'right', minWidth: '220px', width: '220px' }}>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
-                        {isCompleted && (
-                          <button 
-                            onClick={() => handleEvaluateClick(test)}
-                            className="rec-btn-evaluate"
-                            style={{
-                              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                              color: '#ffffff',
-                              border: 'none',
-                              padding: '8px 14px',
-                              borderRadius: '8px',
-                              fontSize: '0.82rem',
-                              fontWeight: '600',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
-                              whiteSpace: 'nowrap',
-                              lineHeight: 1
-                            }}
-                            title="Evaluate candidate work and move to talent pool"
-                          >
-                            <FiMessageSquare style={{ fontSize: '0.95rem', flexShrink: 0 }} /> Evaluate
-                          </button>
-                        )}
+                        <button 
+                          onClick={() => handleEvaluateClick(test)}
+                          className="rec-btn-evaluate"
+                          style={{
+                            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '8px 14px',
+                            borderRadius: '8px',
+                            fontSize: '0.82rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+                            whiteSpace: 'nowrap',
+                            lineHeight: 1
+                          }}
+                          title="Evaluate candidate work and move to talent pool"
+                        >
+                          <FiMessageSquare style={{ fontSize: '0.95rem', flexShrink: 0 }} /> Evaluate
+                        </button>
                         <button 
                           onClick={() => handleDeleteTest(test)} 
                           className="rec-btn-delete"
@@ -838,15 +840,19 @@ export default function HrRecruitmentPage() {
         <div className="rec-mobile-view">
           {assignedTests.map(test => {
             let scoreDisplay = null;
-            if (test.test_type === 'mcq' && test.status === 'Completed' && test.test_data) {
+            if (test.score !== null && test.score !== undefined) {
+              scoreDisplay = `${test.score}${test.total_questions ? ` / ${test.total_questions}` : ''}`;
+            } else if (test.test_data) {
               try {
                 const data = typeof test.test_data === 'string' ? JSON.parse(test.test_data) : test.test_data;
-                const correctCount = data.filter(q => q.isCorrect).length;
-                scoreDisplay = `${correctCount} / ${data.length}`;
+                if (Array.isArray(data) && data.length > 0) {
+                  const correctCount = data.filter(q => q.isCorrect).length;
+                  scoreDisplay = `${correctCount} / ${data.length}`;
+                }
               } catch (e) {}
             }
 
-            const isCompleted = test.status === 'Completed';
+            const isCompleted = test.status === 'Completed' || test.status === 'completed';
 
             return (
               <div key={test.id} className="rec-card">
@@ -894,31 +900,29 @@ export default function HrRecruitmentPage() {
                 </div>
 
                 <div className="rec-card-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px', paddingTop: '10px', borderTop: '1px solid var(--glass-border)' }}>
-                  {isCompleted && (
-                    <button 
-                      onClick={() => handleEvaluateClick(test)}
-                      className="rec-btn-evaluate"
-                      style={{ 
-                        flex: 2,
-                        background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                        color: '#ffffff',
-                        border: 'none',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        fontSize: '0.85rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        whiteSpace: 'nowrap',
-                        lineHeight: 1
-                      }}
-                    >
-                      <FiMessageSquare style={{ fontSize: '1rem', flexShrink: 0 }} /> Evaluate & Move
-                    </button>
-                  )}
+                  <button 
+                    onClick={() => handleEvaluateClick(test)}
+                    className="rec-btn-evaluate"
+                    style={{ 
+                      flex: 2,
+                      background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      whiteSpace: 'nowrap',
+                      lineHeight: 1
+                    }}
+                  >
+                    <FiMessageSquare style={{ fontSize: '1rem', flexShrink: 0 }} /> Evaluate & Move
+                  </button>
                   <button 
                     onClick={() => handleDeleteTest(test)} 
                     className="rec-btn-delete"
