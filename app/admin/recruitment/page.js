@@ -2,7 +2,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
-import { FiUsers, FiUserPlus, FiArrowLeft, FiCheck, FiX, FiFileText, FiRefreshCw, FiEye, FiMessageSquare } from 'react-icons/fi';
+import { 
+  FiUsers, FiUserPlus, FiArrowLeft, FiCheck, FiX, FiFileText, 
+  FiRefreshCw, FiEye, FiMessageSquare, FiTrash2, FiMail, FiPhone, 
+  FiCalendar, FiClock, FiBriefcase, FiAward, FiExternalLink 
+} from 'react-icons/fi';
 
 export default function HrRecruitmentPage() {
   const [activeTab, setActiveTab] = useState('applications'); // 'applications' | 'candidates'
@@ -241,92 +245,400 @@ export default function HrRecruitmentPage() {
     }
   };
 
-  const renderApplications = () => (
-    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', overflowX: 'auto', border: '1px solid var(--glass-border)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
-        <thead style={{ background: 'var(--bg-tertiary)', textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
-          <tr>
-            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Candidate Name</th>
-            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Contact</th>
-            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Experience</th>
-            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Status</th>
-            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {registrations.length === 0 ? (
-            <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No applications found.</td></tr>
-          ) : registrations.map(reg => (
-            <tr key={reg.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-              <td style={{ padding: '16px' }}>
-                <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{reg.name}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>{new Date(reg.created_at).toLocaleString()}</div>
-              </td>
-              <td style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                <div>{reg.email}</div>
-                <div style={{ marginTop: '2px' }}>{reg.phone}</div>
-              </td>
-              <td style={{ padding: '16px', fontSize: '0.85rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
-                  <span style={{ 
-                    padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold',
-                    background: reg.experience_level === 'Fresher' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
-                    color: reg.experience_level === 'Fresher' ? '#10b981' : '#f59e0b',
-                    border: reg.experience_level === 'Fresher' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(245,158,11,0.2)'
-                  }}>
-                    {reg.experience_level}
-                  </span>
-                  <button 
-                    onClick={() => { setSelectedReg(reg); setShowDetailsModal(true); }}
-                    style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '0.75rem', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontWeight: '500' }}
-                  >
-                    View Profile
-                  </button>
+  const handleDeleteApplication = async (reg) => {
+    const result = await Swal.fire({
+      title: 'Delete Application?',
+      html: `<div style="text-align: left; font-size: 0.95rem; line-height: 1.5;">
+              Are you sure you want to permanently delete the application for <b style="color: var(--accent-cyan);">${reg.name}</b> (${reg.email})?
+              <div style="margin-top: 10px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; border-radius: 4px; color: #ef4444; font-size: 0.85rem;">
+                ⚠️ This will permanently remove the application and any associated candidate account or tests.
+              </div>
+            </div>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, delete application',
+      cancelButtonText: 'Cancel',
+      focusCancel: true
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch('/api/candidates/delete-application', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: reg.id })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Deleted!',
+          text: 'Candidate application was successfully removed.',
+          timer: 1600,
+          showConfirmButton: false
+        });
+        fetchData();
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Failed to Delete',
+          text: data.error || 'Unable to delete application.'
+        });
+      }
+    } catch (err) {
+      console.error('Delete application error:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'A network error occurred while deleting the application.'
+      });
+    }
+  };
+
+  const handleDeleteTest = async (test) => {
+    const candidateName = test.candidate_name || 'Candidate';
+    const result = await Swal.fire({
+      title: 'Delete Assigned Test?',
+      html: `<div style="text-align: left; font-size: 0.95rem; line-height: 1.5;">
+              Are you sure you want to delete the test <b style="color: var(--accent-cyan);">${test.test_title}</b> assigned to <b style="color: var(--text-primary);">${candidateName}</b>?
+              <div style="margin-top: 10px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; border-radius: 4px; color: #ef4444; font-size: 0.85rem;">
+                ⚠️ This will permanently remove the test assignment and any candidate answers or score.
+              </div>
+            </div>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, delete test',
+      cancelButtonText: 'Cancel',
+      focusCancel: true
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch('/api/candidates/delete-test', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: test.id })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Deleted!',
+          text: 'Assigned candidate test was successfully deleted.',
+          timer: 1600,
+          showConfirmButton: false
+        });
+        fetchData();
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Failed to Delete',
+          text: data.error || 'Unable to delete assigned test.'
+        });
+      }
+    } catch (err) {
+      console.error('Delete test error:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'A network error occurred while deleting the assigned test.'
+      });
+    }
+  };
+
+  const renderApplications = () => {
+    if (registrations.length === 0) {
+      return (
+        <div style={{ background: 'var(--bg-secondary)', borderRadius: '14px', border: '1px solid var(--glass-border)', padding: '50px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <FiUsers style={{ fontSize: '3rem', marginBottom: '12px', color: 'var(--accent-cyan)', opacity: 0.6 }} />
+          <h3 style={{ margin: '0 0 6px', color: 'var(--text-primary)', fontSize: '1.1rem' }}>No Candidate Applications</h3>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>New candidate registrations submitted via the careers page will appear here.</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {/* Desktop Table View */}
+        <div className="rec-desktop-view" style={{ background: 'var(--bg-secondary)', borderRadius: '14px', overflowX: 'auto', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
+            <thead style={{ background: 'var(--bg-tertiary)', textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
+              <tr>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Candidate Name</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Contact</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Experience & Role</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Status</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {registrations.map(reg => (
+                <tr key={reg.id} style={{ borderBottom: '1px solid var(--glass-border)', transition: 'background 0.2s' }}>
+                  <td style={{ padding: '16px' }}>
+                    <div style={{ fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.95rem' }}>{reg.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <FiCalendar style={{ flexShrink: 0 }} /> {reg.created_at ? new Date(reg.created_at).toLocaleString() : 'N/A'}
+                    </div>
+                  </td>
+                  <td style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FiMail style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} /> {reg.email}</div>
+                    <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}><FiPhone style={{ color: '#10b981', flexShrink: 0 }} /> {reg.phone}</div>
+                  </td>
+                  <td style={{ padding: '16px', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+                      {reg.position_applied && (
+                        <div style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-primary)' }}>
+                          {reg.position_applied}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ 
+                          padding: '3px 9px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold',
+                          background: reg.experience_level === 'Fresher' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                          color: reg.experience_level === 'Fresher' ? '#10b981' : '#f59e0b',
+                          border: reg.experience_level === 'Fresher' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(245,158,11,0.2)'
+                        }}>
+                          {reg.experience_level || 'Fresher'}
+                        </span>
+                        <button 
+                          onClick={() => { setSelectedReg(reg); setShowDetailsModal(true); }}
+                          style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '0.75rem', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontWeight: '500' }}
+                        >
+                          View Profile
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: '16px' }}>
+                    <span style={{ 
+                      padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', display: 'inline-block',
+                      background: reg.status === 'Approved' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                      color: reg.status === 'Approved' ? '#10b981' : '#f59e0b',
+                      border: reg.status === 'Approved' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(245,158,11,0.2)'
+                    }}>
+                      {reg.status || 'Pending'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '16px', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
+                      {reg.status === 'Pending' && (
+                        <button onClick={() => handleApproveClick(reg)} className="rec-btn-approve" title="Approve candidate and assign test">
+                          <FiCheck /> Approve & Assign
+                        </button>
+                      )}
+                      {reg.status === 'Approved' && (
+                        <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 10px', background: 'rgba(16,185,129,0.08)', borderRadius: '8px' }}>
+                          <FiCheck /> Approved
+                        </span>
+                      )}
+                      <button 
+                        onClick={() => handleDeleteApplication(reg)} 
+                        className="rec-btn-delete"
+                        title="Permanently delete application"
+                      >
+                        <FiTrash2 /> Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile Cards View */}
+        <div className="rec-mobile-view">
+          {registrations.map(reg => (
+            <div key={reg.id} className="rec-card">
+              <div className="rec-card-header">
+                <div>
+                  <div className="rec-card-title">{reg.name}</div>
+                  <div className="rec-card-meta">
+                    <FiCalendar style={{ flexShrink: 0 }} /> {reg.created_at ? new Date(reg.created_at).toLocaleDateString() : 'N/A'}
+                  </div>
                 </div>
-              </td>
-              <td style={{ padding: '16px' }}>
                 <span style={{ 
                   padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold',
-                  background: reg.status === 'Approved' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                  color: reg.status === 'Approved' ? '#10b981' : '#ef4444',
-                  border: reg.status === 'Approved' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)'
+                  background: reg.status === 'Approved' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                  color: reg.status === 'Approved' ? '#10b981' : '#f59e0b',
+                  border: reg.status === 'Approved' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(245,158,11,0.2)'
                 }}>
-                  {reg.status}
+                  {reg.status || 'Pending'}
                 </span>
-              </td>
-              <td style={{ padding: '16px', textAlign: 'right' }}>
+              </div>
+
+              {reg.position_applied && (
+                <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--accent-cyan)' }}>
+                  💼 {reg.position_applied}
+                </div>
+              )}
+
+              <div className="rec-card-row">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FiMail style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} /> 
+                  <span style={{ wordBreak: 'break-all' }}>{reg.email}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FiPhone style={{ color: '#10b981', flexShrink: 0 }} /> 
+                  <span>{reg.phone}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  Level: <b style={{ color: 'var(--text-primary)' }}>{reg.experience_level || 'Fresher'}</b>
+                </span>
+                <button 
+                  onClick={() => { setSelectedReg(reg); setShowDetailsModal(true); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '0.8rem', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontWeight: '600' }}
+                >
+                  View Profile →
+                </button>
+              </div>
+
+              <div className="rec-card-actions">
                 {reg.status === 'Pending' && (
-                  <button onClick={() => handleApproveClick(reg)} style={{ background: 'var(--accent-cyan)', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 10px rgba(6, 182, 212, 0.2)', transition: 'transform 0.2s' }}>
-                    <FiCheck /> Approve & Assign Test
+                  <button onClick={() => handleApproveClick(reg)} className="rec-btn-approve" style={{ flex: 2 }}>
+                    <FiCheck /> Approve & Assign
                   </button>
                 )}
                 {reg.status === 'Approved' && (
-                  <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}><FiCheck /> Approved</span>
+                  <span style={{ flex: 2, fontSize: '0.8rem', color: '#10b981', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '8px 12px', background: 'rgba(16,185,129,0.08)', borderRadius: '8px' }}>
+                    <FiCheck /> Approved
+                  </span>
                 )}
-              </td>
-            </tr>
+                <button 
+                  onClick={() => handleDeleteApplication(reg)} 
+                  className="rec-btn-delete"
+                  style={{ flex: 1 }}
+                >
+                  <FiTrash2 /> Delete
+                </button>
+              </div>
+            </div>
           ))}
-        </tbody>
-      </table>
-    </div>
-  );
+        </div>
+      </>
+    );
+  };
 
-  const renderTests = () => (
-    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', overflowX: 'auto', border: '1px solid var(--glass-border)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
-        <thead style={{ background: 'var(--bg-tertiary)', textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
-          <tr>
-            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Candidate Name</th>
-            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Assigned Test</th>
-            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Date Assigned</th>
-            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Test Instructions</th>
-            <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Status / Score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {assignedTests.length === 0 ? (
-            <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No tests assigned yet.</td></tr>
-          ) : assignedTests.map(test => {
+  const renderTests = () => {
+    if (assignedTests.length === 0) {
+      return (
+        <div style={{ background: 'var(--bg-secondary)', borderRadius: '14px', border: '1px solid var(--glass-border)', padding: '50px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <FiFileText style={{ fontSize: '3rem', marginBottom: '12px', color: 'var(--accent-cyan)', opacity: 0.6 }} />
+          <h3 style={{ margin: '0 0 6px', color: 'var(--text-primary)', fontSize: '1.1rem' }}>No Tests Assigned</h3>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>When candidates are approved and given technical or MCQ assessments, their task statuses will appear here.</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {/* Desktop Table View */}
+        <div className="rec-desktop-view" style={{ background: 'var(--bg-secondary)', borderRadius: '14px', overflowX: 'auto', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
+            <thead style={{ background: 'var(--bg-tertiary)', textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
+              <tr>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Candidate Name</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Assigned Test</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Date Assigned</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Instructions Preview</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Status / Score</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assignedTests.map(test => {
+                let scoreDisplay = null;
+                if (test.test_type === 'mcq' && test.status === 'Completed' && test.test_data) {
+                  try {
+                    const data = typeof test.test_data === 'string' ? JSON.parse(test.test_data) : test.test_data;
+                    const correctCount = data.filter(q => q.isCorrect).length;
+                    scoreDisplay = `${correctCount} / ${data.length}`;
+                  } catch (e) {}
+                }
+
+                const isCompleted = test.status === 'Completed';
+
+                return (
+                  <tr key={test.id} style={{ borderBottom: '1px solid var(--glass-border)', transition: 'background 0.2s' }}>
+                    <td style={{ padding: '16px' }}>
+                      <div style={{ fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.95rem' }}>{test.candidate_name || 'Candidate'}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <FiMail style={{ color: 'var(--accent-cyan)' }} /> {test.candidate_email}
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px' }}>
+                      <div style={{ fontWeight: '600', color: 'var(--accent-cyan)', fontSize: '0.9rem' }}>{test.test_title}</div>
+                      <span style={{ display: 'inline-block', marginTop: '4px', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold', background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                        {test.test_type === 'mcq' ? 'MCQ Quiz' : 'Open-Ended Task'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <FiCalendar style={{ flexShrink: 0 }} /> {test.created_at ? new Date(test.created_at).toLocaleString() : 'N/A'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px', fontSize: '0.85rem', maxWidth: '240px' }}>
+                      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-secondary)' }} title={test.test_instructions}>
+                        {test.test_instructions || 'No instructions provided.'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px' }}>
+                      <div>
+                        <span style={{ 
+                          display: 'inline-block', padding: '4px 10px', borderRadius: '15px', 
+                          background: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', 
+                          color: isCompleted ? '#10b981' : '#f59e0b', 
+                          border: isCompleted ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)',
+                          fontSize: '0.75rem', fontWeight: 'bold' 
+                        }}>
+                          {test.status || 'Assigned'}
+                        </span>
+                        {scoreDisplay && (
+                          <div style={{ marginTop: '5px', fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-primary)' }}>
+                            Score: <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{scoreDisplay}</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
+                        {isCompleted && (
+                          <button 
+                            onClick={() => handleEvaluateClick(test)}
+                            className="rec-btn-evaluate"
+                            title="Evaluate candidate work and move to talent pool"
+                          >
+                            <FiMessageSquare /> Evaluate
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleDeleteTest(test)} 
+                          className="rec-btn-delete"
+                          title="Delete assigned test task"
+                        >
+                          <FiTrash2 /> Delete Task
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile Cards View */}
+        <div className="rec-mobile-view">
+          {assignedTests.map(test => {
             let scoreDisplay = null;
             if (test.test_type === 'mcq' && test.status === 'Completed' && test.test_data) {
               try {
@@ -335,58 +647,93 @@ export default function HrRecruitmentPage() {
                 scoreDisplay = `${correctCount} / ${data.length}`;
               } catch (e) {}
             }
+
+            const isCompleted = test.status === 'Completed';
+
             return (
-            <tr key={test.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-              <td style={{ padding: '16px' }}>
-                <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{test.candidate_name}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{test.candidate_email}</div>
-              </td>
-              <td style={{ padding: '16px', fontWeight: '600', color: 'var(--accent-cyan)' }}>{test.test_title}</td>
-              <td style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{new Date(test.created_at).toLocaleString()}</td>
-              <td style={{ padding: '16px', fontSize: '0.85rem', maxWidth: '250px' }}>
-                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-secondary)' }}>
-                  {test.test_instructions}
-                </div>
-              </td>
-              <td style={{ padding: '16px' }}>
-                {test.status === 'Completed' ? (
+              <div key={test.id} className="rec-card">
+                <div className="rec-card-header">
                   <div>
-                    <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '15px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold' }}>Completed</span>
-                    {scoreDisplay && (
-                      <div style={{ marginTop: '6px', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-                        Score: <span style={{ color: 'var(--accent-cyan)' }}>{scoreDisplay}</span>
-                      </div>
-                    )}
+                    <div className="rec-card-title">{test.candidate_name || 'Candidate'}</div>
+                    <div className="rec-card-meta">
+                      <FiCalendar style={{ flexShrink: 0 }} /> {test.created_at ? new Date(test.created_at).toLocaleDateString() : 'N/A'}
+                    </div>
+                  </div>
+                  <span style={{ 
+                    padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold',
+                    background: isCompleted ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', 
+                    color: isCompleted ? '#10b981' : '#f59e0b', 
+                    border: isCompleted ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)'
+                  }}>
+                    {test.status || 'Assigned'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ fontWeight: '700', color: 'var(--accent-cyan)', fontSize: '0.9rem' }}>
+                    🎯 {test.test_title}
+                  </div>
+                  <span style={{ padding: '2px 8px', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '600', background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
+                    {test.test_type === 'mcq' ? 'MCQ Quiz' : 'Open-Ended'}
+                  </span>
+                </div>
+
+                <div className="rec-card-row">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FiMail style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
+                    <span style={{ wordBreak: 'break-all' }}>{test.candidate_email}</span>
+                  </div>
+                  {scoreDisplay && (
+                    <div style={{ fontSize: '0.85rem', fontWeight: '600', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      🏆 Score: <span style={{ color: 'var(--text-primary)' }}>{scoreDisplay}</span>
+                    </div>
+                  )}
+                  {test.test_instructions && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '8px 10px', borderRadius: '6px', marginTop: '4px', lineHeight: '1.4' }}>
+                      {test.test_instructions.length > 120 ? test.test_instructions.slice(0, 120) + '...' : test.test_instructions}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rec-card-actions">
+                  {isCompleted && (
                     <button 
                       onClick={() => handleEvaluateClick(test)}
-                      style={{ marginTop: '10px', background: 'var(--accent-cyan)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      className="rec-btn-evaluate"
+                      style={{ flex: 2 }}
                     >
-                      <FiMessageSquare /> Evaluate & Move to Pool
+                      <FiMessageSquare /> Evaluate & Move
                     </button>
-                  </div>
-                ) : (
-                  <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '15px', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', fontSize: '0.8rem', fontWeight: 'bold' }}>{test.status || 'Assigned'}</span>
-                )}
-              </td>
-            </tr>
+                  )}
+                  <button 
+                    onClick={() => handleDeleteTest(test)} 
+                    className="rec-btn-delete"
+                    style={{ flex: 1 }}
+                  >
+                    <FiTrash2 /> Delete Task
+                  </button>
+                </div>
+              </div>
             );
           })}
-        </tbody>
-      </table>
-    </div>
-  );
+        </div>
+      </>
+    );
+  };
 
   return (
-    <div style={{ padding: '1.5rem' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="rec-page-container">
+      <div className="rec-max-container">
         
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '16px' }}>
+        <div className="rec-header">
           <div>
             <h1 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '1.5rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <FiUsers style={{ color: 'var(--accent-cyan)' }} /> HR Recruitment Hub
             </h1>
-            <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0', fontSize: '0.9rem' }}>Review candidate applications, assign tests, and generate temporary login credentials.</p>
+            <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0', fontSize: '0.9rem' }}>
+              Review candidate applications, assign tests, manage assessments, and delete outdated records.
+            </p>
           </div>
           <button onClick={fetchData} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '500', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', transition: 'background 0.2s' }}>
             <FiRefreshCw className={loading ? "spin-icon" : ""} style={{ color: 'var(--accent-cyan)' }} /> Refresh
@@ -394,18 +741,44 @@ export default function HrRecruitmentPage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '1.5rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '12px', flexWrap: 'wrap' }}>
+        <div className="rec-tabs">
           <button 
             onClick={() => setActiveTab('applications')} 
-            style={{ padding: '8px 20px', borderRadius: '20px', border: 'none', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', background: activeTab === 'applications' ? 'var(--accent-cyan)' : 'transparent', color: activeTab === 'applications' ? '#fff' : 'var(--text-secondary)', boxShadow: activeTab === 'applications' ? '0 4px 10px rgba(6, 182, 212, 0.3)' : 'none' }}
+            style={{ 
+              padding: '8px 20px', borderRadius: '20px', border: 'none', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', 
+              background: activeTab === 'applications' ? 'var(--accent-cyan)' : 'var(--bg-secondary)', 
+              color: activeTab === 'applications' ? '#fff' : 'var(--text-secondary)', 
+              boxShadow: activeTab === 'applications' ? '0 4px 10px rgba(6, 182, 212, 0.3)' : 'none',
+              display: 'inline-flex', alignItems: 'center', gap: '8px'
+            }}
           >
-            New Applications
+            <span>New Applications</span>
+            <span style={{ 
+              background: activeTab === 'applications' ? 'rgba(255,255,255,0.25)' : 'var(--bg-tertiary)', 
+              color: activeTab === 'applications' ? '#fff' : 'var(--text-primary)', 
+              padding: '2px 8px', borderRadius: '10px', fontSize: '0.75rem', fontWeight: '700' 
+            }}>
+              {registrations.length}
+            </span>
           </button>
           <button 
             onClick={() => setActiveTab('candidates')} 
-            style={{ padding: '8px 20px', borderRadius: '20px', border: 'none', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', background: activeTab === 'candidates' ? 'var(--accent-cyan)' : 'transparent', color: activeTab === 'candidates' ? '#fff' : 'var(--text-secondary)', boxShadow: activeTab === 'candidates' ? '0 4px 10px rgba(6, 182, 212, 0.3)' : 'none' }}
+            style={{ 
+              padding: '8px 20px', borderRadius: '20px', border: 'none', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', 
+              background: activeTab === 'candidates' ? 'var(--accent-cyan)' : 'var(--bg-secondary)', 
+              color: activeTab === 'candidates' ? '#fff' : 'var(--text-secondary)', 
+              boxShadow: activeTab === 'candidates' ? '0 4px 10px rgba(6, 182, 212, 0.3)' : 'none',
+              display: 'inline-flex', alignItems: 'center', gap: '8px'
+            }}
           >
-            Assigned Candidate Tests
+            <span>Assigned Candidate Tests</span>
+            <span style={{ 
+              background: activeTab === 'candidates' ? 'rgba(255,255,255,0.25)' : 'var(--bg-tertiary)', 
+              color: activeTab === 'candidates' ? '#fff' : 'var(--text-primary)', 
+              padding: '2px 8px', borderRadius: '10px', fontSize: '0.75rem', fontWeight: '700' 
+            }}>
+              {assignedTests.length}
+            </span>
           </button>
         </div>
 
@@ -422,8 +795,8 @@ export default function HrRecruitmentPage() {
 
       {/* Approve Modal */}
       {showApproveModal && selectedReg && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="modal-content" style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '550px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div className="modal-content" style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '16px', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
             <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
               <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700' }}><FiFileText style={{ color: 'var(--accent-cyan)' }} /> Assign Test to {selectedReg.name}</h3>
               <button onClick={() => setShowApproveModal(false)} style={{ background: 'var(--bg-tertiary)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}><FiX /></button>
@@ -570,15 +943,15 @@ export default function HrRecruitmentPage() {
 
       {/* Experience Details Modal */}
       {showDetailsModal && selectedReg && (
-        <div className="modal-overlay active" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="modal-content" style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '600px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
-            <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
+        <div className="modal-overlay active" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="modal-content" style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '16px', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
+            <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', position: 'sticky', top: 0, zIndex: 2 }}>
               <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Candidate Profile: {selectedReg.name}</h3>
               <button onClick={() => setShowDetailsModal(false)} style={{ background: 'var(--bg-tertiary)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FiX /></button>
             </div>
             
-            <div style={{ padding: '25px', color: 'var(--text-secondary)', lineHeight: '1.6', fontSize: '0.95rem', maxHeight: '60vh', overflowY: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+            <div style={{ padding: '25px', color: 'var(--text-secondary)', lineHeight: '1.6', fontSize: '0.95rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
                 <div><strong>Email:</strong> {selectedReg.email}</div>
                 <div><strong>Phone:</strong> {selectedReg.phone}</div>
                 <div><strong>Position:</strong> {selectedReg.position_applied || 'N/A'}</div>
@@ -586,7 +959,7 @@ export default function HrRecruitmentPage() {
                 <div><strong>Experience Level:</strong> {selectedReg.experience_level || 'N/A'}</div>
                 <div><strong>Notice Period:</strong> {selectedReg.notice_period || 'N/A'}</div>
                 {selectedReg.portfolio_url && (
-                  <div><strong>Portfolio:</strong> <a href={selectedReg.portfolio_url} target="_blank" style={{ color: 'var(--accent-cyan)' }}>Link</a></div>
+                  <div><strong>Portfolio:</strong> <a href={selectedReg.portfolio_url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-cyan)' }}>Link</a></div>
                 )}
               </div>
               
@@ -612,14 +985,14 @@ export default function HrRecruitmentPage() {
                 <div>
                   <strong>Resume:</strong>
                   <br />
-                  <a href={selectedReg.resume_url} target="_blank" download style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--accent-cyan)', color: '#fff', padding: '8px 16px', borderRadius: '8px', textDecoration: 'none', marginTop: '8px', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                  <a href={selectedReg.resume_url} target="_blank" rel="noreferrer" download style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--accent-cyan)', color: '#fff', padding: '8px 16px', borderRadius: '8px', textDecoration: 'none', marginTop: '8px', fontSize: '0.9rem', fontWeight: 'bold' }}>
                     <FiFileText /> Download Resume
                   </a>
                 </div>
               )}
             </div>
             
-            <div style={{ padding: '15px 25px', borderTop: '1px solid var(--glass-border)', textAlign: 'right', background: 'var(--bg-secondary)' }}>
+            <div style={{ padding: '15px 25px', borderTop: '1px solid var(--glass-border)', textAlign: 'right', background: 'var(--bg-secondary)', position: 'sticky', bottom: 0, zIndex: 2 }}>
               <button onClick={() => setShowDetailsModal(false)} style={{ padding: '8px 20px', borderRadius: '8px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', cursor: 'pointer', fontWeight: '500' }}>Close</button>
             </div>
           </div>
@@ -628,10 +1001,10 @@ export default function HrRecruitmentPage() {
 
       {/* Evaluate Test Modal */}
       {showEvaluateModal && selectedTest && (
-        <div className="modal-overlay active" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="modal-content" style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '500px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
-            <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
-              <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Evaluate: {selectedTest.candidate_name}</h3>
+        <div className="modal-overlay active" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="modal-content" style={{ background: 'var(--bg-primary)', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '16px', border: '1px solid var(--glass-border)', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
+            <div style={{ padding: '20px 25px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', position: 'sticky', top: 0, zIndex: 2 }}>
+              <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>Evaluate: {selectedTest.candidate_name || 'Candidate'}</h3>
               <button onClick={() => setShowEvaluateModal(false)} style={{ background: 'var(--bg-tertiary)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FiX /></button>
             </div>
             <div style={{ padding: '25px' }}>
@@ -669,6 +1042,187 @@ export default function HrRecruitmentPage() {
           </div>
         </div>
       )}
+
+      {/* Responsive Styles */}
+      <style jsx>{`
+        .rec-page-container {
+          padding: 1.5rem;
+        }
+        .rec-max-container {
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+        .rec-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+        .rec-tabs {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 1.5rem;
+          border-bottom: 1px solid var(--glass-border);
+          padding-bottom: 12px;
+          flex-wrap: wrap;
+        }
+
+        /* Desktop vs Mobile display */
+        .rec-desktop-view {
+          display: block;
+        }
+        .rec-mobile-view {
+          display: none;
+        }
+
+        /* Buttons */
+        .rec-btn-approve {
+          background: var(--accent-cyan);
+          color: #ffffff;
+          border: none;
+          padding: 8px 14px;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 2px 10px rgba(6, 182, 212, 0.2);
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        }
+        .rec-btn-approve:hover {
+          transform: translateY(-1px);
+          filter: brightness(1.1);
+        }
+
+        .rec-btn-evaluate {
+          background: var(--accent-cyan);
+          color: #ffffff;
+          border: none;
+          padding: 8px 14px;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 2px 10px rgba(6, 182, 212, 0.2);
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        }
+        .rec-btn-evaluate:hover {
+          transform: translateY(-1px);
+          filter: brightness(1.1);
+        }
+
+        .rec-btn-delete {
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          padding: 8px 12px;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        }
+        .rec-btn-delete:hover {
+          background: rgba(239, 68, 68, 0.22);
+          border-color: #ef4444;
+          transform: translateY(-1px);
+        }
+
+        /* Mobile Card Styles */
+        .rec-card {
+          background: var(--bg-secondary);
+          border: 1px solid var(--glass-border);
+          border-radius: 14px;
+          padding: 16px;
+          margin-bottom: 12px;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .rec-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .rec-card-title {
+          font-weight: 700;
+          font-size: 1rem;
+          color: var(--text-primary);
+          line-height: 1.3;
+        }
+        .rec-card-meta {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: 4px;
+        }
+        .rec-card-row {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+        }
+        .rec-card-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+          margin-top: 4px;
+          padding-top: 10px;
+          border-top: 1px solid var(--glass-border);
+        }
+        .rec-card-actions button {
+          min-height: 40px;
+          justify-content: center;
+        }
+
+        /* Mobile Breakpoint */
+        @media (max-width: 768px) {
+          .rec-page-container {
+            padding: 1rem !important;
+          }
+          .rec-desktop-view {
+            display: none !important;
+          }
+          .rec-mobile-view {
+            display: flex !important;
+            flex-direction: column;
+            gap: 12px;
+          }
+          .rec-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+          .rec-tabs {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 8px;
+          }
+          .rec-tabs button {
+            flex-shrink: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }

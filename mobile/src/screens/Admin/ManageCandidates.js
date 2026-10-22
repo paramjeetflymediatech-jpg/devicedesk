@@ -12,6 +12,7 @@ import {
   Linking,
   Platform,
   Dimensions,
+  Alert,
 } from 'react-native';
 import {
   fetchCandidatesPoolApi,
@@ -20,6 +21,8 @@ import {
   fetchCandidatesListApi,
   evaluateCandidateTestApi,
   approveCandidateRegistrationApi,
+  deleteCandidateApplicationApi,
+  deleteCandidateTestApi,
 } from '../../utils/api';
 import { useTheme } from '../../utils/ThemeContext';
 import { sweetAlert } from '../../utils/sweetAlert';
@@ -306,6 +309,60 @@ export default function ManageCandidates({ currentUser, onBack }) {
     }
   };
 
+  const handleDeleteApplication = (reg) => {
+    Alert.alert(
+      'Delete Application',
+      `Are you sure you want to delete the application for ${reg.name}? This will permanently remove their application and test credentials.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await deleteCandidateApplicationApi(reg.id);
+              if (res && res.success) {
+                sweetAlert({ title: 'Deleted', text: 'Application removed successfully.', type: 'success' });
+                loadData();
+              } else {
+                sweetAlert({ title: 'Error', text: res?.error || 'Failed to delete application.', type: 'error' });
+              }
+            } catch (err) {
+              sweetAlert({ title: 'Error', text: 'Network error deleting application.', type: 'error' });
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDeleteTest = (t) => {
+    Alert.alert(
+      'Delete Assigned Test',
+      `Are you sure you want to delete the test "${t.title || t.test_title || 'Test'}" assigned to ${t.candidate_name || 'Candidate'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await deleteCandidateTestApi(t.id);
+              if (res && res.success) {
+                sweetAlert({ title: 'Deleted', text: 'Assigned test removed successfully.', type: 'success' });
+                loadData();
+              } else {
+                sweetAlert({ title: 'Error', text: res?.error || 'Failed to delete assigned test.', type: 'error' });
+              }
+            } catch (err) {
+              sweetAlert({ title: 'Error', text: 'Network error deleting test.', type: 'error' });
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const filteredRegistrations = registrations.filter((r) => {
     const query = searchQuery.toLowerCase();
     const matchSearch =
@@ -494,6 +551,13 @@ export default function ManageCandidates({ currentUser, onBack }) {
                           <Text style={[styles.miniBtnText, { color: '#ffffff' }]}>✅ Approve & Test</Text>
                         </TouchableOpacity>
                       )}
+
+                      <TouchableOpacity
+                        style={[styles.miniBtn, { backgroundColor: isDark ? '#451a1a' : '#fee2e2', borderColor: '#ef4444', borderWidth: 1 }]}
+                        onPress={() => handleDeleteApplication(reg)}
+                      >
+                        <Text style={[styles.miniBtnText, { color: '#ef4444' }]}>🗑️ Delete</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 );
@@ -615,6 +679,13 @@ export default function ManageCandidates({ currentUser, onBack }) {
                         }}
                       >
                         <Text style={[styles.miniBtnText, { color: '#ffffff' }]}>⚖️ Evaluate Candidate</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.miniBtn, { backgroundColor: isDark ? '#451a1a' : '#fee2e2', borderColor: '#ef4444', borderWidth: 1 }]}
+                        onPress={() => handleDeleteTest(t)}
+                      >
+                        <Text style={[styles.miniBtnText, { color: '#ef4444' }]}>🗑️ Delete</Text>
                       </TouchableOpacity>
                     </View>
                   </View>

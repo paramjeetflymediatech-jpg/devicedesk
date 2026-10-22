@@ -795,9 +795,42 @@ export async function evaluateCandidateTestApi(testId, status, feedback = '') {
   }
 }
 
+export async function deleteCandidateApplicationApi(registrationId) {
+  const url = `${currentApiUrl}/api/candidates/delete-application`;
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ id: registrationId })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Delete candidate application failed at ${url}:`, err);
+    throw err;
+  }
+}
 
+export async function deleteCandidateTestApi(testId) {
+  const url = `${currentApiUrl}/api/candidates/delete-test`;
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ id: testId })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Delete candidate test failed at ${url}:`, err);
+    throw err;
+  }
+}
 
-// ==========================================
 // Work Submissions & EOD Reports APIs
 // ==========================================
 
