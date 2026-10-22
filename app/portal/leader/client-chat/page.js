@@ -55,8 +55,10 @@ export default function LeaderClientChatPage() {
   const isAudioUrl = (url) => typeof url === 'string' && /\.(mp3|wav|ogg|m4a)($|\?)/i.test(url);
 
   const fetchNotes = async () => {
+    if (!user) return;
     try {
-      const res = await fetch('/api/client-notes');
+      const url = user.id ? `/api/client-notes?tl_id=${encodeURIComponent(user.id)}` : '/api/client-notes';
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
         setNotes(data.notes || []);
@@ -66,32 +68,20 @@ export default function LeaderClientChatPage() {
   };
 
   const fetchClients = async () => {
+    if (!user?.id) return;
     try {
-      const [empRes, reqRes] = await Promise.all([
-        fetch('/api/employees').then(r => r.json()).catch(() => ({ data: [] })),
-        fetch('/api/client-services/requests').then(r => r.json()).catch(() => ({ data: [] }))
-      ]);
+      const reqRes = await fetch('/api/client-services/requests').then(r => r.json()).catch(() => ({ data: [] }));
       const map = new Map();
       if (Array.isArray(reqRes?.data)) {
-        reqRes.data.forEach(r => {
-          const id = r.clientId || r.client_id;
-          if (id && !map.has(id)) {
-            map.set(id, { id, name: r.client_name || r.company_name || id, company: r.company_name || '' });
-          }
-        });
+        reqRes.data
+          .filter(r => String(r.assigned_tl_id) === String(user.id))
+          .forEach(r => {
+            const id = r.clientId || r.client_id;
+            if (id && !map.has(id)) {
+              map.set(id, { id, name: r.client_name || r.company_name || id, company: r.company_name || '' });
+            }
+          });
       }
-      if (Array.isArray(empRes?.data)) {
-        empRes.data.filter(e => e.role === 'Client').forEach(c => {
-          if (!map.has(c.id)) {
-            map.set(c.id, { id: c.id, name: c.name || c.id, company: c.company_name || '' });
-          }
-        });
-      }
-      notes.forEach(n => {
-        if (n.client_id && !map.has(n.client_id)) {
-          map.set(n.client_id, { id: n.client_id, name: n.client_name || n.client_id, company: n.company_name || '' });
-        }
-      });
       const list = Array.from(map.values());
       setClientsList(list);
       if (list.length > 0 && !selectedClientId) {
@@ -101,16 +91,20 @@ export default function LeaderClientChatPage() {
   };
 
   useEffect(() => {
-    fetchNotes();
-    const interval = setInterval(fetchNotes, 15000);
-    return () => clearInterval(interval);
-  }, []);
+    if (user?.id) {
+      fetchNotes();
+      const interval = setInterval(fetchNotes, 15000);
+      return () => clearInterval(interval);
+    } else if (user === null) {
+      setLoading(false);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
-    if (isInitiateModalOpen) {
+    if (isInitiateModalOpen && user?.id) {
       fetchClients();
     }
-  }, [isInitiateModalOpen]);
+  }, [isInitiateModalOpen, user?.id]);
 
   const handleReply = async (noteId) => {
     const reply = replyText[noteId];
@@ -265,8 +259,8 @@ export default function LeaderClientChatPage() {
       {notes.length === 0 ? (
         <div className="bg-white p-12 rounded-xl border border-slate-200 text-center text-slate-500 shadow-sm max-w-4xl">
           <FiMessageSquare className="text-4xl mx-auto mb-3 text-slate-300" />
-          <p className="text-sm font-semibold text-slate-700">No client messages found yet.</p>
-          <p className="text-xs text-slate-400 mt-1">Click "Initiate Discussion with Client" above to start a conversation with a client.</p>
+          <p className="text-sm font-semibold text-slate-700">No client notes available</p>
+          <p className="text-xs text-slate-400 mt-1">Client notes and discussions will appear here once the Admin assigns client requests to you.</p>
         </div>
       ) : (
         <div className="grid gap-6 max-w-4xl">
@@ -653,14 +647,9 @@ export default function LeaderClientChatPage() {
                     Select Client <span className="text-red-500">*</span>
                   </label>
                   {clientsList.length === 0 ? (
-                    <input
-                      type="text"
-                      value={selectedClientId}
-                      onChange={(e) => setSelectedClientId(e.target.value)}
-                      placeholder="Enter Client ID (e.g. emp_1789...)"
-                      className="w-full text-sm p-2.5 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
+                    <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                      ⚠️ No clients are assigned to you yet by the Admin. You can initiate discussions once the Admin assigns client requests to you.
+                    </div>
                   ) : (
                     <select
                       value={selectedClientId}
@@ -743,7 +732,7 @@ export default function LeaderClientChatPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmittingDiscussion}
+                  disabled={isSubmittingDiscussion || clientsList.length === 0}
                   className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-xl shadow-xs transition-colors"
                 >
                   <FiSend size={13} />

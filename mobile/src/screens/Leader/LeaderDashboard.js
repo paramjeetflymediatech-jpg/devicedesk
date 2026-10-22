@@ -266,7 +266,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         fetchTasksApi().catch(() => ({ data: [] })),
         fetchClientRequestsApi().catch(() => ({ data: [] })),
         fetchEodReportsApi().catch(() => ({ data: [] })),
-        fetchAllClientNotesApi().catch(() => ({ notes: [] })),
+        fetchAllClientNotesApi(leaderId).catch(() => ({ notes: [] })),
       ]);
 
       const allEmps = empRes?.data || [];
@@ -321,6 +321,8 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
       // Filter client requests assigned to THIS team leader
       const myRequests = allReqs.filter((r) => String(r.assigned_tl_id) === String(leaderId));
+      const assignedClientIds = new Set(myRequests.map((r) => String(r.clientId || r.client_id)).filter(Boolean));
+      const myClientNotes = notes.filter((n) => assignedClientIds.has(String(n.client_id)));
 
       // Build client names mapping
       const nameMap = {};
@@ -332,7 +334,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         const cName = r.client_name || r.company_name;
         if (cId && cName) nameMap[cId] = r.company_name && r.client_name ? `${r.client_name} (${r.company_name})` : cName;
       });
-      notes.forEach((n) => {
+      myClientNotes.forEach((n) => {
         const cId = String(n.client_id || '');
         const cName = n.client_name || n.company_name;
         if (cId && cName && cName !== cId) nameMap[cId] = n.company_name && n.client_name ? `${n.client_name} (${n.company_name})` : cName;
@@ -342,7 +344,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       setTeamMembers(mappedMembers);
       setTasksList(tasks);
       setClientRequests(myRequests);
-      setClientNotes(notes);
+      setClientNotes(myClientNotes);
     } catch (err) {
       console.error('Failed to load Leader Dashboard data:', err);
     } finally {
@@ -491,7 +493,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     setNewDiscussionAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Available clients list computed from requests, notes, and employee list
+  // Available clients list computed from requests assigned to THIS team leader
   const availableClients = useMemo(() => {
     const map = new Map();
     (clientRequests || []).forEach(r => {
@@ -500,19 +502,8 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         map.set(id, { id, name: r.client_name || r.company_name || id, company: r.company_name || '' });
       }
     });
-    (clientNotes || []).forEach(n => {
-      const id = n.client_id;
-      if (id && !map.has(id)) {
-        map.set(id, { id, name: n.client_name || n.company_name || id, company: n.company_name || '' });
-      }
-    });
-    (teamMembers || []).forEach(emp => {
-      if (emp.role === 'Client' && !map.has(emp.id)) {
-        map.set(emp.id, { id: emp.id, name: emp.name || emp.id, company: emp.company_name || '' });
-      }
-    });
     return Array.from(map.values());
-  }, [clientRequests, clientNotes, teamMembers]);
+  }, [clientRequests]);
 
   const filteredAvailableClients = useMemo(() => {
     if (!clientSearchQuery.trim()) return availableClients;
@@ -599,8 +590,11 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         setNewDiscussionTopic('');
         setNewDiscussionMessage('');
         setNewDiscussionAttachments([]);
-        const notesRes = await fetchAllClientNotesApi().catch(() => ({ notes: [] }));
-        if (notesRes?.notes) setClientNotes(notesRes.notes);
+        const notesRes = await fetchAllClientNotesApi(leaderId).catch(() => ({ notes: [] }));
+        if (notesRes?.notes) {
+          const assignedIds = new Set((clientRequests || []).map(r => String(r.clientId || r.client_id)).filter(Boolean));
+          setClientNotes(notesRes.notes.filter(n => assignedIds.has(String(n.client_id))));
+        }
       } else {
         throw new Error(res?.error || 'Failed to start discussion');
       }
@@ -678,9 +672,10 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         setReplyTextMap((prev) => ({ ...prev, [noteId]: '' }));
         setReplyAttachmentsMap((prev) => ({ ...prev, [noteId]: [] }));
         // Refresh notes
-        const notesRes = await fetchAllClientNotesApi().catch(() => ({ notes: [] }));
+        const notesRes = await fetchAllClientNotesApi(leaderId).catch(() => ({ notes: [] }));
         if (notesRes?.notes) {
-          setClientNotes(notesRes.notes);
+          const assignedIds = new Set((clientRequests || []).map(r => String(r.clientId || r.client_id)).filter(Boolean));
+          setClientNotes(notesRes.notes.filter(n => assignedIds.has(String(n.client_id))));
         }
       } else {
         sweetAlert({
@@ -1819,7 +1814,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                 <AppIcon name="chat" size={40} color={themeColors.textSecondary} />
                 <Text style={styles.emptyTitle}>No Client Messages Found</Text>
                 <Text style={styles.emptySub}>
-                  {notesSearch ? 'No notes matched your search filter.' : 'All client communication streams are up to date.'}
+                  {notesSearch ? 'No notes matched your search filter.' : 'Client notes and messages will appear here once the Admin assigns client requests to you.'}
                 </Text>
               </View>
             ) : (
@@ -2710,7 +2705,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       <Text style={{ fontSize: 13, color: themeColors.textSecondary, textAlign: 'center' }}>
                         {clientSearchQuery
                           ? `No clients matching "${clientSearchQuery}".`
-                          : 'No assigned clients found in recent requests or notes.'}
+                          : 'No clients are assigned to you yet by the Admin.'}
                       </Text>
                     </View>
                   ) : (

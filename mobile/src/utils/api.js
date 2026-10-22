@@ -1121,8 +1121,10 @@ export async function fetchClientNotesApi(clientId) {
   }
 }
 
-export async function fetchAllClientNotesApi() {
-  const url = `${currentApiUrl}/api/client-notes`;
+export async function fetchAllClientNotesApi(tlId) {
+  const url = tlId
+    ? `${currentApiUrl}/api/client-notes?tl_id=${encodeURIComponent(tlId)}`
+    : `${currentApiUrl}/api/client-notes`;
   try {
     const response = await fetch(url, {
       method: 'GET',

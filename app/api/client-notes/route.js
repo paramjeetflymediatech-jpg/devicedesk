@@ -6,9 +6,41 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const client_id = searchParams.get('client_id');
+    const tl_id = searchParams.get('tl_id') || searchParams.get('assigned_tl_id');
 
     const db = await getDbConnection();
     let rows;
+
+    let assignedClientIds = null;
+    if (tl_id) {
+      try {
+        const [srRows] = await db.query(
+          `SELECT DISTINCT clientId as client_id FROM service_requests WHERE assigned_tl_id = ?`,
+          [tl_id]
+        );
+        let smoRows = [];
+        try {
+          const [sRows] = await db.query(
+            `SELECT DISTINCT client_id FROM client_smo_requests WHERE assigned_tl_id = ?`,
+            [tl_id]
+          );
+          smoRows = sRows;
+        } catch (e) {}
+
+        assignedClientIds = [...new Set([
+          ...(srRows || []).map(r => String(r.client_id || '')),
+          ...(smoRows || []).map(r => String(r.client_id || ''))
+        ].filter(Boolean))];
+
+        // If Team Leader has no client requests assigned by Admin yet, return empty notes list
+        if (assignedClientIds.length === 0) {
+          return NextResponse.json({ success: true, notes: [] });
+        }
+      } catch (assignErr) {
+        console.error('Error fetching assigned clients for TL:', assignErr);
+      }
+    }
+
     const baseQuery = `
       SELECT cn.*, 
         COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(cd.company_name), ''), cn.client_id) as client_name,
@@ -21,19 +53,30 @@ export async function GET(request) {
       LEFT JOIN client_details cd ON (cn.client_id COLLATE utf8mb4_unicode_ci = cd.client_id COLLATE utf8mb4_unicode_ci)
     `;
 
+    const whereClauses = [];
+    const queryParams = [];
+
+    if (client_id) {
+      whereClauses.push('cn.client_id = ?');
+      queryParams.push(client_id);
+    }
+
+    if (tl_id && assignedClientIds && assignedClientIds.length > 0) {
+      const placeholders = assignedClientIds.map(() => '?').join(',');
+      whereClauses.push(`cn.client_id IN (${placeholders})`);
+      queryParams.push(...assignedClientIds);
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
     try {
-      if (client_id) {
-        [rows] = await db.query(`${baseQuery} WHERE cn.client_id = ? ORDER BY cn.created_at DESC`, [client_id]);
-      } else {
-        [rows] = await db.query(`${baseQuery} ORDER BY cn.created_at DESC`);
-      }
+      [rows] = await db.query(`${baseQuery} ${whereSql} ORDER BY cn.created_at DESC`, queryParams);
     } catch (joinErr) {
       console.warn('client-notes join fallback:', joinErr.message);
-      if (client_id) {
-        [rows] = await db.query('SELECT * FROM client_notes WHERE client_id = ? ORDER BY created_at DESC', [client_id]);
-      } else {
-        [rows] = await db.query('SELECT * FROM client_notes ORDER BY created_at DESC');
-      }
+      const fallbackWhere = whereClauses.length > 0
+        ? `WHERE ${whereClauses.map(w => w.replace(/cn\./g, '')).join(' AND ')}`
+        : '';
+      [rows] = await db.query(`SELECT * FROM client_notes ${fallbackWhere} ORDER BY created_at DESC`, queryParams);
 
       // If join query failed, attempt manual enrich from employees and client_details
       if (rows && rows.length > 0) {
