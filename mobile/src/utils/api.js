@@ -1405,6 +1405,22 @@ export async function updateClientRequestApi(payload) {
   }
 }
 
+export async function deleteClientRequestApi(id, viewerRole = 'Admin') {
+  const url = `${currentApiUrl}/api/client-services/requests?id=${encodeURIComponent(id)}&viewerRole=${encodeURIComponent(viewerRole)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Delete client request failed at ${url}:`, err);
+    throw err;
+  }
+}
+
 // ==========================================
 // CLIENT CRM APIS
 // ==========================================

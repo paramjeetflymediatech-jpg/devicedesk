@@ -23,6 +23,7 @@ import {
   fetchEmployeesApi,
   fetchTasksApi,
   updateClientRequestApi,
+  deleteClientRequestApi,
   getApiUrl,
 } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
@@ -368,6 +369,46 @@ export default function ManageClientRequests({ currentUser, onBack }) {
     } finally {
       setUpdatingStatus(false);
     }
+  };
+
+  const handleDeleteRequest = (reqId) => {
+    if (!reqId) return;
+    sweetAlert({
+      title: 'Delete Service Request?',
+      text: 'Are you sure you want to delete this client request? Any linked tasks will also be removed. This cannot be undone.',
+      type: 'warning',
+      showCancel: true,
+      onConfirm: async () => {
+        try {
+          const res = await deleteClientRequestApi(reqId, 'Admin');
+          if (res && res.success) {
+            sweetAlert({
+              title: 'Deleted',
+              text: 'Client request has been deleted successfully.',
+              type: 'success',
+            });
+            if (selectedReq && selectedReq.id === reqId) {
+              setDetailModalVisible(false);
+              setSelectedReq(null);
+            }
+            loadData();
+          } else {
+            sweetAlert({
+              title: 'Error',
+              text: res?.error || 'Failed to delete request.',
+              type: 'error',
+            });
+          }
+        } catch (err) {
+          console.error('Delete request failed:', err);
+          sweetAlert({
+            title: 'Error',
+            text: 'Network error while deleting client request.',
+            type: 'error',
+          });
+        }
+      }
+    });
   };
 
   const filteredRequests = requests.filter(req => {
@@ -734,15 +775,37 @@ export default function ManageClientRequests({ currentUser, onBack }) {
                   </TouchableOpacity>
                 </View>
 
-                {/* Card Action Button */}
-                <TouchableOpacity
-                  style={styles.viewDetailsBtn}
-                  onPress={() => handleOpenDetailModal(req)}
-                  activeOpacity={0.7}
-                >
-                  <AppIcon name="eye" size={15} color="#3b82f6" />
-                  <Text style={styles.viewDetailsBtnText}>View Full Requirement & Deliverables</Text>
-                </TouchableOpacity>
+                {/* Card Action Buttons */}
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                  <TouchableOpacity
+                    style={[styles.viewDetailsBtn, { flex: 1, marginTop: 0 }]}
+                    onPress={() => handleOpenDetailModal(req)}
+                    activeOpacity={0.7}
+                  >
+                    <AppIcon name="eye" size={15} color="#3b82f6" />
+                    <Text style={styles.viewDetailsBtnText}>View Details</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      borderRadius: 10,
+                      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fca5a5',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexDirection: 'row',
+                      gap: 4,
+                    }}
+                    onPress={() => handleDeleteRequest(req.id)}
+                    activeOpacity={0.7}
+                  >
+                    <AppIcon name="delete" size={15} color="#ef4444" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#ef4444' }}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })
@@ -1237,8 +1300,15 @@ export default function ManageClientRequests({ currentUser, onBack }) {
                 <View style={{ height: 24 }} />
               </ScrollView>
 
-              <View style={styles.modalFooter}>
-                <TouchableOpacity style={styles.cancelFooterBtn} onPress={() => setDetailModalVisible(false)} activeOpacity={0.7}>
+              <View style={[styles.modalFooter, { flexDirection: 'row', gap: 10 }]}>
+                <TouchableOpacity
+                  style={[styles.cancelFooterBtn, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2', borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fca5a5' }]}
+                  onPress={() => handleDeleteRequest(selectedReq?.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.cancelFooterBtnText, { color: '#ef4444', fontWeight: '700' }]}>🗑 Delete Request</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.cancelFooterBtn, { flex: 1 }]} onPress={() => setDetailModalVisible(false)} activeOpacity={0.7}>
                   <Text style={styles.cancelFooterBtnText}>Close</Text>
                 </TouchableOpacity>
               </View>

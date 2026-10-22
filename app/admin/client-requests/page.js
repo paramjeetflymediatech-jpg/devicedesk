@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiList, FiCheck, FiX, FiUser, FiEye, FiDownload, FiExternalLink, FiFileText, FiImage, FiSearch } from 'react-icons/fi';
+import { FiList, FiCheck, FiX, FiUser, FiEye, FiDownload, FiExternalLink, FiFileText, FiImage, FiSearch, FiTrash2 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import GoogleDriveBadge from '@/app/components/GoogleDriveBadge.js';
 import Pagination from '@/app/components/Pagination.js';
@@ -142,6 +142,47 @@ export default function ClientRequestsPage() {
     }
   };
 
+  const handleDeleteRequest = async (reqId) => {
+    const result = await Swal.fire({
+      title: 'Delete Service Request?',
+      text: 'Are you sure you want to delete this client request? Any linked tasks will also be removed. This cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, delete request'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(`/api/client-services/requests?id=${encodeURIComponent(reqId)}&viewerRole=Admin`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        Swal.fire({
+          title: 'Deleted!',
+          text: 'Client request has been deleted successfully.',
+          icon: 'success',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        if (selectedReq && selectedReq.id === reqId) {
+          setSelectedReq(null);
+        }
+        fetchData();
+      } else {
+        Swal.fire('Error', data.error || 'Failed to delete request', 'error');
+      }
+    } catch (err) {
+      console.error('Delete request error:', err);
+      Swal.fire('Error', 'Failed to delete request due to network error.', 'error');
+    }
+  };
+
   const clientAttachments = selectedReq ? parseAttachments(selectedReq.attachment || selectedReq.file_url || selectedReq.fileUrl) : [];
 
   // Filter and Pagination logic
@@ -262,6 +303,7 @@ export default function ClientRequestsPage() {
                   <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Attachments</th>
                   <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Date</th>
                   <th style={{ padding: '16px', textAlign: 'left', color: 'var(--text-secondary)' }}>Assigned TL</th>
+                  <th style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -336,12 +378,36 @@ export default function ClientRequestsPage() {
                           </div>
                         )}
                       </td>
+                      <td style={{ padding: '16px', textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRequest(req.id)}
+                          style={{
+                            padding: '6px 12px',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s'
+                          }}
+                          className="hover:bg-red-500 hover:text-white"
+                          title="Delete client request"
+                        >
+                          <FiTrash2 size={14} /> Delete
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
                 {filteredRequests.length === 0 && (
                   <tr>
-                    <td colSpan="5" style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <td colSpan="6" style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                       {searchTerm || statusFilter !== 'All' 
                         ? `No requests match your search or filter.` 
                         : 'No client requests found.'}
@@ -382,15 +448,40 @@ export default function ClientRequestsPage() {
             border: '1px solid var(--glass-border)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
             position: 'relative', maxHeight: '90vh', overflowY: 'auto'
           }}>
-            <button 
-              onClick={() => setSelectedReq(null)}
-              style={{ position: 'absolute', top: '16px', right: '16px', color: 'var(--text-secondary)', fontSize: '1.4rem', background: 'transparent', border: 'none', cursor: 'pointer' }}
-            >
-              <FiX />
-            </button>
-            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📋 Requirement Details & Attachments
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📋 Requirement Details & Attachments
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRequest(selectedReq.id)}
+                  style={{
+                    padding: '6px 12px',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    borderRadius: '6px',
+                    fontSize: '0.8rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  className="hover:bg-red-500 hover:text-white"
+                  title="Delete this request"
+                >
+                  <FiTrash2 size={14} /> Delete
+                </button>
+                <button 
+                  onClick={() => setSelectedReq(null)}
+                  style={{ color: 'var(--text-secondary)', fontSize: '1.4rem', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                >
+                  <FiX />
+                </button>
+              </div>
+            </div>
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>

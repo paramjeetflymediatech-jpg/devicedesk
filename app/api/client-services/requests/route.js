@@ -254,3 +254,43 @@ export async function PUT(request) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const viewerRole = searchParams.get('viewerRole') || request.headers.get('x-user-role');
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Missing request id' }, { status: 400 });
+    }
+
+    // Role check: only Admin/Management can delete client requests
+    const normalizedRole = (viewerRole || '').trim().toLowerCase();
+    const isAdmin = !viewerRole || ['admin', 'management'].includes(normalizedRole);
+
+    if (!isAdmin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Only admins can delete client requests' }, { status: 403 });
+    }
+
+    const db = await getDbConnection();
+
+    // Clean up any tasks linked via project_id
+    try {
+      await db.query('DELETE FROM tasks WHERE project_id = ?', [id]);
+    } catch (taskErr) {
+      console.warn('Error deleting linked tasks:', taskErr);
+    }
+
+    const [result] = await db.query('DELETE FROM service_requests WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json({ success: false, error: 'Request not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Client request deleted successfully' });
+  } catch (err) {
+    console.error('Delete Service Request Error:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
