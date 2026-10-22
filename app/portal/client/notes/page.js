@@ -105,7 +105,7 @@ export default function ClientNotesPage() {
         } catch (error) {
           setIsUploading(false);
           setUploadStats(null);
-          throw new Error('Failed to upload file: ' + error.message);
+          throw error;
         }
         setIsUploading(false);
         setUploadStats(null);
@@ -129,7 +129,12 @@ export default function ClientNotesPage() {
       }
     } catch (err) {
       console.error(err);
-      Swal.fire('Error', 'Network or upload error', 'error');
+      Swal.fire({
+        icon: 'error',
+        title: 'Upload Failed',
+        text: err?.message || 'Network or upload error occurred. Please try again.',
+        confirmButtonColor: '#db2777'
+      });
     } finally {
       setSubmitting(false);
     }

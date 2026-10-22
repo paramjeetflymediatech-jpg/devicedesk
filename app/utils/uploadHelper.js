@@ -61,15 +61,33 @@ function xhrUpload(url, file, onProgress) {
           const res = JSON.parse(xhr.responseText);
           resolve(res.fileUrls || []);
         } catch (e) {
-          reject(new Error('Invalid JSON response'));
+          reject(new Error('Invalid JSON response from server'));
         }
       } else {
-        reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
+        if (xhr.status === 413) {
+          const sizeMB = file?.size ? (file.size / (1024 * 1024)).toFixed(1) : null;
+          const sizeText = sizeMB ? ` (${sizeMB} MB)` : '';
+          reject(new Error(`The file "${file?.name || 'attachment'}"${sizeText} is too large and exceeds the server upload limit (413 Request Entity Too Large). Please choose a smaller file or share a Google Drive link.`));
+        } else {
+          let errorMsg = `Upload failed with status ${xhr.status}`;
+          try {
+            const parsed = JSON.parse(xhr.responseText);
+            if (parsed && parsed.error) errorMsg = parsed.error;
+          } catch (e) {
+            if (xhr.responseText) {
+              const match = xhr.responseText.match(/<h1[^>]*>([^<]+)<\/h1>/i) || xhr.responseText.match(/<title[^>]*>([^<]+)<\/title>/i);
+              if (match && match[1]) {
+                errorMsg = match[1].trim();
+              }
+            }
+          }
+          reject(new Error(errorMsg));
+        }
       }
     });
 
-    xhr.addEventListener('error', () => reject(new Error('Network Error during upload')));
-    xhr.addEventListener('abort', () => reject(new Error('Upload Aborted')));
+    xhr.addEventListener('error', () => reject(new Error('Network error occurred during upload. Please check your internet connection.')));
+    xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled.')));
 
     xhr.open('POST', url);
     const formData = new FormData();

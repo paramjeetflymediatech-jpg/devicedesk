@@ -142,7 +142,7 @@ export default function LeaderClientChatPage() {
         } catch (error) {
           setUploadingNotes(prev => ({...prev, [noteId]: false}));
           setUploadStats(prev => ({...prev, [noteId]: null}));
-          throw new Error('Failed to upload file: ' + error.message);
+          throw error;
         }
         setUploadingNotes(prev => ({...prev, [noteId]: false}));
         setUploadStats(prev => ({...prev, [noteId]: null}));
@@ -166,7 +166,12 @@ export default function LeaderClientChatPage() {
       }
     } catch (err) {
       console.error(err);
-      Swal.fire('Error', 'Network or upload error', 'error');
+      Swal.fire({
+        icon: 'error',
+        title: 'Upload Failed',
+        text: err?.message || 'Network or upload error occurred. Please try again.',
+        confirmButtonColor: '#2563eb'
+      });
     }
   };
 
@@ -200,7 +205,7 @@ export default function LeaderClientChatPage() {
           const urls = await uploadFilesWithProgress(discussionFiles);
           if (urls && urls.length > 0) attachmentUrls = urls;
         } catch (err) {
-          throw new Error('Failed to upload files: ' + err.message);
+          throw err;
         }
       }
 
