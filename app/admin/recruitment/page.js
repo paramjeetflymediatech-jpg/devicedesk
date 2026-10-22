@@ -445,7 +445,7 @@ export default function HrRecruitmentPage() {
                 <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Contact</th>
                 <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Experience & Role</th>
                 <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Status</th>
-                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>Actions</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right', minWidth: '220px', width: '220px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -496,24 +496,72 @@ export default function HrRecruitmentPage() {
                       {reg.status || 'Pending'}
                     </span>
                   </td>
-                  <td style={{ padding: '16px', textAlign: 'right' }}>
+                  <td style={{ padding: '16px', textAlign: 'right', minWidth: '220px', width: '220px' }}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
                       {reg.status === 'Pending' && (
-                        <button onClick={() => handleApproveClick(reg)} className="rec-btn-approve" title="Approve candidate and assign test">
-                          <FiCheck /> Approve & Assign
+                        <button 
+                          onClick={() => handleApproveClick(reg)} 
+                          className="rec-btn-approve" 
+                          style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '8px 14px',
+                            borderRadius: '8px',
+                            fontSize: '0.82rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)',
+                            whiteSpace: 'nowrap',
+                            lineHeight: 1
+                          }}
+                          title="Approve candidate and assign test"
+                        >
+                          <FiCheck style={{ fontSize: '1rem', flexShrink: 0 }} /> Approve & Assign
                         </button>
                       )}
                       {reg.status === 'Approved' && (
-                        <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 10px', background: 'rgba(16,185,129,0.08)', borderRadius: '8px' }}>
-                          <FiCheck /> Approved
+                        <span style={{ 
+                          fontSize: '0.82rem', 
+                          color: '#10b981', 
+                          fontWeight: '600', 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '5px', 
+                          padding: '7px 12px', 
+                          background: 'rgba(16,185,129,0.1)', 
+                          border: '1px solid rgba(16,185,129,0.25)', 
+                          borderRadius: '8px',
+                          whiteSpace: 'nowrap',
+                          lineHeight: 1
+                        }}>
+                          <FiCheck style={{ fontSize: '1rem', flexShrink: 0 }} /> Approved
                         </span>
                       )}
                       <button 
                         onClick={() => handleDeleteApplication(reg)} 
                         className="rec-btn-delete"
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          padding: '7px 12px',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          whiteSpace: 'nowrap',
+                          lineHeight: 1
+                        }}
                         title="Permanently delete application"
                       >
-                        <FiTrash2 /> Delete
+                        <FiTrash2 style={{ fontSize: '0.95rem', flexShrink: 0 }} /> Delete
                       </button>
                     </div>
                   </td>
@@ -573,23 +621,71 @@ export default function HrRecruitmentPage() {
                 </button>
               </div>
 
-              <div className="rec-card-actions">
+              <div className="rec-card-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px', paddingTop: '10px', borderTop: '1px solid var(--glass-border)' }}>
                 {reg.status === 'Pending' && (
-                  <button onClick={() => handleApproveClick(reg)} className="rec-btn-approve" style={{ flex: 2 }}>
-                    <FiCheck /> Approve & Assign
+                  <button 
+                    onClick={() => handleApproveClick(reg)} 
+                    className="rec-btn-approve" 
+                    style={{ 
+                      flex: 2, 
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      lineHeight: 1
+                    }}
+                  >
+                    <FiCheck style={{ fontSize: '1rem', flexShrink: 0 }} /> Approve & Assign
                   </button>
                 )}
                 {reg.status === 'Approved' && (
-                  <span style={{ flex: 2, fontSize: '0.8rem', color: '#10b981', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '8px 12px', background: 'rgba(16,185,129,0.08)', borderRadius: '8px' }}>
-                    <FiCheck /> Approved
+                  <span style={{ 
+                    flex: 2, 
+                    fontSize: '0.82rem', 
+                    color: '#10b981', 
+                    fontWeight: '600', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '5px', 
+                    padding: '9px 12px', 
+                    background: 'rgba(16,185,129,0.08)', 
+                    border: '1px solid rgba(16,185,129,0.25)', 
+                    borderRadius: '8px',
+                    lineHeight: 1
+                  }}>
+                    <FiCheck style={{ fontSize: '1rem', flexShrink: 0 }} /> Approved
                   </span>
                 )}
                 <button 
                   onClick={() => handleDeleteApplication(reg)} 
                   className="rec-btn-delete"
-                  style={{ flex: 1 }}
+                  style={{ 
+                    flex: 1,
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    lineHeight: 1
+                  }}
                 >
-                  <FiTrash2 /> Delete
+                  <FiTrash2 style={{ fontSize: '0.95rem', flexShrink: 0 }} /> Delete
                 </button>
               </div>
             </div>
@@ -622,7 +718,7 @@ export default function HrRecruitmentPage() {
                 <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Date Assigned</th>
                 <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Instructions Preview</th>
                 <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Status / Score</th>
-                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right' }}>Actions</th>
+                <th style={{ padding: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600', textAlign: 'right', minWidth: '220px', width: '220px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -680,23 +776,54 @@ export default function HrRecruitmentPage() {
                         )}
                       </div>
                     </td>
-                    <td style={{ padding: '16px', textAlign: 'right' }}>
+                    <td style={{ padding: '16px', textAlign: 'right', minWidth: '220px', width: '220px' }}>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
                         {isCompleted && (
                           <button 
                             onClick={() => handleEvaluateClick(test)}
                             className="rec-btn-evaluate"
+                            style={{
+                              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                              color: '#ffffff',
+                              border: 'none',
+                              padding: '8px 14px',
+                              borderRadius: '8px',
+                              fontSize: '0.82rem',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+                              whiteSpace: 'nowrap',
+                              lineHeight: 1
+                            }}
                             title="Evaluate candidate work and move to talent pool"
                           >
-                            <FiMessageSquare /> Evaluate
+                            <FiMessageSquare style={{ fontSize: '0.95rem', flexShrink: 0 }} /> Evaluate
                           </button>
                         )}
                         <button 
                           onClick={() => handleDeleteTest(test)} 
                           className="rec-btn-delete"
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.08)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            padding: '7px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.82rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            whiteSpace: 'nowrap',
+                            lineHeight: 1
+                          }}
                           title="Delete assigned test task"
                         >
-                          <FiTrash2 /> Delete Task
+                          <FiTrash2 style={{ fontSize: '0.95rem', flexShrink: 0 }} /> Delete Task
                         </button>
                       </div>
                     </td>
@@ -766,22 +893,54 @@ export default function HrRecruitmentPage() {
                   )}
                 </div>
 
-                <div className="rec-card-actions">
+                <div className="rec-card-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px', paddingTop: '10px', borderTop: '1px solid var(--glass-border)' }}>
                   {isCompleted && (
                     <button 
                       onClick={() => handleEvaluateClick(test)}
                       className="rec-btn-evaluate"
-                      style={{ flex: 2 }}
+                      style={{ 
+                        flex: 2,
+                        background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        whiteSpace: 'nowrap',
+                        lineHeight: 1
+                      }}
                     >
-                      <FiMessageSquare /> Evaluate & Move
+                      <FiMessageSquare style={{ fontSize: '1rem', flexShrink: 0 }} /> Evaluate & Move
                     </button>
                   )}
                   <button 
                     onClick={() => handleDeleteTest(test)} 
                     className="rec-btn-delete"
-                    style={{ flex: 1 }}
+                    style={{ 
+                      flex: 1,
+                      background: 'rgba(239, 68, 68, 0.08)',
+                      color: '#ef4444',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px',
+                      whiteSpace: 'nowrap',
+                      lineHeight: 1
+                    }}
                   >
-                    <FiTrash2 /> Delete Task
+                    <FiTrash2 style={{ fontSize: '0.95rem', flexShrink: 0 }} /> Delete Task
                   </button>
                 </div>
               </div>
@@ -1115,7 +1274,7 @@ export default function HrRecruitmentPage() {
       )}
 
       {/* Responsive Styles */}
-      <style jsx>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .rec-page-container {
           padding: 1.5rem;
         }
@@ -1145,70 +1304,79 @@ export default function HrRecruitmentPage() {
           display: block;
         }
         .rec-mobile-view {
-          display: none;
+          display: none !important;
         }
 
         /* Buttons */
         .rec-btn-approve {
-          background: var(--accent-cyan);
-          color: #ffffff;
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: #ffffff !important;
           border: none;
           padding: 8px 14px;
           border-radius: 8px;
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           font-weight: 600;
           cursor: pointer;
-          display: inline-flex;
-          align-items: center;
+          display: inline-flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
           gap: 6px;
-          box-shadow: 0 2px 10px rgba(6, 182, 212, 0.2);
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
           transition: all 0.2s ease;
-          white-space: nowrap;
+          white-space: nowrap !important;
+          line-height: 1;
         }
         .rec-btn-approve:hover {
           transform: translateY(-1px);
-          filter: brightness(1.1);
+          filter: brightness(1.08);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
         }
 
         .rec-btn-evaluate {
-          background: var(--accent-cyan);
-          color: #ffffff;
+          background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+          color: #ffffff !important;
           border: none;
           padding: 8px 14px;
           border-radius: 8px;
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           font-weight: 600;
           cursor: pointer;
-          display: inline-flex;
-          align-items: center;
+          display: inline-flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
           gap: 6px;
-          box-shadow: 0 2px 10px rgba(6, 182, 212, 0.2);
+          box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
           transition: all 0.2s ease;
-          white-space: nowrap;
+          white-space: nowrap !important;
+          line-height: 1;
         }
         .rec-btn-evaluate:hover {
           transform: translateY(-1px);
-          filter: brightness(1.1);
+          filter: brightness(1.08);
+          box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
         }
 
         .rec-btn-delete {
-          background: rgba(239, 68, 68, 0.1);
-          color: #ef4444;
+          background: rgba(239, 68, 68, 0.08);
+          color: #ef4444 !important;
           border: 1px solid rgba(239, 68, 68, 0.25);
-          padding: 8px 12px;
+          padding: 7px 12px;
           border-radius: 8px;
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           font-weight: 600;
           cursor: pointer;
-          display: inline-flex;
-          align-items: center;
+          display: inline-flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
           gap: 5px;
           transition: all 0.2s ease;
-          white-space: nowrap;
+          white-space: nowrap !important;
+          line-height: 1;
         }
         .rec-btn-delete:hover {
-          background: rgba(239, 68, 68, 0.22);
-          border-color: #ef4444;
+          background: rgba(239, 68, 68, 0.18) !important;
+          border-color: rgba(239, 68, 68, 0.5) !important;
+          color: #dc2626 !important;
           transform: translateY(-1px);
         }
 
@@ -1261,11 +1429,21 @@ export default function HrRecruitmentPage() {
           border-top: 1px solid var(--glass-border);
         }
         .rec-card-actions button {
-          min-height: 40px;
+          min-height: 38px;
           justify-content: center;
         }
 
-        /* Mobile Breakpoint */
+        /* Desktop Breakpoint explicitly hiding mobile card view */
+        @media (min-width: 769px) {
+          .rec-mobile-view {
+            display: none !important;
+          }
+          .rec-desktop-view {
+            display: block !important;
+          }
+        }
+
+        /* Mobile Breakpoint explicitly hiding desktop table */
         @media (max-width: 768px) {
           .rec-page-container {
             padding: 1rem !important;
@@ -1275,25 +1453,25 @@ export default function HrRecruitmentPage() {
           }
           .rec-mobile-view {
             display: flex !important;
-            flex-direction: column;
-            gap: 12px;
+            flex-direction: column !important;
+            gap: 12px !important;
           }
           .rec-header {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 12px;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
           }
           .rec-tabs {
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 8px;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            padding-bottom: 8px !important;
           }
           .rec-tabs button {
-            flex-shrink: 0;
+            flex-shrink: 0 !important;
           }
         }
-      `}</style>
+      ` }} />
     </div>
   );
 }
