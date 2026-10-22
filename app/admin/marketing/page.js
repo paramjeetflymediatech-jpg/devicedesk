@@ -875,14 +875,14 @@ export default function AdminMarketingOverview() {
       {/* ================= TAB 2: TRIP HISTORY & LOGS ================= */}
       {activeTab === 'history' && (
         <div 
-          className="p-4 sm:p-6 lg:p-8 rounded-3xl shadow-sm space-y-6"
+          className="p-3.5 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl shadow-sm space-y-5 sm:space-y-6 overflow-hidden w-full max-w-full"
           style={{ 
             background: 'var(--bg-card, rgba(255, 255, 255, 0.03))',
             border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
           }}
         >
           {/* Search & Filter Bar */}
-          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
             <div className="relative w-full sm:w-80">
               <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted, #64748b)' }} />
               <input
@@ -903,7 +903,7 @@ export default function AdminMarketingOverview() {
               <select
                 value={statusFilter}
                 onChange={(e) => { setStatusFilter(e.target.value); setAttPage(1); }}
-                className="px-3 py-2.5 rounded-xl text-xs focus:outline-none w-full sm:w-auto"
+                className="px-3 py-2.5 rounded-xl text-xs focus:outline-none w-full sm:w-auto font-medium"
                 style={{
                   background: 'var(--bg-primary, rgba(255, 255, 255, 0.06))',
                   color: 'var(--text-primary, #f8fafc)',
@@ -917,20 +917,157 @@ export default function AdminMarketingOverview() {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
+          {/* Mobile Card List View (< md) */}
+          <div className="block md:hidden space-y-3.5">
+            {paginatedAttendance.map(a => {
+              const emp = allEmployees.find(e => e.id === a.employee_id);
+              const empName = emp?.name || a.employee_name || a.employee_id;
+              const isOngoing = a.status === 'Checked In';
+
+              return (
+                <div
+                  key={a.id}
+                  className="p-4 rounded-2xl space-y-3 transition-all"
+                  style={{
+                    background: 'var(--bg-primary, rgba(255, 255, 255, 0.02))',
+                    border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))'
+                  }}
+                >
+                  {/* Card Header: Executive + Status */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white font-extrabold text-xs shadow-md shrink-0">
+                        {empName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm truncate" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                          {empName}
+                        </h4>
+                        <p className="text-[10.5px] font-mono" style={{ color: 'var(--text-muted, #64748b)' }}>
+                          {a.employee_id}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase shrink-0 flex items-center gap-1.5 ${
+                      isOngoing 
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+                        : 'bg-gray-500/15 text-gray-400 border border-gray-500/20'
+                    }`}>
+                      {isOngoing && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />}
+                      {a.status || 'Checked Out'}
+                    </span>
+                  </div>
+
+                  {/* Route Timeline Box */}
+                  <div 
+                    className="p-3 rounded-xl space-y-2 text-xs"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.15)',
+                      border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.05))'
+                    }}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="text-emerald-400 mt-0.5 shrink-0">📍</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] uppercase font-bold text-gray-400 block">From</span>
+                        <span className="font-semibold text-gray-200 break-words block">{a.from_location || '-'}</span>
+                        {a.check_in_at && (
+                          <span className="text-[10px] text-gray-400 mt-0.5 block">
+                            {new Date(a.check_in_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 pt-1 border-t border-white/5">
+                      <span className="text-cyan-400 mt-0.5 shrink-0">🎯</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] uppercase font-bold text-cyan-400 block">To</span>
+                        <span className="font-bold text-cyan-300 break-words block">{a.to_location || '-'}</span>
+                        {a.check_out_at ? (
+                          <span className="text-[10px] text-gray-400 mt-0.5 block">
+                            {new Date(a.check_out_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        ) : isOngoing ? (
+                          <span className="text-[10px] text-emerald-400 font-semibold mt-0.5 block">● Active Now</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Distance & Notes */}
+                  <div className="flex items-center justify-between text-xs flex-wrap gap-2 pt-1">
+                    <div className="flex items-center gap-1.5 font-bold" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                      <FiCompass className="text-cyan-400" size={13} />
+                      <span>{a.total_km > 0 ? `${a.total_km} KM` : a.estimated_km > 0 ? `${a.estimated_km} KM (Est)` : '0 KM'}</span>
+                    </div>
+
+                    {a.notes && (
+                      <span className="text-[11px] text-gray-400 truncate max-w-[200px]" title={a.notes}>
+                        📝 {a.notes}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Action Buttons Row */}
+                  <div className="pt-2 flex items-center gap-2 border-t border-white/5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => openRouteChecker(a)}
+                      className="flex-1 py-2 px-3 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30"
+                    >
+                      <FiCompass size={13} /> Check Route
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => openTrailModal(a)}
+                      className="py-2 px-3 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all shrink-0"
+                      style={{
+                        background: 'rgba(6, 182, 212, 0.12)',
+                        color: '#06b6d4',
+                        border: '1px solid rgba(6, 182, 212, 0.25)'
+                      }}
+                    >
+                      <FiMapPin size={12} /> Trail
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTrip(a.id, empName)}
+                      title="Delete Record"
+                      className="p-2 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/15 border border-red-500/20 shrink-0 transition-colors"
+                      style={{ background: 'rgba(239, 68, 68, 0.08)' }}
+                    >
+                      <FiTrash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {paginatedAttendance.length === 0 && (
+              <div className="p-8 text-center text-xs rounded-2xl border border-white/5 bg-black/10 text-gray-400">
+                No field trips match the current filter.
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Table View (>= md) */}
+          <div className="hidden md:block overflow-x-auto w-full max-w-full rounded-2xl border" style={{ borderColor: 'var(--glass-border, rgba(255, 255, 255, 0.08))' }}>
             <table className="min-w-full divide-y" style={{ borderColor: 'var(--glass-border, rgba(255, 255, 255, 0.08))' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-primary, rgba(0, 0, 0, 0.04))' }}>
-                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Executive</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Start Point</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Destination</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Objective / Notes</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Check-In</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Check-Out</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Distance</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Status</th>
-                  <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Actions</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Executive</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Start Point</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Destination</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Objective / Notes</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Check-In</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Check-Out</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Distance</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Status</th>
+                  <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y text-xs" style={{ borderColor: 'var(--glass-border, rgba(255, 255, 255, 0.05))' }}>
@@ -939,25 +1076,25 @@ export default function AdminMarketingOverview() {
                   const isOngoing = a.status === 'Checked In';
                   return (
                     <tr key={a.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-                      <td className="px-4 py-3.5 font-bold" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                      <td className="px-4 py-3.5 font-bold whitespace-nowrap" style={{ color: 'var(--text-primary, #f8fafc)' }}>
                         <div>{emp?.name || a.employee_name || a.employee_id}</div>
                         <div className="text-[10px] font-mono" style={{ color: 'var(--text-muted, #64748b)' }}>{a.employee_id}</div>
                       </td>
-                      <td className="px-4 py-3.5 font-medium" style={{ color: 'var(--text-primary, #f8fafc)' }}>{a.from_location || '-'}</td>
-                      <td className="px-4 py-3.5 font-bold text-cyan-500">{a.to_location || '-'}</td>
-                      <td className="px-4 py-3.5 max-w-[200px] truncate" style={{ color: 'var(--text-secondary, #94a3b8)' }} title={a.notes || ''}>
+                      <td className="px-4 py-3.5 font-medium max-w-[180px] break-words" style={{ color: 'var(--text-primary, #f8fafc)' }}>{a.from_location || '-'}</td>
+                      <td className="px-4 py-3.5 font-bold text-cyan-500 max-w-[180px] break-words">{a.to_location || '-'}</td>
+                      <td className="px-4 py-3.5 max-w-[180px] truncate" style={{ color: 'var(--text-secondary, #94a3b8)' }} title={a.notes || ''}>
                         {a.notes || '-'}
                       </td>
-                      <td className="px-4 py-3.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
-                        {a.check_in_at ? new Date(a.check_in_at).toLocaleString() : '-'}
+                      <td className="px-4 py-3.5 whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                        {a.check_in_at ? new Date(a.check_in_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '-'}
                       </td>
-                      <td className="px-4 py-3.5" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
-                        {a.check_out_at ? new Date(a.check_out_at).toLocaleString() : isOngoing ? <span className="text-emerald-500 font-semibold">Active</span> : '-'}
+                      <td className="px-4 py-3.5 whitespace-nowrap" style={{ color: 'var(--text-secondary, #94a3b8)' }}>
+                        {a.check_out_at ? new Date(a.check_out_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : isOngoing ? <span className="text-emerald-500 font-semibold">Active</span> : '-'}
                       </td>
-                      <td className="px-4 py-3.5 font-bold" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                      <td className="px-4 py-3.5 font-bold whitespace-nowrap" style={{ color: 'var(--text-primary, #f8fafc)' }}>
                         {a.total_km > 0 ? `${a.total_km} KM` : a.estimated_km > 0 ? `${a.estimated_km} KM (Est)` : '0 KM'}
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3.5 whitespace-nowrap">
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
                           isOngoing 
                             ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' 
@@ -966,12 +1103,12 @@ export default function AdminMarketingOverview() {
                           {a.status || 'Checked Out'}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-right">
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => openRouteChecker(a)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-all bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30"
+                            className="px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-all bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 whitespace-nowrap"
                             title="Check Live Route, Speed, & GPS Waypoints"
                           >
                             <FiCompass size={12} /> Check Route
@@ -980,7 +1117,7 @@ export default function AdminMarketingOverview() {
                           <button
                             type="button"
                             onClick={() => openTrailModal(a)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors"
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap"
                             style={{
                               background: 'rgba(6, 182, 212, 0.1)',
                               color: '#06b6d4',
@@ -1282,9 +1419,9 @@ export default function AdminMarketingOverview() {
         const currentSpeedKmh = activeRouteCheckerTrip.speed_kmh || (isLive ? (Math.random() > 0.4 ? (20 + Math.random() * 25).toFixed(1) : '0.0') : '0.0');
 
         return (
-          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3 sm:p-5 backdrop-blur-md overflow-y-auto">
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2.5 sm:p-5 backdrop-blur-md overflow-y-auto">
             <div 
-              className="rounded-3xl max-w-4xl w-full my-auto flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+              className="rounded-2xl sm:rounded-3xl max-w-4xl w-full my-auto flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
               style={{ 
                 background: 'var(--bg-card, #0f172a)',
                 border: '1.5px solid rgba(16, 185, 129, 0.4)',
@@ -1293,7 +1430,7 @@ export default function AdminMarketingOverview() {
             >
               {/* Top Modal Navigation Header */}
               <div 
-                className="p-4 sm:p-5 flex items-center justify-between gap-4"
+                className="p-3.5 sm:p-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3"
                 style={{ 
                   background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.08))',
                   borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))' 
@@ -1355,7 +1492,7 @@ export default function AdminMarketingOverview() {
               </div>
 
               {/* Modal Body with Multi-section Route Telemetry */}
-              <div className="p-4 sm:p-6 overflow-y-auto space-y-5 max-h-[75vh]">
+              <div className="p-3.5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 max-h-[75vh]">
                 
                 {/* 1. ROUTE SUMMARY & PROGRESS CARD */}
                 <div 
@@ -1653,7 +1790,7 @@ export default function AdminMarketingOverview() {
 
               {/* Bottom Footer Actions */}
               <div 
-                className="p-4 sm:p-5 flex items-center justify-between gap-3"
+                className="p-3.5 sm:p-5 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-2.5"
                 style={{ 
                   background: 'var(--bg-card, #0f172a)',
                   borderTop: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))' 
@@ -1666,18 +1803,18 @@ export default function AdminMarketingOverview() {
                     setActiveRouteCheckerTrip(null);
                     handleDeleteTrip(tripId, empName);
                   }}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/15 border border-red-500/30 flex items-center gap-2 transition-all"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/15 border border-red-500/30 flex items-center justify-center gap-2 transition-all"
                 >
                   <FiTrash2 size={14} /> Delete Record
                 </button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                   {liveLat && liveLng && (
                     <a
                       href={`https://www.google.com/maps/dir/?api=1&origin=${startLat || liveLat},${startLng || liveLng}&destination=${encodeURIComponent(activeRouteCheckerTrip.to_location || `${liveLat},${liveLng}`)}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition-all"
+                      className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all text-center"
                     >
                       <FiNavigation size={14} /> Navigate in Google Maps
                     </a>
@@ -1685,7 +1822,7 @@ export default function AdminMarketingOverview() {
                   <button
                     type="button"
                     onClick={() => setActiveRouteCheckerTrip(null)}
-                    className="px-5 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all"
+                    className="w-full sm:w-auto px-5 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all text-center"
                   >
                     Close
                   </button>

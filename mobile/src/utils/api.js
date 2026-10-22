@@ -1623,6 +1623,41 @@ export async function fetchSubscriptionsApi() {
 // TEAM HIERARCHY APIS
 // ==========================================
 
+export async function fetchTeamHierarchyApi() {
+  const url = `${currentApiUrl}/api/team-hierarchy`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch team hierarchy failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateTeamHierarchyApi(tlId, memberIds) {
+  const url = `${currentApiUrl}/api/team-hierarchy`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tl_id: tlId,
+        member_ids: memberIds
+      })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update team hierarchy failed at ${url}:`, err);
+    throw err;
+  }
+}
+
 export async function updateEmployeeTlApi(empId, tlId) {
   const url = `${currentApiUrl}/api/employees/${empId}`;
   try {

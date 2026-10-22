@@ -132,6 +132,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
 
   const defaultTab = isDnsManager ? 'domains' : (isHRUser ? 'employees' : 'overview');
   const [activeTab, setActiveTab] = useState(defaultTab);
+  const [selectedTlForScreenshots, setSelectedTlForScreenshots] = useState(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -713,7 +714,16 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
       case 'submissions':
         return <ManageSubmissions currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'screenshots':
-        return <ManageScreenshots user={user} onBack={() => setActiveTab(defaultTab)} />;
+        return (
+          <ManageScreenshots
+            user={user}
+            tlId={selectedTlForScreenshots}
+            onBack={() => {
+              setSelectedTlForScreenshots(null);
+              setActiveTab(defaultTab);
+            }}
+          />
+        );
       case 'leader':
         return <LeaderDashboard user={user} onNavigateBack={() => setActiveTab(defaultTab)} onLogout={onLogout} />;
       case 'marketing':
@@ -729,7 +739,16 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
       case 'subscriptions':
         return <ManageSubscriptions currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'hierarchy':
-        return <ManageTeamHierarchy currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
+        return (
+          <ManageTeamHierarchy
+            currentUser={user}
+            onBack={() => setActiveTab(defaultTab)}
+            onNavigateToScreenshots={(tlId) => {
+              setSelectedTlForScreenshots(tlId);
+              setActiveTab('screenshots');
+            }}
+          />
+        );
       case 'audit_logs':
         return <ManageAuditLogs currentUser={user} onBack={() => setActiveTab(defaultTab)} />;
       case 'projects':
