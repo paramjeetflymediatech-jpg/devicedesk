@@ -57,3 +57,34 @@ export async function PUT(request) {
     return NextResponse.json({ success: false, error: 'Failed to update candidate' }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    let id = searchParams.get('id');
+
+    if (!id) {
+      try {
+        const body = await request.json();
+        id = body?.id;
+      } catch (e) {}
+    }
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Candidate ID is required' }, { status: 400 });
+    }
+
+    const db = await getDbConnection();
+    const [result] = await db.execute('DELETE FROM candidates_pool WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json({ success: false, error: 'Candidate not found in pool' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Candidate deleted from pool successfully' });
+  } catch (error) {
+    console.error('Error deleting candidate from pool:', error);
+    return NextResponse.json({ success: false, error: 'Failed to delete candidate' }, { status: 500 });
+  }
+}
+

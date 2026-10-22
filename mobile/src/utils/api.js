@@ -745,6 +745,21 @@ export async function updateCandidatePoolApi(id, status, feedback) {
   }
 }
 
+export async function deleteCandidatePoolApi(id) {
+  const url = `${currentApiUrl}/api/candidates-pool?id=${encodeURIComponent(id)}`;
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Delete candidate pool failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+
 export async function fetchCandidatesListApi() {
   const url = `${currentApiUrl}/api/candidates/list`;
   try {

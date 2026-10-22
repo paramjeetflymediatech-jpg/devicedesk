@@ -23,6 +23,7 @@ import {
   approveCandidateRegistrationApi,
   deleteCandidateApplicationApi,
   deleteCandidateTestApi,
+  deleteCandidatePoolApi,
 } from '../../utils/api';
 import { useTheme } from '../../utils/ThemeContext';
 import { sweetAlert } from '../../utils/sweetAlert';
@@ -514,6 +515,33 @@ export default function ManageCandidates({ currentUser, onBack }) {
     );
   };
 
+  const handleDeletePoolCandidate = (c) => {
+    Alert.alert(
+      'Delete Candidate',
+      `Are you sure you want to remove ${c.name} from the talent pool?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await deleteCandidatePoolApi(c.id);
+              if (res && res.success) {
+                sweetAlert({ title: 'Deleted', text: 'Candidate removed from talent pool.', type: 'success' });
+                loadData();
+              } else {
+                sweetAlert({ title: 'Error', text: res?.error || 'Failed to delete candidate.', type: 'error' });
+              }
+            } catch (err) {
+              sweetAlert({ title: 'Error', text: 'Network error deleting candidate.', type: 'error' });
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const filteredRegistrations = registrations.filter((r) => {
     const query = searchQuery.toLowerCase();
     const matchSearch =
@@ -780,6 +808,13 @@ export default function ManageCandidates({ currentUser, onBack }) {
                       }}
                     >
                       <Text style={[styles.miniBtnText, { color: '#ffffff' }]}>📝 Update Status</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.miniBtn, { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)' }]}
+                      onPress={() => handleDeletePoolCandidate(c)}
+                    >
+                      <Text style={[styles.miniBtnText, { color: '#ef4444' }]}>🗑️ Delete</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
