@@ -2388,7 +2388,7 @@ export default function ChatView({ user }) {
           fileSize: msg.fileSize,
           type: msg.messageType
         });
-      } else if (msg.messageType === "text" && msg.content) {
+      } else if (msg.messageType === "text" && typeof msg.content === "string") {
         const matches = msg.content.match(urlRegex);
         if (matches) {
           matches.forEach(url => {
@@ -4202,11 +4202,13 @@ export default function ChatView({ user }) {
         {/* Right Column: Conversation Details & Media */}
         {showDetailsPanel && (
           <div 
-            className="absolute lg:relative right-0 z-20 w-full sm:w-[320px] h-full flex flex-col overflow-hidden shadow-xl lg:shadow-none"
+            className="absolute xl:relative right-0 top-0 bottom-0 z-30 w-full sm:w-[340px] h-full flex flex-col overflow-hidden shadow-2xl xl:shadow-none shrink-0"
             style={{
               background: "var(--bg-secondary)",
               borderLeft: "1px solid var(--glass-border)",
               animation: "fade-in 0.3s ease",
+              minWidth: "300px",
+              flexShrink: 0
             }}
           >
             {/* Panel Header */}
@@ -4216,7 +4218,8 @@ export default function ChatView({ user }) {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              background: "var(--bg-secondary)"
+              background: "var(--bg-secondary)",
+              flexShrink: 0
             }}>
               <h4 style={{ margin: 0, fontSize: "0.9rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
                 <FiInfo /> Chat Details
@@ -4238,6 +4241,7 @@ export default function ChatView({ user }) {
             {/* Panel Content (Scrollable) */}
             <div style={{
               flexGrow: 1,
+              minHeight: 0,
               overflowY: "auto",
               padding: "1rem",
               display: "flex",
@@ -4606,10 +4610,17 @@ export default function ChatView({ user }) {
                                 overflow: "hidden", 
                                 border: "1px solid var(--glass-border)",
                                 background: "#000",
-                                cursor: "pointer"
+                                cursor: "pointer",
+                                position: "relative"
                               }}
                             >
-                              <img src={m.fileUrl} alt="shared" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              {m.type === "video" ? (
+                                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a" }}>
+                                  <FiPlay style={{ fontSize: "1.3rem", color: "var(--accent-cyan)" }} />
+                                </div>
+                              ) : (
+                                <img src={m.fileUrl} alt="shared" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              )}
                             </div>
                           ))}
                         </div>
@@ -4640,7 +4651,9 @@ export default function ChatView({ user }) {
                                 gap: "8px"
                               }}
                             >
-                              <span style={{ fontSize: "1.2rem" }}>{d.type === "audio" ? "🎵" : "<FiFile />"}</span>
+                              <span style={{ fontSize: "1.2rem", display: "flex", alignItems: "center" }}>
+                                {d.type === "audio" ? "🎵" : <FiFile />}
+                              </span>
                               <div style={{ flexGrow: 1, minWidth: 0 }}>
                                 <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600" }}>{d.fileName}</div>
                                 <div style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}>{d.fileSize || "Unknown size"} • {d.senderName}</div>
@@ -4686,7 +4699,7 @@ export default function ChatView({ user }) {
                       ...media.map(m => ({ ...m, category: "media" })),
                       ...docs.map(d => ({ ...d, category: "docs" })),
                       ...links.map(l => ({ ...l, category: "links" }))
-                    ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    ].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
 
                     if (allItems.length === 0) return <div style={{ fontSize: "0.75rem", fontStyle: "italic", color: "var(--text-muted)", padding: "10px 0" }}>No files or links shared yet</div>;
                     
@@ -4711,9 +4724,17 @@ export default function ChatView({ user }) {
                                   cursor: "pointer"
                                 }}
                               >
-                                <img src={item.fileUrl} alt="shared" style={{ width: "24px", height: "24px", borderRadius: "4px", objectFit: "cover" }} />
+                                {item.type === "video" ? (
+                                  <div style={{ width: "24px", height: "24px", borderRadius: "4px", background: "rgba(6,182,212,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                    <FiPlay style={{ fontSize: "0.75rem", color: "var(--accent-cyan)" }} />
+                                  </div>
+                                ) : (
+                                  <img src={item.fileUrl} alt="shared" style={{ width: "24px", height: "24px", borderRadius: "4px", objectFit: "cover", flexShrink: 0 }} />
+                                )}
                                 <div style={{ flexGrow: 1, minWidth: 0 }}>
-                                  <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600" }}>Image / Photo</div>
+                                  <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600" }}>
+                                    {item.type === "video" ? "Video Clip" : "Image / Photo"}
+                                  </div>
                                   <div style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}>Shared by {item.senderName}</div>
                                 </div>
                                 <span style={{ fontSize: "0.9rem" }}>👁️</span>
@@ -4741,7 +4762,9 @@ export default function ChatView({ user }) {
                                   gap: "8px"
                                 }}
                               >
-                                <span style={{ fontSize: "1.2rem" }}>{item.type === "audio" ? "🎵" : "<FiFile />"}</span>
+                                <span style={{ fontSize: "1.2rem", display: "flex", alignItems: "center" }}>
+                                  {item.type === "audio" ? "🎵" : <FiFile />}
+                                </span>
                                 <div style={{ flexGrow: 1, minWidth: 0 }}>
                                   <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600" }}>{item.fileName}</div>
                                   <div style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}>{item.fileSize || "Audio"} • {item.senderName}</div>
