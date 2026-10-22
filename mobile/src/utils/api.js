@@ -1173,6 +1173,24 @@ export async function replyClientNoteApi(data) {
   }
 }
 
+export async function deleteClientNoteApi(id, userRole, userId, userName) {
+  const params = new URLSearchParams({ id });
+  if (userRole) params.append('user_role', userRole);
+  if (userId) params.append('user_id', userId);
+  if (userName) params.append('user_name', userName);
+  const url = `${currentApiUrl}/api/client-notes?${params.toString()}`;
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Delete client note failed at ${url}:`, err);
+    throw err;
+  }
+}
+
 export async function fetchClientDetailsApi(clientId) {
   const url = `${currentApiUrl}/api/client-details?clientId=${encodeURIComponent(clientId)}`;
   try {

@@ -14,6 +14,7 @@ import {
   Switch,
   Platform,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { pickFilesOrPhotos } from '../../utils/filePicker';
@@ -34,6 +35,7 @@ import {
   fetchClientInvoicesApi,
   fetchClientNotesApi,
   createClientNoteApi,
+  deleteClientNoteApi,
   fetchClientDetailsApi,
   updateClientDetailsApi,
   getApiUrl,
@@ -488,6 +490,8 @@ export default function ClientDashboard({ user, onLogout }) {
         client_id: clientId,
         note: noteInput.trim(),
         attachment: attachmentStr,
+        sender_role: 'Client',
+        created_by: clientId,
       });
       if (res && res.success) {
         setNoteInput('');
@@ -503,6 +507,33 @@ export default function ClientDashboard({ user, onLogout }) {
       setSubmittingNote(false);
       setUploadingNoteAttachments(false);
     }
+  };
+
+  const handleDeleteClientNote = (noteId) => {
+    Alert.alert(
+      'Delete Note',
+      'Are you sure you want to delete this note? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await deleteClientNoteApi(noteId, 'Client', clientId);
+              if (res && res.success) {
+                sweetAlert({ title: 'Deleted', text: 'Note deleted successfully.', type: 'success' });
+                fetchClientNotesApi(clientId).then(r => r.success && setNotes(r.notes || r.data || []));
+              } else {
+                sweetAlert({ title: 'Error', text: res?.error || 'Failed to delete note', type: 'error' });
+              }
+            } catch (err) {
+              sweetAlert({ title: 'Error', text: err.message || 'Failed to delete note', type: 'error' });
+            }
+          }
+        }
+      ]
+    );
   };
 
   // 5. Save Profile Form
@@ -1499,9 +1530,20 @@ export default function ClientDashboard({ user, onLogout }) {
                             ? '🛡️ From Team Leader:'
                             : 'You wrote:'}
                         </Text>
-                        <Text style={styles.noteDate}>
-                          {new Date(n.created_at || Date.now()).toLocaleDateString()}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.noteDate}>
+                            {new Date(n.created_at || Date.now()).toLocaleDateString()}
+                          </Text>
+                          {(!n.note?.startsWith('[From Admin:') && !n.note?.startsWith('[From Team Leader:') && !n.tl_reply) && (
+                            <TouchableOpacity
+                              onPress={() => handleDeleteClientNote(n.id)}
+                              style={{ padding: 4 }}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Text style={{ fontSize: 13 }}>🗑️</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
                       </View>
                       <Text style={styles.noteText}>{n.note}</Text>
 

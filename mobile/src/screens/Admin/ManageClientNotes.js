@@ -13,11 +13,12 @@ import {
   Platform,
   Dimensions,
   Image,
+  Alert,
 } from 'react-native';
 import { pickFilesOrPhotos } from '../../utils/filePicker';
 import Video from 'react-native-video';
 import { useTheme } from '../../utils/ThemeContext';
-import { fetchAllClientNotesApi, replyClientNoteApi, getApiUrl } from '../../utils/api';
+import { fetchAllClientNotesApi, replyClientNoteApi, deleteClientNoteApi, getApiUrl } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
 
 const { width } = Dimensions.get('window');
@@ -68,6 +69,33 @@ export default function ManageClientNotes({ currentUser, onBack }) {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const handleDeleteNote = (noteId) => {
+    Alert.alert(
+      'Delete Note',
+      'Are you sure you want to delete this client note? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await deleteClientNoteApi(noteId, 'Admin');
+              if (res && res.success) {
+                sweetAlert({ title: 'Deleted', text: 'Client note deleted successfully.', type: 'success' });
+                loadNotes();
+              } else {
+                sweetAlert({ title: 'Error', text: res?.error || 'Failed to delete note', type: 'error' });
+              }
+            } catch (err) {
+              sweetAlert({ title: 'Error', text: err.message || 'Failed to delete note', type: 'error' });
+            }
+          }
+        }
+      ]
+    );
   };
 
   useEffect(() => {
@@ -278,10 +306,19 @@ export default function ManageClientNotes({ currentUser, onBack }) {
                         ID: {item.client_id} • 📅 {item.created_at ? new Date(item.created_at).toLocaleString() : 'N/A'}
                       </Text>
                     </View>
-                    <View style={[styles.statusTag, { backgroundColor: (item.tl_reply || item.client_reply) ? '#dcfce7' : '#fef3c7' }]}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: (item.tl_reply || item.client_reply) ? '#15803d' : '#b45309' }}>
-                        {item.client_reply ? 'Client Replied' : item.tl_reply ? 'Replied' : 'Pending'}
-                      </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={[styles.statusTag, { backgroundColor: (item.tl_reply || item.client_reply) ? '#dcfce7' : '#fef3c7' }]}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: (item.tl_reply || item.client_reply) ? '#15803d' : '#b45309' }}>
+                          {item.client_reply ? 'Client Replied' : item.tl_reply ? 'Replied' : 'Pending'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteNote(item.id)}
+                        style={{ padding: 4 }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={{ fontSize: 13 }}>🗑️</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
 

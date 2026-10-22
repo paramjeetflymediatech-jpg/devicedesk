@@ -15,6 +15,7 @@ import {
   Linking,
   Platform,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { pickFilesOrPhotos } from '../../utils/filePicker';
@@ -34,6 +35,7 @@ import {
   fetchAllClientNotesApi,
   createClientNoteApi,
   replyClientNoteApi,
+  deleteClientNoteApi,
   getApiUrl,
 } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
@@ -575,6 +577,7 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
         topic: newDiscussionTopic.trim(),
         sender_role: 'Team Leader',
         sender_name: user?.name || 'Team Leader',
+        created_by: leaderId || null,
         initiated_by_tl: true,
         attachment: attachmentStr
       });
@@ -693,6 +696,33 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
     } finally {
       setSubmittingReplyId(null);
     }
+  };
+
+  const handleDeleteClientNote = (noteId) => {
+    Alert.alert(
+      'Delete Discussion',
+      'Are you sure you want to delete this discussion note? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await deleteClientNoteApi(noteId, 'Team Leader', leaderId, user?.name);
+              if (res && res.success) {
+                sweetAlert({ title: 'Deleted', text: 'Discussion note deleted successfully.', type: 'success' });
+                loadData();
+              } else {
+                sweetAlert({ title: 'Error', text: res?.error || 'Failed to delete note', type: 'error' });
+              }
+            } catch (err) {
+              sweetAlert({ title: 'Error', text: err.message || 'Failed to delete note', type: 'error' });
+            }
+          }
+        }
+      ]
+    );
   };
 
   // 1. Submit Direct Task Assignment
@@ -1841,20 +1871,34 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                           </Text>
                         </View>
                       </View>
-                      <View
-                        style={[
-                          styles.noteStatusBadge,
-                          isUnread ? styles.noteStatusUnread : styles.noteStatusReplied,
-                        ]}
-                      >
-                        <Text
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View
                           style={[
-                            styles.noteStatusBadgeText,
-                            isUnread ? styles.noteStatusUnreadText : styles.noteStatusRepliedText,
+                            styles.noteStatusBadge,
+                            isUnread ? styles.noteStatusUnread : styles.noteStatusReplied,
                           ]}
                         >
-                          {isUnread ? 'Unread / Pending' : 'Replied'}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.noteStatusBadgeText,
+                              isUnread ? styles.noteStatusUnreadText : styles.noteStatusRepliedText,
+                            ]}
+                          >
+                            {isUnread ? 'Unread / Pending' : 'Replied'}
+                          </Text>
+                        </View>
+                        {(((note.created_by && String(note.created_by) === String(leaderId)) ||
+                          (user?.name && (note.note || '').includes(`[From Team Leader: ${user.name}]`)) ||
+                          ((note.note || '').startsWith('[From Team Leader:') && (!note.created_by || String(note.created_by) === String(leaderId)))) &&
+                          !note.client_reply && !note.tl_reply) && (
+                          <TouchableOpacity
+                            onPress={() => handleDeleteClientNote(note.id)}
+                            style={{ padding: 4 }}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Text style={{ fontSize: 13 }}>🗑️</Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
                     </View>
 

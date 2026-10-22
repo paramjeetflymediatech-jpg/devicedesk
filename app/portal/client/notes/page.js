@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiUser, FiSend, FiPlus, FiPaperclip, FiExternalLink, FiDownload, FiEye, FiAlertCircle, FiCheck, FiCheckCircle } from 'react-icons/fi';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiUser, FiSend, FiPlus, FiPaperclip, FiExternalLink, FiDownload, FiEye, FiAlertCircle, FiCheck, FiCheckCircle, FiTrash2 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
@@ -119,7 +119,13 @@ export default function ClientNotesPage() {
       const res = await fetch('/api/client-notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: myClientId, note: finalNote, attachment: attachmentStr })
+        body: JSON.stringify({
+          client_id: myClientId,
+          note: finalNote,
+          attachment: attachmentStr,
+          sender_role: 'Client',
+          created_by: myClientId
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -140,6 +146,35 @@ export default function ClientNotesPage() {
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    const result = await Swal.fire({
+      title: 'Delete Your Note?',
+      text: 'Are you sure you want to delete this note? This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const res = await fetch(`/api/client-notes?id=${encodeURIComponent(noteId)}&user_id=${encodeURIComponent(myClientId)}&user_role=Client`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire('Deleted!', 'Your note has been deleted.', 'success');
+          fetchNotes();
+        } else {
+          Swal.fire('Error', data.error || 'Failed to delete note', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'An error occurred while deleting your note.', 'error');
+      }
     }
   };
 
@@ -406,9 +441,21 @@ export default function ClientNotesPage() {
                 <div key={note.id} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col gap-2">
                   <div className="flex justify-between items-start">
                     <span className="text-sm text-gray-400">{new Date(note.created_at).toLocaleString()}</span>
-                    <span className={`text-xs font-bold px-2 py-1 rounded-md ${note.status === 'Unread' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                      {note.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold px-2 py-1 rounded-md ${note.status === 'Unread' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                        {note.status}
+                      </span>
+                      {(!note.note.startsWith('[From Admin:') && !note.note.startsWith('[From Team Leader:') && !note.tl_reply) && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteNote(note.id)}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          title="Delete your note (before team replies)"
+                        >
+                          <FiTrash2 size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {note.note.startsWith('[From Admin:') ? (
                     <div className="bg-amber-50/70 border border-amber-200/90 rounded-xl p-4 mb-2">

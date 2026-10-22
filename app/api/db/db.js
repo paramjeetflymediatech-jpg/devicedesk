@@ -775,10 +775,15 @@ async function initializeDatabase(db) {
       status VARCHAR(50) DEFAULT 'Unread',
       attachment TEXT DEFAULT NULL,
       tl_attachment TEXT DEFAULT NULL,
+      created_by VARCHAR(100) DEFAULT NULL,
+      sender_role VARCHAR(50) DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  try { await db.execute(`ALTER TABLE client_notes ADD COLUMN created_by VARCHAR(100) DEFAULT NULL`); } catch (e) {}
+  try { await db.execute(`ALTER TABLE client_notes ADD COLUMN sender_role VARCHAR(50) DEFAULT NULL`); } catch (e) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS invoices (

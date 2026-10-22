@@ -153,10 +153,17 @@ export async function POST(request) {
     }
 
     const db = await getDbConnection();
+    try {
+      await db.execute(`ALTER TABLE client_notes ADD COLUMN created_by VARCHAR(100) DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.execute(`ALTER TABLE client_notes ADD COLUMN sender_role VARCHAR(50) DEFAULT NULL`);
+    } catch (e) {}
+
     const id = 'note_' + Date.now();
     await db.execute(
-      'INSERT INTO client_notes (id, client_id, note, status, attachment) VALUES (?, ?, ?, ?, ?)',
-      [id, client_id, finalNote, 'Unread', attachment || null]
+      'INSERT INTO client_notes (id, client_id, note, status, attachment, created_by, sender_role) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, client_id, finalNote, 'Unread', attachment || null, body.created_by || null, sender_role || (body.initiated_by_admin ? 'Admin' : initiated_by_tl ? 'Team Leader' : 'Client')]
     );
 
     return NextResponse.json({ success: true, message: 'Note added successfully', id });
@@ -228,5 +235,87 @@ export async function PUT(request) {
   } catch (err) {
     console.error('Error replying to client note:', err);
     return NextResponse.json({ success: false, error: 'Failed to reply' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const user_id = searchParams.get('user_id') || request.headers.get('x-user-id');
+    const user_role = searchParams.get('user_role') || request.headers.get('x-user-role');
+    const user_name = searchParams.get('user_name');
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Note ID is required' }, { status: 400 });
+    }
+
+    const db = await getDbConnection();
+    const [rows] = await db.execute('SELECT * FROM client_notes WHERE id = ?', [id]);
+    if (!rows || rows.length === 0) {
+      return NextResponse.json({ success: false, error: 'Note not found' }, { status: 404 });
+    }
+
+    const note = rows[0];
+    const normalizedRole = (user_role || '').trim().toLowerCase();
+    const isAdmin = ['admin', 'management'].includes(normalizedRole);
+
+    // 1. Admin can delete any note at any time
+    if (isAdmin) {
+      await db.execute('DELETE FROM client_notes WHERE id = ?', [id]);
+      return NextResponse.json({ success: true, message: 'Note deleted successfully by admin' });
+    }
+
+    // 2. Non-admin users can ONLY delete their notes before any reply has been made
+    const hasReply = !!(note.tl_reply || note.client_reply);
+    if (hasReply) {
+      return NextResponse.json({
+        success: false,
+        error: 'Cannot delete note because a reply has already been posted to this discussion.'
+      }, { status: 403 });
+    }
+
+    // 3. Team Leader: can only delete their own created note
+    const isTeamLeader = ['team leader', 'team lead', 'leader', 'tl'].includes(normalizedRole);
+    if (isTeamLeader) {
+      const isLeaderCreated =
+        (note.created_by && user_id && String(note.created_by) === String(user_id)) ||
+        (user_name && note.note.includes(`[From Team Leader: ${user_name}]`)) ||
+        (note.sender_role === 'Team Leader') ||
+        (note.note.startsWith('[From Team Leader:'));
+
+      if (!isLeaderCreated) {
+        return NextResponse.json({
+          success: false,
+          error: 'You can only delete notes that you created.'
+        }, { status: 403 });
+      }
+
+      await db.execute('DELETE FROM client_notes WHERE id = ?', [id]);
+      return NextResponse.json({ success: true, message: 'Discussion deleted successfully' });
+    }
+
+    // 4. Client: can only delete their own created note
+    const isClient = normalizedRole === 'client' || (!isTeamLeader && !isAdmin);
+    if (isClient) {
+      const isClientInitiated = !note.note.startsWith('[From Admin:') && !note.note.startsWith('[From Team Leader:');
+      const isClientOwner = (user_id && String(note.client_id) === String(user_id)) ||
+                            (note.created_by && user_id && String(note.created_by) === String(user_id));
+
+      if (!isClientInitiated || !isClientOwner) {
+        return NextResponse.json({
+          success: false,
+          error: 'You can only delete notes that you created.'
+        }, { status: 403 });
+      }
+
+      await db.execute('DELETE FROM client_notes WHERE id = ?', [id]);
+      return NextResponse.json({ success: true, message: 'Note deleted successfully' });
+    }
+
+    return NextResponse.json({ success: false, error: 'Unauthorized to delete this note' }, { status: 403 });
+  } catch (err) {
+    console.error('Error deleting client note:', err);
+    return NextResponse.json({ success: false, error: 'Failed to delete note' }, { status: 500 });
   }
 }

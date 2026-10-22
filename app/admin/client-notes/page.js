@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiCheckCircle, FiSearch, FiBriefcase, FiMail, FiPhone, FiPlus } from 'react-icons/fi';
+import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiCheckCircle, FiSearch, FiBriefcase, FiMail, FiPhone, FiPlus, FiTrash2 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
@@ -113,6 +113,35 @@ export default function AdminClientNotesPage() {
     } catch (e) {}
   };
 
+  const handleDeleteNote = async (noteId) => {
+    const result = await Swal.fire({
+      title: 'Delete Client Note?',
+      text: 'Are you sure you want to permanently delete this client note and discussion? This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const res = await fetch(`/api/client-notes?id=${encodeURIComponent(noteId)}&user_role=Admin`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire('Deleted!', 'The note has been deleted.', 'success');
+          fetchNotes();
+        } else {
+          Swal.fire('Error', data.error || 'Failed to delete note', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'An error occurred while deleting the note.', 'error');
+      }
+    }
+  };
+
   useEffect(() => {
     if (isInitiateModalOpen) {
       fetchClients();
@@ -162,6 +191,7 @@ export default function AdminClientNotesPage() {
           topic: discussionTopic.trim(),
           sender_role: 'Admin',
           sender_name: user?.name || 'Admin',
+          created_by: user?.id || null,
           initiated_by_admin: true,
           attachment: attachmentStr
         })
@@ -429,9 +459,19 @@ export default function AdminClientNotesPage() {
                     </div>
                   </div>
                 </div>
-                <span className={`px-2.5 py-1 rounded-md text-xs font-bold border shrink-0 ${note.status === 'Unread' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                  {note.status}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${note.status === 'Unread' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                    {note.status}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteNote(note.id)}
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                    title="Delete Note (Admin)"
+                  >
+                    <FiTrash2 size={16} />
+                  </button>
+                </div>
               </div>
               
               {note.note.startsWith('[From Admin:') ? (

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiPlus, FiCheckCircle, FiBriefcase, FiMail, FiPhone } from 'react-icons/fi';
+import { FiMessageSquare, FiSend, FiUser, FiPaperclip, FiX, FiExternalLink, FiDownload, FiAlertCircle, FiPlus, FiCheckCircle, FiBriefcase, FiMail, FiPhone, FiTrash2 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import { useAuth } from '@/app/auth/AuthContext';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
@@ -169,6 +169,35 @@ export default function LeaderClientChatPage() {
     }
   };
 
+  const handleDeleteNote = async (noteId) => {
+    const result = await Swal.fire({
+      title: 'Delete Discussion?',
+      text: 'Are you sure you want to delete this discussion note? This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const res = await fetch(`/api/client-notes?id=${encodeURIComponent(noteId)}&user_id=${encodeURIComponent(user?.id || '')}&user_role=Team Leader&user_name=${encodeURIComponent(user?.name || '')}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire('Deleted!', 'Your discussion note has been deleted.', 'success');
+          fetchNotes();
+        } else {
+          Swal.fire('Error', data.error || 'Failed to delete note', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'An error occurred while deleting the note.', 'error');
+      }
+    }
+  };
+
   const handleInitiateDiscussion = async (e) => {
     e.preventDefault();
     if (!selectedClientId) {
@@ -213,6 +242,7 @@ export default function LeaderClientChatPage() {
           topic: discussionTopic.trim(),
           sender_role: 'Team Leader',
           sender_name: user?.name || 'Team Leader',
+          created_by: user?.id || null,
           initiated_by_tl: true,
           attachment: attachmentStr
         })
@@ -322,9 +352,21 @@ export default function LeaderClientChatPage() {
                     </div>
                   </div>
                 </div>
-                <span className={`px-2.5 py-1 rounded-md text-xs font-bold border shrink-0 ${note.status === 'Unread' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                  {note.status}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${note.status === 'Unread' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                    {note.status}
+                  </span>
+                  {((note.created_by && String(note.created_by) === String(user?.id)) || (user?.name && note.note.includes(`[From Team Leader: ${user.name}]`)) || (note.note.startsWith('[From Team Leader:') && (!note.created_by || String(note.created_by) === String(user?.id)))) && !note.client_reply && !note.tl_reply && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteNote(note.id)}
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                      title="Delete your discussion note (before any reply)"
+                    >
+                      <FiTrash2 size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
               
               {note.note.startsWith('[From Team Leader:') ? (
