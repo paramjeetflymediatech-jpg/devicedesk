@@ -68,7 +68,32 @@ export async function GET(request) {
       });
     }
 
-    return NextResponse.json({ success: true, data: rows });
+    let deletedNotices = [];
+    if (clientId) {
+      try {
+        await db.query(`
+          CREATE TABLE IF NOT EXISTS service_request_deletions (
+            id VARCHAR(100) PRIMARY KEY,
+            request_id VARCHAR(100) NOT NULL,
+            client_id VARCHAR(100) NOT NULL,
+            service_type VARCHAR(255),
+            requirements TEXT,
+            deleted_by VARCHAR(100) DEFAULT 'Admin',
+            deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            dismissed_by_client TINYINT(1) DEFAULT 0
+          )
+        `);
+        const [dRows] = await db.query(
+          `SELECT * FROM service_request_deletions WHERE client_id = ? AND dismissed_by_client = 0 ORDER BY deleted_at DESC LIMIT 5`,
+          [clientId]
+        );
+        deletedNotices = dRows || [];
+      } catch (dErr) {
+        console.warn('Error fetching deletedNotices:', dErr);
+      }
+    }
+
+    return NextResponse.json({ success: true, data: rows, deletedNotices });
   } catch (err) {
     console.error('Fetch Service Requests Error:', err);
     try {
@@ -81,7 +106,17 @@ export async function GET(request) {
       } else {
         [rows] = await db.query(`SELECT * FROM service_requests ORDER BY created_at DESC`);
       }
-      return NextResponse.json({ success: true, data: rows });
+      let deletedNotices = [];
+      if (clientId) {
+        try {
+          const [dRows] = await db.query(
+            `SELECT * FROM service_request_deletions WHERE client_id = ? AND dismissed_by_client = 0 ORDER BY deleted_at DESC LIMIT 5`,
+            [clientId]
+          );
+          deletedNotices = dRows || [];
+        } catch (de) {}
+      }
+      return NextResponse.json({ success: true, data: rows, deletedNotices });
     } catch (e) {
       return NextResponse.json({ success: false, error: err.message }, { status: 500 });
     }
@@ -259,7 +294,24 @@ export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const dismissNoticeId = searchParams.get('dismissNoticeId');
+    const clientId = searchParams.get('clientId');
     const viewerRole = searchParams.get('viewerRole') || request.headers.get('x-user-role');
+
+    // Handle dismissing a deleted service request notice by client or admin
+    if (dismissNoticeId) {
+      const db = await getDbConnection();
+      try {
+        if (clientId) {
+          await db.query('UPDATE service_request_deletions SET dismissed_by_client = 1 WHERE id = ? AND client_id = ?', [dismissNoticeId, clientId]);
+        } else {
+          await db.query('UPDATE service_request_deletions SET dismissed_by_client = 1 WHERE id = ?', [dismissNoticeId]);
+        }
+      } catch (e) {
+        console.warn('Error dismissing notice:', e);
+      }
+      return NextResponse.json({ success: true, message: 'Notice dismissed successfully' });
+    }
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'Missing request id' }, { status: 400 });
@@ -275,20 +327,93 @@ export async function DELETE(request) {
 
     const db = await getDbConnection();
 
-    // Clean up any tasks linked via project_id
+    // 1. Fetch request details before deleting so we can record notice and inform client
+    const [existingRows] = await db.query('SELECT * FROM service_requests WHERE id = ?', [id]);
+    if (existingRows.length === 0) {
+      return NextResponse.json({ success: false, error: 'Request not found' }, { status: 404 });
+    }
+    const targetReq = existingRows[0];
+    const targetClientId = targetReq.clientId;
+    const targetServiceType = targetReq.service_type || 'Service Request';
+
+    // 2. Ensure service_request_deletions table exists and log deletion
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS service_request_deletions (
+          id VARCHAR(100) PRIMARY KEY,
+          request_id VARCHAR(100) NOT NULL,
+          client_id VARCHAR(100) NOT NULL,
+          service_type VARCHAR(255),
+          requirements TEXT,
+          deleted_by VARCHAR(100) DEFAULT 'Admin',
+          deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          dismissed_by_client TINYINT(1) DEFAULT 0
+        )
+      `);
+      const deletionId = 'del_' + Date.now() + Math.random().toString(36).substring(2, 7);
+      await db.query(
+        `INSERT INTO service_request_deletions (id, request_id, client_id, service_type, requirements, deleted_by, deleted_at, dismissed_by_client)
+         VALUES (?, ?, ?, ?, ?, 'Admin', NOW(), 0)`,
+        [deletionId, targetReq.id, targetClientId, targetServiceType, targetReq.requirements || '']
+      );
+    } catch (delLogErr) {
+      console.warn('Error recording service request deletion:', delLogErr);
+    }
+
+    // 3. Post notification note into client_notes so client sees related explanation in Project Notes
+    try {
+      const noteId = 'cn_' + Date.now() + Math.random().toString(36).substring(2, 7);
+      const noticeText = `⚠️ [Admin Notice] Your service request for "${targetServiceType}" has been cancelled and removed by Administration. If you have questions or wish to submit updated requirements, please reply here.`;
+      await db.query(
+        `INSERT INTO client_notes (id, client_id, note, created_by, created_at, role, status)
+         VALUES (?, ?, ?, 'Admin', NOW(), 'Admin', 'active')`,
+        [noteId, targetClientId, noticeText]
+      );
+    } catch (noteErr) {
+      console.warn('Error posting deletion note to client_notes:', noteErr);
+    }
+
+    // 4. Send in-app & push notification to client
+    try {
+      await sendNotification(
+        targetClientId,
+        'Service Request Removed',
+        `Your service request for "${targetServiceType}" has been removed by Admin.`,
+        '/portal/client/book-service'
+      );
+    } catch (notifErr) {
+      console.warn('Error sending deletion notification:', notifErr);
+    }
+
+    // 5. Clean up any tasks linked via project_id
     try {
       await db.query('DELETE FROM tasks WHERE project_id = ?', [id]);
     } catch (taskErr) {
       console.warn('Error deleting linked tasks:', taskErr);
     }
 
+    // 6. Delete from service_requests
     const [result] = await db.query('DELETE FROM service_requests WHERE id = ?', [id]);
 
-    if (result.affectedRows === 0) {
-      return NextResponse.json({ success: false, error: 'Request not found' }, { status: 404 });
+    // 7. Emit real-time socket event so active client panel sessions instantly delete it and show message
+    try {
+      const { io } = require('socket.io-client');
+      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001');
+      socket.emit('service-request-deleted', {
+        requestId: id,
+        clientId: targetClientId,
+        serviceType: targetServiceType,
+        message: `Your service request for "${targetServiceType}" has been removed by Admin.`
+      });
+      setTimeout(() => socket.disconnect(), 1000);
+    } catch (sockErr) {
+      console.warn('Socket emit error on delete service request:', sockErr);
     }
 
-    return NextResponse.json({ success: true, message: 'Client request deleted successfully' });
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Client request deleted successfully and client notified' 
+    });
   } catch (err) {
     console.error('Delete Service Request Error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

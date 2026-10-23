@@ -28,6 +28,7 @@ import {
   purchasePackageApi,
   fetchClientRequestsApi,
   createClientRequestApi,
+  dismissDeletedNoticeApi,
   fetchClientSeoReportsApi,
   fetchClientSmoGraphicsApi,
   createClientSmoRequestApi,
@@ -41,6 +42,7 @@ import {
   updateClientDetailsApi,
   getApiUrl,
 } from '../../utils/api';
+import { initSocket } from '../../utils/socketService';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { containsPhoneNumber, PHONE_POLICY_WARNING } from '../../utils/contactFilter';
 
@@ -60,6 +62,7 @@ export default function ClientDashboard({ user, onLogout }) {
   const [activePackages, setActivePackages] = useState([]);
   const [allPackages, setAllPackages] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [deletedNotices, setDeletedNotices] = useState([]);
   const [seoReports, setSeoReports] = useState([]);
   const [smoRequests, setSmoRequests] = useState([]);
   const [adsCampaigns, setAdsCampaigns] = useState([]);
@@ -184,6 +187,7 @@ export default function ClientDashboard({ user, onLogout }) {
       }
       if (reqsRes && reqsRes.success) {
         setRequests(reqsRes.data || []);
+        setDeletedNotices(reqsRes.deletedNotices || []);
       }
       if (seoRes && seoRes.success) {
         setSeoReports(seoRes.data || []);
@@ -222,7 +226,73 @@ export default function ClientDashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadAllData();
+    // Background polling interval to keep requests and notices fresh
+    const interval = setInterval(loadAllData, 20000);
+    return () => clearInterval(interval);
   }, [loadAllData]);
+
+  // Real-time socket listener for immediate deletion feedback
+  useEffect(() => {
+    let socket = null;
+    try {
+      socket = initSocket(user);
+      if (socket) {
+        const handleRequestDeleted = (data) => {
+          if (!data) return;
+          const myId = String(user?.id || clientId || '').toLowerCase();
+          const targetId = String(data.clientId || '').toLowerCase();
+          if (myId && targetId && myId === targetId) {
+            // Instantly remove deleted service request from client panel state
+            setRequests(prev => prev.filter(r => String(r.id) !== String(data.requestId)));
+            // Add to deletion notices
+            setDeletedNotices(prev => [
+              {
+                id: 'del_sock_' + Date.now(),
+                request_id: data.requestId,
+                client_id: data.clientId,
+                service_type: data.serviceType || 'Service Request',
+                deleted_at: new Date().toISOString()
+              },
+              ...prev.filter(n => String(n.request_id) !== String(data.requestId))
+            ]);
+            // If details modal is open for this request, close it
+            if (selectedReqDetails && String(selectedReqDetails.id) === String(data.requestId)) {
+              setReqDetailsModalVisible(false);
+              setSelectedReqDetails(null);
+            }
+            // Display alert message to the client
+            sweetAlert({
+              title: 'Service Request Removed',
+              text: data.message || `Your service request for "${data.serviceType || 'Service'}" has been cancelled and removed by the administration.`,
+              type: 'warning',
+            });
+            // Also refresh notes so client sees the admin notice in Project Notes
+            if (clientId) {
+              fetchClientNotesApi(clientId).then(res => {
+                if (res && res.success) setNotes(res.notes || res.data || []);
+              }).catch(() => {});
+            }
+          }
+        };
+
+        socket.on('service-request-deleted', handleRequestDeleted);
+        return () => {
+          socket.off('service-request-deleted', handleRequestDeleted);
+        };
+      }
+    } catch (sockErr) {
+      console.warn('Socket setup error in ClientDashboard:', sockErr);
+    }
+  }, [user, clientId, selectedReqDetails]);
+
+  const handleDismissDeletedNotice = async (noticeId) => {
+    try {
+      setDeletedNotices(prev => prev.filter(n => n.id !== noticeId));
+      await dismissDeletedNoticeApi(noticeId, clientId);
+    } catch (err) {
+      console.warn('Error dismissing notice:', err);
+    }
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -1144,6 +1214,53 @@ export default function ClientDashboard({ user, onLogout }) {
                     >
                       <Text style={styles.viewPackagesBannerBtnText}>View Packages →</Text>
                     </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Deletion notices banner for requests deleted by Admin */}
+                {deletedNotices && deletedNotices.length > 0 && (
+                  <View style={{ marginBottom: 14 }}>
+                    {deletedNotices.map((notice) => (
+                      <View
+                        key={notice.id || notice.request_id}
+                        style={[
+                          styles.deletedNoticeCard,
+                          {
+                            backgroundColor: isDark ? '#450a0a44' : '#fef2f2',
+                            borderColor: isDark ? '#ef4444' : '#fca5a5',
+                          }
+                        ]}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
+                              <Text style={{ fontSize: 13, marginRight: 5 }}>⚠️</Text>
+                              <Text style={[styles.deletedNoticeTitle, { color: isDark ? '#fca5a5' : '#991b1b' }]}>
+                                Request Removed by Admin
+                              </Text>
+                            </View>
+                            <Text style={[styles.deletedNoticeText, { color: isDark ? '#fecaca' : '#7f1d1d' }]}>
+                              Your service request for <Text style={{ fontWeight: 'bold' }}>{notice.service_type || 'Service'}</Text> has been cancelled and removed by Administration.
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => setActiveTab('notes')}
+                              style={{ marginTop: 5, flexDirection: 'row', alignItems: 'center' }}
+                            >
+                              <Text style={{ fontSize: 11, color: isDark ? '#f87171' : '#b91c1c', fontWeight: '700', textDecorationLine: 'underline' }}>
+                                View Admin Message in Project Notes →
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => handleDismissDeletedNotice(notice.id)}
+                            style={styles.dismissNoticeBtn}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          >
+                            <Text style={{ color: isDark ? '#fca5a5' : '#991b1b', fontWeight: '800', fontSize: 13 }}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
                   </View>
                 )}
 
@@ -3471,5 +3588,24 @@ const getStyles = (colors, isDark) =>
       color: '#ffffff',
       fontSize: 13,
       fontWeight: '700',
+    },
+    deletedNoticeCard: {
+      padding: 14,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      marginBottom: 10,
+    },
+    deletedNoticeTitle: {
+      fontSize: 13.5,
+      fontWeight: '800',
+    },
+    deletedNoticeText: {
+      fontSize: 12,
+      lineHeight: 17,
+      marginTop: 2,
+    },
+    dismissNoticeBtn: {
+      padding: 4,
+      borderRadius: 6,
     },
   });

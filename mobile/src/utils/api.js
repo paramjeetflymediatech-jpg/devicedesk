@@ -1421,6 +1421,22 @@ export async function deleteClientRequestApi(id, viewerRole = 'Admin') {
   }
 }
 
+export async function dismissDeletedNoticeApi(noticeId, clientId) {
+  const url = `${currentApiUrl}/api/client-services/requests?dismissNoticeId=${encodeURIComponent(noticeId)}&clientId=${encodeURIComponent(clientId || '')}`;
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Dismiss deleted notice failed at ${url}:`, err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ==========================================
 // CLIENT CRM APIS
 // ==========================================

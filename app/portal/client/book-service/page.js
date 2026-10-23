@@ -1,7 +1,8 @@
 'use client';
 import Swal from 'sweetalert2';
 import { useState, useEffect } from 'react';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiEdit3, FiDownload, FiUser, FiExternalLink } from 'react-icons/fi';
+import { io } from 'socket.io-client';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiEdit3, FiDownload, FiUser, FiExternalLink, FiAlertCircle } from 'react-icons/fi';
 
 export default function BookServicePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -26,6 +27,7 @@ export default function BookServicePage() {
     setMyClientId(clientId);
   }, []);
   const [requests, setRequests] = useState([]);
+  const [deletedNotices, setDeletedNotices] = useState([]);
   const [form, setForm] = useState({ service_type: 'SEO', requirements: '', drive_url: '', file: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -58,8 +60,20 @@ export default function BookServicePage() {
     try {
       const res = await fetch(`/api/client-services/requests?clientId=${myClientId}`);
       const data = await res.json();
-      if (data.success) setRequests(data.data);
+      if (data.success) {
+        setRequests(data.data || []);
+        setDeletedNotices(data.deletedNotices || []);
+      }
     } catch (err) {}
+  };
+
+  const handleDismissNotice = async (noticeId) => {
+    setDeletedNotices(prev => prev.filter(n => n.id !== noticeId));
+    try {
+      await fetch(`/api/client-services/requests?dismissNoticeId=${encodeURIComponent(noticeId)}&clientId=${encodeURIComponent(myClientId)}`, {
+        method: 'DELETE'
+      });
+    } catch (e) {}
   };
 
   const handleViewDelivery = async (req) => {
@@ -206,6 +220,51 @@ export default function BookServicePage() {
     if (myClientId) {
       fetchRequests();
       fetchActivePackages(myClientId);
+      const interval = setInterval(fetchRequests, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [myClientId]);
+
+  // Real-time listener for service requests deleted by admin
+  useEffect(() => {
+    if (!myClientId) return;
+    try {
+      const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
+      const socket = io(socketUrl, { path: "/socket.io" });
+
+      socket.on('service-request-deleted', (data) => {
+        if (!data) return;
+        const myId = String(myClientId || '').toLowerCase();
+        const targetId = String(data.clientId || '').toLowerCase();
+        if (myId && targetId && myId === targetId) {
+          // Immediately remove the deleted request from the client panel list
+          setRequests(prev => prev.filter(r => String(r.id) !== String(data.requestId)));
+          // Add to deleted notices banner
+          setDeletedNotices(prev => [
+            {
+              id: 'del_sock_' + Date.now(),
+              request_id: data.requestId,
+              client_id: data.clientId,
+              service_type: data.serviceType || 'Service Request',
+              deleted_at: new Date().toISOString()
+            },
+            ...prev.filter(n => String(n.request_id) !== String(data.requestId))
+          ]);
+          // Show alert to user
+          Swal.fire({
+            icon: 'warning',
+            title: 'Service Request Removed',
+            text: data.message || `Your service request for "${data.serviceType || 'Service'}" has been cancelled and removed by the administration.`,
+            confirmButtonColor: '#db2777'
+          });
+        }
+      });
+
+      return () => {
+        socket.disconnect();
+      };
+    } catch (e) {
+      console.warn('Socket connection error in book-service:', e);
     }
   }, [myClientId]);
 
@@ -451,6 +510,41 @@ export default function BookServicePage() {
               </div>
 
               <div className="p-0">
+                {/* Deletion Notices for requests deleted by Admin */}
+                {deletedNotices && deletedNotices.length > 0 && (
+                  <div className="p-4 space-y-3 bg-red-50/60 border-b border-red-100">
+                    {deletedNotices.map(notice => (
+                      <div key={notice.id || notice.request_id} className="bg-white border border-red-200 rounded-xl p-4 shadow-sm flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3.5">
+                          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold flex-shrink-0 mt-0.5">
+                            ⚠️
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-red-900">
+                              Service Request Removed by Admin
+                            </h4>
+                            <p className="text-xs text-red-700 mt-1 leading-relaxed">
+                              Your service request for <span className="font-semibold text-red-900">"{notice.service_type || 'Service'}"</span> was cancelled and removed by the administration on {new Date(notice.deleted_at).toLocaleDateString()}.
+                            </p>
+                            <div className="flex items-center gap-4 mt-2 text-xs">
+                              <a href="/portal/client/notes" className="text-pink-600 hover:text-pink-800 font-semibold underline">
+                                View Admin Message in Project Notes →
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => handleDismissNotice(notice.id)}
+                          className="text-gray-400 hover:text-red-700 text-xs font-bold px-2 py-1 rounded hover:bg-red-50 transition-colors flex-shrink-0"
+                          title="Dismiss Notice"
+                        >
+                          ✕ Dismiss
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {requests.length === 0 ? (
                   <div className="p-12 text-center">
                     <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-pink-50 flex items-center justify-center text-pink-500 text-xl">

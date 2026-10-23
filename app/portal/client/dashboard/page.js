@@ -21,13 +21,28 @@ export default function DashboardPage() {
   const [seoReports, setSeoReports] = useState([]);
   const [adsData, setAdsData] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [deletedNotices, setDeletedNotices] = useState([]);
   const [clientDetails, setClientDetails] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { if (myClientId) fetchAllData(); }, [myClientId]);
+  useEffect(() => { 
+    if (myClientId) {
+      fetchAllData();
+      const interval = setInterval(fetchAllData, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [myClientId]);
+
+  const handleDismissNotice = async (noticeId) => {
+    setDeletedNotices(prev => prev.filter(n => n.id !== noticeId));
+    try {
+      await fetch(`/api/client-services/requests?dismissNoticeId=${encodeURIComponent(noticeId)}&clientId=${encodeURIComponent(myClientId)}`, {
+        method: 'DELETE'
+      });
+    } catch (e) {}
+  };
 
   const fetchAllData = async () => {
-    setLoading(true);
     try {
       const [projRes, seoRes, adsRes, reqRes, clientRes] = await Promise.all([
         fetch("/api/projects").catch(() => null),
@@ -40,7 +55,13 @@ export default function DashboardPage() {
       if (projRes) { const d = await projRes.json(); if(d.success) setProjects(d.data || []); }
       if (seoRes) { const d = await seoRes.json(); if(d.success) setSeoReports(d.data || []); }
       if (adsRes) { const d = await adsRes.json(); if(d.success) setAdsData(d.data || []); }
-      if (reqRes) { const d = await reqRes.json(); if(d.success) setRequests(d.data || []); }
+      if (reqRes) { 
+        const d = await reqRes.json(); 
+        if(d.success) {
+          setRequests(d.data || []);
+          setDeletedNotices(d.deletedNotices || []);
+        }
+      }
       if (clientRes) { 
         const d = await clientRes.json(); 
         if(d.success && d.data) {
@@ -151,6 +172,41 @@ export default function DashboardPage() {
 
         <main className="flex-1 p-4 md:p-8 w-full max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
           
+          {/* Deletion Notices for requests deleted by Admin */}
+          {deletedNotices && deletedNotices.length > 0 && (
+            <div className="space-y-3">
+              {deletedNotices.map(notice => (
+                <div key={notice.id || notice.request_id} className="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold flex-shrink-0 mt-0.5">
+                      ⚠️
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-red-900">
+                        Service Request Removed by Admin
+                      </h4>
+                      <p className="text-xs text-red-700 mt-1 leading-relaxed">
+                        Your service request for <span className="font-semibold text-red-900">"{notice.service_type || 'Service'}"</span> has been cancelled and removed by the administration on {new Date(notice.deleted_at).toLocaleDateString()}.
+                      </p>
+                      <div className="flex items-center gap-4 mt-2 text-xs">
+                        <a href="/portal/client/notes" className="text-pink-600 hover:text-pink-800 font-semibold underline">
+                          View Admin Message in Project Notes →
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => handleDismissNotice(notice.id)}
+                    className="text-gray-400 hover:text-red-700 text-xs font-bold px-2 py-1 rounded hover:bg-red-100 transition-colors flex-shrink-0"
+                    title="Dismiss Notice"
+                  >
+                    ✕ Dismiss
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Welcome Banner */}
           <div className="relative overflow-hidden rounded-2xl bg-white border border-gray-200 shadow-sm">
             <div className="absolute inset-0 bg-gradient-to-r from-pink-50 to-cyan-50 opacity-50"></div>

@@ -7,6 +7,7 @@ export default function ClientDashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activePackages, setActivePackages] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [deletedNotices, setDeletedNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -27,6 +28,8 @@ export default function ClientDashboard() {
   useEffect(() => {
     fetchActivePackages();
     fetchRequests();
+    const interval = setInterval(fetchRequests, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchRequests = async () => {
@@ -36,10 +39,21 @@ export default function ClientDashboard() {
       const data = await res.json();
       if (data.success) {
         setRequests(data.data || []);
+        setDeletedNotices(data.deletedNotices || []);
       }
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleDismissNotice = async (noticeId) => {
+    setDeletedNotices(prev => prev.filter(n => n.id !== noticeId));
+    try {
+      const clientId = getClientId();
+      await fetch(`/api/client-services/requests?dismissNoticeId=${encodeURIComponent(noticeId)}&clientId=${encodeURIComponent(clientId)}`, {
+        method: 'DELETE'
+      });
+    } catch (e) {}
   };
 
   const fetchActivePackages = async () => {
@@ -227,6 +241,38 @@ export default function ClientDashboard() {
                      <FiEdit3 className="mr-2" /> New Request
                    </button>
                 </div>
+                {/* Deletion Notices for requests deleted by Admin */}
+                {deletedNotices && deletedNotices.length > 0 && (
+                  <div className="p-4 space-y-3 bg-red-50/60 border-b border-red-100">
+                    {deletedNotices.map(notice => (
+                      <div key={notice.id || notice.request_id} className="bg-white border border-red-200 rounded-lg p-3.5 shadow-sm flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <span className="text-lg">⚠️</span>
+                          <div>
+                            <h4 className="text-sm font-bold text-red-900">
+                              Service Request Removed by Admin
+                            </h4>
+                            <p className="text-xs text-red-700 mt-1">
+                              Your service request for <span className="font-semibold text-red-900">"{notice.service_type || 'Service'}"</span> was cancelled & removed by Administration on {new Date(notice.deleted_at).toLocaleDateString()}.
+                            </p>
+                            <div className="flex items-center gap-3 mt-1.5 text-xs">
+                              <a href="/portal/client/notes" className="text-pink-600 hover:text-pink-800 font-semibold underline">
+                                View Admin Message in Project Notes →
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => handleDismissNotice(notice.id)}
+                          className="text-gray-400 hover:text-red-700 text-xs font-bold px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                          title="Dismiss Notice"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {/* Desktop View */}
                 <div className="hidden md:block overflow-x-auto w-full">
                   <table className="w-full text-left">

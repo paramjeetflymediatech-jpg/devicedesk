@@ -233,6 +233,12 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('service-request-deleted', (data) => {
+    if (!data) return;
+    console.log(`Service request deleted broadcast for client ${data.clientId}, request ${data.requestId}`);
+    io.emit('service-request-deleted', data);
+  });
+
   socket.on('typing', (data) => {
     if (!data || !data.receiverId) return;
     const lowerReceiverId = String(data.receiverId).toLowerCase();
