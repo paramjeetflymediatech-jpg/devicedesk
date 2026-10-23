@@ -1389,7 +1389,7 @@ const getStyles = (themeColors, isDark) =>
     },
     scrollContent: {
       padding: 16,
-      paddingBottom: 40,
+      paddingBottom: 110,
     },
     statsGrid: {
       flexDirection: 'row',

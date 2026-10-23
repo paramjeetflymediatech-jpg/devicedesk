@@ -2847,7 +2847,7 @@ const getStyles = (colors, isDark) =>
     },
     scrollContent: {
       padding: 16,
-      paddingBottom: 40,
+      paddingBottom: 90,
     },
     welcomeCard: {
       backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
