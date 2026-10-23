@@ -18,8 +18,18 @@ import {
 import { pickFilesOrPhotos } from '../../utils/filePicker';
 import Video from 'react-native-video';
 import { useTheme } from '../../utils/ThemeContext';
-import { fetchAllClientNotesApi, replyClientNoteApi, deleteClientNoteApi, getApiUrl } from '../../utils/api';
+import {
+  fetchAllClientNotesApi,
+  replyClientNoteApi,
+  deleteClientNoteApi,
+  createClientNoteApi,
+  fetchEmployeesApi,
+  getApiUrl
+} from '../../utils/api';
+import { getEmployees } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
+import GoogleDriveBadge from '../../components/GoogleDriveBadge';
+import { containsPhoneNumber, PHONE_POLICY_WARNING } from '../../utils/contactFilter';
 
 const { width } = Dimensions.get('window');
 
@@ -34,6 +44,15 @@ export default function ManageClientNotes({ currentUser, onBack }) {
   const [replyTextMap, setReplyTextMap] = useState({});
   const [replyAttachmentsMap, setReplyAttachmentsMap] = useState({});
   const [submittingReplyId, setSubmittingReplyId] = useState(null);
+
+  // Initiate Note states for Admin
+  const [initiateModalVisible, setInitiateModalVisible] = useState(false);
+  const [clientsList, setClientsList] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [initiateTopic, setInitiateTopic] = useState('');
+  const [initiateMessage, setInitiateMessage] = useState('');
+  const [initiateAttachments, setInitiateAttachments] = useState([]);
+  const [submittingInitiate, setSubmittingInitiate] = useState(false);
 
   // Media preview modal
   const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState(null);
@@ -59,9 +78,21 @@ export default function ManageClientNotes({ currentUser, onBack }) {
 
   const loadNotes = async () => {
     try {
-      const res = await fetchAllClientNotesApi();
+      const [res, empsRes] = await Promise.all([
+        fetchAllClientNotesApi(),
+        fetchEmployeesApi().catch(() => ({ success: false, data: [] }))
+      ]);
       if (res && res.success) {
         setNotes(res.notes || res.data || []);
+      }
+      let emps = empsRes?.success && empsRes?.data?.length > 0 ? empsRes.data : (getEmployees() || []);
+      const clients = emps.filter(e => {
+        const r = (e.role || '').toLowerCase();
+        return r === 'client' || (e.department || '').toLowerCase() === 'client';
+      });
+      setClientsList(clients);
+      if (clients.length > 0 && !selectedClientId) {
+        setSelectedClientId(clients[0].id);
       }
     } catch (err) {
       console.error('Failed to fetch client notes:', err);
@@ -141,6 +172,15 @@ export default function ManageClientNotes({ currentUser, onBack }) {
       return;
     }
 
+    if (containsPhoneNumber(replyText)) {
+      sweetAlert({
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        type: 'warning'
+      });
+      return;
+    }
+
     setSubmittingReplyId(noteId);
     try {
       let attachmentUrls = [];
@@ -193,6 +233,95 @@ export default function ManageClientNotes({ currentUser, onBack }) {
     }
   };
 
+  const handlePickInitiateAttachment = async () => {
+    try {
+      const res = await pickFilesOrPhotos({
+        allowMultiSelection: true,
+        includeCamera: true,
+      });
+      if (res && res.length > 0) {
+        setInitiateAttachments(prev => [...prev, ...res]);
+      }
+    } catch (err) {
+      console.warn('File pick error:', err);
+    }
+  };
+
+  const handleSendInitiateNote = async () => {
+    if (!selectedClientId) {
+      sweetAlert({ title: 'Select Client', text: 'Please select a client to send the note to.', type: 'info' });
+      return;
+    }
+    const msg = initiateMessage.trim();
+    if (!msg && initiateAttachments.length === 0) {
+      sweetAlert({ title: 'Validation', text: 'Please enter a message.', type: 'info' });
+      return;
+    }
+
+    if (containsPhoneNumber(msg) || containsPhoneNumber(initiateTopic)) {
+      sweetAlert({
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        type: 'warning'
+      });
+      return;
+    }
+
+    setSubmittingInitiate(true);
+    try {
+      let attachmentUrls = [];
+      if (initiateAttachments.length > 0) {
+        for (const file of initiateAttachments) {
+          const formData = new FormData();
+          formData.append('file', {
+            uri: file.uri,
+            type: file.type || 'application/octet-stream',
+            name: file.name || `attachment_${Date.now()}`,
+          });
+
+          const currentApiUrl = getApiUrl();
+          const uploadRes = await fetch(`${currentApiUrl}/api/upload`, {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json' },
+          });
+          const uploadData = await uploadRes.json();
+          if (uploadData && uploadData.url) {
+            attachmentUrls.push(uploadData.url);
+          }
+        }
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+      const res = await createClientNoteApi({
+        client_id: selectedClientId,
+        note: msg,
+        topic: initiateTopic.trim(),
+        sender_role: 'Admin',
+        sender_name: currentUser?.name || 'Admin',
+        created_by: currentUser?.id || null,
+        initiated_by_admin: true,
+        attachment: attachmentStr
+      });
+
+      if (res && res.success) {
+        sweetAlert({ title: 'Sent!', text: 'Note sent to client successfully.', type: 'success' });
+        setInitiateModalVisible(false);
+        setInitiateTopic('');
+        setInitiateMessage('');
+        setInitiateAttachments([]);
+        loadNotes();
+      } else {
+        sweetAlert({ title: 'Error', text: res?.error || 'Failed to send note to client.', type: 'error' });
+      }
+    } catch (err) {
+      console.error('Error initiating note:', err);
+      sweetAlert({ title: 'Error', text: err.message || 'Failed to send note.', type: 'error' });
+    } finally {
+      setSubmittingInitiate(false);
+    }
+  };
+
   const filteredNotes = notes.filter(n => {
     const q = search.toLowerCase();
     return (
@@ -233,15 +362,27 @@ export default function ManageClientNotes({ currentUser, onBack }) {
             {filteredNotes.length} client discussions across accounts
           </Text>
         </View>
-        <TouchableOpacity
-          style={[styles.refreshBtn, { backgroundColor: isDark ? '#1e293b' : '#eff6ff' }]}
-          onPress={onRefresh}
-          disabled={loading || refreshing}
-        >
-          <Text style={{ fontSize: 13, color: '#3b82f6', fontWeight: '700' }}>
-            {refreshing ? '⟳ ...' : '⟳ Refresh'}
-          </Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            style={[styles.refreshBtn, { backgroundColor: '#3b82f6', flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+            onPress={() => setInitiateModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 13, color: '#ffffff', fontWeight: '800' }}>
+              + Initiate Note
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.refreshBtn, { backgroundColor: isDark ? '#1e293b' : '#eff6ff' }]}
+            onPress={onRefresh}
+            disabled={loading || refreshing}
+          >
+            <Text style={{ fontSize: 13, color: '#3b82f6', fontWeight: '700' }}>
+              {refreshing ? '⟳ ...' : '⟳ Refresh'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Bar */}
@@ -305,6 +446,9 @@ export default function ManageClientNotes({ currentUser, onBack }) {
                       <Text style={[styles.noteDate, { color: themeColors.textSecondary }]}>
                         ID: {item.client_id} • 📅 {item.created_at ? new Date(item.created_at).toLocaleString() : 'N/A'}
                       </Text>
+                      <View style={{ marginTop: 4 }}>
+                        <GoogleDriveBadge source={item} isDark={isDark} themeColors={themeColors} compact />
+                      </View>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <View style={[styles.statusTag, { backgroundColor: (item.tl_reply || item.client_reply) ? '#dcfce7' : '#fef3c7' }]}>
@@ -570,6 +714,139 @@ export default function ManageClientNotes({ currentUser, onBack }) {
           </View>
         </Modal>
       )}
+
+      {/* Admin Initiate Note Modal */}
+      <Modal
+        visible={initiateModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setInitiateModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBox, { backgroundColor: themeColors.card, borderColor: themeColors.border, maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>👑 Initiate Note with Client</Text>
+              <TouchableOpacity onPress={() => setInitiateModalVisible(false)} style={styles.closeModalBtn}>
+                <Text style={{ fontSize: 18, color: themeColors.textPrimary }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ padding: 16 }}>
+              {/* Client Selection */}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>Select Client:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {clientsList.map(c => {
+                    const isSelected = selectedClientId === c.id;
+                    return (
+                      <TouchableOpacity
+                        key={c.id}
+                        onPress={() => setSelectedClientId(c.id)}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: isSelected ? '#3b82f6' : themeColors.border,
+                          backgroundColor: isSelected ? (isDark ? '#1e3a8a44' : '#eff6ff') : (isDark ? '#1e293b' : '#f8fafc'),
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? '#3b82f6' : themeColors.textPrimary }}>
+                          {c.name || c.id}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: themeColors.textSecondary }}>ID: {c.id}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+
+              {/* Topic (Optional) */}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>Topic / Subject:</Text>
+              <TextInput
+                style={{
+                  backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                  borderWidth: 1,
+                  borderColor: themeColors.border,
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  color: themeColors.textPrimary,
+                  fontSize: 13,
+                  marginBottom: 12,
+                }}
+                placeholder="e.g. Website update, SEO Monthly review..."
+                placeholderTextColor={themeColors.textSecondary}
+                value={initiateTopic}
+                onChangeText={setInitiateTopic}
+              />
+
+              {/* Message */}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>Message:</Text>
+              <TextInput
+                style={{
+                  backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                  borderWidth: 1,
+                  borderColor: themeColors.border,
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  color: themeColors.textPrimary,
+                  fontSize: 13,
+                  minHeight: 90,
+                  textAlignVertical: 'top',
+                  marginBottom: 12,
+                }}
+                multiline
+                placeholder="Write your note or question for the client..."
+                placeholderTextColor={themeColors.textSecondary}
+                value={initiateMessage}
+                onChangeText={setInitiateMessage}
+              />
+
+              {/* Attachments */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary }}>Attachments ({initiateAttachments.length})</Text>
+                <TouchableOpacity
+                  onPress={handlePickInitiateAttachment}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: isDark ? '#334155' : '#e2e8f0' }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textPrimary }}>+ Add Files</Text>
+                </TouchableOpacity>
+              </View>
+
+              {initiateAttachments.map((f, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 6, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderRadius: 6, marginBottom: 6 }}>
+                  <Text style={{ fontSize: 11, color: themeColors.textPrimary, flex: 1 }} numberOfLines={1}>📎 {f.name || `File ${idx+1}`}</Text>
+                  <TouchableOpacity onPress={() => setInitiateAttachments(prev => prev.filter((_, i) => i !== idx))}>
+                    <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '700', paddingHorizontal: 6 }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              {/* Send Button */}
+              <TouchableOpacity
+                onPress={handleSendInitiateNote}
+                disabled={submittingInitiate}
+                style={{
+                  backgroundColor: '#3b82f6',
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  marginTop: 16,
+                  marginBottom: 24,
+                }}
+              >
+                {submittingInitiate ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>🚀 Send Note to Client</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

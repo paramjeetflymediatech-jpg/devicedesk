@@ -35,6 +35,7 @@ import {
   fetchClientInvoicesApi,
   fetchClientNotesApi,
   createClientNoteApi,
+  replyClientNoteApi,
   deleteClientNoteApi,
   fetchClientDetailsApi,
   updateClientDetailsApi,
@@ -88,6 +89,11 @@ export default function ClientDashboard({ user, onLogout }) {
   const [noteAttachments, setNoteAttachments] = useState([]);
   const [uploadingNoteAttachments, setUploadingNoteAttachments] = useState(false);
   const [submittingNote, setSubmittingNote] = useState(false);
+
+  // Client Note Reply states
+  const [clientReplyTextMap, setClientReplyTextMap] = useState({});
+  const [clientReplyAttachmentsMap, setClientReplyAttachmentsMap] = useState({});
+  const [submittingClientReplyMap, setSubmittingClientReplyMap] = useState({});
 
   // Request Details & Deliverables Modal
   const [selectedReqDetails, setSelectedReqDetails] = useState(null);
@@ -534,6 +540,101 @@ export default function ClientDashboard({ user, onLogout }) {
         }
       ]
     );
+  };
+
+  const handlePickClientReplyAttachment = async (noteId) => {
+    try {
+      const res = await pickFilesOrPhotos({
+        allowMultiSelection: true,
+        includeCamera: true,
+      });
+      if (res && res.length > 0) {
+        setClientReplyAttachmentsMap(prev => ({
+          ...prev,
+          [noteId]: [...(prev[noteId] || []), ...res]
+        }));
+      }
+    } catch (err) {
+      console.warn('Pick reply attachment error:', err);
+    }
+  };
+
+  const handleRemoveClientReplyAttachment = (noteId, index) => {
+    setClientReplyAttachmentsMap(prev => {
+      const updated = [...(prev[noteId] || [])];
+      updated.splice(index, 1);
+      return { ...prev, [noteId]: updated };
+    });
+  };
+
+  const handleSendClientReply = async (noteId) => {
+    const text = (clientReplyTextMap[noteId] || '').trim();
+    const attachments = clientReplyAttachmentsMap[noteId] || [];
+
+    if (!text && attachments.length === 0) {
+      sweetAlert({ title: 'Validation', text: 'Please enter a reply or attach a file.', type: 'info' });
+      return;
+    }
+
+    if (containsPhoneNumber(text)) {
+      sweetAlert({
+        title: 'Communication Policy',
+        text: PHONE_POLICY_WARNING,
+        type: 'warning'
+      });
+      return;
+    }
+
+    setSubmittingClientReplyMap(prev => ({ ...prev, [noteId]: true }));
+    try {
+      let attachmentUrls = [];
+      if (attachments.length > 0) {
+        const formData = new FormData();
+        attachments.forEach((file) => {
+          const fileUri = file.uri || '';
+          formData.append('files', {
+            uri: Platform.OS === 'android' ? fileUri : fileUri.replace('file://', ''),
+            type: file.type || 'application/octet-stream',
+            name: file.name || `file_${Date.now()}`
+          });
+        });
+
+        const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json',
+            'x-user-id': String(clientId || user?.id || '')
+          },
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadRes.ok && uploadData.success && uploadData.fileUrls) {
+          attachmentUrls = uploadData.fileUrls;
+        } else {
+          throw new Error(uploadData?.error || 'Failed to upload attachments');
+        }
+      }
+
+      const attachmentStr = attachmentUrls.length > 0 ? JSON.stringify(attachmentUrls) : null;
+      const res = await replyClientNoteApi({
+        id: noteId,
+        client_reply: text,
+        client_reply_attachment: attachmentStr
+      });
+
+      if (res && res.success) {
+        sweetAlert({ title: 'Reply Sent! 💬', text: 'Your reply has been sent directly to the team.', type: 'success' });
+        setClientReplyTextMap(prev => ({ ...prev, [noteId]: '' }));
+        setClientReplyAttachmentsMap(prev => ({ ...prev, [noteId]: [] }));
+        fetchClientNotesApi(clientId).then(r => r.success && setNotes(r.notes || r.data || []));
+      } else {
+        throw new Error(res?.error || 'Failed to send reply');
+      }
+    } catch (err) {
+      sweetAlert({ title: 'Error', text: err.message || 'Could not send reply.', type: 'error' });
+    } finally {
+      setSubmittingClientReplyMap(prev => ({ ...prev, [noteId]: false }));
+    }
   };
 
   // 5. Save Profile Form
@@ -1670,7 +1771,76 @@ export default function ClientDashboard({ user, onLogout }) {
                             );
                           })()}
                         </View>
-                      ) : null}
+                      ) : (
+                        (!n.client_reply && (n.note?.startsWith('[From Admin:') || n.note?.startsWith('[From Team Leader:') || n.tl_reply)) ? (
+                          <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: isDark ? '#334155' : '#f1f5f9' }}>
+                            <Text style={{ fontSize: 11.5, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>
+                              💬 Reply to this discussion:
+                            </Text>
+                            <TextInput
+                              style={{
+                                backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                                borderWidth: 1,
+                                borderColor: themeColors.border,
+                                borderRadius: 8,
+                                paddingHorizontal: 12,
+                                paddingVertical: 8,
+                                fontSize: 13,
+                                color: themeColors.textPrimary,
+                                minHeight: 48,
+                              }}
+                              placeholder="Type your response here..."
+                              placeholderTextColor={themeColors.textSecondary}
+                              value={clientReplyTextMap[n.id] || ''}
+                              onChangeText={(val) => setClientReplyTextMap(prev => ({ ...prev, [n.id]: val }))}
+                              multiline
+                            />
+
+                            {/* Attachments preview */}
+                            {clientReplyAttachmentsMap[n.id] && clientReplyAttachmentsMap[n.id].length > 0 && (
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                                {clientReplyAttachmentsMap[n.id].map((f, idx) => (
+                                  <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? '#1e293b' : '#eff6ff', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, gap: 4 }}>
+                                    <Text style={{ fontSize: 11, color: isDark ? '#93c5fd' : '#2563eb' }} numberOfLines={1}>{f.name || `File ${idx+1}`}</Text>
+                                    <TouchableOpacity onPress={() => handleRemoveClientReplyAttachment(n.id, idx)}>
+                                      <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '700' }}>✕</Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                              <TouchableOpacity
+                                onPress={() => handlePickClientReplyAttachment(n.id)}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderWidth: 1, borderColor: themeColors.border }}
+                              >
+                                <Text style={{ fontSize: 11.5, color: themeColors.textPrimary, fontWeight: '600' }}>📎 Attach File</Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                onPress={() => handleSendClientReply(n.id)}
+                                disabled={submittingClientReplyMap[n.id]}
+                                style={{
+                                  backgroundColor: '#db2777',
+                                  paddingHorizontal: 14,
+                                  paddingVertical: 7,
+                                  borderRadius: 8,
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  gap: 6
+                                }}
+                              >
+                                {submittingClientReplyMap[n.id] ? (
+                                  <ActivityIndicator size="small" color="#ffffff" />
+                                ) : (
+                                  <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 12 }}>Send Reply</Text>
+                                )}
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ) : null
+                      )}
                     </View>
                   ))
                 )}
