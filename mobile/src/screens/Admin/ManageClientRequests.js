@@ -776,34 +776,56 @@ export default function ManageClientRequests({ currentUser, onBack }) {
                 </View>
 
                 {/* Card Action Buttons */}
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  marginTop: 12,
+                  paddingTop: 12,
+                  borderTopWidth: 1,
+                  borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9'
+                }}>
                   <TouchableOpacity
-                    style={[styles.viewDetailsBtn, { flex: 1, marginTop: 0 }]}
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: 10,
+                      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.12)' : '#eff6ff',
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe',
+                    }}
                     onPress={() => handleOpenDetailModal(req)}
                     activeOpacity={0.7}
                   >
-                    <AppIcon name="eye" size={15} color="#3b82f6" />
-                    <Text style={styles.viewDetailsBtnText}>View Details</Text>
+                    <AppIcon name="eye" size={15} color="#2563eb" />
+                    <Text style={{ fontSize: 12.5, fontWeight: '700', color: isDark ? '#93c5fd' : '#2563eb' }}>
+                      View Details
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      borderRadius: 10,
-                      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
-                      borderWidth: 1,
-                      borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fca5a5',
+                      flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      flexDirection: 'row',
-                      gap: 4,
+                      gap: 5,
+                      paddingVertical: 10,
+                      paddingHorizontal: 14,
+                      borderRadius: 10,
+                      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2',
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca',
                     }}
                     onPress={() => handleDeleteRequest(req.id)}
                     activeOpacity={0.7}
                   >
                     <AppIcon name="delete" size={15} color="#ef4444" />
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#ef4444' }}>Delete</Text>
+                    <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#ef4444' }}>Delete</Text>
                   </TouchableOpacity>
                 </View>
               </View>
