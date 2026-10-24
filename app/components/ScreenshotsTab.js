@@ -6,7 +6,7 @@ import {
   FiDownload, FiEye, FiClock, FiGrid, FiList, FiRefreshCw,
   FiShield, FiCheckCircle, FiActivity, FiLayers, FiX, FiZoomIn,
   FiChevronDown, FiChevronUp, FiUsers, FiSettings,
-  FiChevronLeft, FiChevronRight
+  FiChevronLeft, FiChevronRight, FiInfo
 } from 'react-icons/fi';
 import { FaWindows, FaUbuntu, FaApple } from 'react-icons/fa';
 import ManageTeamScreenshotsModal from './modals/ManageTeamScreenshotsModal.js';
@@ -90,6 +90,7 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
   // Modal Inspector & Guide State
   const [inspectModal, setInspectModal] = useState({ open: false, data: null, list: [], index: 0 });
   const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showDetailsSidebar, setShowDetailsSidebar] = useState(true);
 
   // Open screenshot inspector with list context for Next / Previous navigation
   const handleOpenInspector = (item, list = []) => {
@@ -1654,31 +1655,87 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
 
       )}
 
-      {/* 5. Full Screen High-Res Modal Inspector with Arrow Navigation */}
+      {/* 5. Full Screen High-Res Responsive Modal Inspector with Arrow Navigation */}
       {inspectModal.open && inspectModal.data && (
         <div
           onClick={(e) => {
             if (e.target === e.currentTarget) setInspectModal({ open: false, data: null, list: [], index: 0 });
           }}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.88)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '10px'
+          }}
         >
-          <div className="modal-content" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--glass-border)', borderRadius: '16px', width: '100%', maxWidth: '1250px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)' }}>
+          <style jsx>{`
+            @media (max-width: 768px) {
+              :global(.screenshot-inspect-sidebar) {
+                position: absolute !important;
+                right: 0 !important;
+                top: 0 !important;
+                bottom: 0 !important;
+                width: 280px !important;
+                z-index: 40 !important;
+                box-shadow: -8px 0 24px rgba(0,0,0,0.7) !important;
+              }
+            }
+          `}</style>
+
+          <div
+            className="modal-content"
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '1440px',
+              height: 'calc(100vh - 24px)',
+              maxHeight: '920px',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.65)'
+            }}
+          >
 
             {/* Modal Top Header */}
-            <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', gap: '16px', flexWrap: 'wrap' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>📷</span> Screenshot Inspector: {inspectModal.data.employeeName}
-                </h3>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  Captured at: {new Date(inspectModal.data.capturedAt).toLocaleString()}
-                </span>
+            <div style={{
+              padding: '10px 18px',
+              borderBottom: '1px solid var(--glass-border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: 'var(--bg-secondary)',
+              gap: '12px',
+              flexShrink: 0
+            }}>
+              <div style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                    <span>📷</span> <span>{inspectModal.data.employeeName}</span>
+                  </h3>
+                  <span style={{ fontSize: '0.72rem', backgroundColor: 'rgba(2, 132, 199, 0.15)', color: 'var(--accent-cyan)', padding: '1px 6px', borderRadius: '4px', fontWeight: '700', border: '1px solid var(--glass-border)' }}>
+                    {inspectModal.data.employeeId}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    • {new Date(inspectModal.data.capturedAt).toLocaleString()}
+                  </span>
+                </div>
               </div>
 
               {/* Navigation Toolbar & Close */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                 {inspectModal.list && inspectModal.list.length > 1 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-tertiary)', padding: '4px 10px', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-tertiary)', padding: '3px 8px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
                     <button
                       type="button"
                       onClick={handlePrevScreenshot}
@@ -1689,24 +1746,17 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                         border: 'none',
                         color: inspectModal.index <= 0 ? 'var(--text-muted)' : 'var(--text-primary)',
                         cursor: inspectModal.index <= 0 ? 'not-allowed' : 'pointer',
-                        padding: '4px 6px',
+                        padding: '3px 5px',
                         display: 'flex',
                         alignItems: 'center',
-                        borderRadius: '6px',
-                        transition: 'background-color 0.2s ease',
+                        borderRadius: '4px',
                         opacity: inspectModal.index <= 0 ? 0.35 : 1
-                      }}
-                      onMouseEnter={(e) => {
-                        if (inspectModal.index > 0) e.currentTarget.style.backgroundColor = 'var(--glass-border)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     >
                       <FiChevronLeft size={18} />
                     </button>
 
-                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--accent-blue)', minWidth: '75px', textAlign: 'center', userSelect: 'none' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--accent-blue)', minWidth: '70px', textAlign: 'center', userSelect: 'none' }}>
                       {inspectModal.index + 1} / {inspectModal.list.length}
                     </span>
 
@@ -1720,18 +1770,11 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                         border: 'none',
                         color: inspectModal.index >= inspectModal.list.length - 1 ? 'var(--text-muted)' : 'var(--text-primary)',
                         cursor: inspectModal.index >= inspectModal.list.length - 1 ? 'not-allowed' : 'pointer',
-                        padding: '4px 6px',
+                        padding: '3px 5px',
                         display: 'flex',
                         alignItems: 'center',
-                        borderRadius: '6px',
-                        transition: 'background-color 0.2s ease',
+                        borderRadius: '4px',
                         opacity: inspectModal.index >= inspectModal.list.length - 1 ? 0.35 : 1
-                      }}
-                      onMouseEnter={(e) => {
-                        if (inspectModal.index < inspectModal.list.length - 1) e.currentTarget.style.backgroundColor = 'var(--glass-border)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     >
                       <FiChevronRight size={18} />
@@ -1739,11 +1782,34 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                   </div>
                 )}
 
+                {/* Toggle Details Sidebar Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowDetailsSidebar(prev => !prev)}
+                  title={showDetailsSidebar ? "Hide Details Sidebar" : "Show Details Sidebar"}
+                  style={{
+                    backgroundColor: showDetailsSidebar ? 'rgba(37, 99, 235, 0.15)' : 'var(--bg-tertiary)',
+                    color: showDetailsSidebar ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                    border: showDetailsSidebar ? '1px solid rgba(37, 99, 235, 0.35)' : '1px solid var(--glass-border)',
+                    padding: '5px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <FiInfo size={14} />
+                  <span>{showDetailsSidebar ? 'Hide Details' : 'Details'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setInspectModal({ open: false, data: null, list: [], index: 0 })}
                   title="Close Inspector (Esc)"
-                  style={{ background: 'none', border: 'none', fontSize: '1.4rem', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                  style={{ background: 'none', border: 'none', fontSize: '1.3rem', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
                 >
                   <FiX />
                 </button>
@@ -1751,10 +1817,22 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
             </div>
 
             {/* Modal Main Body */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', flex: 1, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
 
               {/* Left Image View Area with Floating Arrow Navigation */}
-              <div style={{ position: 'relative', flex: '1 1 700px', backgroundColor: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflow: 'hidden', minHeight: '440px', userSelect: 'none' }}>
+              <div style={{
+                position: 'relative',
+                flex: 1,
+                minWidth: 0,
+                height: '100%',
+                backgroundColor: '#020617',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '12px',
+                overflow: 'hidden',
+                userSelect: 'none'
+              }}>
 
                 {/* Floating PREVIOUS Arrow Button */}
                 {inspectModal.list && inspectModal.list.length > 1 && (
@@ -1765,22 +1843,22 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                     title="Previous Screenshot (Left Arrow ←)"
                     style={{
                       position: 'absolute',
-                      left: '20px',
+                      left: '14px',
                       top: '50%',
                       transform: 'translateY(-50%)',
                       zIndex: 30,
-                      backgroundColor: inspectModal.index <= 0 ? 'rgba(15, 23, 42, 0.4)' : 'rgba(15, 23, 42, 0.85)',
+                      backgroundColor: inspectModal.index <= 0 ? 'rgba(15, 23, 42, 0.35)' : 'rgba(15, 23, 42, 0.85)',
                       backdropFilter: 'blur(8px)',
                       border: inspectModal.index <= 0 ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.3)',
                       color: '#ffffff',
-                      width: '52px',
-                      height: '52px',
+                      width: '46px',
+                      height: '46px',
                       borderRadius: '50%',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: inspectModal.index <= 0 ? 'not-allowed' : 'pointer',
-                      opacity: inspectModal.index <= 0 ? 0.3 : 0.95,
+                      opacity: inspectModal.index <= 0 ? 0.25 : 0.95,
                       transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                       boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
                     }}
@@ -1789,27 +1867,34 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                         e.currentTarget.style.backgroundColor = '#2563eb';
                         e.currentTarget.style.borderColor = '#60a5fa';
                         e.currentTarget.style.transform = 'translateY(-50%) scale(1.12)';
-                        e.currentTarget.style.boxShadow = '0 10px 28px rgba(37,99,235,0.6)';
                       }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = inspectModal.index <= 0 ? 'rgba(15, 23, 42, 0.4)' : 'rgba(15, 23, 42, 0.85)';
+                      e.currentTarget.style.backgroundColor = inspectModal.index <= 0 ? 'rgba(15, 23, 42, 0.35)' : 'rgba(15, 23, 42, 0.85)';
                       e.currentTarget.style.borderColor = inspectModal.index <= 0 ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.3)';
                       e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                      e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.6)';
                     }}
                   >
-                    <FiChevronLeft size={30} style={{ marginRight: '2px' }} />
+                    <FiChevronLeft size={28} />
                   </button>
                 )}
 
-                {/* Screenshot Image */}
+                {/* Screenshot Image - Dynamically scales to 100% of available viewport space! */}
                 <img
                   key={inspectModal.data.id || inspectModal.data.imageUrl}
                   src={inspectModal.data.imageUrl}
                   alt={`Screenshot ${inspectModal.data.employeeName}`}
                   onError={(e) => handleImageError(e, inspectModal.data.imageUrl)}
-                  style={{ maxWidth: '100%', maxHeight: '74vh', objectFit: 'contain', borderRadius: '10px', boxShadow: '0 12px 36px rgba(0,0,0,0.7)', transition: 'opacity 0.2s ease' }}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    width: 'auto',
+                    height: 'auto',
+                    objectFit: 'contain',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
+                    transition: 'opacity 0.2s ease'
+                  }}
                 />
 
                 {/* Floating NEXT Arrow Button */}
@@ -1821,22 +1906,22 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                     title="Next Screenshot (Right Arrow →)"
                     style={{
                       position: 'absolute',
-                      right: '20px',
+                      right: '14px',
                       top: '50%',
                       transform: 'translateY(-50%)',
                       zIndex: 30,
-                      backgroundColor: inspectModal.index >= inspectModal.list.length - 1 ? 'rgba(15, 23, 42, 0.4)' : 'rgba(15, 23, 42, 0.85)',
+                      backgroundColor: inspectModal.index >= inspectModal.list.length - 1 ? 'rgba(15, 23, 42, 0.35)' : 'rgba(15, 23, 42, 0.85)',
                       backdropFilter: 'blur(8px)',
                       border: inspectModal.index >= inspectModal.list.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.3)',
                       color: '#ffffff',
-                      width: '52px',
-                      height: '52px',
+                      width: '46px',
+                      height: '46px',
                       borderRadius: '50%',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: inspectModal.index >= inspectModal.list.length - 1 ? 'not-allowed' : 'pointer',
-                      opacity: inspectModal.index >= inspectModal.list.length - 1 ? 0.3 : 0.95,
+                      opacity: inspectModal.index >= inspectModal.list.length - 1 ? 0.25 : 0.95,
                       transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                       boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
                     }}
@@ -1845,17 +1930,15 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                         e.currentTarget.style.backgroundColor = '#2563eb';
                         e.currentTarget.style.borderColor = '#60a5fa';
                         e.currentTarget.style.transform = 'translateY(-50%) scale(1.12)';
-                        e.currentTarget.style.boxShadow = '0 10px 28px rgba(37,99,235,0.6)';
                       }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = inspectModal.index >= inspectModal.list.length - 1 ? 'rgba(15, 23, 42, 0.4)' : 'rgba(15, 23, 42, 0.85)';
+                      e.currentTarget.style.backgroundColor = inspectModal.index >= inspectModal.list.length - 1 ? 'rgba(15, 23, 42, 0.35)' : 'rgba(15, 23, 42, 0.85)';
                       e.currentTarget.style.borderColor = inspectModal.index >= inspectModal.list.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.3)';
                       e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                      e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.6)';
                     }}
                   >
-                    <FiChevronRight size={30} style={{ marginLeft: '2px' }} />
+                    <FiChevronRight size={28} />
                   </button>
                 )}
 
@@ -1864,130 +1947,158 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                   <div
                     style={{
                       position: 'absolute',
-                      bottom: '14px',
+                      bottom: '10px',
                       left: '50%',
                       transform: 'translateX(-50%)',
                       zIndex: 25,
-                      backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                      backgroundColor: 'rgba(15, 23, 42, 0.85)',
                       backdropFilter: 'blur(8px)',
                       border: '1px solid rgba(255, 255, 255, 0.15)',
                       color: '#cbd5e1',
-                      padding: '5px 14px',
-                      borderRadius: '20px',
-                      fontSize: '0.75rem',
+                      padding: '4px 12px',
+                      borderRadius: '16px',
+                      fontSize: '0.72rem',
                       fontWeight: '600',
                       pointerEvents: 'none',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px'
+                      gap: '8px',
+                      whiteSpace: 'nowrap'
                     }}
                   >
-                    <span>Screenshot {inspectModal.index + 1} of {inspectModal.list.length}</span>
+                    <span>{inspectModal.index + 1} / {inspectModal.list.length}</span>
                     <span style={{ color: 'rgba(255,255,255,0.4)' }}>•</span>
-                    <span>Navigate with arrow keys <strong style={{ color: '#60a5fa' }}>← / →</strong></span>
+                    <span>Use <strong style={{ color: '#60a5fa' }}>← / →</strong> keys</span>
                   </div>
                 )}
 
               </div>
 
               {/* Right Details Sidebar */}
-              <div style={{ flex: '1 1 300px', padding: '24px', backgroundColor: 'var(--bg-secondary)', borderLeft: '1px solid var(--glass-border)', overflowY: 'auto' }}>
-                <h4 style={{ margin: '0 0 16px 0', fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Employee Metadata
-                </h4>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '0.85rem' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: '600' }}>EMPLOYEE NAME & ID</span>
-                    <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{inspectModal.data.employeeName}</strong>
-                    <span style={{ marginLeft: '8px', backgroundColor: 'rgba(2, 132, 199, 0.15)', color: 'var(--accent-cyan)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '700', border: '1px solid var(--glass-border)' }}>
-                      {inspectModal.data.employeeId}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: '600' }}>DEPARTMENT</span>
-                    <strong style={{ color: 'var(--text-primary)' }}>{inspectModal.data.department || 'General'}</strong>
-                  </div>
-
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: '600' }}>TIMESTAMP</span>
-                    <strong style={{ color: 'var(--text-primary)' }}>{new Date(inspectModal.data.capturedAt).toLocaleString()}</strong>
-                  </div>
-
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: '600' }}>SYSTEM TAG & IP</span>
-                    <strong style={{ color: 'var(--accent-blue)' }}>{inspectModal.data.systemNumber || 'WEB-CLIENT'} ({inspectModal.data.ipAddress || '127.0.0.1'})</strong>
-                  </div>
-
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: '600' }}>CAPTURE MODE</span>
-                    <span style={{ display: 'inline-block', backgroundColor: inspectModal.data.captureType === 'FULL_DESKTOP' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(37, 99, 235, 0.15)', color: inspectModal.data.captureType === 'FULL_DESKTOP' ? 'var(--status-resolved)' : 'var(--accent-blue)', padding: '4px 10px', borderRadius: '6px', fontWeight: '800', marginTop: '4px', border: '1px solid ' + (inspectModal.data.captureType === 'FULL_DESKTOP' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(37, 99, 235, 0.2)') }}>
-                      {inspectModal.data.captureType === 'FULL_DESKTOP' ? '💻 Full OS Desktop System Capture' : '🌐 Web Tab Capture'}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: '600' }}>ACTIVITY SCORE</span>
-                    <span style={{ display: 'inline-block', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--status-resolved)', padding: '4px 10px', borderRadius: '6px', fontWeight: '800', marginTop: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                      {inspectModal.data.activityScore || 100}% Active
-                    </span>
-                  </div>
-                </div>
-
-                {/* Quick Next/Prev Navigation Buttons in Sidebar */}
-                {inspectModal.list && inspectModal.list.length > 1 && (
-                  <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--glass-border)' }}>
-                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px' }}>
-                      Navigate Captures ({inspectModal.index + 1} / {inspectModal.list.length})
-                    </span>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={handlePrevScreenshot}
-                        disabled={inspectModal.index <= 0}
-                        className="btn-secondary"
-                        style={{ flex: 1, padding: '8px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', opacity: inspectModal.index <= 0 ? 0.4 : 1, cursor: inspectModal.index <= 0 ? 'not-allowed' : 'pointer' }}
-                      >
-                        <FiChevronLeft size={16} /> Previous
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleNextScreenshot}
-                        disabled={inspectModal.index >= inspectModal.list.length - 1}
-                        className="btn-secondary"
-                        style={{ flex: 1, padding: '8px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', opacity: inspectModal.index >= inspectModal.list.length - 1 ? 0.4 : 1, cursor: inspectModal.index >= inspectModal.list.length - 1 ? 'not-allowed' : 'pointer' }}
-                      >
-                        Next <FiChevronRight size={16} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <a
-                    href={inspectModal.data.imageUrl}
-                    download={`screenshot_${inspectModal.data.employeeId}.jpg`}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ textDecoration: 'none', backgroundColor: 'var(--accent-blue)', color: '#ffffff', textAlign: 'center', padding: '10px', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                  >
-                    <FiDownload /> Download High-Res Image
-                  </a>
-
-                  {canDeleteScreenshots && (
+              {showDetailsSidebar && (
+                <div
+                  className="screenshot-inspect-sidebar"
+                  style={{
+                    width: '320px',
+                    maxWidth: '85vw',
+                    flexShrink: 0,
+                    height: '100%',
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderLeft: '1px solid var(--glass-border)',
+                    overflowY: 'auto',
+                    padding: '16px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                    <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Employee Metadata
+                    </h4>
                     <button
                       type="button"
-                      onClick={() => handleDelete(inspectModal.data.id)}
-                      style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-critical)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                      onClick={() => setShowDetailsSidebar(false)}
+                      title="Hide Sidebar"
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', fontSize: '1rem', display: 'flex', alignItems: 'center' }}
                     >
-                      <FiTrash2 /> Delete Record Permanently
+                      <FiX />
                     </button>
-                  )}
-                </div>
+                  </div>
 
-              </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.82rem', flex: 1 }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: '600' }}>EMPLOYEE NAME & ID</span>
+                      <strong style={{ color: 'var(--text-primary)', fontSize: '0.92rem' }}>{inspectModal.data.employeeName}</strong>
+                      <span style={{ marginLeft: '6px', backgroundColor: 'rgba(2, 132, 199, 0.15)', color: 'var(--accent-cyan)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: '700', border: '1px solid var(--glass-border)' }}>
+                        {inspectModal.data.employeeId}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: '600' }}>DEPARTMENT</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>{inspectModal.data.department || 'General'}</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: '600' }}>TIMESTAMP</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>{new Date(inspectModal.data.capturedAt).toLocaleString()}</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: '600' }}>SYSTEM TAG & IP</span>
+                      <strong style={{ color: 'var(--accent-blue)' }}>{inspectModal.data.systemNumber || 'WEB-CLIENT'} ({inspectModal.data.ipAddress || '127.0.0.1'})</strong>
+                    </div>
+
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: '600' }}>CAPTURE MODE</span>
+                      <span style={{ display: 'inline-block', backgroundColor: inspectModal.data.captureType === 'FULL_DESKTOP' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(37, 99, 235, 0.15)', color: inspectModal.data.captureType === 'FULL_DESKTOP' ? 'var(--status-resolved)' : 'var(--accent-blue)', padding: '3px 8px', borderRadius: '6px', fontWeight: '700', fontSize: '0.75rem', marginTop: '3px', border: '1px solid ' + (inspectModal.data.captureType === 'FULL_DESKTOP' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(37, 99, 235, 0.2)') }}>
+                        {inspectModal.data.captureType === 'FULL_DESKTOP' ? '💻 Full OS Desktop Capture' : '🌐 Web Tab Capture'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: '600' }}>ACTIVITY SCORE</span>
+                      <span style={{ display: 'inline-block', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--status-resolved)', padding: '3px 8px', borderRadius: '6px', fontWeight: '800', fontSize: '0.78rem', marginTop: '3px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                        {inspectModal.data.activityScore || 100}% Active
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick Next/Prev Navigation Buttons in Sidebar */}
+                  {inspectModal.list && inspectModal.list.length > 1 && (
+                    <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--glass-border)' }}>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '6px' }}>
+                        Navigate ({inspectModal.index + 1} / {inspectModal.list.length})
+                      </span>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={handlePrevScreenshot}
+                          disabled={inspectModal.index <= 0}
+                          className="btn-secondary"
+                          style={{ flex: 1, padding: '7px 8px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', opacity: inspectModal.index <= 0 ? 0.35 : 1, cursor: inspectModal.index <= 0 ? 'not-allowed' : 'pointer' }}
+                        >
+                          <FiChevronLeft size={15} /> Prev
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleNextScreenshot}
+                          disabled={inspectModal.index >= inspectModal.list.length - 1}
+                          className="btn-secondary"
+                          style={{ flex: 1, padding: '7px 8px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', opacity: inspectModal.index >= inspectModal.list.length - 1 ? 0.35 : 1, cursor: inspectModal.index >= inspectModal.list.length - 1 ? 'not-allowed' : 'pointer' }}
+                        >
+                          Next <FiChevronRight size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <a
+                      href={inspectModal.data.imageUrl}
+                      download={`screenshot_${inspectModal.data.employeeId}.jpg`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ textDecoration: 'none', backgroundColor: 'var(--accent-blue)', color: '#ffffff', textAlign: 'center', padding: '9px', borderRadius: '8px', fontWeight: '700', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    >
+                      <FiDownload size={14} /> Download Image
+                    </a>
+
+                    {canDeleteScreenshots && (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(inspectModal.data.id)}
+                        style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-critical)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '9px', borderRadius: '8px', fontWeight: '700', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                      >
+                        <FiTrash2 size={14} /> Delete Record
+                      </button>
+                    )}
+                  </div>
+
+                </div>
+              )}
 
             </div>
 
