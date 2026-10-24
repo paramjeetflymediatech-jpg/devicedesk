@@ -60,7 +60,31 @@ export default function ManageScreenshots({ user, onBack, tlId = null }) {
 
   // Inspector Modal
   const [inspectItem, setInspectItem] = useState(null);
+  const [inspectList, setInspectList] = useState([]);
+  const [inspectIndex, setInspectIndex] = useState(0);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+
+  const handleOpenInspect = (item, list = []) => {
+    const targetList = Array.isArray(list) && list.length > 0 ? list : filteredScreenshots;
+    const idx = targetList.findIndex(s => s.id === item.id);
+    setInspectItem(item);
+    setInspectList(targetList);
+    setInspectIndex(idx >= 0 ? idx : 0);
+  };
+
+  const handleInspectPrev = () => {
+    if (!inspectList || inspectList.length === 0 || inspectIndex <= 0) return;
+    const newIdx = inspectIndex - 1;
+    setInspectIndex(newIdx);
+    setInspectItem(inspectList[newIdx]);
+  };
+
+  const handleInspectNext = () => {
+    if (!inspectList || inspectList.length === 0 || inspectIndex >= inspectList.length - 1) return;
+    const newIdx = inspectIndex + 1;
+    setInspectIndex(newIdx);
+    setInspectItem(inspectList[newIdx]);
+  };
 
   // Load Employees
   useEffect(() => {
@@ -185,8 +209,20 @@ export default function ManageScreenshots({ user, onBack, tlId = null }) {
           const res = await deleteScreenshotApi(item.id);
           if (res.success) {
             sweetAlert({ title: 'Deleted', text: 'Screenshot removed successfully.', type: 'success' });
-            setInspectItem(null);
             setScreenshots(prev => prev.filter(s => s.id !== item.id));
+            if (inspectItem?.id === item.id) {
+              const updated = inspectList.filter(s => s.id !== item.id);
+              if (updated.length === 0) {
+                setInspectItem(null);
+                setInspectList([]);
+                setInspectIndex(0);
+              } else {
+                const nextIdx = Math.min(inspectIndex, updated.length - 1);
+                setInspectList(updated);
+                setInspectIndex(nextIdx);
+                setInspectItem(updated[nextIdx]);
+              }
+            }
           } else {
             throw new Error(res.error || 'Failed to delete');
           }
@@ -398,7 +434,7 @@ export default function ManageScreenshots({ user, onBack, tlId = null }) {
                             <TouchableOpacity
                               key={item.id || idx}
                               style={styles.thumbCard}
-                              onPress={() => setInspectItem(item)}
+                              onPress={() => handleOpenInspect(item, group.items)}
                               activeOpacity={0.8}
                             >
                               <Image
@@ -437,7 +473,7 @@ export default function ManageScreenshots({ user, onBack, tlId = null }) {
                   <TouchableOpacity
                     key={item.id || idx}
                     style={styles.feedCard}
-                    onPress={() => setInspectItem(item)}
+                    onPress={() => handleOpenInspect(item, filteredScreenshots)}
                     activeOpacity={0.8}
                   >
                     <Image
@@ -469,7 +505,11 @@ export default function ManageScreenshots({ user, onBack, tlId = null }) {
         visible={!!inspectItem}
         transparent
         animationType="fade"
-        onRequestClose={() => setInspectItem(null)}
+        onRequestClose={() => {
+          setInspectItem(null);
+          setInspectList([]);
+          setInspectIndex(0);
+        }}
       >
         <View style={styles.inspectOverlay}>
           <View style={styles.inspectHeader}>
@@ -480,19 +520,67 @@ export default function ManageScreenshots({ user, onBack, tlId = null }) {
               </Text>
             </View>
 
-            <TouchableOpacity style={styles.inspectCloseBtn} onPress={() => setInspectItem(null)}>
+            {inspectList.length > 1 && (
+              <View style={styles.inspectNavBadge}>
+                <Text style={styles.inspectNavText}>
+                  {inspectIndex + 1} / {inspectList.length}
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.inspectCloseBtn}
+              onPress={() => {
+                setInspectItem(null);
+                setInspectList([]);
+                setInspectIndex(0);
+              }}
+            >
               <AppIcon name="x" size={20} color="#ffffff" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.inspectImageContainer}>
+            {/* Previous Arrow Button */}
+            {inspectList.length > 1 && (
+              <TouchableOpacity
+                style={[
+                  styles.inspectNavArrowBtn,
+                  styles.inspectNavArrowLeft,
+                  inspectIndex <= 0 && styles.inspectNavArrowDisabled
+                ]}
+                onPress={handleInspectPrev}
+                disabled={inspectIndex <= 0}
+                activeOpacity={0.7}
+              >
+                <AppIcon name="chevron-left" size={26} color="#ffffff" />
+              </TouchableOpacity>
+            )}
+
             {inspectItem?.imageUrl ? (
               <Image
+                key={inspectItem.id || inspectItem.imageUrl}
                 source={{ uri: resolveScreenshotImageUrl(inspectItem.imageUrl) }}
                 style={styles.inspectImageFull}
                 resizeMode="contain"
               />
             ) : null}
+
+            {/* Next Arrow Button */}
+            {inspectList.length > 1 && (
+              <TouchableOpacity
+                style={[
+                  styles.inspectNavArrowBtn,
+                  styles.inspectNavArrowRight,
+                  inspectIndex >= inspectList.length - 1 && styles.inspectNavArrowDisabled
+                ]}
+                onPress={handleInspectNext}
+                disabled={inspectIndex >= inspectList.length - 1}
+                activeOpacity={0.7}
+              >
+                <AppIcon name="chevron-right" size={26} color="#ffffff" />
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.inspectFooter}>
@@ -907,11 +995,54 @@ const getStyles = (colors, isDark) =>
       borderRadius: 20,
       backgroundColor: 'rgba(255,255,255,0.2)',
     },
+    inspectNavBadge: {
+      backgroundColor: 'rgba(37, 99, 235, 0.45)',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: 'rgba(96, 165, 250, 0.5)',
+      marginRight: 10,
+    },
+    inspectNavText: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '700',
+    },
     inspectImageContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
       padding: 10,
+      position: 'relative',
+    },
+    inspectNavArrowBtn: {
+      position: 'absolute',
+      top: '50%',
+      marginTop: -24,
+      zIndex: 20,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: 'rgba(15, 23, 42, 0.85)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.3)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+    inspectNavArrowLeft: {
+      left: 12,
+    },
+    inspectNavArrowRight: {
+      right: 12,
+    },
+    inspectNavArrowDisabled: {
+      opacity: 0.25,
     },
     inspectImageFull: {
       width: '100%',

@@ -5,7 +5,8 @@ import {
   FiSearch, FiFilter, FiCalendar, FiUser, FiTv, FiTrash2,
   FiDownload, FiEye, FiClock, FiGrid, FiList, FiRefreshCw,
   FiShield, FiCheckCircle, FiActivity, FiLayers, FiX, FiZoomIn,
-  FiChevronDown, FiChevronUp, FiUsers, FiSettings
+  FiChevronDown, FiChevronUp, FiUsers, FiSettings,
+  FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import { FaWindows, FaUbuntu, FaApple } from 'react-icons/fa';
 import ManageTeamScreenshotsModal from './modals/ManageTeamScreenshotsModal.js';
@@ -87,8 +88,71 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
   const [feedPageSize, setFeedPageSize] = useState(10);
 
   // Modal Inspector & Guide State
-  const [inspectModal, setInspectModal] = useState({ open: false, data: null });
+  const [inspectModal, setInspectModal] = useState({ open: false, data: null, list: [], index: 0 });
   const [showGuideModal, setShowGuideModal] = useState(false);
+
+  // Open screenshot inspector with list context for Next / Previous navigation
+  const handleOpenInspector = (item, list = []) => {
+    const targetList = Array.isArray(list) && list.length > 0 ? list : (screenshots || []);
+    const idx = targetList.findIndex(s => s.id === item.id);
+    setInspectModal({
+      open: true,
+      data: item,
+      list: targetList,
+      index: idx >= 0 ? idx : 0
+    });
+  };
+
+  const handlePrevScreenshot = () => {
+    setInspectModal(prev => {
+      if (!prev.open || !prev.list || prev.list.length === 0) return prev;
+      const currentIndex = prev.index !== undefined ? prev.index : prev.list.findIndex(s => s.id === prev.data?.id);
+      if (currentIndex <= 0) return prev;
+      const newIndex = currentIndex - 1;
+      return {
+        ...prev,
+        data: prev.list[newIndex],
+        index: newIndex
+      };
+    });
+  };
+
+  const handleNextScreenshot = () => {
+    setInspectModal(prev => {
+      if (!prev.open || !prev.list || prev.list.length === 0) return prev;
+      const currentIndex = prev.index !== undefined ? prev.index : prev.list.findIndex(s => s.id === prev.data?.id);
+      if (currentIndex >= prev.list.length - 1) return prev;
+      const newIndex = currentIndex + 1;
+      return {
+        ...prev,
+        data: prev.list[newIndex],
+        index: newIndex
+      };
+    });
+  };
+
+  // Keyboard navigation for Screenshot Inspector (←: Previous, →: Next, Esc: Close)
+  useEffect(() => {
+    if (!inspectModal.open) return;
+
+    const handleKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrevScreenshot();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNextScreenshot();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setInspectModal({ open: false, data: null, list: [], index: 0 });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [inspectModal.open]);
 
   // Determine user roles
   const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
@@ -402,7 +466,18 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
       if (data.success) {
         setScreenshots(prev => prev.filter(item => item.id !== id));
         if (inspectModal.data?.id === id) {
-          setInspectModal({ open: false, data: null });
+          const updatedList = (inspectModal.list || []).filter(item => item.id !== id);
+          if (updatedList.length === 0) {
+            setInspectModal({ open: false, data: null, list: [], index: 0 });
+          } else {
+            const nextIdx = Math.min(inspectModal.index, updatedList.length - 1);
+            setInspectModal({
+              open: true,
+              data: updatedList[nextIdx],
+              list: updatedList,
+              index: nextIdx
+            });
+          }
         }
         Swal.fire({
           icon: 'success',
@@ -534,7 +609,7 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
       if (data.success) {
         setScreenshots([]);
         setStats(prev => ({ ...prev, todayCaptures: 0, todayMonitoredEmployees: 0 }));
-        if (inspectModal.open) setInspectModal({ open: false, data: null });
+        if (inspectModal.open) setInspectModal({ open: false, data: null, list: [], index: 0 });
         Swal.fire({
           icon: 'success',
           title: 'All Screenshots Purged!',
@@ -1359,7 +1434,7 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                                 key={item.id}
                                 item={item}
                                 canDelete={canDeleteScreenshots}
-                                onInspect={() => setInspectModal({ open: true, data: item })}
+                                onInspect={() => handleOpenInspector(item, group.captures)}
                                 onDelete={(id, e) => handleDelete(id, e)}
                               />
                             ))}
@@ -1481,7 +1556,7 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                     item={item}
                     showEmployeeHeader
                     canDelete={canDeleteScreenshots}
-                    onInspect={() => setInspectModal({ open: true, data: item })}
+                    onInspect={() => handleOpenInspector(item, screenshots)}
                     onDelete={(id, e) => handleDelete(id, e)}
                   />
                 ))}
@@ -1579,13 +1654,18 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
 
       )}
 
-      {/* 5. Full Screen High-Res Modal Inspector */}
+      {/* 5. Full Screen High-Res Modal Inspector with Arrow Navigation */}
       {inspectModal.open && inspectModal.data && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="modal-content" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--glass-border)', borderRadius: '16px', width: '100%', maxWidth: '1200px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setInspectModal({ open: false, data: null, list: [], index: 0 });
+          }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+        >
+          <div className="modal-content" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--glass-border)', borderRadius: '16px', width: '100%', maxWidth: '1250px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)' }}>
 
             {/* Modal Top Header */}
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
+            <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', gap: '16px', flexWrap: 'wrap' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>📷</span> Screenshot Inspector: {inspectModal.data.employeeName}
@@ -1595,25 +1675,220 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                 </span>
               </div>
 
-              <button
-                onClick={() => setInspectModal({ open: false, data: null })}
-                style={{ background: 'none', border: 'none', fontSize: '1.4rem', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}
-              >
-                <FiX />
-              </button>
+              {/* Navigation Toolbar & Close */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {inspectModal.list && inspectModal.list.length > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-tertiary)', padding: '4px 10px', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                    <button
+                      type="button"
+                      onClick={handlePrevScreenshot}
+                      disabled={inspectModal.index <= 0}
+                      title="Previous Screenshot (Left Arrow ←)"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: inspectModal.index <= 0 ? 'var(--text-muted)' : 'var(--text-primary)',
+                        cursor: inspectModal.index <= 0 ? 'not-allowed' : 'pointer',
+                        padding: '4px 6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        borderRadius: '6px',
+                        transition: 'background-color 0.2s ease',
+                        opacity: inspectModal.index <= 0 ? 0.35 : 1
+                      }}
+                      onMouseEnter={(e) => {
+                        if (inspectModal.index > 0) e.currentTarget.style.backgroundColor = 'var(--glass-border)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <FiChevronLeft size={18} />
+                    </button>
+
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--accent-blue)', minWidth: '75px', textAlign: 'center', userSelect: 'none' }}>
+                      {inspectModal.index + 1} / {inspectModal.list.length}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={handleNextScreenshot}
+                      disabled={inspectModal.index >= inspectModal.list.length - 1}
+                      title="Next Screenshot (Right Arrow →)"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: inspectModal.index >= inspectModal.list.length - 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                        cursor: inspectModal.index >= inspectModal.list.length - 1 ? 'not-allowed' : 'pointer',
+                        padding: '4px 6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        borderRadius: '6px',
+                        transition: 'background-color 0.2s ease',
+                        opacity: inspectModal.index >= inspectModal.list.length - 1 ? 0.35 : 1
+                      }}
+                      onMouseEnter={(e) => {
+                        if (inspectModal.index < inspectModal.list.length - 1) e.currentTarget.style.backgroundColor = 'var(--glass-border)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <FiChevronRight size={18} />
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setInspectModal({ open: false, data: null, list: [], index: 0 })}
+                  title="Close Inspector (Esc)"
+                  style={{ background: 'none', border: 'none', fontSize: '1.4rem', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                >
+                  <FiX />
+                </button>
+              </div>
             </div>
 
             {/* Modal Main Body */}
             <div style={{ display: 'flex', flexWrap: 'wrap', flex: 1, overflow: 'hidden' }}>
 
-              {/* Left Image View Area */}
-              <div style={{ flex: '1 1 700px', backgroundColor: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflow: 'auto', minHeight: '400px' }}>
+              {/* Left Image View Area with Floating Arrow Navigation */}
+              <div style={{ position: 'relative', flex: '1 1 700px', backgroundColor: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', overflow: 'hidden', minHeight: '440px', userSelect: 'none' }}>
+
+                {/* Floating PREVIOUS Arrow Button */}
+                {inspectModal.list && inspectModal.list.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={handlePrevScreenshot}
+                    disabled={inspectModal.index <= 0}
+                    title="Previous Screenshot (Left Arrow ←)"
+                    style={{
+                      position: 'absolute',
+                      left: '20px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      zIndex: 30,
+                      backgroundColor: inspectModal.index <= 0 ? 'rgba(15, 23, 42, 0.4)' : 'rgba(15, 23, 42, 0.85)',
+                      backdropFilter: 'blur(8px)',
+                      border: inspectModal.index <= 0 ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.3)',
+                      color: '#ffffff',
+                      width: '52px',
+                      height: '52px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: inspectModal.index <= 0 ? 'not-allowed' : 'pointer',
+                      opacity: inspectModal.index <= 0 ? 0.3 : 0.95,
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (inspectModal.index > 0) {
+                        e.currentTarget.style.backgroundColor = '#2563eb';
+                        e.currentTarget.style.borderColor = '#60a5fa';
+                        e.currentTarget.style.transform = 'translateY(-50%) scale(1.12)';
+                        e.currentTarget.style.boxShadow = '0 10px 28px rgba(37,99,235,0.6)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = inspectModal.index <= 0 ? 'rgba(15, 23, 42, 0.4)' : 'rgba(15, 23, 42, 0.85)';
+                      e.currentTarget.style.borderColor = inspectModal.index <= 0 ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.3)';
+                      e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                      e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.6)';
+                    }}
+                  >
+                    <FiChevronLeft size={30} style={{ marginRight: '2px' }} />
+                  </button>
+                )}
+
+                {/* Screenshot Image */}
                 <img
+                  key={inspectModal.data.id || inspectModal.data.imageUrl}
                   src={inspectModal.data.imageUrl}
-                  alt="Full Screen Capture"
+                  alt={`Screenshot ${inspectModal.data.employeeName}`}
                   onError={(e) => handleImageError(e, inspectModal.data.imageUrl)}
-                  style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                  style={{ maxWidth: '100%', maxHeight: '74vh', objectFit: 'contain', borderRadius: '10px', boxShadow: '0 12px 36px rgba(0,0,0,0.7)', transition: 'opacity 0.2s ease' }}
                 />
+
+                {/* Floating NEXT Arrow Button */}
+                {inspectModal.list && inspectModal.list.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleNextScreenshot}
+                    disabled={inspectModal.index >= inspectModal.list.length - 1}
+                    title="Next Screenshot (Right Arrow →)"
+                    style={{
+                      position: 'absolute',
+                      right: '20px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      zIndex: 30,
+                      backgroundColor: inspectModal.index >= inspectModal.list.length - 1 ? 'rgba(15, 23, 42, 0.4)' : 'rgba(15, 23, 42, 0.85)',
+                      backdropFilter: 'blur(8px)',
+                      border: inspectModal.index >= inspectModal.list.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.3)',
+                      color: '#ffffff',
+                      width: '52px',
+                      height: '52px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: inspectModal.index >= inspectModal.list.length - 1 ? 'not-allowed' : 'pointer',
+                      opacity: inspectModal.index >= inspectModal.list.length - 1 ? 0.3 : 0.95,
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (inspectModal.index < inspectModal.list.length - 1) {
+                        e.currentTarget.style.backgroundColor = '#2563eb';
+                        e.currentTarget.style.borderColor = '#60a5fa';
+                        e.currentTarget.style.transform = 'translateY(-50%) scale(1.12)';
+                        e.currentTarget.style.boxShadow = '0 10px 28px rgba(37,99,235,0.6)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = inspectModal.index >= inspectModal.list.length - 1 ? 'rgba(15, 23, 42, 0.4)' : 'rgba(15, 23, 42, 0.85)';
+                      e.currentTarget.style.borderColor = inspectModal.index >= inspectModal.list.length - 1 ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(255, 255, 255, 0.3)';
+                      e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                      e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.6)';
+                    }}
+                  >
+                    <FiChevronRight size={30} style={{ marginLeft: '2px' }} />
+                  </button>
+                )}
+
+                {/* Bottom Overlay Hint Pill */}
+                {inspectModal.list && inspectModal.list.length > 1 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '14px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      zIndex: 25,
+                      backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: '#cbd5e1',
+                      padding: '5px 14px',
+                      borderRadius: '20px',
+                      fontSize: '0.75rem',
+                      fontWeight: '600',
+                      pointerEvents: 'none',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span>Screenshot {inspectModal.index + 1} of {inspectModal.list.length}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.4)' }}>•</span>
+                    <span>Navigate with arrow keys <strong style={{ color: '#60a5fa' }}>← / →</strong></span>
+                  </div>
+                )}
+
               </div>
 
               {/* Right Details Sidebar */}
@@ -1661,7 +1936,36 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
                   </div>
                 </div>
 
-                <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* Quick Next/Prev Navigation Buttons in Sidebar */}
+                {inspectModal.list && inspectModal.list.length > 1 && (
+                  <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--glass-border)' }}>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px' }}>
+                      Navigate Captures ({inspectModal.index + 1} / {inspectModal.list.length})
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={handlePrevScreenshot}
+                        disabled={inspectModal.index <= 0}
+                        className="btn-secondary"
+                        style={{ flex: 1, padding: '8px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', opacity: inspectModal.index <= 0 ? 0.4 : 1, cursor: inspectModal.index <= 0 ? 'not-allowed' : 'pointer' }}
+                      >
+                        <FiChevronLeft size={16} /> Previous
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleNextScreenshot}
+                        disabled={inspectModal.index >= inspectModal.list.length - 1}
+                        className="btn-secondary"
+                        style={{ flex: 1, padding: '8px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', opacity: inspectModal.index >= inspectModal.list.length - 1 ? 0.4 : 1, cursor: inspectModal.index >= inspectModal.list.length - 1 ? 'not-allowed' : 'pointer' }}
+                      >
+                        Next <FiChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <a
                     href={inspectModal.data.imageUrl}
                     download={`screenshot_${inspectModal.data.employeeId}.jpg`}
@@ -1674,6 +1978,7 @@ export default function ScreenshotsTab({ user, isTL = false, tlId = null, initia
 
                   {canDeleteScreenshots && (
                     <button
+                      type="button"
                       onClick={() => handleDelete(inspectModal.data.id)}
                       style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-critical)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '8px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                     >
