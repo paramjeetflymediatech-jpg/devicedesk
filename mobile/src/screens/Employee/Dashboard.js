@@ -13,6 +13,8 @@ import {
   BackHandler,
   RefreshControl,
   ActivityIndicator,
+  Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../utils/ThemeContext';
@@ -28,7 +30,8 @@ import {
 } from '../../store/store';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { playTicketSound } from '../../utils/sound';
-import { applyLeaveRequest, fetchEmployeeLeaves, fetchMarketingAuthorizations } from '../../utils/api';
+import { applyLeaveRequest, fetchEmployeeLeaves, fetchMarketingAuthorizations, getApiUrl } from '../../utils/api';
+import { pickFilesOrPhotos, pickSingleDocument, pickSinglePhoto, takePhotoWithCamera, ensureFileExtension } from '../../utils/filePicker';
 import EmployeeTasks from './EmployeeTasks';
 import ChatScreen from '../ChatScreen';
 import AttendanceWidget from '../../components/AttendanceWidget';
@@ -37,6 +40,17 @@ import MarketingFieldScreen from '../Marketing/MarketingFieldScreen';
 import EODSubmission from './EODSubmission';
 import AppIcon from '../../components/AppIcon';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
+
+const DOCUMENT_CATEGORIES = [
+  'Resume / CV',
+  'Government ID Proof',
+  'Address Proof',
+  'Offer / Appointment Letter',
+  'Academic / Degree Certificate',
+  'Experience / Relieving Letter',
+  'Bank / Salary Slip Document',
+  'Other Document'
+];
 
 export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, onSwitchToAdmin }) {
   const { theme, isDark, toggleTheme, themeColors } = useTheme();
@@ -192,6 +206,7 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOverviewLocation();
   }, []);
 
@@ -222,6 +237,7 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
 
   useEffect(() => {
     if (activeTab === 'apply-leave' && user?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchLeaves();
     }
   }, [activeTab, user?.id]);
@@ -280,6 +296,145 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
+
+  // Document Upload states
+  const [uploadDocModalVisible, setUploadDocModalVisible] = useState(false);
+  const [docCategory, setDocCategory] = useState('Resume / CV');
+  const [docTitle, setDocTitle] = useState('');
+  const [pickedDocFile, setPickedDocFile] = useState(null);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+
+  const openUploadDocModal = (category = 'Resume / CV') => {
+    setDocCategory(category);
+    setDocTitle('');
+    setPickedDocFile(null);
+    setUploadDocModalVisible(true);
+  };
+
+  const handlePickDocumentFile = async () => {
+    try {
+      const file = await pickSingleDocument();
+      if (file) {
+        setPickedDocFile(file);
+        if (!docTitle.trim()) {
+          setDocTitle(file.name ? file.name.replace(/\.[^/.]+$/, '') : docCategory.split(' / ')[0]);
+        }
+      }
+    } catch (err) {
+      console.warn('Pick document error:', err);
+    }
+  };
+
+  const handlePickPhoto = async () => {
+    try {
+      const photo = await pickSinglePhoto();
+      if (photo) {
+        setPickedDocFile(photo);
+        if (!docTitle.trim()) {
+          setDocTitle(docCategory.split(' / ')[0]);
+        }
+      }
+    } catch (err) {
+      console.warn('Pick photo error:', err);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const photo = await takePhotoWithCamera();
+      if (photo) {
+        setPickedDocFile(photo);
+        if (!docTitle.trim()) {
+          setDocTitle(docCategory.split(' / ')[0]);
+        }
+      }
+    } catch (err) {
+      console.warn('Take photo error:', err);
+    }
+  };
+
+  const handleUploadDocumentSubmit = async () => {
+    if (!pickedDocFile) {
+      sweetAlert({ title: 'File Required', text: 'Please choose a document or photo to upload.', type: 'warning' });
+      return;
+    }
+
+    setIsUploadingDoc(true);
+    try {
+      const safeName = ensureFileExtension(pickedDocFile.name, pickedDocFile.type);
+      const formData = new FormData();
+      formData.append('file', {
+        uri: Platform.OS === 'android' ? pickedDocFile.uri : pickedDocFile.uri.replace('file://', ''),
+        type: pickedDocFile.type || 'application/octet-stream',
+        name: safeName
+      });
+      formData.append('type', docCategory);
+      formData.append('name', docTitle.trim() || docCategory.split(' / ')[0]);
+      formData.append('uploadedBy', user?.name || 'Employee');
+
+      const baseUrl = getApiUrl();
+      const res = await fetch(`${baseUrl}/api/employees/${user.id}/documents`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+          'x-user-id': String(user?.id || '')
+        }
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUploadDocModalVisible(false);
+        setPickedDocFile(null);
+        setDocTitle('');
+        await syncWithServer();
+        refreshData();
+        sweetAlert({ title: 'Success', text: 'Document uploaded successfully!', type: 'success' });
+      } else {
+        throw new Error(data.error || data.message || 'Failed to upload document');
+      }
+    } catch (err) {
+      sweetAlert({ title: 'Upload Failed', text: err.message, type: 'error' });
+    } finally {
+      setIsUploadingDoc(false);
+    }
+  };
+
+  const handleDeleteDocument = (docId, docName) => {
+    Alert.alert(
+      'Delete Document',
+      `Are you sure you want to delete "${docName || 'this document'}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const baseUrl = getApiUrl();
+              const res = await fetch(`${baseUrl}/api/employees/${user.id}/documents?docId=${docId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Accept': 'application/json',
+                  'x-user-id': String(user?.id || '')
+                }
+              });
+              const data = await res.json();
+              if (res.ok && data.success) {
+                await syncWithServer();
+                refreshData();
+                sweetAlert({ title: 'Deleted', text: 'Document removed successfully.', type: 'success' });
+              } else {
+                throw new Error(data.error || 'Failed to delete document');
+              }
+            } catch (err) {
+              sweetAlert({ title: 'Error', text: err.message, type: 'error' });
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const prevResolvedCountRef = useRef(null);
 
@@ -737,6 +892,166 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                   <Text style={[styles.profileInfoVal, { color: themeColors.textPrimary }]}>{totalRaised} tickets</Text>
                 </View>
               </View>
+            </View>
+
+            {/* My Documents & Records Section */}
+            <View style={{ marginTop: 8, marginBottom: 20 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <View style={{ flex: 1, marginRight: 10 }}>
+                  <Text style={[styles.subTitle, { color: themeColors.textPrimary, marginBottom: 2 }]}>
+                    📁 My Documents & Records
+                  </Text>
+                  <Text style={{ fontSize: 12, color: themeColors.textSecondary }}>
+                    Resume, ID proofs, academic & employment records
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    backgroundColor: themeColors.accent,
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    borderRadius: 10,
+                  }}
+                  onPress={() => openUploadDocModal('Resume / CV')}
+                >
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>+ Upload</Text>
+                </TouchableOpacity>
+              </View>
+
+              {(() => {
+                let docs = [];
+                if (empDetails.documents) {
+                  try {
+                    docs = typeof empDetails.documents === 'string' ? JSON.parse(empDetails.documents) : empDetails.documents;
+                  } catch (e) {
+                    docs = [];
+                  }
+                }
+
+                if (!Array.isArray(docs) || docs.length === 0) {
+                  return (
+                    <View style={[styles.noSystemCard, { backgroundColor: themeColors.cardBg, borderColor: themeColors.border, padding: 20, alignItems: 'center' }]}>
+                      <Text style={{ fontSize: 32, marginBottom: 8 }}>📄</Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: themeColors.textPrimary, marginBottom: 4 }}>
+                        No Documents Uploaded Yet
+                      </Text>
+                      <Text style={[styles.noSystemText, { color: themeColors.textSecondary, textAlign: 'center', marginBottom: 14 }]}>
+                        Keep your official files handy. Upload your Resume, Government ID, Offer Letter, or Certifications.
+                      </Text>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: themeColors.accent + '20',
+                          borderWidth: 1,
+                          borderColor: themeColors.accent,
+                          paddingHorizontal: 14,
+                          paddingVertical: 8,
+                          borderRadius: 8,
+                        }}
+                        onPress={() => openUploadDocModal('Resume / CV')}
+                      >
+                        <Text style={{ color: themeColors.accent, fontWeight: '700', fontSize: 12 }}>+ Upload First Document</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }
+
+                return (
+                  <View style={{ gap: 10 }}>
+                    {docs.map((doc, idx) => {
+                      const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf') || doc.type?.toLowerCase().includes('pdf');
+                      const isImg = /\.(jpg|jpeg|png|webp)$/i.test(doc.fileName || doc.fileUrl || '');
+                      const iconEmoji = isPdf ? '📕' : isImg ? '🖼️' : '📄';
+
+                      return (
+                        <View
+                          key={doc.id || String(idx)}
+                          style={{
+                            backgroundColor: themeColors.cardBg,
+                            borderWidth: 1,
+                            borderColor: themeColors.border,
+                            borderRadius: 14,
+                            padding: 14,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
+                            <Text style={{ fontSize: 24, marginRight: 12 }}>{iconEmoji}</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={{ fontSize: 14, fontWeight: '700', color: themeColors.textPrimary }}
+                                numberOfLines={1}
+                              >
+                                {doc.name || 'Document'}
+                              </Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                                <Text
+                                  style={{
+                                    fontSize: 10,
+                                    fontWeight: '700',
+                                    color: themeColors.accent,
+                                    backgroundColor: themeColors.accent + '15',
+                                    paddingHorizontal: 6,
+                                    paddingVertical: 2,
+                                    borderRadius: 4,
+                                  }}
+                                >
+                                  {doc.type}
+                                </Text>
+                                {doc.fileSize && (
+                                  <Text style={{ fontSize: 10, color: themeColors.textSecondary }}>
+                                    • {doc.fileSize}
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+                          </View>
+
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <TouchableOpacity
+                              style={{
+                                backgroundColor: themeColors.accent + '20',
+                                borderWidth: 1,
+                                borderColor: themeColors.accent,
+                                paddingHorizontal: 10,
+                                paddingVertical: 5,
+                                borderRadius: 8,
+                              }}
+                              onPress={() => {
+                                if (doc.fileUrl) {
+                                  Linking.openURL(doc.fileUrl).catch(() => {
+                                    sweetAlert({ title: 'Error', text: 'Cannot open document URL', type: 'error' });
+                                  });
+                                }
+                              }}
+                            >
+                              <Text style={{ color: themeColors.accent, fontSize: 11, fontWeight: '700' }}>View</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={{
+                                backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                borderWidth: 1,
+                                borderColor: 'rgba(239, 68, 68, 0.4)',
+                                paddingHorizontal: 8,
+                                paddingVertical: 5,
+                                borderRadius: 8,
+                              }}
+                              onPress={() => handleDeleteDocument(doc.id, doc.name)}
+                            >
+                              <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '700' }}>✕</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })()}
             </View>
 
             <Text style={[styles.subTitle, { color: themeColors.textPrimary }]}>My Assigned Equipment</Text>
@@ -1499,6 +1814,17 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
               </TouchableOpacity>
 
               <TouchableOpacity
+                style={[
+                  styles.drawerItem,
+                  activeTab === 'profile' && [styles.drawerItemActive, { backgroundColor: themeColors.drawerItemActive, borderColor: themeColors.drawerItemActiveBorder }]
+                ]}
+                onPress={() => { setActiveTab('profile'); setIsDrawerOpen(false); }}
+              >
+                <AppIcon name="document" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>My Documents</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={styles.drawerItem}
                 onPress={() => { setShowSettingsModal(true); setIsDrawerOpen(false); }}
               >
@@ -1800,6 +2126,262 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
           </TouchableOpacity>
         </Modal>
       )}
+
+      {/* ================= UPLOAD DOCUMENT MODAL (EMPLOYEE) ================= */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={uploadDocModalVisible}
+        onRequestClose={() => {
+          if (!isUploadingDoc) setUploadDocModalVisible(false);
+        }}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View
+            style={{
+              backgroundColor: themeColors.cardBg,
+              borderWidth: 1,
+              borderColor: themeColors.border,
+              borderRadius: 20,
+              padding: 20,
+              width: '100%',
+              maxWidth: 480,
+              maxHeight: '90%',
+            }}
+          >
+            {/* Modal Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 17, fontWeight: '800', color: themeColors.textPrimary }}>
+                📤 Upload My Document
+              </Text>
+              <TouchableOpacity
+                disabled={isUploadingDoc}
+                onPress={() => setUploadDocModalVisible(false)}
+                style={{ padding: 4 }}
+              >
+                <Text style={{ fontSize: 18, color: themeColors.textSecondary }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Category Picker */}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>
+                Document Category *
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {DOCUMENT_CATEGORIES.map(cat => {
+                    const isSelected = docCategory === cat;
+                    return (
+                      <TouchableOpacity
+                        key={cat}
+                        onPress={() => {
+                          setDocCategory(cat);
+                          if (!pickedDocFile && !docTitle.trim()) {
+                            setDocTitle(cat.split(' / ')[0]);
+                          }
+                        }}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 7,
+                          borderRadius: 10,
+                          backgroundColor: isSelected ? themeColors.accent : (isDark ? 'rgba(255,255,255,0.06)' : '#f1f5f9'),
+                          borderWidth: 1,
+                          borderColor: isSelected ? themeColors.accent : themeColors.border,
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: isSelected ? '700' : '500', color: isSelected ? '#fff' : themeColors.textPrimary }}>
+                          {cat}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+
+              {/* Document Title */}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 6 }}>
+                Document Title / Label *
+              </Text>
+              <TextInput
+                style={{
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc',
+                  borderWidth: 1,
+                  borderColor: themeColors.border,
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  fontSize: 14,
+                  color: themeColors.textPrimary,
+                  marginBottom: 16,
+                }}
+                placeholder="e.g. Aadhaar Card, Offer Letter, Degree"
+                placeholderTextColor={themeColors.textSecondary}
+                value={docTitle}
+                onChangeText={setDocTitle}
+              />
+
+              {/* Choose File Source */}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary, marginBottom: 8 }}>
+                Choose File / Photo Source *
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.12)' : '#eff6ff',
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(59, 130, 246, 0.35)' : '#bfdbfe',
+                    borderRadius: 10,
+                    paddingVertical: 12,
+                    paddingHorizontal: 6,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={handlePickDocumentFile}
+                >
+                  <Text style={{ fontSize: 22, marginBottom: 4 }}>📁</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.accent, textAlign: 'center' }}>
+                    Browse Files
+                  </Text>
+                  <Text style={{ fontSize: 9.5, color: themeColors.textSecondary, marginTop: 1 }}>PDF, Doc, Sheet</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: isDark ? 'rgba(168, 85, 247, 0.12)' : '#faf5ff',
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(168, 85, 247, 0.35)' : '#e9d5ff',
+                    borderRadius: 10,
+                    paddingVertical: 12,
+                    paddingHorizontal: 6,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={handlePickPhoto}
+                >
+                  <Text style={{ fontSize: 22, marginBottom: 4 }}>🖼️</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#9333ea', textAlign: 'center' }}>
+                    Photo Gallery
+                  </Text>
+                  <Text style={{ fontSize: 9.5, color: themeColors.textSecondary, marginTop: 1 }}>JPEG, PNG</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.12)' : '#f0fdf4',
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(16, 185, 129, 0.35)' : '#bbf7d0',
+                    borderRadius: 10,
+                    paddingVertical: 12,
+                    paddingHorizontal: 6,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={handleTakePhoto}
+                >
+                  <Text style={{ fontSize: 22, marginBottom: 4 }}>📷</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#16a34a', textAlign: 'center' }}>
+                    Camera
+                  </Text>
+                  <Text style={{ fontSize: 9.5, color: themeColors.textSecondary, marginTop: 1 }}>Snap Photo</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Picked File Preview */}
+              {pickedDocFile ? (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: 12,
+                    borderRadius: 10,
+                    backgroundColor: themeColors.accent + '15',
+                    borderWidth: 1,
+                    borderColor: themeColors.accent,
+                    marginBottom: 16,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8, gap: 10 }}>
+                    <Text style={{ fontSize: 24 }}>
+                      {pickedDocFile.type?.includes('pdf') ? '📕' : pickedDocFile.type?.includes('image') ? '🖼️' : '📄'}
+                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12.5, fontWeight: '700', color: themeColors.textPrimary }} numberOfLines={1}>
+                        {pickedDocFile.name}
+                      </Text>
+                      <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, marginTop: 1 }}>
+                        {pickedDocFile.size ? `${(pickedDocFile.size / (1024 * 1024)).toFixed(2)} MB • ` : ''}Ready to upload ✅
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setPickedDocFile(null)}
+                    style={{ padding: 4, borderRadius: 6, backgroundColor: 'rgba(239, 68, 68, 0.15)' }}
+                  >
+                    <Text style={{ fontSize: 12, color: '#ef4444', fontWeight: '800' }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={{ padding: 12, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: themeColors.border, alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={{ fontSize: 11.5, color: themeColors.textSecondary, fontStyle: 'italic' }}>
+                    Select a file or photo above to begin upload
+                  </Text>
+                </View>
+              )}
+
+              {/* Actions */}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity
+                  disabled={isUploadingDoc}
+                  onPress={handleUploadDocumentSubmit}
+                  style={{
+                    flex: 1,
+                    backgroundColor: themeColors.accent,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: isUploadingDoc ? 0.7 : 1,
+                  }}
+                >
+                  {isUploadingDoc ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <ActivityIndicator size="small" color="#fff" />
+                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Uploading...</Text>
+                    </View>
+                  ) : (
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>
+                      Upload & Save Document
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  disabled={isUploadingDoc}
+                  onPress={() => setUploadDocModalVisible(false)}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: themeColors.border,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ color: themeColors.textSecondary, fontWeight: '600', fontSize: 13 }}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -4,10 +4,11 @@ import { checkAuth, uploadFile, isSafeExtension } from '../../../utils/storageMa
 
 export async function GET(request, { params }) {
   try {
-    const { id } = await params;
+    const rawId = (await params)?.id;
+    const cleanId = decodeURIComponent(String(rawId || '').trim());
     const db = await getDbConnection();
 
-    const [rows] = await db.query('SELECT id, name, documents FROM employees WHERE id = ? LIMIT 1', [id]);
+    const [rows] = await db.query('SELECT id, name, documents FROM employees WHERE id = ? OR id = ? LIMIT 1', [cleanId, Number(cleanId) || 0]);
     if (rows.length === 0) {
       return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
     }
@@ -33,16 +34,18 @@ export async function GET(request, { params }) {
 
 export async function POST(request, { params }) {
   try {
-    const { id } = await params;
+    const rawId = (await params)?.id;
+    const cleanId = decodeURIComponent(String(rawId || '').trim());
     const user = await checkAuth(request);
     const db = await getDbConnection();
 
-    const [rows] = await db.query('SELECT * FROM employees WHERE id = ? LIMIT 1', [id]);
+    const [rows] = await db.query('SELECT * FROM employees WHERE id = ? OR id = ? LIMIT 1', [cleanId, Number(cleanId) || 0]);
     if (rows.length === 0) {
       return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
     }
 
     const employee = rows[0];
+    const targetEmployeeId = employee.id;
     let existingDocs = [];
     if (employee.documents) {
       try {
@@ -58,17 +61,41 @@ export async function POST(request, { params }) {
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
-      const file = formData.get('file');
+      const file = formData.get('file') || formData.get('files');
       const name = formData.get('name') || (file ? file.name : 'Untitled Document');
       const type = formData.get('type') || 'Other';
-      const uploadedBy = formData.get('uploadedBy') || (user?.name || 'Admin');
+      const uploadedBy = formData.get('uploadedBy') || (user?.name ? `${user.name} (${user.role || 'HR'})` : 'HR / Admin');
 
       if (!file) {
         return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
       }
 
-      if (!isSafeExtension(file.name)) {
-        return NextResponse.json({ success: false, error: `File type rejected: "${file.name}" is not an allowed extension.` }, { status: 400 });
+      let fileName = file.name || 'document.pdf';
+      // If filename lacks extension or extension is unsafe, try to infer extension from mime type
+      if (!isSafeExtension(fileName)) {
+        let inferredExt = '';
+        const mime = (file.type || '').toLowerCase();
+        if (mime.includes('pdf')) inferredExt = 'pdf';
+        else if (mime.includes('jpeg') || mime.includes('jpg')) inferredExt = 'jpg';
+        else if (mime.includes('png')) inferredExt = 'png';
+        else if (mime.includes('webp')) inferredExt = 'webp';
+        else if (mime.includes('docx') || mime.includes('wordprocessingml')) inferredExt = 'docx';
+        else if (mime.includes('doc') || mime.includes('msword')) inferredExt = 'doc';
+        else if (mime.includes('xlsx') || mime.includes('spreadsheetml')) inferredExt = 'xlsx';
+        else if (mime.includes('xls') || mime.includes('ms-excel')) inferredExt = 'xls';
+        else if (mime.includes('csv')) inferredExt = 'csv';
+        else if (mime.includes('plain') || mime.includes('text')) inferredExt = 'txt';
+        else if (mime.includes('zip')) inferredExt = 'zip';
+
+        if (inferredExt) {
+          fileName = fileName.includes('.') 
+            ? `${fileName.replace(/\.[^/.]+$/, '')}.${inferredExt}`
+            : `${fileName}.${inferredExt}`;
+        }
+      }
+
+      if (!isSafeExtension(fileName)) {
+        return NextResponse.json({ success: false, error: `File type rejected: "${fileName}" is not an allowed extension.` }, { status: 400 });
       }
 
       const bytes = await file.arrayBuffer();
@@ -78,7 +105,7 @@ export async function POST(request, { params }) {
         return NextResponse.json({ success: false, error: 'File size exceeds 100MB limit' }, { status: 400 });
       }
 
-      const uploadResult = await uploadFile(buffer, file.name, 'employee_documents');
+      const uploadResult = await uploadFile(buffer, fileName, 'employee_documents');
       let finalUrl = uploadResult;
       if (typeof uploadResult === 'string') {
         if (!uploadResult.startsWith('http://') && !uploadResult.startsWith('https://') && !uploadResult.startsWith('/')) {
@@ -97,7 +124,7 @@ export async function POST(request, { params }) {
         name: String(name).trim(),
         type: String(type).trim(),
         fileUrl: finalUrl,
-        fileName: file.name,
+        fileName,
         fileSize: sizeStr,
         uploadedBy
       };
@@ -115,7 +142,7 @@ export async function POST(request, { params }) {
         fileUrl,
         fileName: fileName || 'file',
         fileSize: fileSize || 'N/A',
-        uploadedBy: uploadedBy || (user?.name || 'Admin')
+        uploadedBy: uploadedBy || (user?.name ? `${user.name} (${user.role || 'HR'})` : 'HR / Admin')
       };
     }
 
@@ -147,7 +174,7 @@ export async function POST(request, { params }) {
 
     await db.execute(
       `UPDATE employees SET documents = ? ${extraUpdate} WHERE id = ?`,
-      [docsJson, ...extraParams, id]
+      [docsJson, ...extraParams, targetEmployeeId]
     );
 
     return NextResponse.json({
@@ -164,7 +191,8 @@ export async function POST(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const { id } = await params;
+    const rawId = (await params)?.id;
+    const cleanId = decodeURIComponent(String(rawId || '').trim());
     const { searchParams } = new URL(request.url);
     let docId = searchParams.get('docId');
 
@@ -180,12 +208,13 @@ export async function DELETE(request, { params }) {
     }
 
     const db = await getDbConnection();
-    const [rows] = await db.query('SELECT * FROM employees WHERE id = ? LIMIT 1', [id]);
+    const [rows] = await db.query('SELECT * FROM employees WHERE id = ? OR id = ? LIMIT 1', [cleanId, Number(cleanId) || 0]);
     if (rows.length === 0) {
       return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
     }
 
     const employee = rows[0];
+    const targetEmployeeId = employee.id;
     let existingDocs = [];
     if (employee.documents) {
       try {
@@ -201,7 +230,7 @@ export async function DELETE(request, { params }) {
 
     await db.execute(
       'UPDATE employees SET documents = ? WHERE id = ?',
-      [docsJson, id]
+      [docsJson, targetEmployeeId]
     );
 
     return NextResponse.json({
