@@ -1050,11 +1050,14 @@ input:checked + .slider:before {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(5, 5, 8, 0.7);
+  background: rgba(5, 5, 8, 0.75);
   backdrop-filter: blur(8px);
-  z-index: 200;
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
   align-items: center;
   justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
 }
 
 .modal-overlay.active {
@@ -1062,7 +1065,8 @@ input:checked + .slider:before {
 }
 
 .modal-card {
-  background: #12131e;
+  background: var(--bg-card, #12131e);
+  color: var(--text-primary);
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   width: 90%;
@@ -1070,7 +1074,7 @@ input:checked + .slider:before {
   max-height: 90vh;
   overflow-y: auto;
   padding: 2rem;
-  box-shadow: none;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   position: relative;
   animation: modal-enter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -1085,23 +1089,39 @@ input:checked + .slider:before {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  gap: 12px;
 }
 
 .modal-title {
   font-size: 1.25rem;
   font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
 }
 
 .modal-close {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   color: var(--text-secondary);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  transition: var(--transition);
+  padding: 0;
 }
 
 .modal-close:hover {
   color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .modal-close:hover {
+  background: rgba(0, 0, 0, 0.06);
 }
 
 /* Responsive 2-col grid inside modals — collapses to 1 col on mobile */
@@ -1641,26 +1661,41 @@ textarea.form-control {
     width: 100% !important;
   }
 
-  /* ── Modals ── */
+  /* ── Modals Mobile Responsive ── */
   .modal-overlay {
-    padding: 0 !important;
-    align-items: flex-end !important;
+    padding: 10px !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .modal-content,
   .modal-card {
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: min(96vw, 680px) !important;
+    max-height: 92dvh !important;
     max-height: 92vh !important;
-    border-radius: 24px 24px 0 0 !important;
+    border-radius: 16px !important;
     overflow-y: auto !important;
     padding: 1.25rem 1rem !important;
+    margin: auto !important;
     animation: none !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-header {
+    margin-bottom: 1rem !important;
+    gap: 8px !important;
+  }
+
+  .modal-title {
+    font-size: 1.1rem !important;
   }
 
   /* ── Modal 2-col grids collapse to 1 col ── */
-  .modal-form-grid {
+  .modal-form-grid,
+  .form-grid {
     grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
   }
 
   /* ── Buttons ── */
@@ -2124,10 +2159,52 @@ textarea.form-control {
 
 
 
-/* Responsive utility classes for tables */
+/* Responsive utility classes for tables & modals */
 .table-wrapper { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+
+/* Document Preview Modal & Lightbox Responsive */
+.doc-preview-card {
+  max-width: 920px;
+  width: 100%;
+}
+
 @media (max-width: 768px) {
-  .modal-card, .modal-content { max-width: 95vw !important; padding: 1.25rem !important; }
+  .modal-overlay {
+    padding: 8px !important;
+  }
+  .modal-card, .modal-content {
+    max-width: min(96vw, 680px) !important;
+    padding: 1.25rem 1rem !important;
+    border-radius: 16px !important;
+  }
+  .doc-preview-card {
+    max-width: 96vw !important;
+    max-height: 94dvh !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+  }
+  .doc-preview-card iframe {
+    height: min(60vh, 480px) !important;
+    min-height: 280px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 6px !important;
+  }
+  .modal-card, .modal-content {
+    max-width: 98vw !important;
+    padding: 1rem 0.85rem !important;
+    border-radius: 14px !important;
+  }
+  .doc-preview-card {
+    max-width: 98vw !important;
+  }
+  .doc-preview-card iframe {
+    height: 52vh !important;
+    min-height: 240px !important;
+  }
 }
 
 /* CKEditor Styles */

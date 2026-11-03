@@ -1053,31 +1053,17 @@ export default function MyProfilePage() {
 
       {showDeleteConfirm && (
         <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.8)",
-            backdropFilter: "blur(8px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            padding: "20px"
-          }}
+          className="modal-overlay active"
+          onClick={() => setShowDeleteConfirm(false)}
+          style={{ zIndex: 9999 }}
         >
           <div
+            className="modal-card"
             style={{
-              background: "var(--bg-secondary)",
-              border: "1px solid var(--glass-border)",
-              borderRadius: "16px",
-              padding: "24px",
-              width: "100%",
               maxWidth: "420px",
               textAlign: "center"
             }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div
               style={{
@@ -1098,29 +1084,24 @@ export default function MyProfilePage() {
             <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: "1.5", marginBottom: "1.5rem" }}>
               You will not be able to revert this account deletion! All assignments and tickets will be permanently removed.
             </p>
-            <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
               <button
+                type="button"
                 onClick={() => setShowDeleteConfirm(false)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  fontSize: "0.85rem",
-                  fontWeight: "600",
-                  border: "1px solid var(--glass-border)",
-                  background: "var(--bg-tertiary)",
-                  color: "var(--text-primary)",
-                  cursor: "pointer"
-                }}
+                className="btn-secondary"
+                style={{ padding: "8px 16px" }}
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setShowDeleteConfirm(false);
                   removeEmployee(user.id);
                   logout();
                   router.push("/login");
                 }}
+                className="btn-danger"
                 style={{
                   padding: "8px 16px",
                   borderRadius: "8px",
@@ -1142,37 +1123,24 @@ export default function MyProfilePage() {
       {/* ================= MODAL: UPLOAD MY DOCUMENT ================= */}
       {showDocModal && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.75)",
-            backdropFilter: "blur(6px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "1rem"
-          }}
+          className="modal-overlay active"
+          onClick={() => setShowDocModal(false)}
+          style={{ zIndex: 9999 }}
         >
           <div
-            style={{
-              background: "var(--bg-secondary)",
-              padding: "2rem",
-              borderRadius: "16px",
-              width: "100%",
-              maxWidth: "520px",
-              border: "1px solid var(--glass-border)",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)"
-            }}
+            className="modal-card"
+            style={{ maxWidth: "540px", width: "100%" }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <FiUploadCloud style={{ color: "var(--accent-cyan)" }} /> Upload My Document
               </h3>
               <button
                 type="button"
+                className="modal-close"
                 onClick={() => setShowDocModal(false)}
-                style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "1.25rem", cursor: "pointer", padding: "4px" }}
+                title="Close"
               >
                 <FiX />
               </button>
@@ -1226,7 +1194,7 @@ export default function MyProfilePage() {
                   style={{
                     border: "2px dashed var(--glass-border)",
                     borderRadius: "12px",
-                    padding: "1.5rem",
+                    padding: "1.5rem 1rem",
                     textAlign: "center",
                     cursor: "pointer",
                     background: docForm.file ? "rgba(6, 182, 212, 0.05)" : "rgba(255, 255, 255, 0.01)"
@@ -1254,7 +1222,7 @@ export default function MyProfilePage() {
                       <div style={{ fontSize: "1.8rem", color: "var(--accent-cyan)", marginBottom: "4px" }}>
                         <FiFileText />
                       </div>
-                      <strong style={{ display: "block", color: "var(--text-primary)", fontSize: "0.9rem" }}>
+                      <strong style={{ display: "block", color: "var(--text-primary)", fontSize: "0.9rem", wordBreak: "break-all" }}>
                         {docForm.file.name}
                       </strong>
                       <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
@@ -1277,13 +1245,13 @@ export default function MyProfilePage() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: "10px", marginTop: "0.5rem" }}>
+              <div style={{ display: "flex", gap: "10px", marginTop: "0.5rem", flexWrap: "wrap" }}>
                 <button
                   type="submit"
                   disabled={uploadingDoc}
                   className="btn-primary"
                   style={{
-                    flex: 1,
+                    flex: "1 1 180px",
                     padding: "11px",
                     borderRadius: "8px",
                     fontWeight: 600,
@@ -1308,7 +1276,7 @@ export default function MyProfilePage() {
                   type="button"
                   onClick={() => setShowDocModal(false)}
                   className="btn-secondary"
-                  style={{ flex: 1, padding: "11px", borderRadius: "8px" }}
+                  style={{ flex: "1 1 100px", padding: "11px", borderRadius: "8px" }}
                 >
                   Cancel
                 </button>
@@ -1321,71 +1289,100 @@ export default function MyProfilePage() {
       {/* ================= MODAL: PREVIEW MY DOCUMENT ================= */}
       {previewDoc && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.85)",
-            backdropFilter: "blur(8px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-            padding: "1.5rem"
-          }}
+          className="modal-overlay active"
           onClick={() => setPreviewDoc(null)}
+          style={{ zIndex: 9999 }}
         >
           <div
+            className="modal-card doc-preview-card"
             style={{
-              background: "#161b22",
-              borderRadius: "16px",
-              border: "1px solid var(--glass-border)",
+              maxWidth: "920px",
               width: "100%",
-              maxWidth: "900px",
-              maxHeight: "90vh",
+              maxHeight: "92vh",
               display: "flex",
               flexDirection: "column",
-              overflow: "hidden",
-              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.7)"
+              padding: 0,
+              overflow: "hidden"
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Preview Header */}
             <div
               style={{
-                padding: "1rem 1.5rem",
+                padding: "0.85rem 1.25rem",
                 borderBottom: "1px solid var(--glass-border)",
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center"
+                alignItems: "center",
+                gap: "12px",
+                flexWrap: "wrap",
+                background: "var(--bg-secondary)"
               }}
             >
-              <div>
-                <h4 style={{ margin: 0, color: "#fff", fontSize: "1.1rem" }}>{previewDoc.name}</h4>
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                  {previewDoc.type} • {previewDoc.fileName}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                <a
-                  href={previewDoc.fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  download
-                  className="btn-secondary"
-                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", padding: "6px 12px", textDecoration: "none" }}
-                >
-                  <FiDownload /> Download
-                </a>
-                <button
-                  onClick={() => setPreviewDoc(null)}
+              <div style={{ minWidth: 0, flex: "1 1 200px" }}>
+                <h4
                   style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--text-secondary)",
-                    fontSize: "1.4rem",
-                    cursor: "pointer",
-                    padding: "4px"
+                    margin: 0,
+                    color: "var(--text-primary)",
+                    fontSize: "1.05rem",
+                    fontWeight: 700,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap"
                   }}
+                  title={previewDoc.name}
+                >
+                  {previewDoc.name}
+                </h4>
+                <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "2px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 600, color: "var(--accent-cyan)" }}>{previewDoc.type}</span>
+                  {previewDoc.fileName && (
+                    <>
+                      <span>•</span>
+                      <span style={{ opacity: 0.9 }}>{previewDoc.fileName}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
+                {previewDoc.fileUrl && (
+                  <a
+                    href={previewDoc.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    download
+                    className="btn-secondary"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "0.82rem",
+                      padding: "6px 12px",
+                      textDecoration: "none",
+                      borderRadius: "8px"
+                    }}
+                  >
+                    <FiDownload /> Download
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPreviewDoc(null)}
+                  className="modal-close"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "34px",
+                    height: "34px",
+                    borderRadius: "8px",
+                    fontSize: "1.25rem",
+                    cursor: "pointer",
+                    padding: 0,
+                    color: "var(--text-primary)"
+                  }}
+                  title="Close preview"
                 >
                   <FiX />
                 </button>
@@ -1393,38 +1390,105 @@ export default function MyProfilePage() {
             </div>
 
             {/* Preview Body */}
-            <div style={{ flex: 1, padding: "1rem", overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "350px", maxHeight: "75vh" }}>
+            <div
+              style={{
+                flex: 1,
+                padding: "1rem",
+                overflow: "auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: "300px",
+                maxHeight: "calc(92vh - 75px)",
+                background: "var(--bg-card)"
+              }}
+            >
               {previewDoc.fileUrl && previewDoc.fileUrl.toLowerCase().endsWith(".pdf") ? (
                 <iframe
                   src={previewDoc.fileUrl}
-                  style={{ width: "100%", height: "70vh", border: "none", borderRadius: "8px", background: "#fff" }}
+                  style={{
+                    width: "100%",
+                    height: "min(70vh, 600px)",
+                    minHeight: "350px",
+                    border: "none",
+                    borderRadius: "8px",
+                    background: "#ffffff"
+                  }}
                   title={previewDoc.name}
                 />
-              ) : previewDoc.fileUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(previewDoc.fileUrl) ? (
-                <img
-                  src={previewDoc.fileUrl}
-                  alt={previewDoc.name}
-                  style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: "8px" }}
-                />
+              ) : previewDoc.fileUrl && /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(previewDoc.fileUrl) ? (
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "0.5rem" }}>
+                  <img
+                    src={previewDoc.fileUrl}
+                    alt={previewDoc.name}
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "min(70vh, 550px)",
+                      objectFit: "contain",
+                      borderRadius: "8px",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.15)"
+                    }}
+                  />
+                </div>
               ) : (
-                <div style={{ textAlign: "center", padding: "3rem" }}>
-                  <FiFileText style={{ fontSize: "3rem", color: "var(--accent-cyan)", marginBottom: "1rem" }} />
-                  <p style={{ color: "var(--text-primary)", fontSize: "1rem", marginBottom: "0.5rem" }}>
-                    {previewDoc.name}
-                  </p>
-                  <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
-                    This document format cannot be rendered directly in the inline viewer.
-                  </p>
-                  <a
-                    href={previewDoc.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    download
-                    className="btn-primary"
-                    style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                <div style={{ textAlign: "center", padding: "2rem 1rem", maxWidth: "460px", margin: "0 auto" }}>
+                  <div
+                    style={{
+                      width: "64px",
+                      height: "64px",
+                      borderRadius: "16px",
+                      background: "rgba(6, 182, 212, 0.1)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0 auto 1.25rem auto",
+                      color: "var(--accent-cyan)",
+                      fontSize: "2rem"
+                    }}
                   >
-                    <FiDownload /> Download Document File
-                  </a>
+                    <FiFileText />
+                  </div>
+                  <h5
+                    style={{
+                      color: "var(--text-primary)",
+                      fontSize: "1.1rem",
+                      fontWeight: 700,
+                      marginBottom: "0.5rem"
+                    }}
+                  >
+                    {previewDoc.name}
+                  </h5>
+                  <p
+                    style={{
+                      color: "var(--text-secondary)",
+                      fontSize: "0.85rem",
+                      lineHeight: "1.5",
+                      marginBottom: "1.5rem"
+                    }}
+                  >
+                    This document format ({previewDoc.type || "file"}) cannot be previewed directly in the inline viewer. Please download the file to inspect its full contents.
+                  </p>
+                  {previewDoc.fileUrl && (
+                    <a
+                      href={previewDoc.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      download
+                      className="btn-primary"
+                      style={{
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "10px 20px",
+                        borderRadius: "10px",
+                        fontWeight: 600,
+                        fontSize: "0.9rem"
+                      }}
+                    >
+                      <FiDownload /> Download Document File
+                    </a>
+                  )}
                 </div>
               )}
             </div>

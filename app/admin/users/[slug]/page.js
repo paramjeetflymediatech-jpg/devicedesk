@@ -6,6 +6,7 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import { getEmployees, getSystems, getTickets, getTasks, getAssignmentHistory, updateEmployee } from "../../../store.js";
 import { findEmployeeBySlug, getEmployeeSlug } from "../../../utils/slugUtils.js";
+import Pagination from "../../../components/Pagination.js";
 import {
   FiUser,
   FiArrowLeft,
@@ -50,6 +51,10 @@ export default function UserSlugDetailPage() {
   const [userTasks, setUserTasks] = useState([]);
   const [userLogs, setUserLogs] = useState([]);
 
+  // Ticket History Pagination
+  const [ticketPage, setTicketPage] = useState(1);
+  const [ticketPageSize, setTicketPageSize] = useState(5);
+
   // Documents state
   const [documents, setDocuments] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
@@ -93,7 +98,10 @@ export default function UserSlugDetailPage() {
         const allLogs = getAssignmentHistory();
 
         setAssignedSystems(allSystems.filter(s => s.assignedTo === emp.id));
-        setUserTickets(allTickets.filter(t => t.employeeId === emp.id || t.raisedBy === emp.id));
+        const empTickets = allTickets.filter(t => t.employeeId === emp.id || t.raisedBy === emp.id);
+        empTickets.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        setUserTickets(empTickets);
+        setTicketPage(1);
         setUserTasks(allTasks.filter(t => t.assignedTo === emp.id));
         setUserLogs(allLogs.filter(h => h.employeeId === emp.id));
 
@@ -271,6 +279,11 @@ export default function UserSlugDetailPage() {
   const completedTasks = userTasks.filter(t => t.status === "Completed").length;
   const pendingTasks = userTasks.length - completedTasks;
   const taskCompletionRate = userTasks.length > 0 ? Math.round((completedTasks / userTasks.length) * 100) : 0;
+
+  // Ticket pagination calculations
+  const totalTicketPages = Math.max(1, Math.ceil(userTickets.length / ticketPageSize));
+  const safeTicketPage = Math.min(Math.max(1, ticketPage), totalTicketPages);
+  const paginatedTickets = userTickets.slice((safeTicketPage - 1) * ticketPageSize, safeTicketPage * ticketPageSize);
 
   return (
     <div className="page-container" style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
@@ -808,8 +821,13 @@ export default function UserSlugDetailPage() {
 
       {/* Ticket History */}
       <div className="panel-card">
-        <div className="panel-header">
+        <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
           <span className="panel-title">🎫 Complaint & Ticket History ({userTickets.length})</span>
+          {userTickets.length > 0 && (
+            <span style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
+              Page {safeTicketPage} of {totalTicketPages}
+            </span>
+          )}
         </div>
         <div className="table-wrapper">
           <table className="custom-table">
@@ -830,7 +848,7 @@ export default function UserSlugDetailPage() {
                   </td>
                 </tr>
               ) : (
-                userTickets.map(ticket => (
+                paginatedTickets.map(ticket => (
                   <tr key={ticket.id}>
                     <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{ticket.id}</td>
                     <td>{ticket.category}</td>
@@ -843,42 +861,43 @@ export default function UserSlugDetailPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        <Pagination
+          currentPage={safeTicketPage}
+          totalPages={totalTicketPages}
+          totalItems={userTickets.length}
+          pageSize={ticketPageSize}
+          onPageChange={setTicketPage}
+          onPageSizeChange={(newSize) => {
+            setTicketPageSize(newSize);
+            setTicketPage(1);
+          }}
+          pageSizeOptions={[5, 10, 20, 50]}
+          itemName="tickets"
+        />
       </div>
 
       {/* ================= MODAL: UPLOAD TEAM MEMBER DOCUMENT ================= */}
       {showDocModal && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.75)",
-            backdropFilter: "blur(6px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "1rem"
-          }}
+          className="modal-overlay active"
+          onClick={() => setShowDocModal(false)}
         >
           <div
-            style={{
-              background: "var(--bg-card, #1e293b)",
-              padding: "2rem",
-              borderRadius: "16px",
-              width: "100%",
-              maxWidth: "520px",
-              border: "1px solid var(--glass-border, rgba(255, 255, 255, 0.15))",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)"
-            }}
+            className="modal-card"
+            style={{ maxWidth: "540px", width: "100%" }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <FiUploadCloud style={{ color: "var(--accent-cyan)" }} /> Upload Document
               </h3>
               <button
                 type="button"
+                className="modal-close"
                 onClick={() => setShowDocModal(false)}
-                style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "1.25rem", cursor: "pointer", padding: "4px" }}
+                title="Close"
               >
                 <FiX />
               </button>
@@ -932,7 +951,7 @@ export default function UserSlugDetailPage() {
                   style={{
                     border: "2px dashed var(--glass-border)",
                     borderRadius: "12px",
-                    padding: "1.5rem",
+                    padding: "1.5rem 1rem",
                     textAlign: "center",
                     cursor: "pointer",
                     background: docForm.file ? "rgba(6, 182, 212, 0.05)" : "rgba(255, 255, 255, 0.01)"
@@ -960,7 +979,7 @@ export default function UserSlugDetailPage() {
                       <div style={{ fontSize: "1.8rem", color: "var(--accent-cyan)", marginBottom: "4px" }}>
                         <FiFileText />
                       </div>
-                      <strong style={{ display: "block", color: "var(--text-primary)", fontSize: "0.9rem" }}>
+                      <strong style={{ display: "block", color: "var(--text-primary)", fontSize: "0.9rem", wordBreak: "break-all" }}>
                         {docForm.file.name}
                       </strong>
                       <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
@@ -983,13 +1002,13 @@ export default function UserSlugDetailPage() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: "10px", marginTop: "0.5rem" }}>
+              <div style={{ display: "flex", gap: "10px", marginTop: "0.5rem", flexWrap: "wrap" }}>
                 <button
                   type="submit"
                   disabled={uploadingDoc}
                   className="btn-primary"
                   style={{
-                    flex: 1,
+                    flex: "1 1 180px",
                     padding: "11px",
                     borderRadius: "8px",
                     fontWeight: 600,
@@ -1014,7 +1033,7 @@ export default function UserSlugDetailPage() {
                   type="button"
                   onClick={() => setShowDocModal(false)}
                   className="btn-secondary"
-                  style={{ flex: 1, padding: "11px", borderRadius: "8px" }}
+                  style={{ flex: "1 1 100px", padding: "11px", borderRadius: "8px" }}
                 >
                   Cancel
                 </button>
@@ -1027,71 +1046,100 @@ export default function UserSlugDetailPage() {
       {/* ================= MODAL: PREVIEW DOCUMENT ================= */}
       {previewDoc && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.85)",
-            backdropFilter: "blur(8px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1100,
-            padding: "1.5rem"
-          }}
+          className="modal-overlay active"
           onClick={() => setPreviewDoc(null)}
+          style={{ zIndex: 9999 }}
         >
           <div
+            className="modal-card doc-preview-card"
             style={{
-              background: "#161b22",
-              borderRadius: "16px",
-              border: "1px solid var(--glass-border)",
+              maxWidth: "920px",
               width: "100%",
-              maxWidth: "900px",
-              maxHeight: "90vh",
+              maxHeight: "92vh",
               display: "flex",
               flexDirection: "column",
-              overflow: "hidden",
-              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.7)"
+              padding: 0,
+              overflow: "hidden"
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Preview Header */}
             <div
               style={{
-                padding: "1rem 1.5rem",
+                padding: "0.85rem 1.25rem",
                 borderBottom: "1px solid var(--glass-border)",
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center"
+                alignItems: "center",
+                gap: "12px",
+                flexWrap: "wrap",
+                background: "var(--bg-secondary)"
               }}
             >
-              <div>
-                <h4 style={{ margin: 0, color: "#fff", fontSize: "1.1rem" }}>{previewDoc.name}</h4>
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                  {previewDoc.type} • {previewDoc.fileName}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                <a
-                  href={previewDoc.fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  download
-                  className="btn-secondary"
-                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", padding: "6px 12px", textDecoration: "none" }}
-                >
-                  <FiDownload /> Download
-                </a>
-                <button
-                  onClick={() => setPreviewDoc(null)}
+              <div style={{ minWidth: 0, flex: "1 1 200px" }}>
+                <h4
                   style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--text-secondary)",
-                    fontSize: "1.4rem",
-                    cursor: "pointer",
-                    padding: "4px"
+                    margin: 0,
+                    color: "var(--text-primary)",
+                    fontSize: "1.05rem",
+                    fontWeight: 700,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap"
                   }}
+                  title={previewDoc.name}
+                >
+                  {previewDoc.name}
+                </h4>
+                <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "2px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 600, color: "var(--accent-cyan)" }}>{previewDoc.type}</span>
+                  {previewDoc.fileName && (
+                    <>
+                      <span>•</span>
+                      <span style={{ opacity: 0.9 }}>{previewDoc.fileName}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
+                {previewDoc.fileUrl && (
+                  <a
+                    href={previewDoc.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    download
+                    className="btn-secondary"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "0.82rem",
+                      padding: "6px 12px",
+                      textDecoration: "none",
+                      borderRadius: "8px"
+                    }}
+                  >
+                    <FiDownload /> Download
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPreviewDoc(null)}
+                  className="modal-close"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "34px",
+                    height: "34px",
+                    borderRadius: "8px",
+                    fontSize: "1.25rem",
+                    cursor: "pointer",
+                    padding: 0,
+                    color: "var(--text-primary)"
+                  }}
+                  title="Close preview"
                 >
                   <FiX />
                 </button>
@@ -1099,38 +1147,105 @@ export default function UserSlugDetailPage() {
             </div>
 
             {/* Preview Body */}
-            <div style={{ flex: 1, padding: "1rem", overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "350px", maxHeight: "75vh" }}>
+            <div
+              style={{
+                flex: 1,
+                padding: "1rem",
+                overflow: "auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: "300px",
+                maxHeight: "calc(92vh - 75px)",
+                background: "var(--bg-card)"
+              }}
+            >
               {previewDoc.fileUrl && previewDoc.fileUrl.toLowerCase().endsWith(".pdf") ? (
                 <iframe
                   src={previewDoc.fileUrl}
-                  style={{ width: "100%", height: "70vh", border: "none", borderRadius: "8px", background: "#fff" }}
+                  style={{
+                    width: "100%",
+                    height: "min(70vh, 600px)",
+                    minHeight: "350px",
+                    border: "none",
+                    borderRadius: "8px",
+                    background: "#ffffff"
+                  }}
                   title={previewDoc.name}
                 />
-              ) : previewDoc.fileUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(previewDoc.fileUrl) ? (
-                <img
-                  src={previewDoc.fileUrl}
-                  alt={previewDoc.name}
-                  style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: "8px" }}
-                />
+              ) : previewDoc.fileUrl && /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(previewDoc.fileUrl) ? (
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "0.5rem" }}>
+                  <img
+                    src={previewDoc.fileUrl}
+                    alt={previewDoc.name}
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "min(70vh, 550px)",
+                      objectFit: "contain",
+                      borderRadius: "8px",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.15)"
+                    }}
+                  />
+                </div>
               ) : (
-                <div style={{ textAlign: "center", padding: "3rem" }}>
-                  <FiFileText style={{ fontSize: "3rem", color: "var(--accent-cyan)", marginBottom: "1rem" }} />
-                  <p style={{ color: "var(--text-primary)", fontSize: "1rem", marginBottom: "0.5rem" }}>
-                    {previewDoc.name}
-                  </p>
-                  <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
-                    This document format cannot be rendered directly in the inline viewer.
-                  </p>
-                  <a
-                    href={previewDoc.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    download
-                    className="btn-primary"
-                    style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                <div style={{ textAlign: "center", padding: "2rem 1rem", maxWidth: "460px", margin: "0 auto" }}>
+                  <div
+                    style={{
+                      width: "64px",
+                      height: "64px",
+                      borderRadius: "16px",
+                      background: "rgba(6, 182, 212, 0.1)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0 auto 1.25rem auto",
+                      color: "var(--accent-cyan)",
+                      fontSize: "2rem"
+                    }}
                   >
-                    <FiDownload /> Download Document File
-                  </a>
+                    <FiFileText />
+                  </div>
+                  <h5
+                    style={{
+                      color: "var(--text-primary)",
+                      fontSize: "1.1rem",
+                      fontWeight: 700,
+                      marginBottom: "0.5rem"
+                    }}
+                  >
+                    {previewDoc.name}
+                  </h5>
+                  <p
+                    style={{
+                      color: "var(--text-secondary)",
+                      fontSize: "0.85rem",
+                      lineHeight: "1.5",
+                      marginBottom: "1.5rem"
+                    }}
+                  >
+                    This document format ({previewDoc.type || "file"}) cannot be previewed directly in the inline viewer. Please download the file to inspect its full contents.
+                  </p>
+                  {previewDoc.fileUrl && (
+                    <a
+                      href={previewDoc.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      download
+                      className="btn-primary"
+                      style={{
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "10px 20px",
+                        borderRadius: "10px",
+                        fontWeight: 600,
+                        fontSize: "0.9rem"
+                      }}
+                    >
+                      <FiDownload /> Download Document File
+                    </a>
+                  )}
                 </div>
               )}
             </div>
