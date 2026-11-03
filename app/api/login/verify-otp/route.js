@@ -47,6 +47,13 @@ export async function POST(request) {
     }
 
     const emp = empRows[0];
+    const statusLower = (emp.status || 'Active').toLowerCase().trim();
+    if (statusLower === 'inactive') {
+      return NextResponse.json({ success: false, message: '🚫 Your account is currently inactive. Please contact Administrator.' }, { status: 403 });
+    }
+    if (statusLower === 'paused') {
+      return NextResponse.json({ success: false, message: '🚫 Your account has been paused. Please contact Admin/IT Support.' }, { status: 403 });
+    }
 
     const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
     const deptStr = `${emp.department || ''}`.toLowerCase().trim();
@@ -63,7 +70,8 @@ export async function POST(request) {
         role:        isDeskRole ? 'admin' : 'employee',
         dbRole:      emp.role,
         department:  emp.department,
-        ticketLimit: emp.ticketLimit
+        ticketLimit: emp.ticketLimit,
+        status:      emp.status || 'Active'
       }
     });
   } catch (err) {

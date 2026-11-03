@@ -40,7 +40,14 @@ export async function POST(req) {
 
     const emp = rows[0];
 
-    if (emp.status === 'Paused') {
+    const statusLower = (emp.status || 'Active').toLowerCase().trim();
+    if (statusLower === 'inactive') {
+      return NextResponse.json({
+        success: false,
+        message: '🚫 Account is inactive. Please contact Administrator or HR.'
+      }, { status: 403 });
+    }
+    if (statusLower === 'paused') {
       return NextResponse.json({
         success: false,
         message: '🚫 Account is paused. Please contact your IT Admin.'

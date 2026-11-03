@@ -284,7 +284,16 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
     setLoading(false);
 
     if (employee) {
-      if (employee.status === 'Paused') {
+      const empStatus = (employee.status || 'Active').toLowerCase().trim();
+      if (empStatus === 'inactive') {
+        sweetAlert({
+          title: 'Account Inactive',
+          text: '🚫 Your account is currently inactive. Please contact Administrator or HR to reactivate your account.',
+          type: 'error'
+        });
+        return;
+      }
+      if (empStatus === 'paused') {
         sweetAlert({
           title: 'Account Paused',
           text: '🚫 Your account has been paused due to suspicious activities. Please contact Admin/IT Support.',

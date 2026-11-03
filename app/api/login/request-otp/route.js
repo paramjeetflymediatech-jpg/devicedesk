@@ -13,11 +13,18 @@ export async function POST(request) {
     const db = await getDbConnection();
 
     // Verify user exists
-    const [empRows] = await db.execute(`SELECT id, name, role, department FROM employees WHERE id = ? AND email = ? LIMIT 1`, [userId, email]);
+    const [empRows] = await db.execute(`SELECT id, name, role, department, status FROM employees WHERE id = ? AND email = ? LIMIT 1`, [userId, email]);
     if (empRows.length === 0) {
       return NextResponse.json({ success: false, message: 'User not found.' }, { status: 404 });
     }
     const emp = empRows[0];
+    const statusLower = (emp.status || 'Active').toLowerCase().trim();
+    if (statusLower === 'inactive') {
+      return NextResponse.json({ success: false, message: '🚫 Your account is currently inactive. Please contact Administrator.' }, { status: 403 });
+    }
+    if (statusLower === 'paused') {
+      return NextResponse.json({ success: false, message: '🚫 Your account has been paused. Please contact Admin/IT Support.' }, { status: 403 });
+    }
     
     const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
     const deptStr = `${emp.department || ''}`.toLowerCase().trim();

@@ -36,8 +36,24 @@ export async function POST(request) {
     }
 
     const emp = rows[0];
-    if (emp.status === 'Paused') {
-      return NextResponse.json({ success: false, message: '🚫 Your account has been paused due to suspicious activities. Please contact Admin/IT Support.' }, { status: 403 });
+    const statusLower = (emp.status || 'Active').toLowerCase().trim();
+    if (statusLower === 'inactive') {
+      return NextResponse.json({
+        success: false,
+        message: '🚫 Your account is currently inactive. Please contact Administrator or HR to reactivate your account.'
+      }, { status: 403 });
+    }
+    if (statusLower === 'paused') {
+      return NextResponse.json({
+        success: false,
+        message: '🚫 Your account has been paused due to suspicious activities. Please contact Admin/IT Support.'
+      }, { status: 403 });
+    }
+    if (statusLower === 'disabled' || statusLower === 'suspended') {
+      return NextResponse.json({
+        success: false,
+        message: '🚫 Your account has been disabled. Please contact Admin/IT Support.'
+      }, { status: 403 });
     }
     const storedPassword = emp.password || '';
 
@@ -129,7 +145,8 @@ export async function POST(request) {
         role: isDeskRole ? 'admin' : 'employee',
         dbRole: emp.role,
         department: emp.department,
-        ticketLimit: emp.ticketLimit
+        ticketLimit: emp.ticketLimit,
+        status: emp.status || 'Active'
       }
     });
   } catch (err) {
