@@ -736,6 +736,52 @@ export default function ManageEmployees({ currentUser }) {
                 placeholderTextColor="#666"
               />
 
+              {/* Profile Documents */}
+              {editingEmployee && (
+                <View style={{ marginTop: 16, marginBottom: 12, padding: 14, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', borderRadius: 10, borderWidth: 1, borderColor: themeColors.border }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.text, marginBottom: 6 }}>
+                    📁 Profile Documents
+                  </Text>
+                  {(() => {
+                    let docs = [];
+                    if (editingEmployee.documents) {
+                      try {
+                        docs = typeof editingEmployee.documents === 'string' ? JSON.parse(editingEmployee.documents) : editingEmployee.documents;
+                      } catch (e) {
+                        docs = [];
+                      }
+                    }
+                    if (!Array.isArray(docs) || docs.length === 0) {
+                      return (
+                        <Text style={{ fontSize: 12, color: themeColors.textSecondary, fontStyle: 'italic' }}>
+                          No documents uploaded yet for this team member.
+                        </Text>
+                      );
+                    }
+                    return docs.map((doc, idx) => (
+                      <View key={doc.id || String(idx)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '600', color: themeColors.text }} numberOfLines={1}>
+                            {doc.name || 'Document'}
+                          </Text>
+                          <Text style={{ fontSize: 10, color: themeColors.textSecondary }}>
+                            {doc.type} • {doc.fileName || ''}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: themeColors.accent + '20', borderWidth: 1, borderColor: themeColors.accent }}
+                          onPress={() => {
+                            if (doc.fileUrl) Linking.openURL(doc.fileUrl).catch(() => {});
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: themeColors.accent }}>View</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ));
+                  })()}
+                </View>
+              )}
+
               <TouchableOpacity style={styles.saveBtn} onPress={handleSaveEdit}>
                 <Text style={styles.saveBtnText}>Update Team Member</Text>
               </TouchableOpacity>

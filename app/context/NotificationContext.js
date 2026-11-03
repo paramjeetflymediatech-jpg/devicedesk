@@ -6,6 +6,19 @@ import Swal from 'sweetalert2';
 
 const NotificationContext = createContext();
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export function NotificationProvider({ children }) {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
@@ -31,6 +44,11 @@ export function NotificationProvider({ children }) {
     if (user && user.id && 'serviceWorker' in navigator && 'PushManager' in window) {
       const initPush = async () => {
         try {
+          const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+          if (!vapidKey || typeof vapidKey !== 'string' || !vapidKey.trim()) {
+            return;
+          }
+
           await navigator.serviceWorker.register('/sw.js');
           const register = await navigator.serviceWorker.ready;
           
@@ -39,9 +57,11 @@ export function NotificationProvider({ children }) {
             await subscription.unsubscribe();
           }
 
+          const convertedKey = urlBase64ToUint8Array(vapidKey.trim());
+
           subscription = await register.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+            applicationServerKey: convertedKey
           });
 
           await fetch('/api/notifications/subscribe', {
@@ -53,7 +73,10 @@ export function NotificationProvider({ children }) {
             })
           });
         } catch (error) {
-          console.error('Service Worker or Web Push subscription failed:', error);
+          if (error.name === 'AbortError' || error.name === 'NotAllowedError') {
+            return;
+          }
+          console.warn('Service Worker or Web Push subscription skipped:', error.message || error);
         }
       };
 

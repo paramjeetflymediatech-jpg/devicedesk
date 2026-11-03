@@ -1,0 +1,22 @@
+{
+  "name": "DeviceDesk | Fly Media Technology",
+  "short_name": "DeviceDesk",
+  "description": "Office System Inventory & Complaint Ticket Manager — Fly Media Technology",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+

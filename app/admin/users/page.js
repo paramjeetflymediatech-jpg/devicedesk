@@ -18,7 +18,8 @@ import {
   FiSearch,
   FiEye,
   FiEyeOff,
-  FiDownload
+  FiDownload,
+  FiFolder
 } from 'react-icons/fi';
 import { getEmployeeSlug } from '../../utils/slugUtils.js';
 import Pagination from '../../components/Pagination.js';
@@ -207,6 +208,14 @@ export default function UsersManagementPage() {
   };
 
   const handleEditClick = (user) => {
+    let docs = [];
+    if (user.documents) {
+      try {
+        docs = typeof user.documents === 'string' ? JSON.parse(user.documents) : user.documents;
+      } catch (e) {
+        docs = [];
+      }
+    }
     setEditForm({
       id: user.id,
       name: user.name || '',
@@ -214,7 +223,8 @@ export default function UsersManagementPage() {
       role: user.role || 'Team Member',
       department: user.department || 'Development',
       ticketLimit: user.ticketLimit || 100,
-      status: user.status || 'Active'
+      status: user.status || 'Active',
+      documents: Array.isArray(docs) ? docs : []
     });
     setShowEditModal(true);
   };
@@ -526,6 +536,7 @@ export default function UsersManagementPage() {
                 <th style={{ padding: '14px 16px' }}>Role</th>
                 <th style={{ padding: '14px 16px' }}>Department</th>
                 <th style={{ padding: '14px 16px' }}>Status</th>
+                <th style={{ padding: '14px 16px' }}>Documents</th>
                 <th style={{ padding: '14px 16px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -577,6 +588,40 @@ export default function UsersManagementPage() {
                       <span className={`status-tag ${user.status === 'Inactive' ? 'open' : 'resolved'}`}>
                         {user.status || 'Active'}
                       </span>
+                    </td>
+
+                    <td style={{ padding: '14px 16px' }}>
+                      {(() => {
+                        let docs = [];
+                        if (user.documents) {
+                          try {
+                            docs = typeof user.documents === 'string' ? JSON.parse(user.documents) : user.documents;
+                          } catch (e) {
+                            docs = [];
+                          }
+                        }
+                        const count = Array.isArray(docs) ? docs.length : 0;
+                        return (
+                          <Link
+                            href={`/admin/users/${userSlug}`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '0.75rem',
+                              padding: '3px 8px',
+                              borderRadius: '12px',
+                              textDecoration: 'none',
+                              background: count > 0 ? 'rgba(6, 182, 212, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                              color: count > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                              border: `1px solid ${count > 0 ? 'rgba(6, 182, 212, 0.3)' : 'rgba(255, 255, 255, 0.1)'}`
+                            }}
+                            title={`View documents for ${user.name}`}
+                          >
+                            <FiFolder style={{ fontSize: '0.8rem' }} /> {count} {count === 1 ? 'Doc' : 'Docs'}
+                          </Link>
+                        );
+                      })()}
                     </td>
 
                     <td style={{ padding: '14px 16px', textAlign: 'right' }}>
@@ -971,7 +1016,49 @@ export default function UsersManagementPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FiFolder style={{ color: 'var(--accent-cyan, #06b6d4)', fontSize: '1.1rem' }} />
+                  <div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary, #f8fafc)', display: 'block' }}>
+                      Profile Documents
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                      {editForm.documents?.length || 0} document{editForm.documents?.length === 1 ? '' : 's'} on record
+                    </span>
+                  </div>
+                </div>
+                <Link
+                  href={`/admin/users/${getEmployeeSlug(editForm)}`}
+                  target="_blank"
+                  style={{
+                    fontSize: '0.8rem',
+                    color: 'var(--accent-cyan, #06b6d4)',
+                    textDecoration: 'none',
+                    fontWeight: 600,
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(6, 182, 212, 0.1)',
+                    border: '1px solid rgba(6, 182, 212, 0.3)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Open user profile to view or upload documents"
+                >
+                  Manage Documents &rarr;
+                </Link>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '0.5rem' }}>
                 <button
                   type="submit"
                   disabled={submitting}

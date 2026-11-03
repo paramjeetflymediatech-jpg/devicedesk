@@ -159,6 +159,15 @@ async function initializeDatabase(db) {
     await db.execute(`ALTER TABLE employees MODIFY tl_id VARCHAR(255) DEFAULT NULL`);
   } catch (err) {}
   try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN documents LONGTEXT DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN resume_url VARCHAR(512) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN id_proof_url VARCHAR(512) DEFAULT NULL`);
+  } catch (err) {}
+  try {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS employee_team_leaders (
         id INT AUTO_INCREMENT PRIMARY KEY,

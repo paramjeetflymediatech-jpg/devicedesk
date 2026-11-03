@@ -274,6 +274,51 @@ export default function EmployeeModals({
                 />
               </div>
 
+              {editingEmp && editingEmp.id && (
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginTop: '0.75rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.1rem' }}>📁</span>
+                    <div>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', display: 'block' }}>
+                        Profile Documents
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {(editingEmp.documents?.length) || 0} document(s) on record
+                      </span>
+                    </div>
+                  </div>
+                  <a
+                    href={`/admin/users/${getEmployeeSlug(editingEmp)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: '0.8rem',
+                      color: 'var(--accent-cyan)',
+                      textDecoration: 'none',
+                      fontWeight: 600,
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      background: 'rgba(6, 182, 212, 0.1)',
+                      border: '1px solid rgba(6, 182, 212, 0.3)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    View & Upload &rarr;
+                  </a>
+                </div>
+              )}
+
               <button
                 type="submit"
                 className="btn-primary"

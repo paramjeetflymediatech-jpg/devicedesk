@@ -32,6 +32,16 @@ export async function GET(request, { params }) {
       }
     }
 
+    if (employee.documents) {
+      try {
+        employee.documents = typeof employee.documents === 'string' ? JSON.parse(employee.documents) : employee.documents;
+      } catch (e) {
+        employee.documents = [];
+      }
+    } else {
+      employee.documents = [];
+    }
+
     return NextResponse.json({ success: true, data: employee });
   } catch (err) {
     console.error('Fetch Employee by ID API Error:', err);
@@ -44,7 +54,7 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const body = await request.json();
     const { 
-      name, email, role, department, status, ticketLimit, avatarUrl, tl_id,
+      name, email, role, department, status, ticketLimit, avatarUrl, tl_id, documents, resume_url, id_proof_url,
       company_name, phone, whatsapp, address, gst_number, website_url, primary_service, notes 
     } = body;
 
@@ -85,6 +95,18 @@ export async function PUT(request, { params }) {
     if (tl_id !== undefined) {
       updates.push('tl_id = ?');
       values.push(tl_id === "" ? null : tl_id);
+    }
+    if (documents !== undefined) {
+      updates.push('documents = ?');
+      values.push(typeof documents === 'string' ? documents : JSON.stringify(documents || []));
+    }
+    if (resume_url !== undefined) {
+      updates.push('resume_url = ?');
+      values.push(resume_url);
+    }
+    if (id_proof_url !== undefined) {
+      updates.push('id_proof_url = ?');
+      values.push(id_proof_url);
     }
 
     if (updates.length === 0) {

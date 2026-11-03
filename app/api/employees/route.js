@@ -18,6 +18,21 @@ export async function GET(request) {
       `SELECT * FROM employees ORDER BY name ASC`
     );
 
+    rows = rows.map(r => {
+      let docs = [];
+      if (r.documents) {
+        try {
+          docs = typeof r.documents === 'string' ? JSON.parse(r.documents) : r.documents;
+        } catch (e) {
+          docs = [];
+        }
+      }
+      return {
+        ...r,
+        documents: Array.isArray(docs) ? docs : []
+      };
+    });
+
     if (!hasMarketingAccess) {
       rows = rows.filter(e => {
         const d = (e.department || '').toLowerCase();

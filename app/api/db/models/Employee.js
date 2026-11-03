@@ -5,7 +5,20 @@ export class Employee {
   static async getAll() {
     const db = getPool();
     const [rows] = await db.execute('SELECT * FROM employees');
-    return rows;
+    return rows.map(r => {
+      let docs = [];
+      if (r.documents) {
+        try {
+          docs = typeof r.documents === 'string' ? JSON.parse(r.documents) : r.documents;
+        } catch (e) {
+          docs = [];
+        }
+      }
+      return {
+        ...r,
+        documents: Array.isArray(docs) ? docs : []
+      };
+    });
   }
 
   static async saveAll(employees) {
@@ -35,6 +48,10 @@ export class Employee {
       if (passwordToSave && !passwordToSave.startsWith('$2a$') && !passwordToSave.startsWith('$2b$')) {
         passwordToSave = await bcrypt.hash(passwordToSave + pepper, 10);
       }
+      let docsToSave = null;
+      if (e.documents !== undefined && e.documents !== null) {
+        docsToSave = typeof e.documents === 'string' ? e.documents : JSON.stringify(e.documents);
+      }
       processedEmployees.push({
         id: e.id,
         name: e.name || null,
@@ -44,7 +61,8 @@ export class Employee {
         department: e.department || null,
         ticketLimit: e.ticketLimit || 5,
         status: e.status || 'Active',
-        avatarUrl: e.avatarUrl || null
+        avatarUrl: e.avatarUrl || null,
+        documents: docsToSave
       });
     }
 
@@ -52,7 +70,7 @@ export class Employee {
     processedEmployees.sort((a, b) => String(a.id).localeCompare(String(b.id)));
 
     // 4. Construct single atomic batch upsert statement
-    const placeholders = processedEmployees.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',\n');
+    const placeholders = processedEmployees.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',\n');
     const values = [];
     for (const e of processedEmployees) {
       values.push(
@@ -64,12 +82,13 @@ export class Employee {
         e.department,
         e.ticketLimit,
         e.status,
-        e.avatarUrl
+        e.avatarUrl,
+        e.documents
       );
     }
 
     const sql = `
-      INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status, avatarUrl)
+      INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status, avatarUrl, documents)
       VALUES ${placeholders}
       ON DUPLICATE KEY UPDATE 
         name = VALUES(name),
@@ -79,7 +98,8 @@ export class Employee {
         department = VALUES(department),
         ticketLimit = VALUES(ticketLimit),
         status = VALUES(status),
-        avatarUrl = COALESCE(VALUES(avatarUrl), avatarUrl)
+        avatarUrl = COALESCE(VALUES(avatarUrl), avatarUrl),
+        documents = COALESCE(VALUES(documents), documents)
     `;
 
     const maxRetries = 5;

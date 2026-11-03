@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "DeviceDesk | Fly Media Technology",
   description: "Office System Inventory & Complaint Ticket Manager — Fly Media Technology",
+  manifest: "/manifest.json"
 };
 
 export default function RootLayout({ children }) {

@@ -3,9 +3,40 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getEmployees, getSystems, getTickets, getTasks, getAssignmentHistory } from "../../../store.js";
+import Swal from "sweetalert2";
+import { getEmployees, getSystems, getTickets, getTasks, getAssignmentHistory, updateEmployee } from "../../../store.js";
 import { findEmployeeBySlug, getEmployeeSlug } from "../../../utils/slugUtils.js";
-import { FiUser, FiArrowLeft, FiServer, FiCheckSquare, FiFileText, FiClock, FiShield } from "react-icons/fi";
+import {
+  FiUser,
+  FiArrowLeft,
+  FiServer,
+  FiCheckSquare,
+  FiFileText,
+  FiClock,
+  FiShield,
+  FiFolder,
+  FiPlus,
+  FiDownload,
+  FiTrash2,
+  FiEye,
+  FiX,
+  FiCheck,
+  FiUploadCloud,
+  FiExternalLink,
+  FiPaperclip,
+  FiAlertCircle
+} from "react-icons/fi";
+
+const DOCUMENT_CATEGORIES = [
+  "Resume / CV",
+  "Government ID Proof",
+  "Address Proof",
+  "Offer / Appointment Letter",
+  "Academic / Degree Certificate",
+  "Experience / Relieving Letter",
+  "Bank / Salary Slip Document",
+  "Other Document"
+];
 
 export default function UserSlugDetailPage() {
   const params = useParams();
@@ -19,11 +50,40 @@ export default function UserSlugDetailPage() {
   const [userTasks, setUserTasks] = useState([]);
   const [userLogs, setUserLogs] = useState([]);
 
+  // Documents state
+  const [documents, setDocuments] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [showDocModal, setShowDocModal] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [docCategoryFilter, setDocCategoryFilter] = useState("All");
+  const [docForm, setDocForm] = useState({
+    type: "Resume / CV",
+    name: "",
+    file: null
+  });
+  const [previewDoc, setPreviewDoc] = useState(null);
+
+  const fetchDocs = async (empId) => {
+    try {
+      setLoadingDocs(true);
+      const res = await fetch(`/api/employees/${empId}/documents`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setDocuments(data.data);
+      }
+    } catch (err) {
+      console.error("Error loading employee documents:", err);
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
+
   useEffect(() => {
     if (!slug) return;
     try {
       const allEmployees = getEmployees();
       const emp = findEmployeeBySlug(allEmployees, slug);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEmployee(emp || null);
 
       if (emp) {
@@ -36,13 +96,154 @@ export default function UserSlugDetailPage() {
         setUserTickets(allTickets.filter(t => t.employeeId === emp.id || t.raisedBy === emp.id));
         setUserTasks(allTasks.filter(t => t.assignedTo === emp.id));
         setUserLogs(allLogs.filter(h => h.employeeId === emp.id));
+
+        // Load documents
+        fetchDocs(emp.id);
       }
     } catch (err) {
       console.error("Error loading user details:", err);
     } finally {
+      setLoadingDocs(false);
       setLoading(false);
     }
   }, [slug]);
+
+  const handleOpenAddDocModal = (presetCategory = "Resume / CV") => {
+    setDocForm({
+      type: presetCategory,
+      name: presetCategory.split(" / ")[0],
+      file: null
+    });
+    setShowDocModal(true);
+  };
+
+  const handleDocumentSubmit = async (e) => {
+    e.preventDefault();
+    if (!docForm.file) {
+      Swal.fire({
+        icon: "warning",
+        title: "File Required",
+        text: "Please select a file to upload.",
+        background: "#161b22",
+        color: "#f0f6fc"
+      });
+      return;
+    }
+
+    try {
+      setUploadingDoc(true);
+      const formData = new FormData();
+      formData.append("file", docForm.file);
+      formData.append("type", docForm.type);
+      formData.append("name", docForm.name.trim() || docForm.file.name);
+      formData.append("uploadedBy", "Admin");
+
+      const res = await fetch(`/api/employees/${employee.id}/documents`, {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Document Uploaded",
+          text: `"${docForm.name || docForm.file.name}" has been uploaded successfully.`,
+          timer: 2000,
+          showConfirmButton: false,
+          background: "#161b22",
+          color: "#f0f6fc"
+        });
+        setDocuments(data.documents || []);
+        setShowDocModal(false);
+        setDocForm({ type: "Resume / CV", name: "", file: null });
+
+        // Update local store as well
+        updateEmployee(employee.id, { documents: data.documents });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Upload Failed",
+          text: data.error || "Failed to upload document",
+          background: "#161b22",
+          color: "#f0f6fc"
+        });
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.message || "Failed to upload file.",
+        background: "#161b22",
+        color: "#f0f6fc"
+      });
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const handleDeleteDocument = (doc) => {
+    Swal.fire({
+      title: "Delete Document?",
+      text: `Are you sure you want to remove "${doc.name}"? This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, Delete",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6e7881",
+      background: "#161b22",
+      color: "#f0f6fc"
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const res = await fetch(`/api/employees/${employee.id}/documents?docId=${doc.id}`, {
+            method: "DELETE"
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            setDocuments(data.documents || []);
+            updateEmployee(employee.id, { documents: data.documents });
+            Swal.fire({
+              icon: "success",
+              title: "Deleted",
+              text: "Document removed successfully.",
+              timer: 1500,
+              showConfirmButton: false,
+              background: "#161b22",
+              color: "#f0f6fc"
+            });
+          } else {
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: data.error || "Failed to delete document",
+              background: "#161b22",
+              color: "#f0f6fc"
+            });
+          }
+        } catch (err) {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: err.message || "Network error",
+            background: "#161b22",
+            color: "#f0f6fc"
+          });
+        }
+      }
+    });
+  };
+
+  const getCategoryBadgeClass = (type) => {
+    const t = (type || "").toLowerCase();
+    if (t.includes("resume") || t.includes("cv")) return "badge-progress";
+    if (t.includes("id proof") || t.includes("government")) return "badge-resolved";
+    if (t.includes("offer") || t.includes("appointment")) return "badge-open";
+    if (t.includes("address")) return "badge-progress";
+    return "badge-open";
+  };
 
   if (loading) {
     return (
@@ -152,6 +353,375 @@ export default function UserSlugDetailPage() {
         <div className="stat-card orange">
           <span className="stat-label">Tickets Raised</span>
           <span className="stat-value">{userTickets.length}</span>
+        </div>
+        <div className="stat-card" style={{ borderColor: "rgba(6, 182, 212, 0.4)", background: "rgba(6, 182, 212, 0.03)" }}>
+          <span className="stat-label" style={{ color: "var(--accent-cyan)" }}>📁 Uploaded Documents</span>
+          <span className="stat-value" style={{ color: "var(--accent-cyan)" }}>{documents.length}</span>
+        </div>
+      </div>
+
+      {/* Team Member Documents & Verification Section */}
+      <div className="panel-card" style={{ marginBottom: "2rem" }}>
+        <div
+          className="panel-header"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "1rem",
+            paddingBottom: "1rem",
+            borderBottom: "1px solid var(--glass-border)"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <span className="panel-title" style={{ fontSize: "1.15rem", display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
+              <FiFolder style={{ color: "var(--accent-cyan)", fontSize: "1.3rem" }} />
+              Team Member Documents & Verification
+            </span>
+            <span className="timer-badge" style={{ color: "var(--accent-cyan)", borderColor: "rgba(6, 182, 212, 0.4)" }}>
+              {documents.length} File{documents.length === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          <button
+            onClick={() => handleOpenAddDocModal("Resume / CV")}
+            className="btn-primary"
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", padding: "8px 16px" }}
+          >
+            <FiPlus /> Upload Document
+          </button>
+        </div>
+
+        {/* Quick Document Status Checklist */}
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            flexWrap: "wrap",
+            padding: "1rem 0",
+            borderBottom: "1px solid rgba(255,255,255,0.05)"
+          }}
+        >
+          {(() => {
+            const hasResume = documents.some(d => (d.type || "").toLowerCase().includes("resume") || (d.type || "").toLowerCase().includes("cv"));
+            const hasIdProof = documents.some(d => (d.type || "").toLowerCase().includes("id proof") || (d.type || "").toLowerCase().includes("government"));
+            const hasAddressProof = documents.some(d => (d.type || "").toLowerCase().includes("address"));
+            const hasOfferLetter = documents.some(d => (d.type || "").toLowerCase().includes("offer") || (d.type || "").toLowerCase().includes("appointment"));
+
+            const resumeDoc = documents.find(d => (d.type || "").toLowerCase().includes("resume") || (d.type || "").toLowerCase().includes("cv"));
+            const idDoc = documents.find(d => (d.type || "").toLowerCase().includes("id proof") || (d.type || "").toLowerCase().includes("government"));
+            const addressDoc = documents.find(d => (d.type || "").toLowerCase().includes("address"));
+            const offerDoc = documents.find(d => (d.type || "").toLowerCase().includes("offer") || (d.type || "").toLowerCase().includes("appointment"));
+
+            return (
+              <>
+                {hasResume ? (
+                  <button
+                    onClick={() => setPreviewDoc(resumeDoc)}
+                    className="status-badge badge-resolved"
+                    style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px" }}
+                    title="Click to view attached Resume"
+                  >
+                    <FiCheck /> Resume Attached
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenAddDocModal("Resume / CV")}
+                    style={{
+                      background: "rgba(239, 68, 68, 0.06)",
+                      border: "1px dashed rgba(239, 68, 68, 0.4)",
+                      color: "#f87171",
+                      borderRadius: "20px",
+                      padding: "6px 12px",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    <FiPlus /> Add Resume
+                  </button>
+                )}
+
+                {hasIdProof ? (
+                  <button
+                    onClick={() => setPreviewDoc(idDoc)}
+                    className="status-badge badge-resolved"
+                    style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px" }}
+                    title="Click to view attached ID Proof"
+                  >
+                    <FiCheck /> ID Proof Verified
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenAddDocModal("Government ID Proof")}
+                    style={{
+                      background: "rgba(239, 68, 68, 0.06)",
+                      border: "1px dashed rgba(239, 68, 68, 0.4)",
+                      color: "#f87171",
+                      borderRadius: "20px",
+                      padding: "6px 12px",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    <FiPlus /> Add ID Proof
+                  </button>
+                )}
+
+                {hasAddressProof ? (
+                  <button
+                    onClick={() => setPreviewDoc(addressDoc)}
+                    className="status-badge badge-resolved"
+                    style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px" }}
+                    title="Click to view Address Proof"
+                  >
+                    <FiCheck /> Address Proof Attached
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenAddDocModal("Address Proof")}
+                    style={{
+                      background: "rgba(148, 163, 184, 0.1)",
+                      border: "1px dashed rgba(148, 163, 184, 0.3)",
+                      color: "var(--text-secondary)",
+                      borderRadius: "20px",
+                      padding: "6px 12px",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    <FiPlus /> Add Address Proof
+                  </button>
+                )}
+
+                {hasOfferLetter ? (
+                  <button
+                    onClick={() => setPreviewDoc(offerDoc)}
+                    className="status-badge badge-resolved"
+                    style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px" }}
+                    title="Click to view Offer Letter"
+                  >
+                    <FiCheck /> Offer Letter Attached
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenAddDocModal("Offer / Appointment Letter")}
+                    style={{
+                      background: "rgba(148, 163, 184, 0.1)",
+                      border: "1px dashed rgba(148, 163, 184, 0.3)",
+                      color: "var(--text-secondary)",
+                      borderRadius: "20px",
+                      padding: "6px 12px",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    <FiPlus /> Add Offer Letter
+                  </button>
+                )}
+              </>
+            );
+          })()}
+        </div>
+
+        {/* Category Filters */}
+        {documents.length > 0 && (
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", padding: "1rem 0" }}>
+            {["All", ...DOCUMENT_CATEGORIES].map(cat => {
+              const count = cat === "All" 
+                ? documents.length 
+                : documents.filter(d => (d.type || "").toLowerCase().includes(cat.toLowerCase().split(" / ")[0])).length;
+              
+              if (cat !== "All" && count === 0) return null;
+
+              const active = docCategoryFilter === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setDocCategoryFilter(cat)}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: active ? "1px solid var(--accent-cyan)" : "1px solid var(--glass-border)",
+                    background: active ? "rgba(6, 182, 212, 0.15)" : "transparent",
+                    color: active ? "var(--accent-cyan)" : "var(--text-secondary)"
+                  }}
+                >
+                  {cat} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Documents Table / Grid */}
+        <div className="table-wrapper" style={{ marginTop: "0.5rem" }}>
+          {loadingDocs ? (
+            <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>
+              Loading documents...
+            </div>
+          ) : documents.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "3rem 1.5rem",
+                background: "rgba(255, 255, 255, 0.01)",
+                borderRadius: "12px",
+                border: "1px dashed var(--glass-border)"
+              }}
+            >
+              <div
+                style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "50%",
+                  background: "rgba(6, 182, 212, 0.1)",
+                  color: "var(--accent-cyan)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.6rem",
+                  margin: "0 auto 1rem auto"
+                }}
+              >
+                <FiFolder />
+              </div>
+              <h4 style={{ margin: "0 0 6px 0", color: "var(--text-primary)", fontSize: "1.1rem" }}>
+                No Documents Uploaded Yet
+              </h4>
+              <p style={{ margin: "0 0 1.5rem 0", color: "var(--text-secondary)", fontSize: "0.85rem", maxWidth: "450px", marginLeft: "auto", marginRight: "auto" }}>
+                Upload official identity records, resume, signed offer letters, or education certificates for {employee.name}.
+              </p>
+              <button
+                onClick={() => handleOpenAddDocModal("Resume / CV")}
+                className="btn-primary"
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", padding: "8px 18px" }}
+              >
+                <FiUploadCloud /> Upload First Document
+              </button>
+            </div>
+          ) : (
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Document Title</th>
+                  <th>Category</th>
+                  <th>File Details</th>
+                  <th>Uploaded Date</th>
+                  <th>Uploaded By</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {documents
+                  .filter(d => {
+                    if (docCategoryFilter === "All") return true;
+                    return (d.type || "").toLowerCase().includes(docCategoryFilter.toLowerCase().split(" / ")[0]);
+                  })
+                  .map(doc => {
+                    const isPdf = (doc.fileName || doc.fileUrl || "").toLowerCase().endsWith(".pdf");
+                    const isImg = /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.fileName || doc.fileUrl || "");
+
+                    return (
+                      <tr key={doc.id}>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <span
+                              style={{
+                                width: "32px",
+                                height: "32px",
+                                borderRadius: "8px",
+                                background: isPdf ? "rgba(239, 68, 68, 0.15)" : isImg ? "rgba(139, 92, 246, 0.15)" : "rgba(6, 182, 212, 0.15)",
+                                color: isPdf ? "#ef4444" : isImg ? "#8b5cf6" : "#06b6d4",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: "1rem",
+                                flexShrink: 0
+                              }}
+                            >
+                              <FiFileText />
+                            </span>
+                            <div>
+                              <strong style={{ display: "block", color: "var(--text-primary)", fontSize: "0.9rem" }}>
+                                {doc.name || "Untitled"}
+                              </strong>
+                              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                {doc.fileName || "file"}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`status-badge ${getCategoryBadgeClass(doc.type)}`}>
+                            {doc.type || "Document"}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                          {doc.fileSize || "—"}
+                        </td>
+                        <td style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                          {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric"
+                          }) : "—"}
+                        </td>
+                        <td style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                          {doc.uploadedBy || "Admin"}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ display: "inline-flex", gap: "6px" }}>
+                            <button
+                              onClick={() => setPreviewDoc(doc)}
+                              className="btn-action"
+                              style={{ padding: "6px 10px", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                              title="Preview Document"
+                            >
+                              <FiEye /> View
+                            </button>
+                            <a
+                              href={doc.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                              className="btn-action"
+                              style={{ padding: "6px 10px", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "4px", textDecoration: "none" }}
+                              title="Download Document"
+                            >
+                              <FiDownload /> Download
+                            </a>
+                            <button
+                              onClick={() => handleDeleteDocument(doc)}
+                              className="btn-action resolve"
+                              style={{ padding: "6px 8px", fontSize: "0.75rem", color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.3)" }}
+                              title="Delete Document"
+                            >
+                              <FiTrash2 />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -274,6 +844,299 @@ export default function UserSlugDetailPage() {
           </table>
         </div>
       </div>
+
+      {/* ================= MODAL: UPLOAD TEAM MEMBER DOCUMENT ================= */}
+      {showDocModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "1rem"
+          }}
+        >
+          <div
+            style={{
+              background: "var(--bg-card, #1e293b)",
+              padding: "2rem",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "520px",
+              border: "1px solid var(--glass-border, rgba(255, 255, 255, 0.15))",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+              <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
+                <FiUploadCloud style={{ color: "var(--accent-cyan)" }} /> Upload Document
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowDocModal(false)}
+                style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "1.25rem", cursor: "pointer", padding: "4px" }}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <form onSubmit={handleDocumentSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "6px", color: "var(--text-secondary)" }}>
+                  Document Category <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <select
+                  value={docForm.type}
+                  onChange={(e) => {
+                    const cat = e.target.value;
+                    setDocForm(prev => ({
+                      ...prev,
+                      type: cat,
+                      name: prev.name && prev.name !== prev.type ? prev.name : cat.split(" / ")[0]
+                    }));
+                  }}
+                  className="form-control"
+                  style={{ width: "100%" }}
+                  required
+                >
+                  {DOCUMENT_CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "6px", color: "var(--text-secondary)" }}>
+                  Document Title / Label <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Aadhaar Card, B.Tech Degree, Offer Letter"
+                  value={docForm.name}
+                  onChange={(e) => setDocForm({ ...docForm, name: e.target.value })}
+                  className="form-control"
+                  style={{ width: "100%" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "6px", color: "var(--text-secondary)" }}>
+                  Select File <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <div
+                  style={{
+                    border: "2px dashed var(--glass-border)",
+                    borderRadius: "12px",
+                    padding: "1.5rem",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    background: docForm.file ? "rgba(6, 182, 212, 0.05)" : "rgba(255, 255, 255, 0.01)"
+                  }}
+                  onClick={() => document.getElementById("admin-user-doc-file-input")?.click()}
+                >
+                  <input
+                    id="admin-user-doc-file-input"
+                    type="file"
+                    style={{ display: "none" }}
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.zip"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setDocForm(prev => ({
+                          ...prev,
+                          file,
+                          name: prev.name.trim() ? prev.name : file.name.replace(/\.[^/.]+$/, "")
+                        }));
+                      }
+                    }}
+                  />
+                  {docForm.file ? (
+                    <div>
+                      <div style={{ fontSize: "1.8rem", color: "var(--accent-cyan)", marginBottom: "4px" }}>
+                        <FiFileText />
+                      </div>
+                      <strong style={{ display: "block", color: "var(--text-primary)", fontSize: "0.9rem" }}>
+                        {docForm.file.name}
+                      </strong>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                        {(docForm.file.size / (1024 * 1024)).toFixed(2)} MB • Click to change file
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: "2rem", color: "var(--text-muted)", marginBottom: "6px" }}>
+                        <FiUploadCloud />
+                      </div>
+                      <p style={{ margin: "0 0 4px 0", fontSize: "0.9rem", color: "var(--text-primary)", fontWeight: 600 }}>
+                        Click to browse or drag file here
+                      </p>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                        Supported formats: PDF, PNG, JPG, DOC, DOCX, ZIP (Max 100MB)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "0.5rem" }}>
+                <button
+                  type="submit"
+                  disabled={uploadingDoc}
+                  className="btn-primary"
+                  style={{
+                    flex: 1,
+                    padding: "11px",
+                    borderRadius: "8px",
+                    fontWeight: 600,
+                    cursor: uploadingDoc ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px"
+                  }}
+                >
+                  {uploadingDoc ? (
+                    <>
+                      <span className="spinner" style={{ width: "16px", height: "16px" }} /> Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <FiUploadCloud /> Upload & Save Document
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDocModal(false)}
+                  className="btn-secondary"
+                  style={{ flex: 1, padding: "11px", borderRadius: "8px" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: PREVIEW DOCUMENT ================= */}
+      {previewDoc && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.85)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1100,
+            padding: "1.5rem"
+          }}
+          onClick={() => setPreviewDoc(null)}
+        >
+          <div
+            style={{
+              background: "#161b22",
+              borderRadius: "16px",
+              border: "1px solid var(--glass-border)",
+              width: "100%",
+              maxWidth: "900px",
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.7)"
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Preview Header */}
+            <div
+              style={{
+                padding: "1rem 1.5rem",
+                borderBottom: "1px solid var(--glass-border)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+              }}
+            >
+              <div>
+                <h4 style={{ margin: 0, color: "#fff", fontSize: "1.1rem" }}>{previewDoc.name}</h4>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                  {previewDoc.type} • {previewDoc.fileName}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <a
+                  href={previewDoc.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="btn-secondary"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", padding: "6px 12px", textDecoration: "none" }}
+                >
+                  <FiDownload /> Download
+                </a>
+                <button
+                  onClick={() => setPreviewDoc(null)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    fontSize: "1.4rem",
+                    cursor: "pointer",
+                    padding: "4px"
+                  }}
+                >
+                  <FiX />
+                </button>
+              </div>
+            </div>
+
+            {/* Preview Body */}
+            <div style={{ flex: 1, padding: "1rem", overflow: "auto", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "350px", maxHeight: "75vh" }}>
+              {previewDoc.fileUrl && previewDoc.fileUrl.toLowerCase().endsWith(".pdf") ? (
+                <iframe
+                  src={previewDoc.fileUrl}
+                  style={{ width: "100%", height: "70vh", border: "none", borderRadius: "8px", background: "#fff" }}
+                  title={previewDoc.name}
+                />
+              ) : previewDoc.fileUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(previewDoc.fileUrl) ? (
+                <img
+                  src={previewDoc.fileUrl}
+                  alt={previewDoc.name}
+                  style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: "8px" }}
+                />
+              ) : (
+                <div style={{ textAlign: "center", padding: "3rem" }}>
+                  <FiFileText style={{ fontSize: "3rem", color: "var(--accent-cyan)", marginBottom: "1rem" }} />
+                  <p style={{ color: "var(--text-primary)", fontSize: "1rem", marginBottom: "0.5rem" }}>
+                    {previewDoc.name}
+                  </p>
+                  <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
+                    This document format cannot be rendered directly in the inline viewer.
+                  </p>
+                  <a
+                    href={previewDoc.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    download
+                    className="btn-primary"
+                    style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <FiDownload /> Download Document File
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
