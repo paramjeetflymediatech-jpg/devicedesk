@@ -20,6 +20,7 @@ import { sweetAlert } from '../../utils/sweetAlert';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
 import GoogleDriveBadge from '../../components/GoogleDriveBadge';
+import DocumentViewerModal from '../../components/DocumentViewerModal';
 
 export default function EmployeeTasks({ currentUser }) {
   const { isDark, themeColors } = useTheme();
@@ -33,6 +34,14 @@ export default function EmployeeTasks({ currentUser }) {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [selectedLinkedRequest, setSelectedLinkedRequest] = useState(null);
+
+  // In-App Document Viewer state
+  const [viewingDocModal, setViewingDocModal] = useState({
+    visible: false,
+    url: '',
+    name: '',
+    type: '',
+  });
 
   const resolveMediaUrl = (url) => {
     if (!url) return '';
@@ -110,9 +119,14 @@ export default function EmployeeTasks({ currentUser }) {
       return;
     }
     const resolved = resolveMediaUrl(url);
-    Linking.openURL(resolved).catch(() => {
-      Alert.alert('Error', 'Could not open attachment URL: ' + resolved);
-    });
+    if (resolved) {
+      setViewingDocModal({
+        visible: true,
+        url: resolved,
+        name: 'Task Attachment',
+        type: 'Attachment',
+      });
+    }
   };
 
   const loadClientRequests = async () => {
@@ -1184,6 +1198,15 @@ export default function EmployeeTasks({ currentUser }) {
           </View>
         </View>
       </Modal>
+
+      {/* In-App Document Viewer Modal */}
+      <DocumentViewerModal
+        visible={viewingDocModal.visible}
+        onClose={() => setViewingDocModal({ visible: false, url: '', name: '', type: '' })}
+        fileUrl={viewingDocModal.url}
+        fileName={viewingDocModal.name}
+        fileType={viewingDocModal.type}
+      />
 
     </View>
   );

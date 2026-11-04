@@ -24,6 +24,7 @@ import Video from 'react-native-video';
 import AppIcon from '../../components/AppIcon';
 import GoogleDriveBadge from '../../components/GoogleDriveBadge';
 import ManageScreenshots from '../Admin/ManageScreenshots';
+import DocumentViewerModal from '../../components/DocumentViewerModal';
 import { useTheme } from '../../utils/ThemeContext';
 import {
   fetchTasksApi,
@@ -203,15 +204,32 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
       sweetAlert({ title: 'Attachment Missing', text: 'No valid attachment found.', type: 'info' });
       return;
     }
-    Linking.openURL(resolved).catch((err) => {
-      console.log('Error opening attachment:', err);
-      sweetAlert({
-        title: 'Cannot Open File',
-        text: 'Failed to open file: ' + resolved,
-        type: 'error',
+    if (isVideoUrl(resolved) || isAudioUrl(resolved)) {
+      Linking.openURL(resolved).catch((err) => {
+        console.log('Error opening media:', err);
+        sweetAlert({
+          title: 'Cannot Open File',
+          text: 'Failed to open media: ' + resolved,
+          type: 'error',
+        });
       });
+      return;
+    }
+    setViewingDocModal({
+      visible: true,
+      url: resolved,
+      name: 'Attachment Preview',
+      type: 'Attachment',
     });
   };
+  // In-App Document Viewer state
+  const [viewingDocModal, setViewingDocModal] = useState({
+    visible: false,
+    url: '',
+    name: '',
+    type: '',
+  });
+
   const [notesFilter, setNotesFilter] = useState('ALL'); // 'ALL' | 'UNREAD' | 'REPLIED'
   const [notesSearch, setNotesSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -3288,6 +3306,15 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
           </View>
         </View>
       )}
+
+      {/* In-App Document Viewer Modal */}
+      <DocumentViewerModal
+        visible={viewingDocModal.visible}
+        onClose={() => setViewingDocModal({ visible: false, url: '', name: '', type: '' })}
+        fileUrl={viewingDocModal.url}
+        fileName={viewingDocModal.name}
+        fileType={viewingDocModal.type}
+      />
     </ContainerComponent>
   );
 }

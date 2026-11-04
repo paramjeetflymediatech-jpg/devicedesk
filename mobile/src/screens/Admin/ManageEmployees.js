@@ -17,6 +17,7 @@ import {
 import { getApiUrl } from '../../utils/api';
 import { sweetAlert } from '../../utils/sweetAlert';
 import { pickSingleDocument, pickSinglePhoto, takePhotoWithCamera, ensureFileExtension } from '../../utils/filePicker';
+import DocumentViewerModal from '../../components/DocumentViewerModal';
 import * as XLSX from 'xlsx';
 import {
   getEmployees,
@@ -85,6 +86,14 @@ export default function ManageEmployees({ currentUser, user: propUser }) {
   const [docTitle, setDocTitle] = useState('');
   const [pickedDocFile, setPickedDocFile] = useState(null);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+
+  // In-App Document Viewer state
+  const [viewingDocModal, setViewingDocModal] = useState({
+    visible: false,
+    url: '',
+    name: '',
+    type: '',
+  });
 
   const openDocumentsModal = async (emp) => {
     if (!emp) return;
@@ -1052,22 +1061,38 @@ export default function ManageEmployees({ currentUser, user: propUser }) {
         transparent={true}
         visible={docModalVisible}
         onRequestClose={() => {
-          if (!isUploadingDoc) setDocModalVisible(false);
+          if (viewingDocModal.visible) {
+            setViewingDocModal({ visible: false, url: '', name: '', type: '' });
+          } else if (!isUploadingDoc) {
+            setDocModalVisible(false);
+          }
         }}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
-          <View
-            style={{
-              backgroundColor: themeColors.card,
-              borderWidth: 1,
-              borderColor: themeColors.border,
-              borderRadius: 20,
-              padding: 18,
-              width: '100%',
-              maxWidth: 520,
-              maxHeight: '92%',
-            }}
-          >
+        <View style={{ flex: 1, backgroundColor: viewingDocModal.visible ? (isDark ? '#0b0f17' : '#ffffff') : 'rgba(0,0,0,0.7)', justifyContent: viewingDocModal.visible ? 'flex-start' : 'center', alignItems: viewingDocModal.visible ? 'stretch' : 'center', padding: viewingDocModal.visible ? 0 : 16 }}>
+          {viewingDocModal.visible ? (
+            <View style={{ flex: 1, width: '100%', height: '100%', alignSelf: 'stretch' }}>
+              <DocumentViewerModal
+                visible={viewingDocModal.visible}
+                onClose={() => setViewingDocModal({ visible: false, url: '', name: '', type: '' })}
+                fileUrl={viewingDocModal.url}
+                fileName={viewingDocModal.name}
+                fileType={viewingDocModal.type}
+                inline={true}
+              />
+            </View>
+          ) : (
+            <View
+              style={{
+                backgroundColor: themeColors.card,
+                borderWidth: 1,
+                borderColor: themeColors.border,
+                borderRadius: 20,
+                padding: 18,
+                width: '100%',
+                maxWidth: 520,
+                maxHeight: '92%',
+              }}
+            >
             {/* Modal Header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: themeColors.border, paddingBottom: 12 }}>
               <View style={{ flex: 1, marginRight: 10 }}>
@@ -1451,10 +1476,16 @@ export default function ManageEmployees({ currentUser, user: propUser }) {
                                   backgroundColor: themeColors.accent,
                                 }}
                                 onPress={() => {
-                                  if (doc.fileUrl) {
-                                    Linking.openURL(doc.fileUrl).catch(() => {
-                                      sweetAlert({ title: 'Error', text: 'Cannot open document URL.', type: 'error' });
+                                  const targetUrl = doc.fileUrl || doc.url || doc.file_url || doc.path || doc.uri;
+                                  if (targetUrl) {
+                                    setViewingDocModal({
+                                      visible: true,
+                                      url: targetUrl,
+                                      name: doc.name || doc.fileName || 'Document',
+                                      type: doc.type || '',
                                     });
+                                  } else {
+                                    sweetAlert({ title: 'Error', text: 'Document URL not found for this item.', type: 'error' });
                                   }
                                 }}
                               >
@@ -1484,6 +1515,7 @@ export default function ManageEmployees({ currentUser, user: propUser }) {
               )}
             </ScrollView>
           </View>
+          )}
         </View>
       </Modal>
 

@@ -27,6 +27,7 @@ import {
 } from '../../utils/api';
 import { useTheme } from '../../utils/ThemeContext';
 import { sweetAlert } from '../../utils/sweetAlert';
+import DocumentViewerModal from '../../components/DocumentViewerModal';
 
 const { width } = Dimensions.get('window');
 
@@ -83,6 +84,14 @@ export default function ManageCandidates({ currentUser, onBack }) {
   const [showEvaluateModal, setShowEvaluateModal] = useState(false);
   const [showTestDetailsModal, setShowTestDetailsModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // In-App Document / Resume Viewer state
+  const [viewingDocModal, setViewingDocModal] = useState({
+    visible: false,
+    url: '',
+    name: '',
+    type: '',
+  });
 
   // Selected Entities
   const [selectedCandidate, setSelectedCandidate] = useState(null);
@@ -709,7 +718,14 @@ export default function ManageCandidates({ currentUser, onBack }) {
                         {reg.resume_url ? (
                           <TouchableOpacity
                             style={[styles.miniBtn, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}
-                            onPress={() => Linking.openURL(reg.resume_url).catch(() => {})}
+                            onPress={() => {
+                              setViewingDocModal({
+                                visible: true,
+                                url: reg.resume_url,
+                                name: `${reg.name || 'Candidate'} - Resume`,
+                                type: 'Resume / CV',
+                              });
+                            }}
                           >
                             <Text style={[styles.miniBtnText, { color: themeColors.textPrimary }]}>📄 Resume</Text>
                           </TouchableOpacity>
@@ -788,7 +804,14 @@ export default function ManageCandidates({ currentUser, onBack }) {
                     {c.resume_url ? (
                       <TouchableOpacity
                         style={[styles.miniBtn, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}
-                        onPress={() => Linking.openURL(c.resume_url).catch(() => {})}
+                        onPress={() => {
+                          setViewingDocModal({
+                            visible: true,
+                            url: c.resume_url,
+                            name: `${c.name || 'Candidate'} - Resume`,
+                            type: 'Resume / CV',
+                          });
+                        }}
                       >
                         <Text style={[styles.miniBtnText, { color: themeColors.textPrimary }]}>📄 Resume</Text>
                       </TouchableOpacity>
@@ -1335,6 +1358,15 @@ export default function ManageCandidates({ currentUser, onBack }) {
           </View>
         </View>
       </Modal>
+
+      {/* In-App Document / Resume Viewer Modal */}
+      <DocumentViewerModal
+        visible={viewingDocModal.visible}
+        onClose={() => setViewingDocModal({ visible: false, url: '', name: '', type: '' })}
+        fileUrl={viewingDocModal.url}
+        fileName={viewingDocModal.name}
+        fileType={viewingDocModal.type}
+      />
     </View>
   );
 }

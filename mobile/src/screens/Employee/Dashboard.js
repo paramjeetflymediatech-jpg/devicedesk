@@ -40,6 +40,7 @@ import MarketingFieldScreen from '../Marketing/MarketingFieldScreen';
 import EODSubmission from './EODSubmission';
 import AppIcon from '../../components/AppIcon';
 import CalendarPickerModal from '../../components/CalendarPickerModal';
+import DocumentViewerModal from '../../components/DocumentViewerModal';
 
 const DOCUMENT_CATEGORIES = [
   'Resume / CV',
@@ -303,6 +304,14 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
   const [docTitle, setDocTitle] = useState('');
   const [pickedDocFile, setPickedDocFile] = useState(null);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+
+  // In-App Document Viewer state
+  const [viewingDocModal, setViewingDocModal] = useState({
+    visible: false,
+    url: '',
+    name: '',
+    type: '',
+  });
 
   const openUploadDocModal = (category = 'Resume / CV') => {
     setDocCategory(category);
@@ -1022,10 +1031,16 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
                                 borderRadius: 8,
                               }}
                               onPress={() => {
-                                if (doc.fileUrl) {
-                                  Linking.openURL(doc.fileUrl).catch(() => {
-                                    sweetAlert({ title: 'Error', text: 'Cannot open document URL', type: 'error' });
+                                const targetUrl = doc.fileUrl || doc.url || doc.file_url || doc.path || doc.uri;
+                                if (targetUrl) {
+                                  setViewingDocModal({
+                                    visible: true,
+                                    url: targetUrl,
+                                    name: doc.name || doc.fileName || 'Document',
+                                    type: doc.type || '',
                                   });
+                                } else {
+                                  sweetAlert({ title: 'Error', text: 'Document URL not found for this item.', type: 'error' });
                                 }
                               }}
                             >
@@ -2382,6 +2397,15 @@ export default function EmployeeDashboard({ user, onLogout, onSwitchToLeader, on
           </View>
         </View>
       </Modal>
+
+      {/* In-App Document Viewer Modal */}
+      <DocumentViewerModal
+        visible={viewingDocModal.visible}
+        onClose={() => setViewingDocModal({ visible: false, url: '', name: '', type: '' })}
+        fileUrl={viewingDocModal.url}
+        fileName={viewingDocModal.name}
+        fileType={viewingDocModal.type}
+      />
     </SafeAreaView>
   );
 }
