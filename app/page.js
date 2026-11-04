@@ -1096,7 +1096,8 @@ export default function Home() {
       email: emp.email || "",
       role: emp.role,
       department: emp.department,
-      ticketLimit: emp.ticketLimit || 5
+      ticketLimit: emp.ticketLimit || 5,
+      biometric_id: emp.biometric_id || ""
     });
     setShowEditEmpModal(true);
     playBeep(600, 0.05);
@@ -1111,8 +1112,23 @@ export default function Home() {
       email: editingEmp.email.trim(),
       role: editingEmp.role,
       department: editingEmp.department,
-      ticketLimit: Number(editingEmp.ticketLimit)
+      ticketLimit: Number(editingEmp.ticketLimit),
+      biometric_id: editingEmp.biometric_id ? editingEmp.biometric_id.trim() : null
     }, user?.name || "Admin");
+    
+    // Also sync to DB via PUT /api/employees/[id]
+    fetch(`/api/employees/${editingEmp.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: editingEmp.name.trim(),
+        email: editingEmp.email.trim(),
+        role: editingEmp.role,
+        department: editingEmp.department,
+        ticketLimit: Number(editingEmp.ticketLimit),
+        biometric_id: editingEmp.biometric_id ? editingEmp.biometric_id.trim() : null
+      })
+    }).catch(err => console.error('Failed to sync employee update to API:', err));
     
     setShowEditEmpModal(false);
     setEmployees(getEmployees());

@@ -55,7 +55,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const { 
-      name, email, password, role, department, ticketLimit,
+      name, email, password, role, department, ticketLimit, biometric_id,
       company_name, phone, whatsapp, address, gst_number, website_url, primary_service, notes 
     } = await request.json();
 
@@ -89,8 +89,8 @@ export async function POST(request) {
     const hashedPassword = await bcrypt.hash(empPass + pepper, 10);
 
     await db.execute(
-      `INSERT INTO employees (id, name, email, password, role, department, ticketLimit, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')`,
-      [empId, name.trim(), empEmail, hashedPassword, empRole, empDept, empLimit]
+      `INSERT INTO employees (id, name, email, password, role, department, ticketLimit, biometric_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
+      [empId, name.trim(), empEmail, hashedPassword, empRole, empDept, empLimit, biometric_id ? String(biometric_id).trim() : null]
     );
 
     // Log employee addition

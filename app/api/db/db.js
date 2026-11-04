@@ -204,6 +204,18 @@ async function initializeDatabase(db) {
   try {
     await db.execute(`ALTER TABLE attendance_records ADD COLUMN punchOutLongitude DECIMAL(11, 8) DEFAULT NULL`);
   } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE attendance_records ADD COLUMN punchSource VARCHAR(30) DEFAULT 'WEB'`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN biometric_id VARCHAR(50) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE attendance_records CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE attendance_breaks CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+  } catch (err) {}
 
   try {
     await db.execute(`ALTER TABLE chat_messages ADD COLUMN isEdited INT DEFAULT 0`);

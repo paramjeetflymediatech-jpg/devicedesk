@@ -14,7 +14,7 @@ export async function GET(request) {
   const pool = getPool();
 
   try {
-    let query = `SELECT id, employeeId, employeeName, date, punchInTime, punchOutTime, status, totalWorkMinutes, totalBreakMinutes, netWorkMinutes, remarks, modifiedBy, modifiedReason, breakStatus FROM attendance_records WHERE 1=1`;
+    let query = `SELECT id, employeeId, employeeName, date, punchInTime, punchOutTime, status, totalWorkMinutes, totalBreakMinutes, netWorkMinutes, remarks, modifiedBy, modifiedReason, breakStatus, punchSource, punchInLatitude, punchInLongitude, punchOutLatitude, punchOutLongitude FROM attendance_records WHERE 1=1`;
     const params = [];
 
     const search = searchParams.get('search');
@@ -41,8 +41,8 @@ export async function GET(request) {
 
 
     // Exclude users with DNS Manager role or department
-    query += ` AND employeeId NOT IN (
-      SELECT id FROM employees 
+    query += ` AND employeeId COLLATE utf8mb4_unicode_ci NOT IN (
+      SELECT id COLLATE utf8mb4_unicode_ci FROM employees 
       WHERE LOWER(role) = 'dns manager' 
          OR LOWER(COALESCE(department, '')) = 'dns manager'
     )`;

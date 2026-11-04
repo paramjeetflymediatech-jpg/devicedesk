@@ -19,10 +19,12 @@ import {
   FiEye,
   FiEyeOff,
   FiDownload,
-  FiFolder
+  FiFolder,
+  FiMoreVertical
 } from 'react-icons/fi';
 import { getEmployeeSlug } from '../../utils/slugUtils.js';
 import Pagination from '../../components/Pagination.js';
+import EmployeeIdCardModal from '../../components/modals/EmployeeIdCardModal.js';
 
 const ROLES = [
   'Team Member',
@@ -61,6 +63,19 @@ export default function UsersManagementPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [selectedIdCardUser, setSelectedIdCardUser] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+
+  // Close 3-dots dropdown when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest('.action-menu-container')) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, []);
 
   const [showAddPassword, setShowAddPassword] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
@@ -464,32 +479,39 @@ export default function UsersManagementPage() {
         {/* Search & Filters Toolbar */}
         <div style={{
           display: 'flex',
+          flexDirection: 'column',
           gap: '12px',
           marginBottom: '1.5rem',
           background: 'rgba(255, 255, 255, 0.02)',
-          padding: '1rem',
-          borderRadius: '12px',
-          border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))',
-          flexWrap: 'wrap',
-          alignItems: 'center'
+          padding: '1.25rem',
+          borderRadius: '14px',
+          border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))'
         }}>
-          <div style={{ position: 'relative', flex: '1', minWidth: '260px' }}>
-            <FiSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #64748b)' }} />
+          {/* Full-width Search Input */}
+          <div style={{ position: 'relative', width: '100%' }}>
+            <FiSearch style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #64748b)', fontSize: '1.1rem' }} />
             <input
               type="text"
               className="form-control"
-              placeholder="Search by name, email, @slug, department, or role..."
+              placeholder="Search by name, email, department, or role..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              style={{ paddingLeft: '36px', width: '100%', height: '40px' }}
+              style={{ paddingLeft: '40px', width: '100%', height: '42px', borderRadius: '10px' }}
             />
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+
+          {/* Filter Dropdowns in Columns */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '12px',
+            width: '100%'
+          }}>
             <select
               className="form-control"
               value={roleFilter}
               onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
-              style={{ minWidth: '130px', height: '40px' }}
+              style={{ width: '100%', height: '40px', borderRadius: '10px' }}
             >
               <option value="All">All Roles</option>
               {allRoles.map(r => (
@@ -500,7 +522,7 @@ export default function UsersManagementPage() {
               className="form-control"
               value={deptFilter}
               onChange={(e) => { setDeptFilter(e.target.value); setCurrentPage(1); }}
-              style={{ minWidth: '140px', height: '40px' }}
+              style={{ width: '100%', height: '40px', borderRadius: '10px' }}
             >
               <option value="All">All Departments</option>
               {allDepts.map(d => (
@@ -511,7 +533,7 @@ export default function UsersManagementPage() {
               className="form-control"
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              style={{ minWidth: '130px', height: '40px' }}
+              style={{ width: '100%', height: '40px', borderRadius: '10px' }}
             >
               <option value="All">All Status</option>
               <option value="Active">Active</option>
@@ -531,7 +553,6 @@ export default function UsersManagementPage() {
             <thead>
               <tr style={{ background: 'rgba(255, 255, 255, 0.04)', textAlign: 'left' }}>
                 <th style={{ padding: '14px 16px' }}>Name</th>
-                <th style={{ padding: '14px 16px' }}>User Slug</th>
                 <th style={{ padding: '14px 16px' }}>Email</th>
                 <th style={{ padding: '14px 16px' }}>Role</th>
                 <th style={{ padding: '14px 16px' }}>Department</th>
@@ -541,7 +562,7 @@ export default function UsersManagementPage() {
               </tr>
             </thead>
             <tbody>
-              {paginatedUsers.map((user) => {
+              {paginatedUsers.map((user, index) => {
                 const userSlug = getEmployeeSlug(user);
 
                 return (
@@ -552,25 +573,6 @@ export default function UsersManagementPage() {
                         style={{ color: 'var(--text-primary, #f8fafc)', textDecoration: 'none' }}
                       >
                         {user.name}
-                      </Link>
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <Link
-                        href={`/admin/users/${userSlug}`}
-                        className="timer-badge"
-                        style={{
-                          fontSize: '0.72rem',
-                          color: 'var(--accent-purple, #a855f7)',
-                          borderColor: 'rgba(168, 85, 247, 0.4)',
-                          background: 'rgba(168, 85, 247, 0.08)',
-                          textDecoration: 'none',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                        title={`View profile for ${userSlug}`}
-                      >
-                        <FiLink style={{ fontSize: '0.65rem' }} /> @{userSlug}
                       </Link>
                     </td>
                     <td style={{ padding: '14px 16px', color: 'var(--text-secondary, #94a3b8)', fontSize: '0.85rem' }}>
@@ -624,42 +626,168 @@ export default function UsersManagementPage() {
                       })()}
                     </td>
 
-                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                    <td style={{ padding: '14px 16px', textAlign: 'right', position: 'relative' }}>
+                      <div className="action-menu-container" style={{ position: 'relative', display: 'inline-block' }}>
                         <button
-                          onClick={() => handleResetClick(user)}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(openMenuId === user.id ? null : user.id);
+                          }}
                           style={{
-                            padding: '6px 9px',
-                            background: 'rgba(234, 179, 8, 0.1)',
-                            color: '#eab308',
-                            border: '1px solid rgba(234, 179, 8, 0.3)',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            border: `1px solid ${openMenuId === user.id ? 'var(--accent-cyan, #06b6d4)' : 'var(--glass-border, rgba(255, 255, 255, 0.12))'}`,
+                            background: openMenuId === user.id ? 'rgba(6, 182, 212, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+                            color: openMenuId === user.id ? 'var(--accent-cyan, #06b6d4)' : 'var(--text-secondary, #94a3b8)',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
-                            fontSize: '0.75rem'
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
                           }}
-                          title="Reset Password"
+                          title="Actions"
                         >
-                          <FiKey />
+                          <FiMoreVertical size={16} />
                         </button>
-                        <button
-                          onClick={() => handleEditClick(user)}
-                          className="btn-action start"
-                          style={{ padding: '6px 12px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                          title="Edit Team Member"
-                        >
-                          <FiEdit2 /> Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteUser(user)}
-                          className="btn-action resolve"
-                          style={{ padding: '6px 9px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
-                          title="Delete User"
-                        >
-                          <FiTrash2 />
-                        </button>
+
+                        {openMenuId === user.id && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              right: 0,
+                              top: index >= paginatedUsers.length - 2 && paginatedUsers.length > 2 ? 'auto' : 'calc(100% + 6px)',
+                              bottom: index >= paginatedUsers.length - 2 && paginatedUsers.length > 2 ? 'calc(100% + 6px)' : 'auto',
+                              background: '#0f172a',
+                              border: '1px solid rgba(255, 255, 255, 0.15)',
+                              borderRadius: '12px',
+                              boxShadow: '0 15px 35px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.06)',
+                              padding: '6px',
+                              minWidth: '190px',
+                              zIndex: 100,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '2px',
+                              textAlign: 'left'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedIdCardUser(user);
+                                setOpenMenuId(null);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '9px 12px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: 'transparent',
+                                color: '#f8fafc',
+                                fontSize: '0.82rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                width: '100%',
+                                transition: 'background 0.15s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <span style={{ fontSize: '1rem', lineHeight: 1 }}>🪪</span>
+                              <span>View / Print ID Card</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEditClick(user);
+                                setOpenMenuId(null);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '9px 12px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: 'transparent',
+                                color: '#f8fafc',
+                                fontSize: '0.82rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                width: '100%',
+                                transition: 'background 0.15s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <FiEdit2 size={14} style={{ color: '#60a5fa' }} />
+                              <span>Edit Details</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleResetClick(user);
+                                setOpenMenuId(null);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '9px 12px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: 'transparent',
+                                color: '#f8fafc',
+                                fontSize: '0.82rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                width: '100%',
+                                transition: 'background 0.15s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(234, 179, 8, 0.15)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <FiKey size={14} style={{ color: '#eab308' }} />
+                              <span>Reset Password</span>
+                            </button>
+
+                            <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)', margin: '4px 0' }} />
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleDeleteUser(user);
+                                setOpenMenuId(null);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '9px 12px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: 'transparent',
+                                color: '#ef4444',
+                                fontSize: '0.82rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                width: '100%',
+                                transition: 'background 0.15s'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <FiTrash2 size={14} />
+                              <span>Delete Member</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1189,6 +1317,14 @@ export default function UsersManagementPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {selectedIdCardUser && (
+        <EmployeeIdCardModal
+          employee={selectedIdCardUser}
+          isOpen={!!selectedIdCardUser}
+          onClose={() => setSelectedIdCardUser(null)}
+        />
       )}
     </div>
   );

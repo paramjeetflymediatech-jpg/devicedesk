@@ -54,7 +54,7 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const body = await request.json();
     const { 
-      name, email, role, department, status, ticketLimit, avatarUrl, tl_id, documents, resume_url, id_proof_url,
+      name, email, role, department, status, ticketLimit, avatarUrl, tl_id, documents, resume_url, id_proof_url, biometric_id,
       company_name, phone, whatsapp, address, gst_number, website_url, primary_service, notes 
     } = body;
 
@@ -107,6 +107,10 @@ export async function PUT(request, { params }) {
     if (id_proof_url !== undefined) {
       updates.push('id_proof_url = ?');
       values.push(id_proof_url);
+    }
+    if (biometric_id !== undefined) {
+      updates.push('biometric_id = ?');
+      values.push(biometric_id && String(biometric_id).trim() !== '' ? String(biometric_id).trim() : null);
     }
 
     if (updates.length === 0) {

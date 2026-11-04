@@ -1007,6 +1007,28 @@ export default function AttendanceTab({ user, mode }) {
                 <FiPlus /> Regularize / Add Log
               </button>
             )}
+
+            {isAdmin && (
+              <a
+                href="/kiosk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary"
+                style={{
+                  padding: "8px 14px",
+                  fontSize: "0.85rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  textDecoration: "none",
+                  background: "rgba(59, 130, 246, 0.15)",
+                  color: "var(--accent-cyan)",
+                  border: "1px solid rgba(59, 130, 246, 0.3)"
+                }}
+              >
+                🪪 Open Entrance Kiosk
+              </a>
+            )}
           </div>
         </div>
 
@@ -1068,6 +1090,21 @@ export default function AttendanceTab({ user, mode }) {
                       )}
                       <td style={{ padding: "14px 16px", fontFamily: "monospace" }}>
                         <div>{inTimeStr}</div>
+                        {r.punchSource && r.punchSource !== "WEB" && (
+                          <div style={{
+                            display: "inline-block",
+                            marginTop: "3px",
+                            fontSize: "0.68rem",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            background: r.punchSource === "QR_CARD" ? "rgba(16, 185, 129, 0.15)" : r.punchSource === "BIOMETRIC" ? "rgba(168, 85, 247, 0.15)" : "rgba(59, 130, 246, 0.15)",
+                            color: r.punchSource === "QR_CARD" ? "#34d399" : r.punchSource === "BIOMETRIC" ? "#c084fc" : "#60a5fa",
+                            fontWeight: 600,
+                            letterSpacing: "0.3px"
+                          }}>
+                            {r.punchSource === "QR_CARD" ? "🪪 QR Card" : r.punchSource === "BIOMETRIC" ? "🏷️ Biometric" : "📱 Mobile"}
+                          </div>
+                        )}
                         {r.punchInLatitude && (
                           <a
                             href={`https://www.google.com/maps/search/?api=1&query=${r.punchInLatitude},${r.punchInLongitude}`}

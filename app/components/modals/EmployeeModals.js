@@ -182,6 +182,22 @@ export default function EmployeeModals({
                 />
               </div>
 
+              <div className="form-group">
+                <label>Biometric Machine / Card ID (Optional)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={editingEmp.biometric_id || ""}
+                  onChange={(e) =>
+                    setEditingEmp({ ...editingEmp, biometric_id: e.target.value })
+                  }
+                  placeholder="e.g. 101 or physical card number"
+                />
+                <small style={{ color: "var(--text-muted)", fontSize: "0.72rem", display: "block", marginTop: "4px" }}>
+                  Matches the enrollment ID on your biometric device or NFC/RFID card.
+                </small>
+              </div>
+
               <button
                 type="submit"
                 className="btn-primary"
@@ -272,6 +288,22 @@ export default function EmployeeModals({
                   max="99999"
                   required
                 />
+              </div>
+
+              <div className="form-group">
+                <label>Biometric Machine / Card ID (Optional)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={editingEmp.biometric_id || ""}
+                  onChange={(e) =>
+                    setEditingEmp({ ...editingEmp, biometric_id: e.target.value })
+                  }
+                  placeholder="e.g. 101 or physical card number"
+                />
+                <small style={{ color: "var(--text-muted)", fontSize: "0.72rem", display: "block", marginTop: "4px" }}>
+                  Matches the enrollment ID on your biometric device or NFC/RFID card.
+                </small>
               </div>
 
               {editingEmp && editingEmp.id && (

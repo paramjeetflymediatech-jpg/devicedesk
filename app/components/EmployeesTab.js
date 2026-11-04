@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { FiUser, FiLink } from "react-icons/fi";
 import { getEmployeeSlug } from "../utils/slugUtils.js";
+import EmployeeIdCardModal from "./modals/EmployeeIdCardModal.js";
 
 export default function EmployeesTab({
   handleExportEmployeesToExcel,
@@ -35,6 +36,8 @@ export default function EmployeesTab({
   empPage,
   router
 }) {
+  const [selectedIdCardEmp, setSelectedIdCardEmp] = useState(null);
+
   return (
     <div className="page-section active">
       <div className="section-header">
@@ -296,6 +299,20 @@ export default function EmployeesTab({
                           style={{
                             padding: "4px 8px",
                             fontSize: "0.75rem",
+                            background: "rgba(16, 185, 129, 0.15)",
+                            color: "#10b981",
+                            borderColor: "rgba(16, 185, 129, 0.4)"
+                          }}
+                          onClick={() => setSelectedIdCardEmp(emp)}
+                          title="Generate & Print Employee ID Card with QR Code"
+                        >
+                          🪪 ID Card
+                        </button>
+                        <button
+                          className="btn-action start"
+                          style={{
+                            padding: "4px 8px",
+                            fontSize: "0.75rem",
                             background: "rgba(139, 92, 246, 0.15)",
                             color: "var(--accent-purple)",
                             borderColor: "var(--accent-purple)"
@@ -551,6 +568,14 @@ export default function EmployeesTab({
             Next →
           </button>
         </div>
+      )}
+
+      {selectedIdCardEmp && (
+        <EmployeeIdCardModal
+          employee={selectedIdCardEmp}
+          isOpen={!!selectedIdCardEmp}
+          onClose={() => setSelectedIdCardEmp(null)}
+        />
       )}
     </div>
   );
