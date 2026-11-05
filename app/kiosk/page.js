@@ -1,7 +1,19 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { FiCamera, FiMaximize, FiMinimize, FiAlertCircle, FiRefreshCw } from "react-icons/fi";
+import {
+  FiCamera,
+  FiMaximize,
+  FiMinimize,
+  FiAlertCircle,
+  FiRefreshCw,
+  FiLock,
+  FiUnlock,
+  FiShield,
+  FiCheckCircle,
+  FiDelete
+} from "react-icons/fi";
 import { Html5Qrcode } from "html5-qrcode";
 
 export default function AttendanceKioskPage() {
@@ -13,6 +25,14 @@ export default function AttendanceKioskPage() {
   const [recentLogs, setRecentLogs] = useState([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Security & Authentication States
+  // "checking" | "ip_blocked" | "locked" | "unlocked"
+  const [authStatus, setAuthStatus] = useState("checking");
+  const [clientIp, setClientIp] = useState("");
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+
   // Camera state
   const [cameraActive, setCameraActive] = useState(true);
   const [cameraError, setCameraError] = useState("");
@@ -22,6 +42,7 @@ export default function AttendanceKioskPage() {
   const dismissTimerRef = useRef(null);
   const bufferTimeoutRef = useRef(null);
   const processScanRef = useRef(null);
+  const unlockWithPinRef = useRef(null);
   const scannerRef = useRef(null);
   const lastScannedCodeRef = useRef("");
   const lastScanTimestampRef = useRef(0);
@@ -39,7 +60,7 @@ export default function AttendanceKioskPage() {
   }, []);
 
   // Web Audio Chime synthesizer
-  const playChime = (type = "success") => {
+  const playChime = useCallback((type = "success") => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = audioCtx.createOscillator();
@@ -69,11 +90,152 @@ export default function AttendanceKioskPage() {
         osc.stop(audioCtx.currentTime + 0.3);
       }
     } catch (e) {}
+  }, []);
+
+  // Check Kiosk Security (IP & PIN Token) on mount
+  const verifyKioskSecurity = async () => {
+    try {
+      const savedToken = typeof window !== "undefined" ? localStorage.getItem("devicedesk_kiosk_token") || "" : "";
+      const url = `/api/kiosk/auth${savedToken ? `?token=${encodeURIComponent(savedToken)}` : ""}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      setClientIp(data.clientIp || "");
+
+      // 1. IP check: If strict office IP is configured and device is outside office network
+      if (data.isIpConfigured && !data.isOfficeIp) {
+        setAuthStatus("ip_blocked");
+        return;
+      }
+
+      // 2. PIN token check: Device must be unlocked
+      if (data.isUnlocked) {
+        setAuthStatus("unlocked");
+      } else {
+        setAuthStatus("locked");
+      }
+    } catch (err) {
+      console.error("Kiosk security check error:", err);
+      setAuthStatus("locked");
+    }
   };
 
-  // Submit scan to backend
+  useEffect(() => {
+    let isMounted = true;
+    const init = async () => {
+      try {
+        const savedToken = typeof window !== "undefined" ? localStorage.getItem("devicedesk_kiosk_token") || "" : "";
+        const url = `/api/kiosk/auth${savedToken ? `?token=${encodeURIComponent(savedToken)}` : ""}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!isMounted) return;
+        setClientIp(data.clientIp || "");
+
+        if (data.isIpConfigured && !data.isOfficeIp) {
+          setAuthStatus("ip_blocked");
+        } else if (data.isUnlocked) {
+          setAuthStatus("unlocked");
+        } else {
+          setAuthStatus("locked");
+        }
+      } catch (err) {
+        if (isMounted) setAuthStatus("locked");
+      }
+    };
+
+    init();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Handle PIN Unlock
+  const handleUnlockWithPin = useCallback(async (pinValue) => {
+    const pin = pinValue !== undefined ? pinValue : pinInput;
+    if (!pin) {
+      setPinError("Please enter the Admin PIN.");
+      return;
+    }
+
+    setIsVerifyingPin(true);
+    setPinError("");
+
+    try {
+      const res = await fetch("/api/kiosk/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin })
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.token) {
+        localStorage.setItem("devicedesk_kiosk_token", data.token);
+        setAuthStatus("unlocked");
+        setPinInput("");
+        setPinError("");
+        playChime("success");
+      } else {
+        playChime("error");
+        if (data.errorType === "IP_RESTRICTED") {
+          setAuthStatus("ip_blocked");
+          setClientIp(data.clientIp);
+        } else {
+          setPinError(data.message || "Incorrect PIN. Try again.");
+          setPinInput("");
+        }
+      }
+    } catch (e) {
+      setPinError("Network error. Could not verify PIN.");
+    } finally {
+      setIsVerifyingPin(false);
+    }
+  }, [pinInput, playChime]);
+
+  useEffect(() => {
+    unlockWithPinRef.current = handleUnlockWithPin;
+  }, [handleUnlockWithPin]);
+
+  // Re-lock Terminal
+  const handleLockTerminal = () => {
+    localStorage.removeItem("devicedesk_kiosk_token");
+    setAuthStatus("locked");
+    setPinInput("");
+    setPinError("");
+    setLastResult(null);
+  };
+
+  // Keyboard support for PIN entry when locked
+  useEffect(() => {
+    if (authStatus !== "locked") return;
+
+    const handlePinKey = (e) => {
+      if (/^[0-9]$/.test(e.key)) {
+        setPinInput(prev => {
+          if (prev.length < 8) {
+            const next = prev + e.key;
+            if (next.length === 4 && unlockWithPinRef.current) {
+              unlockWithPinRef.current(next);
+            }
+            return next;
+          }
+          return prev;
+        });
+      } else if (e.key === "Backspace") {
+        setPinInput(prev => prev.slice(0, -1));
+      } else if (e.key === "Enter" && unlockWithPinRef.current) {
+        unlockWithPinRef.current();
+      }
+    };
+
+    window.addEventListener("keydown", handlePinKey);
+    return () => window.removeEventListener("keydown", handlePinKey);
+  }, [authStatus]);
+
+  // Submit scan to backend with Kiosk Token
   const handleProcessScan = useCallback(async (rawCode) => {
-    if (!rawCode || isProcessing) return;
+    if (!rawCode || isProcessing || authStatus !== "unlocked") return;
     const clean = rawCode.trim();
     if (!clean) return;
 
@@ -88,13 +250,31 @@ export default function AttendanceKioskPage() {
     setIsProcessing(true);
 
     try {
+      const savedToken = localStorage.getItem("devicedesk_kiosk_token") || "";
+
       const res = await fetch("/api/attendance/scan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: clean, source: "QR_CARD" })
+        headers: {
+          "Content-Type": "application/json",
+          "x-kiosk-token": savedToken
+        },
+        body: JSON.stringify({ identifier: clean, source: "QR_CARD", kioskToken: savedToken })
       });
 
       const data = await res.json();
+
+      // If terminal became unauthorized or locked
+      if (res.status === 401 || data.isLocked) {
+        handleLockTerminal();
+        return;
+      }
+
+      // If IP restricted
+      if (res.status === 403 && data.errorType === "IP_RESTRICTED") {
+        setAuthStatus("ip_blocked");
+        setClientIp(data.clientIp || "");
+        return;
+      }
 
       if (data.success) {
         if (data.action === "ALREADY_PUNCHED") {
@@ -147,7 +327,7 @@ export default function AttendanceKioskPage() {
       setIsProcessing(false);
       setManualCode("");
     }
-  }, [isProcessing]);
+  }, [isProcessing, authStatus, playChime]);
 
   useEffect(() => {
     processScanRef.current = handleProcessScan;
@@ -155,6 +335,8 @@ export default function AttendanceKioskPage() {
 
   // Global listener for USB Barcode / QR Scanners (HID Keyboard emulation)
   useEffect(() => {
+    if (authStatus !== "unlocked") return;
+
     let currentBuffer = "";
 
     const handleKeyDown = (e) => {
@@ -186,11 +368,11 @@ export default function AttendanceKioskPage() {
       window.removeEventListener("keydown", handleKeyDown);
       if (bufferTimeoutRef.current) clearTimeout(bufferTimeoutRef.current);
     };
-  }, []);
+  }, [authStatus]);
 
-  // Initialize Camera Scanner Viewfinder
+  // Initialize Camera Scanner Viewfinder only when unlocked
   useEffect(() => {
-    if (!cameraActive) {
+    if (authStatus !== "unlocked" || !cameraActive) {
       if (scannerRef.current) {
         scannerRef.current.stop().then(() => scannerRef.current.clear()).catch(() => {});
         scannerRef.current = null;
@@ -233,9 +415,7 @@ export default function AttendanceKioskPage() {
               processScanRef.current(decodedText);
             }
           },
-          () => {
-            // Per-frame error, ignore quietly
-          }
+          () => {}
         );
       } catch (err) {
         if (isMounted) {
@@ -245,8 +425,7 @@ export default function AttendanceKioskPage() {
       }
     };
 
-    // Small delay to ensure DOM container #kiosk-camera-reader is mounted
-    const timer = setTimeout(startScanner, 200);
+    const timer = setTimeout(startScanner, 250);
 
     return () => {
       isMounted = false;
@@ -258,7 +437,7 @@ export default function AttendanceKioskPage() {
         scannerRef.current = null;
       }
     };
-  }, [cameraActive, selectedCameraId]);
+  }, [authStatus, cameraActive, selectedCameraId]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -268,20 +447,413 @@ export default function AttendanceKioskPage() {
     }
   };
 
+  // Shared Full-Screen Viewport Container with Background Image & Balanced Overlay
+  const fullScreenContainerStyle = {
+    position: "fixed",
+    inset: 0,
+    width: "100vw",
+    height: "100vh",
+    zIndex: 9999,
+    overflowY: "auto",
+    backgroundImage: "linear-gradient(135deg, rgba(15, 23, 42, 0.65) 0%, rgba(2, 6, 23, 0.8) 100%), url('/kiosk-bg.jpg')",
+    backgroundPosition: "center",
+    backgroundSize: "cover",
+    backgroundRepeat: "no-repeat",
+    backgroundAttachment: "fixed",
+    color: "#f8fafc",
+    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    display: "flex",
+    flexDirection: "column",
+    boxSizing: "border-box"
+  };
+
+  // =========================================================================
+  // VIEW 1: LOADING STATE
+  // =========================================================================
+  if (authStatus === "checking") {
+    return (
+      <div
+        style={{
+          ...fullScreenContainerStyle,
+          alignItems: "center",
+          justifyContent: "center"
+        }}
+      >
+        <div
+          style={{
+            background: "rgba(15, 23, 42, 0.85)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            borderRadius: "20px",
+            padding: "30px 42px",
+            textAlign: "center",
+            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.6)"
+          }}
+        >
+          <div style={{ fontSize: "2.4rem", marginBottom: "12px", animation: "spin 1.5s linear infinite" }}>
+            🔄
+          </div>
+          <div style={{ fontSize: "1.15rem", fontWeight: 700 }}>Verifying Terminal Security...</div>
+          <div style={{ fontSize: "0.8rem", color: "#94a3b8", marginTop: "4px" }}>
+            Checking office network & device credentials
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 2: OFFICE IP BLOCKED SCREEN
+  // =========================================================================
+  if (authStatus === "ip_blocked") {
+    return (
+      <div
+        style={{
+          ...fullScreenContainerStyle,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px"
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "440px",
+            width: "100%",
+            background: "rgba(15, 23, 42, 0.88)",
+            backdropFilter: "blur(24px)",
+            border: "2px solid #ef4444",
+            borderRadius: "20px",
+            padding: "26px 24px",
+            boxShadow: "0 25px 60px rgba(239, 68, 68, 0.25)",
+            textAlign: "center"
+          }}
+        >
+          <div
+            style={{
+              width: "56px",
+              height: "56px",
+              borderRadius: "50%",
+              background: "rgba(239, 68, 68, 0.15)",
+              color: "#ef4444",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.8rem",
+              margin: "0 auto 12px",
+              boxShadow: "0 0 20px rgba(239, 68, 68, 0.3)"
+            }}
+          >
+            <FiShield />
+          </div>
+
+          <h2 style={{ fontSize: "1.3rem", fontWeight: 800, margin: "0 0 6px", color: "#f87171" }}>
+            Office Network Required
+          </h2>
+          <p style={{ fontSize: "0.82rem", color: "#cbd5e1", lineHeight: 1.4, margin: "0 0 16px" }}>
+            This Attendance Kiosk is restricted to the office Wi-Fi network. Scanning attendance outside the office is not permitted.
+          </p>
+
+          <div
+            style={{
+              background: "rgba(0, 0, 0, 0.5)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              borderRadius: "12px",
+              padding: "12px 14px",
+              marginBottom: "18px",
+              textAlign: "left"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "4px" }}>
+              <span style={{ color: "#94a3b8" }}>Current Detected IP:</span>
+              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fca5a5" }}>
+                {clientIp || "Unknown"}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+              <span style={{ color: "#94a3b8" }}>Status:</span>
+              <span style={{ fontWeight: 600, color: "#f87171" }}>Outside Office Range</span>
+            </div>
+          </div>
+
+          <button
+            onClick={verifyKioskSecurity}
+            style={{
+              width: "100%",
+              padding: "10px",
+              borderRadius: "10px",
+              background: "#2563eb",
+              color: "#ffffff",
+              border: "none",
+              fontSize: "0.88rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              boxShadow: "0 4px 15px rgba(37,99,235,0.4)"
+            }}
+          >
+            <FiRefreshCw /> Refresh & Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 3: ADMIN KIOSK PIN LOCK SCREEN (PERFECTLY CENTERED & COMPACT)
+  // =========================================================================
+  if (authStatus === "locked") {
+    return (
+      <div
+        style={{
+          ...fullScreenContainerStyle,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
+          userSelect: "none"
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "350px",
+            width: "100%",
+            background: "rgba(15, 23, 42, 0.88)",
+            backdropFilter: "blur(24px)",
+            border: "1px solid rgba(255, 255, 255, 0.18)",
+            borderRadius: "20px",
+            padding: "20px 22px 14px",
+            textAlign: "center",
+            boxShadow: "0 25px 60px -10px rgba(0, 0, 0, 0.75)"
+          }}
+        >
+          {/* Top Brand Pill */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "rgba(255, 255, 255, 0.08)",
+              padding: "3px 10px",
+              borderRadius: "16px",
+              marginBottom: "10px",
+              border: "1px solid rgba(255, 255, 255, 0.1)"
+            }}
+          >
+            <span style={{ fontSize: "0.8rem" }}>🪪</span>
+            <span style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.6px", color: "#e2e8f0" }}>
+              FLYMEDIA TECHNOLOGY
+            </span>
+          </div>
+
+          {/* Header Title with Small Glow Lock */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "3px" }}>
+            <div
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "50%",
+                background: "#2563eb",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "0.85rem",
+                boxShadow: "0 0 12px rgba(37, 99, 235, 0.6)"
+              }}
+            >
+              <FiLock />
+            </div>
+            <h2 style={{ fontSize: "1.12rem", fontWeight: 800, margin: 0, color: "#ffffff" }}>
+              Entrance Terminal Locked
+            </h2>
+          </div>
+
+          <p style={{ fontSize: "0.72rem", color: "#94a3b8", margin: "0 0 12px" }}>
+            Enter Admin PIN to unlock scanning on this office terminal
+          </p>
+
+          {/* PIN Indicator Dots */}
+          <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "12px" }}>
+            {[0, 1, 2, 3].map(idx => (
+              <div
+                key={idx}
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "50%",
+                  border: "2px solid #3b82f6",
+                  background: pinInput.length > idx ? "#3b82f6" : "transparent",
+                  boxShadow: pinInput.length > idx ? "0 0 8px #3b82f6" : "none",
+                  transition: "all 0.15s ease"
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Error Message */}
+          {pinError && (
+            <div
+              style={{
+                background: "rgba(239, 68, 68, 0.15)",
+                color: "#f87171",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: "8px",
+                padding: "4px 8px",
+                fontSize: "0.72rem",
+                marginBottom: "10px",
+                fontWeight: 600
+              }}
+            >
+              {pinError}
+            </div>
+          )}
+
+          {/* Compact Interactive On-Screen Keypad */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: "6px",
+              maxWidth: "230px",
+              margin: "0 auto 12px"
+            }}
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+              <button
+                key={num}
+                type="button"
+                onClick={() => {
+                  if (pinInput.length < 8) {
+                    const next = pinInput + String(num);
+                    setPinInput(next);
+                    if (next.length === 4) {
+                      handleUnlockWithPin(next);
+                    }
+                  }
+                }}
+                style={{
+                  padding: "9px 0",
+                  fontSize: "1.15rem",
+                  fontWeight: 700,
+                  borderRadius: "8px",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  background: "rgba(255, 255, 255, 0.07)",
+                  color: "#ffffff",
+                  cursor: "pointer",
+                  transition: "all 0.12s ease"
+                }}
+              >
+                {num}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setPinInput("")}
+              style={{
+                padding: "9px 0",
+                fontSize: "0.74rem",
+                fontWeight: 600,
+                borderRadius: "8px",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                background: "rgba(255, 255, 255, 0.04)",
+                color: "#94a3b8",
+                cursor: "pointer"
+              }}
+            >
+              Clear
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (pinInput.length < 8) {
+                  const next = pinInput + "0";
+                  setPinInput(next);
+                  if (next.length === 4) {
+                    handleUnlockWithPin(next);
+                  }
+                }
+              }}
+              style={{
+                padding: "9px 0",
+                fontSize: "1.15rem",
+                fontWeight: 700,
+                borderRadius: "8px",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                background: "rgba(255, 255, 255, 0.07)",
+                color: "#ffffff",
+                cursor: "pointer"
+              }}
+            >
+              0
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPinInput(prev => prev.slice(0, -1))}
+              style={{
+                padding: "9px 0",
+                fontSize: "1.05rem",
+                fontWeight: 700,
+                borderRadius: "8px",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                background: "rgba(255, 255, 255, 0.04)",
+                color: "#94a3b8",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              <FiDelete />
+            </button>
+          </div>
+
+          {/* Unlock Submit Button */}
+          <button
+            type="button"
+            onClick={() => handleUnlockWithPin()}
+            disabled={isVerifyingPin || !pinInput}
+            style={{
+              width: "100%",
+              padding: "9px",
+              borderRadius: "10px",
+              background: pinInput ? "#2563eb" : "rgba(37, 99, 235, 0.35)",
+              color: "#ffffff",
+              border: "none",
+              fontSize: "0.85rem",
+              fontWeight: 700,
+              cursor: pinInput ? "pointer" : "not-allowed",
+              boxShadow: pinInput ? "0 4px 15px rgba(37,99,235,0.4)" : "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px"
+            }}
+          >
+            <FiUnlock /> {isVerifyingPin ? "Verifying..." : "Unlock Terminal"}
+          </button>
+
+          <div style={{ marginTop: "8px", fontSize: "0.68rem", color: "#94a3b8" }}>
+            Terminal IP: {clientIp || "Local LAN"} • DeviceDesk Shield
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW 4: UNLOCKED FULL KIOSK SCANNER (WITH BALANCED BACKGROUND IMAGE)
+  // =========================================================================
   return (
     <div
       style={{
-        minHeight: "100vh",
-        background: "radial-gradient(ellipse at top, #1e293b 0%, #0f172a 100%)",
-        color: "#f8fafc",
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        display: "flex",
-        flexDirection: "column",
+        ...fullScreenContainerStyle,
         justifyContent: "space-between",
-        padding: "24px",
-        boxSizing: "border-box",
-        position: "relative",
-        userSelect: "none"
+        padding: "20px"
       }}
     >
       <style jsx global>{`
@@ -306,6 +878,7 @@ export default function AttendanceKioskPage() {
           display: none !important;
         }
       `}</style>
+
       {/* Top Bar */}
       <div
         style={{
@@ -314,37 +887,39 @@ export default function AttendanceKioskPage() {
           alignItems: "center",
           maxWidth: "1200px",
           width: "100%",
-          margin: "0 auto"
+          margin: "0 auto",
+          background: "rgba(15, 23, 42, 0.75)",
+          backdropFilter: "blur(16px)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          borderRadius: "16px",
+          padding: "10px 18px"
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <div
-            style={{
-              width: "44px",
-              height: "44px",
-              borderRadius: "12px",
-              background: "linear-gradient(135deg, #3b82f6, #2563eb)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.4rem",
-              boxShadow: "0 4px 14px rgba(37,99,235,0.4)"
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <img
+            src="/flymedia-logo-white.png"
+            alt="Flymedia"
+            style={{ height: "26px", objectFit: "contain" }}
+            onError={(e) => {
+              e.target.style.display = "none";
             }}
-          >
-            🪪
-          </div>
+          />
           <div>
-            <div style={{ fontSize: "1.15rem", fontWeight: 800, letterSpacing: "0.5px" }}>
+            <div style={{ fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.5px" }}>
               Flymedia Technology
             </div>
-            <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>
-              Attendance Kiosk • DeviceDesk
+            <div style={{ fontSize: "0.74rem", color: "#94a3b8", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span>Attendance Kiosk</span>
+              <span>•</span>
+              <span style={{ color: "#34d399", display: "inline-flex", alignItems: "center", gap: "3px", fontWeight: 600 }}>
+                <FiCheckCircle style={{ fontSize: "0.75rem" }} /> Terminal Active
+              </span>
             </div>
           </div>
         </div>
 
         {/* Top Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {/* Camera Toggle */}
           <button
             onClick={() => setCameraActive(prev => !prev)}
@@ -352,13 +927,13 @@ export default function AttendanceKioskPage() {
               background: cameraActive ? "rgba(16, 185, 129, 0.2)" : "rgba(255, 255, 255, 0.08)",
               border: `1px solid ${cameraActive ? "rgba(16, 185, 129, 0.4)" : "rgba(255, 255, 255, 0.15)"}`,
               color: cameraActive ? "#34d399" : "#cbd5e1",
-              padding: "8px 14px",
-              borderRadius: "10px",
+              padding: "6px 12px",
+              borderRadius: "8px",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: "6px",
-              fontSize: "0.85rem",
+              gap: "5px",
+              fontSize: "0.8rem",
               fontWeight: 600
             }}
           >
@@ -377,13 +952,13 @@ export default function AttendanceKioskPage() {
                 background: "rgba(255, 255, 255, 0.08)",
                 border: "1px solid rgba(255, 255, 255, 0.15)",
                 color: "#cbd5e1",
-                padding: "8px 12px",
-                borderRadius: "10px",
+                padding: "6px 10px",
+                borderRadius: "8px",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: "6px",
-                fontSize: "0.85rem"
+                gap: "5px",
+                fontSize: "0.8rem"
               }}
               title="Switch Camera (Front/Back)"
             >
@@ -398,17 +973,38 @@ export default function AttendanceKioskPage() {
               background: "rgba(255, 255, 255, 0.08)",
               border: "1px solid rgba(255, 255, 255, 0.15)",
               color: "#cbd5e1",
-              padding: "8px 14px",
-              borderRadius: "10px",
+              padding: "6px 10px",
+              borderRadius: "8px",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: "6px",
-              fontSize: "0.85rem"
+              gap: "5px",
+              fontSize: "0.8rem"
             }}
           >
             {isFullscreen ? <FiMinimize /> : <FiMaximize />}
             {isFullscreen ? "Exit" : "Fullscreen"}
+          </button>
+
+          {/* Lock Terminal Button */}
+          <button
+            onClick={handleLockTerminal}
+            style={{
+              background: "rgba(239, 68, 68, 0.18)",
+              border: "1px solid rgba(239, 68, 68, 0.35)",
+              color: "#f87171",
+              padding: "6px 12px",
+              borderRadius: "8px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "5px",
+              fontSize: "0.8rem",
+              fontWeight: 600
+            }}
+            title="Lock Kiosk Terminal"
+          >
+            <FiLock /> Lock
           </button>
         </div>
       </div>
@@ -418,26 +1014,27 @@ export default function AttendanceKioskPage() {
         style={{
           maxWidth: "800px",
           width: "100%",
-          margin: "20px auto",
+          margin: "12px auto",
           textAlign: "center"
         }}
       >
         {/* Large Digital Clock */}
-        <div style={{ marginBottom: "20px" }}>
+        <div style={{ marginBottom: "14px" }}>
           <div
             style={{
-              fontSize: "clamp(3rem, 7vw, 4.8rem)",
+              fontSize: "clamp(2.6rem, 6vw, 4rem)",
               fontWeight: 800,
               letterSpacing: "-1.5px",
               lineHeight: 1,
               background: "linear-gradient(180deg, #ffffff 40%, #94a3b8 100%)",
               WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent"
+              WebkitTextFillColor: "transparent",
+              textShadow: "0 4px 20px rgba(0,0,0,0.5)"
             }}
           >
             {time || "--:--:--"}
           </div>
-          <div style={{ fontSize: "1.1rem", color: "#60a5fa", marginTop: "8px", fontWeight: 600 }}>
+          <div style={{ fontSize: "1rem", color: "#60a5fa", marginTop: "4px", fontWeight: 600 }}>
             {dateStr || "Loading..."}
           </div>
         </div>
@@ -448,9 +1045,10 @@ export default function AttendanceKioskPage() {
             style={{
               background: lastResult.success
                 ? lastResult.action === "ALREADY_PUNCHED"
-                  ? "rgba(234, 179, 8, 0.15)"
-                  : "rgba(16, 185, 129, 0.15)"
-                : "rgba(239, 68, 68, 0.15)",
+                  ? "rgba(234, 179, 8, 0.18)"
+                  : "rgba(16, 185, 129, 0.18)"
+                : "rgba(239, 68, 68, 0.18)",
+              backdropFilter: "blur(20px)",
               border: `2px solid ${
                 lastResult.success
                   ? lastResult.action === "ALREADY_PUNCHED"
@@ -458,31 +1056,31 @@ export default function AttendanceKioskPage() {
                     : "#10b981"
                   : "#ef4444"
               }`,
-              borderRadius: "24px",
-              padding: "28px 32px",
-              maxWidth: "480px",
+              borderRadius: "20px",
+              padding: "22px 26px",
+              maxWidth: "440px",
               margin: "0 auto",
-              boxShadow: "0 25px 50px rgba(0,0,0,0.5)",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.6)",
               animation: "fadeIn 0.3s ease-out"
             }}
           >
             {lastResult.success ? (
               <div>
-                <div style={{ fontSize: "3.2rem", marginBottom: "8px" }}>
+                <div style={{ fontSize: "2.8rem", marginBottom: "4px" }}>
                   {lastResult.action === "PUNCH_IN" ? "🟢" : lastResult.action === "PUNCH_OUT" ? "🔴" : "⏳"}
                 </div>
-                <div style={{ fontSize: "1.6rem", fontWeight: 800, marginBottom: "4px" }}>
+                <div style={{ fontSize: "1.4rem", fontWeight: 800, marginBottom: "2px" }}>
                   {lastResult.employee?.name}
                 </div>
-                <div style={{ fontSize: "0.95rem", color: "#94a3b8", marginBottom: "14px" }}>
+                <div style={{ fontSize: "0.85rem", color: "#94a3b8", marginBottom: "10px" }}>
                   {lastResult.employee?.department}
                 </div>
                 <div
                   style={{
-                    background: "rgba(0,0,0,0.4)",
-                    padding: "12px 18px",
-                    borderRadius: "12px",
-                    fontSize: "1.15rem",
+                    background: "rgba(0,0,0,0.5)",
+                    padding: "8px 14px",
+                    borderRadius: "10px",
+                    fontSize: "1.05rem",
                     fontWeight: 700,
                     color: lastResult.action === "PUNCH_IN" ? "#34d399" : "#f87171"
                   }}
@@ -490,20 +1088,20 @@ export default function AttendanceKioskPage() {
                   {lastResult.message}
                 </div>
                 {lastResult.workHours && (
-                  <div style={{ marginTop: "12px", fontSize: "0.9rem", color: "#cbd5e1" }}>
+                  <div style={{ marginTop: "8px", fontSize: "0.8rem", color: "#cbd5e1" }}>
                     Total Shift Duration: <strong>{lastResult.workHours}</strong>
                   </div>
                 )}
               </div>
             ) : (
               <div>
-                <div style={{ fontSize: "2.8rem", color: "#ef4444", marginBottom: "8px" }}>
+                <div style={{ fontSize: "2.4rem", color: "#ef4444", marginBottom: "4px" }}>
                   <FiAlertCircle style={{ margin: "0 auto" }} />
                 </div>
-                <div style={{ fontSize: "1.3rem", fontWeight: 700, color: "#fca5a5" }}>
+                <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "#fca5a5" }}>
                   Scan Rejected
                 </div>
-                <div style={{ fontSize: "0.95rem", color: "#cbd5e1", marginTop: "8px" }}>
+                <div style={{ fontSize: "0.85rem", color: "#cbd5e1", marginTop: "4px" }}>
                   {lastResult.message}
                 </div>
               </div>
@@ -512,13 +1110,14 @@ export default function AttendanceKioskPage() {
         ) : (
           <div
             style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "2px solid rgba(255, 255, 255, 0.12)",
-              borderRadius: "24px",
-              padding: "24px 20px",
-              maxWidth: "460px",
+              background: "rgba(15, 23, 42, 0.75)",
+              backdropFilter: "blur(20px)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              borderRadius: "20px",
+              padding: "18px 16px",
+              maxWidth: "420px",
               margin: "0 auto",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.3)"
+              boxShadow: "0 20px 50px rgba(0,0,0,0.5)"
             }}
           >
             {/* Live Camera Viewfinder if enabled */}
@@ -526,13 +1125,13 @@ export default function AttendanceKioskPage() {
               <div>
                 <div
                   style={{
-                    width: "280px",
-                    height: "280px",
-                    margin: "0 auto 16px",
-                    borderRadius: "20px",
+                    width: "230px",
+                    height: "230px",
+                    margin: "0 auto 12px",
+                    borderRadius: "16px",
                     overflow: "hidden",
                     border: "3px solid #3b82f6",
-                    boxShadow: "0 0 25px rgba(59, 130, 246, 0.35)",
+                    boxShadow: "0 0 25px rgba(59, 130, 246, 0.4)",
                     position: "relative",
                     background: "#000000"
                   }}
@@ -546,32 +1145,32 @@ export default function AttendanceKioskPage() {
                       inset: 0,
                       pointerEvents: "none",
                       border: "2px solid rgba(255,255,255,0.2)",
-                      borderRadius: "16px",
-                      margin: "24px"
+                      borderRadius: "12px",
+                      margin: "18px"
                     }}
                   />
                 </div>
 
                 {cameraError && (
-                  <div style={{ fontSize: "0.82rem", color: "#f87171", marginBottom: "10px" }}>
+                  <div style={{ fontSize: "0.75rem", color: "#f87171", marginBottom: "6px" }}>
                     {cameraError}
                   </div>
                 )}
 
-                <div style={{ fontSize: "1.15rem", fontWeight: 700, marginBottom: "4px" }}>
+                <div style={{ fontSize: "1.05rem", fontWeight: 700, marginBottom: "2px" }}>
                   Hold Card in Front of Camera
                 </div>
-                <div style={{ fontSize: "0.82rem", color: "#94a3b8" }}>
-                  Or use a USB barcode scanner gun at any time.
+                <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+                  Or flash your QR code with a USB scanner gun.
                 </div>
               </div>
             ) : (
               <div>
-                <div style={{ fontSize: "3.5rem", marginBottom: "10px" }}>🪪</div>
-                <div style={{ fontSize: "1.3rem", fontWeight: 700, marginBottom: "6px" }}>
+                <div style={{ fontSize: "3rem", marginBottom: "6px" }}>🪪</div>
+                <div style={{ fontSize: "1.2rem", fontWeight: 700, marginBottom: "3px" }}>
                   USB Scanner Ready
                 </div>
-                <div style={{ fontSize: "0.85rem", color: "#94a3b8", maxWidth: "340px", margin: "0 auto" }}>
+                <div style={{ fontSize: "0.78rem", color: "#94a3b8", maxWidth: "300px", margin: "0 auto" }}>
                   Flash the QR code on your employee card in front of the scanner.
                 </div>
               </div>
@@ -584,11 +1183,11 @@ export default function AttendanceKioskPage() {
                 handleProcessScan(manualCode);
               }}
               style={{
-                marginTop: "18px",
+                marginTop: "14px",
                 display: "flex",
-                gap: "8px",
-                maxWidth: "340px",
-                margin: "18px auto 0"
+                gap: "6px",
+                maxWidth: "300px",
+                margin: "14px auto 0"
               }}
             >
               <input
@@ -598,26 +1197,26 @@ export default function AttendanceKioskPage() {
                 onChange={(e) => setManualCode(e.target.value)}
                 style={{
                   flex: 1,
-                  padding: "9px 12px",
-                  borderRadius: "10px",
+                  padding: "7px 10px",
+                  borderRadius: "8px",
                   border: "1px solid rgba(255, 255, 255, 0.15)",
-                  background: "rgba(0, 0, 0, 0.4)",
+                  background: "rgba(0, 0, 0, 0.5)",
                   color: "#ffffff",
-                  fontSize: "0.88rem"
+                  fontSize: "0.82rem"
                 }}
               />
               <button
                 type="submit"
                 disabled={isProcessing}
                 style={{
-                  padding: "9px 15px",
-                  borderRadius: "10px",
+                  padding: "7px 12px",
+                  borderRadius: "8px",
                   background: "#2563eb",
                   color: "#ffffff",
                   border: "none",
                   fontWeight: 600,
                   cursor: "pointer",
-                  fontSize: "0.88rem"
+                  fontSize: "0.82rem"
                 }}
               >
                 {isProcessing ? "..." : "Scan"}
@@ -633,41 +1232,42 @@ export default function AttendanceKioskPage() {
           maxWidth: "1000px",
           width: "100%",
           margin: "0 auto",
-          background: "rgba(15, 23, 42, 0.7)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          borderRadius: "16px",
-          padding: "14px 20px"
+          background: "rgba(15, 23, 42, 0.75)",
+          backdropFilter: "blur(16px)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          borderRadius: "14px",
+          padding: "10px 16px"
         }}
       >
-        <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "10px" }}>
+        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px" }}>
           Live Entrance Logs
         </div>
 
         {recentLogs.length === 0 ? (
-          <div style={{ fontSize: "0.85rem", color: "#64748b", fontStyle: "italic" }}>
+          <div style={{ fontSize: "0.78rem", color: "#64748b", fontStyle: "italic" }}>
             Ready for employee scans today.
           </div>
         ) : (
-          <div style={{ display: "flex", gap: "12px", overflowX: "auto" }}>
+          <div style={{ display: "flex", gap: "8px", overflowX: "auto" }}>
             {recentLogs.map(log => (
               <div
                 key={log.id}
                 style={{
-                  background: "rgba(255, 255, 255, 0.05)",
+                  background: "rgba(255, 255, 255, 0.06)",
                   border: "1px solid rgba(255, 255, 255, 0.08)",
-                  borderRadius: "10px",
-                  padding: "8px 14px",
-                  fontSize: "0.82rem",
+                  borderRadius: "8px",
+                  padding: "6px 10px",
+                  fontSize: "0.78rem",
                   flexShrink: 0,
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px"
+                  gap: "6px"
                 }}
               >
                 <span>{log.action === "PUNCH_IN" ? "🟢" : "🔴"}</span>
                 <div>
                   <div style={{ fontWeight: 600, color: "#f8fafc" }}>{log.name}</div>
-                  <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+                  <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>
                     {log.action === "PUNCH_IN" ? "Checked In" : "Checked Out"} at {log.time}
                   </div>
                 </div>

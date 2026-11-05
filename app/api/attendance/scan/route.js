@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
+import { getClientIp, isAllowedOfficeIp, verifyKioskToken } from '../../utils/kioskSecurity.js';
 
 function formatLocalDate(d) {
   const istDate = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
@@ -10,6 +11,19 @@ function formatLocalDate(d) {
 }
 
 export async function POST(request) {
+  // 1. Office IP Verification (if configured)
+  const clientIp = getClientIp(request);
+  const officeIpsEnv = process.env.KIOSK_OFFICE_IPS || process.env.OFFICE_IPS || '';
+  if (officeIpsEnv.trim() && !isAllowedOfficeIp(clientIp)) {
+    return NextResponse.json({
+      success: false,
+      errorType: 'IP_RESTRICTED',
+      clientIp,
+      message: `Access Denied: Attendance scanning is restricted to the office network (Your IP: ${clientIp}). Please connect to the office Wi-Fi.`
+    }, { status: 403 });
+  }
+
+  // 2. Kiosk Authorized Device Token Verification (PIN Lock)
   let body;
   try {
     body = await request.json();
@@ -17,7 +31,20 @@ export async function POST(request) {
     return NextResponse.json({ success: false, message: 'Invalid JSON payload' }, { status: 400 });
   }
 
-  const { identifier, source = 'QR_CARD' } = body;
+  const { identifier, source = 'QR_CARD', kioskToken } = body;
+  const token = request.headers.get('x-kiosk-token') || kioskToken;
+
+  // Only bypass token check if KIOSK_REQUIRE_PIN is explicitly set to 'false'
+  if (process.env.KIOSK_REQUIRE_PIN !== 'false') {
+    if (!verifyKioskToken(token)) {
+      return NextResponse.json({
+        success: false,
+        errorType: 'KIOSK_LOCKED',
+        isLocked: true,
+        message: 'Unauthorized Terminal: Please enter the Admin Kiosk PIN on this device to unlock scanning.'
+      }, { status: 401 });
+    }
+  }
 
   if (!identifier || typeof identifier !== 'string' || !identifier.trim()) {
     return NextResponse.json({ success: false, message: 'Card or QR code identifier is required' }, { status: 400 });
@@ -110,8 +137,8 @@ export async function POST(request) {
 
       await connection.execute(
         `INSERT INTO attendance_records 
-         (id, employeeId, employeeName, date, punchInTime, status, punchSource, deviceInfo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, employeeId, employeeName, date, punchInTime, status, punchSource, deviceInfo, ipAddress)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           recordId,
           employee.id,
@@ -120,7 +147,8 @@ export async function POST(request) {
           nowIso,
           status,
           source,
-          `Kiosk / ID Card Scanner (${source})`
+          `Kiosk / ID Card Scanner (${source})`,
+          clientIp
         ]
       );
 
