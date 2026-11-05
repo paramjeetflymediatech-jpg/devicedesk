@@ -13,10 +13,12 @@ export async function GET() {
 
     const [rows] = await db.query(
       `SELECT t.*, 
+       COALESCE(t.fileUrl, sr.attachment) as fileUrl,
        p.name as project_name, 
        COALESCE(c.name, sc.name) as client_name,
        a.name as assigned_to_name,
        sr.attachment as client_attachment,
+       sr.drive_url as client_drive_url,
        sr.service_type as client_service_type,
        sr.requirements as client_requirements,
        sr.clientId as client_id
@@ -62,7 +64,15 @@ export async function POST(request) {
     const taskDesc = description ? description.trim() : null;
     const taskStatus = 'Pending';
     const createdAt = new Date().toISOString();
-    const taskFileUrl = fileUrl || attachment || null;
+    let taskFileUrl = fileUrl || attachment || null;
+    if (!taskFileUrl && project_id) {
+      try {
+        const [sRows] = await db.query('SELECT attachment FROM service_requests WHERE id = ?', [project_id]);
+        if (sRows.length > 0 && sRows[0].attachment) {
+          taskFileUrl = sRows[0].attachment;
+        }
+      } catch (e) {}
+    }
 
     // Dynamically add project_id to tasks if needed
     try {

@@ -247,6 +247,15 @@ async function initializeDatabase(db) {
     await db.execute(`ALTER TABLE tasks ADD COLUMN completion_note TEXT DEFAULT NULL`);
   } catch (err) {}
 
+  try {
+    await db.query(`
+      UPDATE tasks t 
+      INNER JOIN service_requests sr ON (t.project_id COLLATE utf8mb4_unicode_ci = sr.id COLLATE utf8mb4_unicode_ci)
+      SET t.fileUrl = sr.attachment 
+      WHERE (t.fileUrl IS NULL OR t.fileUrl = '') AND sr.attachment IS NOT NULL
+    `);
+  } catch(e) {}
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS departments (
       id VARCHAR(50) PRIMARY KEY,

@@ -14,7 +14,8 @@ import {
   getSystems,
   getTickets,
   getAssignmentHistory,
-  isSoundEnabled
+  isSoundEnabled,
+  syncWithServer
 } from "../../store";
 import { FiCalendar, FiBarChart2, FiPlus, FiPlay, FiPause, FiCheckCircle, FiEye, FiEdit2, FiTrash2, FiPaperclip, FiSearch, FiFilter, FiMonitor, FiList, FiAlertCircle, FiCheckSquare, FiUser, FiDownload } from "react-icons/fi";
 import Pagination from "../../components/Pagination";
@@ -101,6 +102,9 @@ export default function TaskBoardPage() {
   useEffect(() => {
     setMounted(true);
     refreshData();
+    if (typeof syncWithServer === 'function') {
+      syncWithServer().catch(() => {});
+    }
 
     const interval = setInterval(() => {
       setNow(Date.now());
@@ -566,7 +570,29 @@ export default function TaskBoardPage() {
 
                       return (
                         <tr key={t.id}>
-                          <td style={{ fontWeight: "600", color: "var(--text-primary)" }}>{t.title}</td>
+                          <td style={{ fontWeight: "600", color: "var(--text-primary)" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                              <span>{t.title}</span>
+                              {(t.fileUrl || t.client_attachment || t.attachment) && (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "3px",
+                                    background: "rgba(59, 130, 246, 0.15)",
+                                    color: "#60a5fa",
+                                    fontSize: "0.72rem",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    fontWeight: "600"
+                                  }}
+                                  title="Attachment available"
+                                >
+                                  <FiPaperclip size={12} /> Attachment
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td style={{ color: "var(--text-secondary)" }}>
                             <div style={{ whiteSpace: "pre-wrap", maxHeight: "100px", overflowY: "auto", fontSize: "0.85rem", paddingRight: "5px" }}>
                               {t.description || "—"}
@@ -1193,151 +1219,183 @@ export default function TaskBoardPage() {
                 </div>
               </div>
 
-              <h4 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "var(--text-primary)" }}>📁 Task Attachments & Proofs</h4>
-              {selectedTaskDetails.fileUrl ? (
-                (() => {
-                  let urls = [];
-                  try {
-                    if (selectedTaskDetails.fileUrl.startsWith("[")) {
-                      urls = JSON.parse(selectedTaskDetails.fileUrl);
-                    } else {
-                      urls = [selectedTaskDetails.fileUrl];
-                    }
-                  } catch (e) {
-                    urls = [selectedTaskDetails.fileUrl];
-                  }
-
-                  return (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                      {urls.map((url, idx) => {
-                        const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(url);
-                        const isVideo = /\.(mp4|webm|ogg|mov|mkv|avi|m4v|3gp)$/i.test(url);
-                        const isAudio = /\.(mp3|wav|ogg|m4a|aac)$/i.test(url);
-                        const isPdf = /\.pdf$/i.test(url);
-
-                        return (
-                          <div
-                            key={idx}
-                            style={{
-                              border: "1px solid var(--glass-border)",
-                              borderRadius: "10px",
-                              padding: "14px",
-                              background: "rgba(255,255,255,0.01)"
-                            }}
-                          >
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                              <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "600" }}>
-                                {isVideo
-                                  ? "🎥 Video Attachment"
-                                  : isImage
-                                  ? "🖼️ Image Attachment"
-                                  : isAudio
-                                  ? "🎙️ Audio Attachment"
-                                  : "📄 File Attachment"}
-                                #{idx + 1}
-                              </span>
-                              <div style={{ display: "flex", gap: "8px" }}>
-                                <button
-                                  onClick={() => setPreviewMediaUrl(url)}
-                                  className="btn-primary"
-                                  style={{ padding: "4px 10px", fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
-                                >
-                                  👁️ View Fullscreen
-                                </button>
-                                <a
-                                  href={url}
-                                  download
-                                  className="btn-secondary"
-                                  style={{
-                                    padding: "4px 10px",
-                                    fontSize: "0.75rem",
-                                    textDecoration: "none",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "4px"
-                                  }}
-                                >
-                                  📥 Download
-                                </a>
-                              </div>
-                            </div>
-
-                            {isImage ? (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "center",
-                                  background: "rgba(0,0,0,0.3)",
-                                  borderRadius: "8px",
-                                  padding: "8px",
-                                  cursor: "pointer"
-                                }}
-                                onClick={() => setPreviewMediaUrl(url)}
-                                title="Click to view fullscreen"
-                              >
-                                <img
-                                  src={url}
-                                  alt={`Attachment ${idx + 1}`}
-                                  style={{ maxWidth: "100%", maxHeight: "400px", borderRadius: "6px", objectFit: "contain" }}
-                                />
-                              </div>
-                            ) : isVideo ? (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  alignItems: "center",
-                                  background: "rgba(0,0,0,0.4)",
-                                  borderRadius: "8px",
-                                  padding: "8px"
-                                }}
-                              >
-                                <video
-                                  src={url}
-                                  controls
-                                  preload="metadata"
-                                  style={{ width: "100%", maxHeight: "400px", borderRadius: "6px", background: "#000" }}
-                                />
-                              </div>
-                            ) : isAudio ? (
-                              <div style={{ padding: "10px", background: "rgba(255,255,255,0.02)", borderRadius: "6px" }}>
-                                <audio controls src={url} style={{ width: "100%" }} />
-                              </div>
-                            ) : (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "10px",
-                                  padding: "12px",
-                                  background: "rgba(255,255,255,0.02)",
-                                  borderRadius: "6px",
-                                  cursor: "pointer"
-                                }}
-                                onClick={() => setPreviewMediaUrl(url)}
-                              >
-                                <span style={{ fontSize: "1.8rem" }}>{isPdf ? "📄" : "📄"}</span>
-                                <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
-                                  <span style={{ fontSize: "0.85rem", fontWeight: "500", wordBreak: "break-all" }}>
-                                    {url.split("/").pop()}
-                                  </span>
-                                  <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
-                                    {isPdf ? "PDF Document — Click to preview" : "Document / File — Click to view"}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()
-              ) : (
-                <div style={{ textAlign: "center", padding: "2rem", border: "1px dashed var(--glass-border)", borderRadius: "10px" }}>
-                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.85rem" }}>No attachments uploaded for this task.</p>
+              {/* Google Drive Requirements Link */}
+              {(selectedTaskDetails.client_drive_url || selectedTaskDetails.drive_url) && (
+                <div style={{ marginBottom: "1.5rem", padding: "12px 14px", borderRadius: "10px", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.25)" }}>
+                  <p style={{ margin: "0 0 6px 0", fontWeight: "700", color: "#10b981", fontSize: "0.85rem" }}>📁 Google Drive Requirements Folder:</p>
+                  <a
+                    href={selectedTaskDetails.client_drive_url || selectedTaskDetails.drive_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#34d399", fontWeight: "600", textDecoration: "underline", fontSize: "0.9rem" }}
+                  >
+                    Open Google Drive Requirements Folder ↗
+                  </a>
                 </div>
               )}
+
+              <h4 style={{ margin: "0 0 12px 0", fontSize: "1rem", color: "var(--text-primary)" }}>📁 Task Attachments & Proofs</h4>
+              {(() => {
+                const parseUrls = (val) => {
+                  if (!val) return [];
+                  if (Array.isArray(val)) return val.flatMap(v => parseUrls(v)).filter(Boolean);
+                  if (typeof val === 'string') {
+                    let trimmed = val.trim();
+                    if (!trimmed) return [];
+                    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                      try {
+                        const parsed = JSON.parse(trimmed);
+                        return parseUrls(parsed);
+                      } catch (e) {}
+                    }
+                    return [trimmed];
+                  }
+                  return [];
+                };
+
+                const combinedUrls = [
+                  ...parseUrls(selectedTaskDetails.client_attachment),
+                  ...parseUrls(selectedTaskDetails.fileUrl),
+                  ...parseUrls(selectedTaskDetails.attachment)
+                ];
+                const urls = Array.from(new Set(combinedUrls));
+
+                if (urls.length === 0) {
+                  return (
+                    <div style={{ textAlign: "center", padding: "2rem", border: "1px dashed var(--glass-border)", borderRadius: "10px" }}>
+                      <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.85rem" }}>No attachments uploaded for this task.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {urls.map((url, idx) => {
+                      const isImage = /\.(jpeg|jpg|gif|png|webp|svg)($|\?)/i.test(url);
+                      const isVideo = /\.(mp4|webm|ogg|mov|mkv|avi|m4v|3gp)($|\?)/i.test(url);
+                      const isAudio = /\.(mp3|wav|ogg|m4a|aac)($|\?)/i.test(url);
+                      const isPdf = /\.pdf($|\?)/i.test(url);
+
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            border: "1px solid var(--glass-border)",
+                            borderRadius: "10px",
+                            padding: "14px",
+                            background: "rgba(255,255,255,0.01)"
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                            <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: "600" }}>
+                              {isVideo
+                                ? "🎥 Video Attachment"
+                                : isImage
+                                ? "🖼️ Image Attachment"
+                                : isAudio
+                                ? "🎙️ Audio Attachment"
+                                : "📄 File Attachment"}
+                              #{idx + 1}
+                            </span>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              <button
+                                onClick={() => setPreviewMediaUrl(url)}
+                                className="btn-primary"
+                                style={{ padding: "4px 10px", fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
+                              >
+                                👁️ View Fullscreen
+                              </button>
+                              <a
+                                href={url}
+                                download
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-secondary"
+                                style={{
+                                  padding: "4px 10px",
+                                  fontSize: "0.75rem",
+                                  textDecoration: "none",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "4px"
+                                }}
+                              >
+                                📥 Download
+                              </a>
+                            </div>
+                          </div>
+
+                          {isImage ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "center",
+                                background: "rgba(0,0,0,0.3)",
+                                borderRadius: "8px",
+                                padding: "8px",
+                                cursor: "pointer"
+                              }}
+                              onClick={() => setPreviewMediaUrl(url)}
+                              title="Click to view fullscreen"
+                            >
+                              <img
+                                src={url}
+                                alt={`Attachment ${idx + 1}`}
+                                style={{ maxWidth: "100%", maxHeight: "400px", borderRadius: "6px", objectFit: "contain" }}
+                              />
+                            </div>
+                          ) : isVideo ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                background: "rgba(0,0,0,0.4)",
+                                borderRadius: "8px",
+                                padding: "8px"
+                              }}
+                            >
+                              <video
+                                src={url}
+                                controls
+                                preload="metadata"
+                                style={{ width: "100%", maxHeight: "400px", borderRadius: "6px", background: "#000" }}
+                              />
+                            </div>
+                          ) : isAudio ? (
+                            <div style={{ padding: "10px", background: "rgba(255,255,255,0.02)", borderRadius: "6px" }}>
+                              <audio controls src={url} style={{ width: "100%" }} />
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "10px",
+                                padding: "12px",
+                                background: "rgba(255,255,255,0.02)",
+                                borderRadius: "6px",
+                                cursor: "pointer"
+                              }}
+                              onClick={() => setPreviewMediaUrl(url)}
+                            >
+                              <span style={{ fontSize: "1.8rem" }}>📄</span>
+                              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+                                <span style={{ fontSize: "0.85rem", fontWeight: "500", wordBreak: "break-all" }}>
+                                  {url.split("/").pop()}
+                                </span>
+                                <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                                  {isPdf ? "PDF Document — Click to preview" : "Document / File — Click to view"}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
 
             <div

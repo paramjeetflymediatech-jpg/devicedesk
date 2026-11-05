@@ -66,15 +66,16 @@ export default function ClientRequestsPage() {
 
   const handleView = async (req) => {
     let extraHtml = '';
-    try {
-      const res = await fetch('/api/tasks');
-      const data = await res.json();
-      if(data.success) {
-        const matchingTask = data.data.find(t => 
-          (t.project_id && String(t.project_id) === String(req.id)) ||
-          (t.title && req.service && t.title.toLowerCase().includes(String(req.service).toLowerCase()))
-        );
-        if(matchingTask) {
+    const isPending = req.status === 'Pending' || req.status === 'Pending Assignment';
+    if (!isPending) {
+      try {
+        const res = await fetch('/api/tasks');
+        const data = await res.json();
+        if(data.success) {
+          const matchingTask = data.data.find(t => 
+            t.project_id && String(t.project_id) === String(req.id)
+          );
+          if(matchingTask) {
           let proofsHtml = '<p style="margin-bottom: 5px; color: #64748b;"><em>No proof files uploaded by the employee.</em></p>';
           if(matchingTask.fileUrl) {
             try {
@@ -99,19 +100,20 @@ export default function ClientRequestsPage() {
           const displayTaskStatus = req.status === 'Completed' ? 'Completed' : (matchingTask.status || 'In Progress');
           const statusColor = displayTaskStatus === 'Completed' ? '#059669' : '#2563eb';
 
-          extraHtml = `
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
-              <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px;">Employee Work Submission</h4>
-              <p style="margin-bottom: 5px;"><strong>Assigned To:</strong> ${matchingTask.assignedToName || 'Specialist'}</p>
-              <p style="margin-bottom: 5px;"><strong>Task Status:</strong> <span style="font-weight: 700; color: ${statusColor};">${displayTaskStatus}</span></p>
-              ${noteHtml}
-              ${proofsHtml}
-            </div>
-          `;
+            extraHtml = `
+              <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+                <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px;">Employee Work Submission</h4>
+                <p style="margin-bottom: 5px;"><strong>Assigned To:</strong> ${matchingTask.assignedToName || 'Specialist'}</p>
+                <p style="margin-bottom: 5px;"><strong>Task Status:</strong> <span style="font-weight: 700; color: ${statusColor};">${displayTaskStatus}</span></p>
+                ${noteHtml}
+                ${proofsHtml}
+              </div>
+            `;
+          }
         }
+      } catch(e) {
+        console.error(e);
       }
-    } catch(e) {
-      console.error(e);
     }
 
     Swal.fire({
@@ -210,7 +212,9 @@ export default function ClientRequestsPage() {
           assignedToName: emp.name,
           assignedBy: 'TL',
           assignedByName: user?.name || 'Team Leader',
-          project_id: selectedReq.id
+          project_id: selectedReq.id,
+          attachment: selectedReq.attachment || null,
+          fileUrl: selectedReq.attachment || null
         })
       });
       const data = await res.json();

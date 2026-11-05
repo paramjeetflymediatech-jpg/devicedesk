@@ -3,8 +3,28 @@ import { getPool } from '../db.js';
 export class Task {
   static async getAll() {
     const db = getPool();
-    const [rows] = await db.execute('SELECT * FROM tasks');
-    return rows;
+    try {
+      const [rows] = await db.query(`
+        SELECT t.*,
+          COALESCE(t.fileUrl, sr.attachment) as fileUrl,
+          sr.attachment as client_attachment,
+          sr.drive_url as client_drive_url,
+          sr.service_type as client_service_type,
+          sr.requirements as client_requirements,
+          p.name as project_name,
+          COALESCE(c.name, sc.name) as client_name
+        FROM tasks t
+        LEFT JOIN projects p ON (t.project_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci)
+        LEFT JOIN employees c ON (p.client_id COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci)
+        LEFT JOIN service_requests sr ON (t.project_id COLLATE utf8mb4_unicode_ci = sr.id COLLATE utf8mb4_unicode_ci)
+        LEFT JOIN employees sc ON (sr.clientId COLLATE utf8mb4_unicode_ci = sc.id COLLATE utf8mb4_unicode_ci)
+        ORDER BY t.createdAt DESC
+      `);
+      return rows;
+    } catch(e) {
+      const [rows] = await db.execute('SELECT * FROM tasks ORDER BY createdAt DESC');
+      return rows;
+    }
   }
 
   static async saveAll(tasks) {

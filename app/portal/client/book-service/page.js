@@ -87,7 +87,7 @@ export default function BookServicePage() {
         const res = await fetch('/api/tasks');
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
-          const matchingTask = data.data.find(t => String(t.project_id) === String(req.id) || (t.title && t.title.includes(req.service_type)));
+          const matchingTask = data.data.find(t => String(t.project_id) === String(req.id));
           if (matchingTask) {
             deliverableFiles = matchingTask.fileUrl;
             deliverableNote = matchingTask.completion_note || deliverableNote;
