@@ -403,7 +403,7 @@ export default function AttendanceKioskPage() {
 
         const config = {
           fps: 15,
-          qrbox: { width: 220, height: 220 },
+          qrbox: { width: 200, height: 200 },
           aspectRatio: 1.0
         };
 
@@ -451,10 +451,11 @@ export default function AttendanceKioskPage() {
   const fullScreenContainerStyle = {
     position: "fixed",
     inset: 0,
-    width: "100vw",
-    height: "100vh",
+    width: "100%",
+    height: "100%",
     zIndex: 9999,
     overflowY: "auto",
+    overflowX: "hidden",
     backgroundImage: "linear-gradient(135deg, rgba(15, 23, 42, 0.65) 0%, rgba(2, 6, 23, 0.8) 100%), url('/kiosk-bg.jpg')",
     backgroundPosition: "center",
     backgroundSize: "cover",
@@ -485,9 +486,11 @@ export default function AttendanceKioskPage() {
             backdropFilter: "blur(20px)",
             border: "1px solid rgba(255, 255, 255, 0.15)",
             borderRadius: "20px",
-            padding: "30px 42px",
+            padding: "28px 36px",
             textAlign: "center",
-            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.6)"
+            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.6)",
+            maxWidth: "90%",
+            boxSizing: "border-box"
           }}
         >
           <div style={{ fontSize: "2.4rem", marginBottom: "12px", animation: "spin 1.5s linear infinite" }}>
@@ -512,7 +515,7 @@ export default function AttendanceKioskPage() {
           ...fullScreenContainerStyle,
           alignItems: "center",
           justifyContent: "center",
-          padding: "20px"
+          padding: "16px"
         }}
       >
         <div
@@ -523,22 +526,23 @@ export default function AttendanceKioskPage() {
             backdropFilter: "blur(24px)",
             border: "2px solid #ef4444",
             borderRadius: "20px",
-            padding: "26px 24px",
+            padding: "24px 20px",
             boxShadow: "0 25px 60px rgba(239, 68, 68, 0.25)",
-            textAlign: "center"
+            textAlign: "center",
+            boxSizing: "border-box"
           }}
         >
           <div
             style={{
-              width: "56px",
-              height: "56px",
+              width: "52px",
+              height: "52px",
               borderRadius: "50%",
               background: "rgba(239, 68, 68, 0.15)",
               color: "#ef4444",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "1.8rem",
+              fontSize: "1.6rem",
               margin: "0 auto 12px",
               boxShadow: "0 0 20px rgba(239, 68, 68, 0.3)"
             }}
@@ -546,10 +550,10 @@ export default function AttendanceKioskPage() {
             <FiShield />
           </div>
 
-          <h2 style={{ fontSize: "1.3rem", fontWeight: 800, margin: "0 0 6px", color: "#f87171" }}>
+          <h2 style={{ fontSize: "1.25rem", fontWeight: 800, margin: "0 0 6px", color: "#f87171" }}>
             Office Network Required
           </h2>
-          <p style={{ fontSize: "0.82rem", color: "#cbd5e1", lineHeight: 1.4, margin: "0 0 16px" }}>
+          <p style={{ fontSize: "0.8rem", color: "#cbd5e1", lineHeight: 1.4, margin: "0 0 16px" }}>
             This Attendance Kiosk is restricted to the office Wi-Fi network. Scanning attendance outside the office is not permitted.
           </p>
 
@@ -558,18 +562,18 @@ export default function AttendanceKioskPage() {
               background: "rgba(0, 0, 0, 0.5)",
               border: "1px solid rgba(255, 255, 255, 0.1)",
               borderRadius: "12px",
-              padding: "12px 14px",
-              marginBottom: "18px",
+              padding: "10px 14px",
+              marginBottom: "16px",
               textAlign: "left"
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "4px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", marginBottom: "4px" }}>
               <span style={{ color: "#94a3b8" }}>Current Detected IP:</span>
               <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fca5a5" }}>
                 {clientIp || "Unknown"}
               </span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem" }}>
               <span style={{ color: "#94a3b8" }}>Status:</span>
               <span style={{ fontWeight: 600, color: "#f87171" }}>Outside Office Range</span>
             </div>
@@ -584,7 +588,7 @@ export default function AttendanceKioskPage() {
               background: "#2563eb",
               color: "#ffffff",
               border: "none",
-              fontSize: "0.88rem",
+              fontSize: "0.86rem",
               fontWeight: 700,
               cursor: "pointer",
               display: "flex",
@@ -602,7 +606,7 @@ export default function AttendanceKioskPage() {
   }
 
   // =========================================================================
-  // VIEW 3: ADMIN KIOSK PIN LOCK SCREEN (PERFECTLY CENTERED & COMPACT)
+  // VIEW 3: ADMIN KIOSK PIN LOCK SCREEN (CENTERED & RESPONSIVE)
   // =========================================================================
   if (authStatus === "locked") {
     return (
@@ -617,15 +621,16 @@ export default function AttendanceKioskPage() {
       >
         <div
           style={{
-            maxWidth: "350px",
+            maxWidth: "340px",
             width: "100%",
             background: "rgba(15, 23, 42, 0.88)",
             backdropFilter: "blur(24px)",
             border: "1px solid rgba(255, 255, 255, 0.18)",
             borderRadius: "20px",
-            padding: "20px 22px 14px",
+            padding: "18px 20px 14px",
             textAlign: "center",
-            boxShadow: "0 25px 60px -10px rgba(0, 0, 0, 0.75)"
+            boxShadow: "0 25px 60px -10px rgba(0, 0, 0, 0.75)",
+            boxSizing: "border-box"
           }}
         >
           {/* Top Brand Pill */}
@@ -637,51 +642,51 @@ export default function AttendanceKioskPage() {
               background: "rgba(255, 255, 255, 0.08)",
               padding: "3px 10px",
               borderRadius: "16px",
-              marginBottom: "10px",
+              marginBottom: "8px",
               border: "1px solid rgba(255, 255, 255, 0.1)"
             }}
           >
-            <span style={{ fontSize: "0.8rem" }}>🪪</span>
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.6px", color: "#e2e8f0" }}>
+            <span style={{ fontSize: "0.75rem" }}>🪪</span>
+            <span style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.5px", color: "#e2e8f0" }}>
               FLYMEDIA TECHNOLOGY
             </span>
           </div>
 
           {/* Header Title with Small Glow Lock */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "3px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginBottom: "2px" }}>
             <div
               style={{
-                width: "28px",
-                height: "28px",
+                width: "26px",
+                height: "26px",
                 borderRadius: "50%",
                 background: "#2563eb",
                 color: "#ffffff",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "0.85rem",
-                boxShadow: "0 0 12px rgba(37, 99, 235, 0.6)"
+                fontSize: "0.8rem",
+                boxShadow: "0 0 10px rgba(37, 99, 235, 0.6)"
               }}
             >
               <FiLock />
             </div>
-            <h2 style={{ fontSize: "1.12rem", fontWeight: 800, margin: 0, color: "#ffffff" }}>
+            <h2 style={{ fontSize: "1.08rem", fontWeight: 800, margin: 0, color: "#ffffff" }}>
               Entrance Terminal Locked
             </h2>
           </div>
 
-          <p style={{ fontSize: "0.72rem", color: "#94a3b8", margin: "0 0 12px" }}>
+          <p style={{ fontSize: "0.7rem", color: "#94a3b8", margin: "0 0 10px" }}>
             Enter Admin PIN to unlock scanning on this office terminal
           </p>
 
           {/* PIN Indicator Dots */}
-          <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "12px" }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "10px" }}>
             {[0, 1, 2, 3].map(idx => (
               <div
                 key={idx}
                 style={{
-                  width: "12px",
-                  height: "12px",
+                  width: "11px",
+                  height: "11px",
                   borderRadius: "50%",
                   border: "2px solid #3b82f6",
                   background: pinInput.length > idx ? "#3b82f6" : "transparent",
@@ -701,8 +706,8 @@ export default function AttendanceKioskPage() {
                 border: "1px solid rgba(239, 68, 68, 0.3)",
                 borderRadius: "8px",
                 padding: "4px 8px",
-                fontSize: "0.72rem",
-                marginBottom: "10px",
+                fontSize: "0.7rem",
+                marginBottom: "8px",
                 fontWeight: 600
               }}
             >
@@ -716,8 +721,8 @@ export default function AttendanceKioskPage() {
               display: "grid",
               gridTemplateColumns: "repeat(3, 1fr)",
               gap: "6px",
-              maxWidth: "230px",
-              margin: "0 auto 12px"
+              maxWidth: "220px",
+              margin: "0 auto 10px"
             }}
           >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
@@ -734,8 +739,8 @@ export default function AttendanceKioskPage() {
                   }
                 }}
                 style={{
-                  padding: "9px 0",
-                  fontSize: "1.15rem",
+                  padding: "8px 0",
+                  fontSize: "1.1rem",
                   fontWeight: 700,
                   borderRadius: "8px",
                   border: "1px solid rgba(255, 255, 255, 0.12)",
@@ -753,8 +758,8 @@ export default function AttendanceKioskPage() {
               type="button"
               onClick={() => setPinInput("")}
               style={{
-                padding: "9px 0",
-                fontSize: "0.74rem",
+                padding: "8px 0",
+                fontSize: "0.7rem",
                 fontWeight: 600,
                 borderRadius: "8px",
                 border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -778,8 +783,8 @@ export default function AttendanceKioskPage() {
                 }
               }}
               style={{
-                padding: "9px 0",
-                fontSize: "1.15rem",
+                padding: "8px 0",
+                fontSize: "1.1rem",
                 fontWeight: 700,
                 borderRadius: "8px",
                 border: "1px solid rgba(255, 255, 255, 0.12)",
@@ -795,8 +800,8 @@ export default function AttendanceKioskPage() {
               type="button"
               onClick={() => setPinInput(prev => prev.slice(0, -1))}
               style={{
-                padding: "9px 0",
-                fontSize: "1.05rem",
+                padding: "8px 0",
+                fontSize: "1rem",
                 fontWeight: 700,
                 borderRadius: "8px",
                 border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -824,7 +829,7 @@ export default function AttendanceKioskPage() {
               background: pinInput ? "#2563eb" : "rgba(37, 99, 235, 0.35)",
               color: "#ffffff",
               border: "none",
-              fontSize: "0.85rem",
+              fontSize: "0.82rem",
               fontWeight: 700,
               cursor: pinInput ? "pointer" : "not-allowed",
               boxShadow: pinInput ? "0 4px 15px rgba(37,99,235,0.4)" : "none",
@@ -837,7 +842,7 @@ export default function AttendanceKioskPage() {
             <FiUnlock /> {isVerifyingPin ? "Verifying..." : "Unlock Terminal"}
           </button>
 
-          <div style={{ marginTop: "8px", fontSize: "0.68rem", color: "#94a3b8" }}>
+          <div style={{ marginTop: "6px", fontSize: "0.66rem", color: "#94a3b8" }}>
             Terminal IP: {clientIp || "Local LAN"} • DeviceDesk Shield
           </div>
         </div>
@@ -846,14 +851,14 @@ export default function AttendanceKioskPage() {
   }
 
   // =========================================================================
-  // VIEW 4: UNLOCKED FULL KIOSK SCANNER (WITH BALANCED BACKGROUND IMAGE)
+  // VIEW 4: UNLOCKED FULL KIOSK SCANNER (FULLY RESPONSIVE)
   // =========================================================================
   return (
     <div
       style={{
         ...fullScreenContainerStyle,
         justifyContent: "space-between",
-        padding: "20px"
+        padding: "14px"
       }}
     >
       <style jsx global>{`
@@ -877,49 +882,97 @@ export default function AttendanceKioskPage() {
         #kiosk-camera-reader__dashboard, #kiosk-camera-reader__dashboard_section_csr {
           display: none !important;
         }
+
+        /* Responsive Layout Styles */
+        .kiosk-nav-bar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          max-width: 1200px;
+          width: 100%;
+          margin: 0 auto;
+          background: rgba(15, 23, 42, 0.78);
+          backdrop-filter: blur(16px);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 16px;
+          padding: 10px 16px;
+          box-sizing: border-box;
+          gap: 10px;
+        }
+
+        .kiosk-controls-group {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        @media (max-width: 680px) {
+          .kiosk-nav-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            padding: 10px 12px !important;
+            gap: 10px !important;
+          }
+          .kiosk-controls-group {
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            gap: 6px !important;
+            width: 100% !important;
+          }
+          .kiosk-controls-group button {
+            padding: 6px 4px !important;
+            font-size: 0.72rem !important;
+            justify-content: center !important;
+            white-space: nowrap !important;
+          }
+          .kiosk-camera-view-box {
+            width: min(200px, 55vw) !important;
+            height: min(200px, 55vw) !important;
+          }
+          .kiosk-clock-time {
+            font-size: clamp(2rem, 7vw, 3.2rem) !important;
+          }
+        }
+
+        @media (max-width: 440px) {
+          .kiosk-controls-group {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          .kiosk-brand-status-text {
+            display: none !important;
+          }
+        }
       `}</style>
 
-      {/* Top Bar */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          maxWidth: "1200px",
-          width: "100%",
-          margin: "0 auto",
-          background: "rgba(15, 23, 42, 0.75)",
-          backdropFilter: "blur(16px)",
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          borderRadius: "16px",
-          padding: "10px 18px"
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <img
-            src="/flymedia-logo-white.png"
-            alt="Flymedia"
-            style={{ height: "26px", objectFit: "contain" }}
-            onError={(e) => {
-              e.target.style.display = "none";
-            }}
-          />
-          <div>
-            <div style={{ fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.5px" }}>
-              Flymedia Technology
-            </div>
-            <div style={{ fontSize: "0.74rem", color: "#94a3b8", display: "flex", alignItems: "center", gap: "6px" }}>
-              <span>Attendance Kiosk</span>
-              <span>•</span>
-              <span style={{ color: "#34d399", display: "inline-flex", alignItems: "center", gap: "3px", fontWeight: 600 }}>
-                <FiCheckCircle style={{ fontSize: "0.75rem" }} /> Terminal Active
-              </span>
+      {/* Responsive Top Bar */}
+      <div className="kiosk-nav-bar">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <img
+              src="/flymedia-logo-white.png"
+              alt="Flymedia"
+              style={{ height: "26px", objectFit: "contain" }}
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+            />
+            <div>
+              <div style={{ fontSize: "1rem", fontWeight: 800, letterSpacing: "0.5px" }}>
+                Flymedia Technology
+              </div>
+              <div style={{ fontSize: "0.72rem", color: "#94a3b8", display: "flex", alignItems: "center", gap: "6px" }}>
+                <span>Attendance Kiosk</span>
+                <span className="kiosk-brand-status-text">•</span>
+                <span className="kiosk-brand-status-text" style={{ color: "#34d399", display: "inline-flex", alignItems: "center", gap: "3px", fontWeight: 600 }}>
+                  <FiCheckCircle style={{ fontSize: "0.75rem" }} /> Active
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Top Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        {/* Responsive Control Buttons */}
+        <div className="kiosk-controls-group">
           {/* Camera Toggle */}
           <button
             onClick={() => setCameraActive(prev => !prev)}
@@ -933,7 +986,7 @@ export default function AttendanceKioskPage() {
               display: "flex",
               alignItems: "center",
               gap: "5px",
-              fontSize: "0.8rem",
+              fontSize: "0.78rem",
               fontWeight: 600
             }}
           >
@@ -941,7 +994,7 @@ export default function AttendanceKioskPage() {
             {cameraActive ? "Camera ON" : "Camera OFF"}
           </button>
 
-          {/* Switch Camera if multiple */}
+          {/* Switch Camera */}
           {cameraActive && cameras.length > 1 && (
             <button
               onClick={() => {
@@ -958,7 +1011,7 @@ export default function AttendanceKioskPage() {
                 display: "flex",
                 alignItems: "center",
                 gap: "5px",
-                fontSize: "0.8rem"
+                fontSize: "0.78rem"
               }}
               title="Switch Camera (Front/Back)"
             >
@@ -979,7 +1032,7 @@ export default function AttendanceKioskPage() {
               display: "flex",
               alignItems: "center",
               gap: "5px",
-              fontSize: "0.8rem"
+              fontSize: "0.78rem"
             }}
           >
             {isFullscreen ? <FiMinimize /> : <FiMaximize />}
@@ -999,7 +1052,7 @@ export default function AttendanceKioskPage() {
               display: "flex",
               alignItems: "center",
               gap: "5px",
-              fontSize: "0.8rem",
+              fontSize: "0.78rem",
               fontWeight: 600
             }}
             title="Lock Kiosk Terminal"
@@ -1014,15 +1067,17 @@ export default function AttendanceKioskPage() {
         style={{
           maxWidth: "800px",
           width: "100%",
-          margin: "12px auto",
-          textAlign: "center"
+          margin: "10px auto",
+          textAlign: "center",
+          boxSizing: "border-box"
         }}
       >
         {/* Large Digital Clock */}
-        <div style={{ marginBottom: "14px" }}>
+        <div style={{ marginBottom: "10px" }}>
           <div
+            className="kiosk-clock-time"
             style={{
-              fontSize: "clamp(2.6rem, 6vw, 4rem)",
+              fontSize: "clamp(2.4rem, 5.5vw, 3.8rem)",
               fontWeight: 800,
               letterSpacing: "-1.5px",
               lineHeight: 1,
@@ -1034,7 +1089,7 @@ export default function AttendanceKioskPage() {
           >
             {time || "--:--:--"}
           </div>
-          <div style={{ fontSize: "1rem", color: "#60a5fa", marginTop: "4px", fontWeight: 600 }}>
+          <div style={{ fontSize: "0.95rem", color: "#60a5fa", marginTop: "4px", fontWeight: 600 }}>
             {dateStr || "Loading..."}
           </div>
         </div>
@@ -1056,31 +1111,32 @@ export default function AttendanceKioskPage() {
                     : "#10b981"
                   : "#ef4444"
               }`,
-              borderRadius: "20px",
-              padding: "22px 26px",
-              maxWidth: "440px",
+              borderRadius: "18px",
+              padding: "18px 22px",
+              maxWidth: "420px",
               margin: "0 auto",
               boxShadow: "0 25px 60px rgba(0,0,0,0.6)",
-              animation: "fadeIn 0.3s ease-out"
+              animation: "fadeIn 0.3s ease-out",
+              boxSizing: "border-box"
             }}
           >
             {lastResult.success ? (
               <div>
-                <div style={{ fontSize: "2.8rem", marginBottom: "4px" }}>
+                <div style={{ fontSize: "2.6rem", marginBottom: "4px" }}>
                   {lastResult.action === "PUNCH_IN" ? "🟢" : lastResult.action === "PUNCH_OUT" ? "🔴" : "⏳"}
                 </div>
-                <div style={{ fontSize: "1.4rem", fontWeight: 800, marginBottom: "2px" }}>
+                <div style={{ fontSize: "1.3rem", fontWeight: 800, marginBottom: "2px" }}>
                   {lastResult.employee?.name}
                 </div>
-                <div style={{ fontSize: "0.85rem", color: "#94a3b8", marginBottom: "10px" }}>
+                <div style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "8px" }}>
                   {lastResult.employee?.department}
                 </div>
                 <div
                   style={{
                     background: "rgba(0,0,0,0.5)",
-                    padding: "8px 14px",
+                    padding: "8px 12px",
                     borderRadius: "10px",
-                    fontSize: "1.05rem",
+                    fontSize: "0.98rem",
                     fontWeight: 700,
                     color: lastResult.action === "PUNCH_IN" ? "#34d399" : "#f87171"
                   }}
@@ -1088,20 +1144,20 @@ export default function AttendanceKioskPage() {
                   {lastResult.message}
                 </div>
                 {lastResult.workHours && (
-                  <div style={{ marginTop: "8px", fontSize: "0.8rem", color: "#cbd5e1" }}>
+                  <div style={{ marginTop: "6px", fontSize: "0.78rem", color: "#cbd5e1" }}>
                     Total Shift Duration: <strong>{lastResult.workHours}</strong>
                   </div>
                 )}
               </div>
             ) : (
               <div>
-                <div style={{ fontSize: "2.4rem", color: "#ef4444", marginBottom: "4px" }}>
+                <div style={{ fontSize: "2.2rem", color: "#ef4444", marginBottom: "4px" }}>
                   <FiAlertCircle style={{ margin: "0 auto" }} />
                 </div>
-                <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "#fca5a5" }}>
+                <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#fca5a5" }}>
                   Scan Rejected
                 </div>
-                <div style={{ fontSize: "0.85rem", color: "#cbd5e1", marginTop: "4px" }}>
+                <div style={{ fontSize: "0.82rem", color: "#cbd5e1", marginTop: "4px" }}>
                   {lastResult.message}
                 </div>
               </div>
@@ -1113,21 +1169,23 @@ export default function AttendanceKioskPage() {
               background: "rgba(15, 23, 42, 0.75)",
               backdropFilter: "blur(20px)",
               border: "1px solid rgba(255, 255, 255, 0.15)",
-              borderRadius: "20px",
-              padding: "18px 16px",
-              maxWidth: "420px",
+              borderRadius: "18px",
+              padding: "16px 14px",
+              maxWidth: "400px",
               margin: "0 auto",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.5)"
+              boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
+              boxSizing: "border-box"
             }}
           >
-            {/* Live Camera Viewfinder if enabled */}
+            {/* Live Camera Viewfinder */}
             {cameraActive ? (
               <div>
                 <div
+                  className="kiosk-camera-view-box"
                   style={{
-                    width: "230px",
-                    height: "230px",
-                    margin: "0 auto 12px",
+                    width: "210px",
+                    height: "210px",
+                    margin: "0 auto 10px",
                     borderRadius: "16px",
                     overflow: "hidden",
                     border: "3px solid #3b82f6",
@@ -1146,31 +1204,31 @@ export default function AttendanceKioskPage() {
                       pointerEvents: "none",
                       border: "2px solid rgba(255,255,255,0.2)",
                       borderRadius: "12px",
-                      margin: "18px"
+                      margin: "16px"
                     }}
                   />
                 </div>
 
                 {cameraError && (
-                  <div style={{ fontSize: "0.75rem", color: "#f87171", marginBottom: "6px" }}>
+                  <div style={{ fontSize: "0.72rem", color: "#f87171", marginBottom: "6px" }}>
                     {cameraError}
                   </div>
                 )}
 
-                <div style={{ fontSize: "1.05rem", fontWeight: 700, marginBottom: "2px" }}>
+                <div style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "2px" }}>
                   Hold Card in Front of Camera
                 </div>
-                <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+                <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
                   Or flash your QR code with a USB scanner gun.
                 </div>
               </div>
             ) : (
               <div>
-                <div style={{ fontSize: "3rem", marginBottom: "6px" }}>🪪</div>
-                <div style={{ fontSize: "1.2rem", fontWeight: 700, marginBottom: "3px" }}>
+                <div style={{ fontSize: "2.8rem", marginBottom: "4px" }}>🪪</div>
+                <div style={{ fontSize: "1.15rem", fontWeight: 700, marginBottom: "2px" }}>
                   USB Scanner Ready
                 </div>
-                <div style={{ fontSize: "0.78rem", color: "#94a3b8", maxWidth: "300px", margin: "0 auto" }}>
+                <div style={{ fontSize: "0.75rem", color: "#94a3b8", maxWidth: "280px", margin: "0 auto" }}>
                   Flash the QR code on your employee card in front of the scanner.
                 </div>
               </div>
@@ -1183,11 +1241,11 @@ export default function AttendanceKioskPage() {
                 handleProcessScan(manualCode);
               }}
               style={{
-                marginTop: "14px",
+                marginTop: "12px",
                 display: "flex",
                 gap: "6px",
-                maxWidth: "300px",
-                margin: "14px auto 0"
+                maxWidth: "280px",
+                margin: "12px auto 0"
               }}
             >
               <input
@@ -1197,26 +1255,26 @@ export default function AttendanceKioskPage() {
                 onChange={(e) => setManualCode(e.target.value)}
                 style={{
                   flex: 1,
-                  padding: "7px 10px",
+                  padding: "6px 10px",
                   borderRadius: "8px",
                   border: "1px solid rgba(255, 255, 255, 0.15)",
                   background: "rgba(0, 0, 0, 0.5)",
                   color: "#ffffff",
-                  fontSize: "0.82rem"
+                  fontSize: "0.8rem"
                 }}
               />
               <button
                 type="submit"
                 disabled={isProcessing}
                 style={{
-                  padding: "7px 12px",
+                  padding: "6px 12px",
                   borderRadius: "8px",
                   background: "#2563eb",
                   color: "#ffffff",
                   border: "none",
                   fontWeight: 600,
                   cursor: "pointer",
-                  fontSize: "0.82rem"
+                  fontSize: "0.8rem"
                 }}
               >
                 {isProcessing ? "..." : "Scan"}
@@ -1236,15 +1294,16 @@ export default function AttendanceKioskPage() {
           backdropFilter: "blur(16px)",
           border: "1px solid rgba(255, 255, 255, 0.12)",
           borderRadius: "14px",
-          padding: "10px 16px"
+          padding: "8px 14px",
+          boxSizing: "border-box"
         }}
       >
-        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px" }}>
+        <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px" }}>
           Live Entrance Logs
         </div>
 
         {recentLogs.length === 0 ? (
-          <div style={{ fontSize: "0.78rem", color: "#64748b", fontStyle: "italic" }}>
+          <div style={{ fontSize: "0.75rem", color: "#64748b", fontStyle: "italic" }}>
             Ready for employee scans today.
           </div>
         ) : (
@@ -1256,8 +1315,8 @@ export default function AttendanceKioskPage() {
                   background: "rgba(255, 255, 255, 0.06)",
                   border: "1px solid rgba(255, 255, 255, 0.08)",
                   borderRadius: "8px",
-                  padding: "6px 10px",
-                  fontSize: "0.78rem",
+                  padding: "5px 10px",
+                  fontSize: "0.75rem",
                   flexShrink: 0,
                   display: "flex",
                   alignItems: "center",
@@ -1267,7 +1326,7 @@ export default function AttendanceKioskPage() {
                 <span>{log.action === "PUNCH_IN" ? "🟢" : "🔴"}</span>
                 <div>
                   <div style={{ fontWeight: 600, color: "#f8fafc" }}>{log.name}</div>
-                  <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>
+                  <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>
                     {log.action === "PUNCH_IN" ? "Checked In" : "Checked Out"} at {log.time}
                   </div>
                 </div>
