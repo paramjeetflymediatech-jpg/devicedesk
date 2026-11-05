@@ -137,9 +137,9 @@ export default function ManagementOverviewPage() {
             <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No team leaders found.</span>
           )}
           {teamLeaders.map(tl => {
-            const tlRequests = requests.filter(r => r.assigned_tl_id === tl.id);
+            const tlRequests = requests.filter(r => String(r.assigned_tl_id) === String(tl.id));
             const tlTasks = tasks.filter(t => tlRequests.some(r => r.id === t.project_id));
-            const tlEmployees = employees.filter(e => e.tl_id === tl.id);
+            const tlEmployees = employees.filter(e => (e.tl_id || '').split(',').map(s => s.trim()).includes(String(tl.id)));
             return (
               <div key={tl.id} style={{ background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.2)', borderRadius: '10px', padding: '12px 16px', minWidth: '200px' }}>
                 <div style={{ fontWeight: '700', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>

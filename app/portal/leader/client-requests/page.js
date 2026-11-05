@@ -37,7 +37,10 @@ export default function ClientRequestsPage() {
             attachment: req.attachment,
             drive_url: req.drive_url
           }));
-          setClientRequests(user ? mappedReqs.filter(r => r.assigned_tl_id === user.id) : []);
+          const isAdmin = ['admin', 'superadmin'].includes((user?.role || '').toLowerCase());
+          setClientRequests(
+            !user ? [] : isAdmin ? mappedReqs : mappedReqs.filter(r => String(r.assigned_tl_id) === String(user.id))
+          );
         }
       } catch (err) {
         console.error("Failed to fetch requests:", err);
@@ -46,7 +49,7 @@ export default function ClientRequestsPage() {
       }
     }
     fetchData();
-  }, []);
+  }, [user?.id, user?.role]);
 
   const filteredRequests = clientRequests.filter(req => {
     const q = search.toLowerCase();
@@ -135,29 +138,67 @@ export default function ClientRequestsPage() {
     setSelectedReq(req);
     setAssigneeId("");
     setAssignNote("");
-    setIsAssignModalOpen(true);
     try {
       const res = await fetch('/api/employees');
       const data = await res.json();
-      if (data.success) {
-        // Only show employees assigned to THIS TL
-        const myTeam = data.data.filter(emp =>
-          (emp.role === 'Team Member' || emp.role === 'Employee' || emp.role === 'team member') &&
-          emp.tl_id === user?.id
+      if (data.success && user?.id) {
+        const isTLRole = (role) => {
+          const r = (role || '').toLowerCase();
+          return r === 'tl' || r === 'team leader' || r === 'team lead' || r === 'team_lead' || r === 'leader';
+        };
+        const allEmps = data.data || [];
+        const currentTlId = String(user.id);
+        const isAdmin = ['admin', 'superadmin'].includes((user.role || '').toLowerCase());
+
+        // Find directly assigned employees (handles comma-separated tl_id)
+        const directAssignees = allEmps.filter(emp =>
+          (emp.tl_id || '').split(',').map(s => s.trim()).includes(currentTlId)
         );
-        setTeamMembers(myTeam);
+
+        // Find subordinate TLs under this TL
+        const subTlIds = new Set(directAssignees.filter(e => isTLRole(e.role)).map(e => String(e.id)));
+
+        // Include directly assigned members + members under subordinate TLs
+        let myTeam = allEmps.filter(emp => {
+          if (String(emp.id) === currentTlId) return false;
+          if (emp.status === 'Inactive') return false;
+          const assignedTls = (emp.tl_id || '').split(',').map(s => s.trim());
+          return assignedTls.includes(currentTlId) || assignedTls.some(id => subTlIds.has(String(id)));
+        });
+
+        // Fallback for admin testing
+        if (isAdmin && myTeam.length === 0) {
+          myTeam = allEmps.filter(emp =>
+            String(emp.id) !== currentTlId &&
+            emp.status !== 'Inactive' &&
+            !['admin', 'superadmin', 'client'].includes((emp.role || '').toLowerCase())
+          );
+        }
+
         if (myTeam.length === 0) {
           Swal.fire('No Team Members', 'You have no employees assigned to you yet. Ask admin to assign employees under you via Team Hierarchy.', 'info');
           return;
         }
+
+        setTeamMembers(myTeam);
+        setIsAssignModalOpen(true);
+      } else {
+        Swal.fire('Error', 'Unable to load employees. Please refresh and try again.', 'error');
       }
-    } catch(err) {}
+    } catch(err) {
+      console.error("Failed to load team members:", err);
+      Swal.fire('Error', 'Failed to load team members.', 'error');
+    }
   };
 
   const handleAssignSubmit = async () => {
     if(!assigneeId) return Swal.fire('Error', 'Select an employee first', 'error');
     setAssigning(true);
-    const emp = teamMembers.find(m => m.id === assigneeId);
+    const emp = teamMembers.find(m => String(m.id) === String(assigneeId));
+    if (!emp) {
+      setAssigning(false);
+      return Swal.fire('Error', 'Selected employee not found', 'error');
+    }
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
@@ -168,7 +209,7 @@ export default function ClientRequestsPage() {
           assignedTo: emp.id,
           assignedToName: emp.name,
           assignedBy: 'TL',
-          assignedByName: 'Team Leader',
+          assignedByName: user?.name || 'Team Leader',
           project_id: selectedReq.id
         })
       });
@@ -333,7 +374,7 @@ export default function ClientRequestsPage() {
                 >
                   <option value="">-- Choose Employee --</option>
                   {teamMembers.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
+                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department || emp.role || 'Member'})</option>
                   ))}
                 </select>
               </div>

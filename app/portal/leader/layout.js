@@ -23,7 +23,7 @@ export default function LeaderLayout({ children }) {
         const dataReq = await resReq.json();
         if (dataReq.success) {
           const myPendingReqs = dataReq.data.filter(r => 
-            r.assigned_tl_id === user.id && 
+            String(r.assigned_tl_id) === String(user.id) && 
             r.status === 'Pending Assignment'
           );
           setRequestsCount(myPendingReqs.length);

@@ -60,7 +60,7 @@ export default function LeaderOverviewPage() {
         }
 
         if (dataReq.success) {
-          const reqs = dataReq.data.filter(r => r.assigned_tl_id === user.id);
+          const reqs = dataReq.data.filter(r => String(r.assigned_tl_id) === String(user.id));
           setClientRequests(reqs);
         }
 
