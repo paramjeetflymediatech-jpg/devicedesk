@@ -129,11 +129,17 @@ export async function GET(request) {
     let lateCount = 0;
     let halfDayCount = 0;
     let absentCount = 0;
+    let autoClosedCount = 0;
 
     records.forEach(r => {
       totalNetMinutes += (r.netWorkMinutes || 0);
       const st = (r.status || '').toLowerCase().trim();
       const rem = (r.remarks || '').toLowerCase();
+
+      const isAutoClosed = st === 'auto closed' || rem.includes('auto punched-out') || rem.includes('auto closed');
+      if (isAutoClosed) {
+        autoClosedCount++;
+      }
 
       let isLate = st.includes('late') || rem.includes('late');
 
@@ -151,7 +157,7 @@ export async function GET(request) {
       if (isLate) {
         lateCount++;
         presentCount++;
-      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || st === 'auto closed') {
+      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || isAutoClosed) {
         presentCount++;
       } else if (st.includes('half')) {
         halfDayCount++;
@@ -178,6 +184,7 @@ export async function GET(request) {
         lateCount,
         halfDayCount,
         absentCount,
+        autoClosedCount,
         totalWorkHours,
         totalNetMinutes,
         avgWorkHours

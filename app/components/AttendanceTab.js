@@ -288,11 +288,17 @@ export default function AttendanceTab({ user, mode }) {
     let lateCount = 0;
     let halfDayCount = 0;
     let absentCount = 0;
+    let autoClosedCount = 0;
 
     baseRecords.forEach(r => {
       totalNetMinutes += (r.netWorkMinutes || 0);
       const st = (r.status || '').toLowerCase().trim();
       const rem = (r.remarks || '').toLowerCase();
+
+      const isAutoClosed = st === 'auto closed' || rem.includes('auto punched-out') || rem.includes('auto closed');
+      if (isAutoClosed) {
+        autoClosedCount++;
+      }
 
       let isLate = st.includes('late') || rem.includes('late');
 
@@ -310,7 +316,7 @@ export default function AttendanceTab({ user, mode }) {
       if (isLate) {
         lateCount++;
         presentCount++;
-      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || st === 'auto closed') {
+      } else if (st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || isAutoClosed) {
         presentCount++;
       } else if (st.includes('half')) {
         halfDayCount++;
@@ -325,6 +331,9 @@ export default function AttendanceTab({ user, mode }) {
       if (summary.absentCount !== undefined) {
         absentCount = summary.absentCount;
       }
+      if (summary.autoClosedCount !== undefined) {
+        autoClosedCount = Math.max(autoClosedCount, summary.autoClosedCount);
+      }
       if (summary.totalNetMinutes && summary.totalNetMinutes > totalNetMinutes) {
         totalNetMinutes = summary.totalNetMinutes;
       }
@@ -336,6 +345,7 @@ export default function AttendanceTab({ user, mode }) {
       lateCount,
       halfDayCount,
       absentCount,
+      autoClosedCount,
       totalNetMinutes
     };
   }, [baseRecords, summary, records.length]);
@@ -345,6 +355,7 @@ export default function AttendanceTab({ user, mode }) {
     if (statusFilter && statusFilter !== "ALL") {
       const st = (r.status || "").toLowerCase().trim();
       const rem = (r.remarks || "").toLowerCase();
+      const isAutoClosed = st === 'auto closed' || rem.includes('auto punched-out') || rem.includes('auto closed');
       let isLate = st.includes('late') || rem.includes('late');
       
       if (!isLate && r.punchInTime) {
@@ -356,7 +367,7 @@ export default function AttendanceTab({ user, mode }) {
         } catch(e) {}
       }
 
-      const isPresent = isLate || st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || st === 'auto closed';
+      const isPresent = isLate || st === 'present' || st === 'completed' || st === 'overtime' || st === 'active' || isAutoClosed;
       const isHalfDay = st.includes('half');
       
       const sf = statusFilter.toLowerCase();
@@ -365,7 +376,7 @@ export default function AttendanceTab({ user, mode }) {
       if (sf === "half day" && !isHalfDay) return false;
       if (sf === "completed" && st !== 'completed') return false;
       if (sf === "overtime" && st !== 'overtime') return false;
-      if (sf === "auto closed" && st !== 'auto closed') return false;
+      if (sf === "auto closed" && !isAutoClosed) return false;
       if (sf === "absent" && st !== 'absent') return false;
     }
 
@@ -379,6 +390,74 @@ export default function AttendanceTab({ user, mode }) {
       setStatusFilter(targetStatus);
     }
     setCurrentPage(1);
+  };
+
+  const handleSendEveningReport = async () => {
+    const confirm = await Swal.fire({
+      title: "Send 9:30 PM Evening Report?",
+      text: "This will compile today's attendance, highlight all employees who forgot to punch out (auto-closed at 9:00 PM), and email HR & Admins.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#f97316",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, Send Report Now",
+      background: "#161b22",
+      color: "#f0f6fc"
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    Swal.fire({
+      title: "Dispatching Attendance Report...",
+      text: "Please wait while the 9:30 PM summary email is being sent to admins.",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+      background: "#161b22",
+      color: "#f0f6fc"
+    });
+
+    try {
+      const res = await fetch("/api/attendance/check-full-attendance?period=Evening&force=true", {
+        method: "POST"
+      });
+      const data = await res.json();
+      if (data.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Evening Report Dispatched!",
+          html: `
+            <div style="text-align: left; font-size: 0.9rem; line-height: 1.6;">
+              <p style="margin-bottom: 8px;"><strong>Status:</strong> ${data.message || 'Report sent successfully.'}</p>
+              <div style="background: rgba(255, 255, 255, 0.05); padding: 10px; border-radius: 8px;">
+                <div>👥 <strong>Total Team:</strong> ${data.totalCount || 0}</div>
+                <div style="color: #34d399;">✅ <strong>Present (Normal):</strong> ${data.presentCount || 0}</div>
+                <div style="color: #fb923c;">⚠️ <strong>Auto Closed (Forgot Punch-Out):</strong> ${data.autoClosedCount || 0}</div>
+                <div style="color: #fbbf24;">⚠️ <strong>Half Day:</strong> ${data.halfDayCount || 0}</div>
+                <div style="color: #f87171;">❌ <strong>Absent:</strong> ${data.absentCount || 0}</div>
+              </div>
+            </div>
+          `,
+          background: "#161b22",
+          color: "#f0f6fc"
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Dispatch Failed",
+          text: data.error || data.message || "Failed to dispatch email",
+          background: "#161b22",
+          color: "#f0f6fc"
+        });
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.message || "Network error",
+        background: "#161b22",
+        color: "#f0f6fc"
+      });
+    }
   };
 
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
@@ -565,6 +644,60 @@ export default function AttendanceTab({ user, mode }) {
           </div>
           <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
             {statusFilter === "Late" ? "✓ Viewing late list" : "👆 Click to view list"}
+          </div>
+        </div>
+
+        {/* Auto Closed (Forgot Punch-Out at 9:00 PM) */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => handleCardClick("Auto Closed")}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick("Auto Closed"); }}
+          style={{
+            background: statusFilter === "Auto Closed" 
+              ? "linear-gradient(135deg, rgba(249, 115, 22, 0.18), rgba(0, 0, 0, 0.4))" 
+              : "var(--bg-secondary)",
+            backdropFilter: "blur(20px)",
+            border: statusFilter === "Auto Closed" 
+              ? "1.5px solid #f97316" 
+              : "1px solid var(--glass-border)",
+            boxShadow: statusFilter === "Auto Closed" 
+              ? "0 4px 20px rgba(249, 115, 22, 0.25)" 
+              : "0 2px 8px rgba(0, 0, 0, 0.1)",
+            borderRadius: "14px",
+            padding: "1.25rem",
+            cursor: "pointer",
+            transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+            position: "relative",
+            userSelect: "none"
+          }}
+          onMouseEnter={(e) => {
+            if (statusFilter !== "Auto Closed") {
+              e.currentTarget.style.borderColor = "#f97316";
+              e.currentTarget.style.transform = "translateY(-2px)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (statusFilter !== "Auto Closed") {
+              e.currentTarget.style.borderColor = "var(--glass-border)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }
+          }}
+          title="Click to view employees who forgot to punch out (auto-closed at 9:00 PM)"
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: "0.8rem", color: "#f97316", fontWeight: "600" }}>⚠️ Auto Closed (9 PM)</div>
+            {statusFilter === "Auto Closed" && (
+              <span style={{ fontSize: "0.68rem", fontWeight: "700", color: "#fff", background: "#f97316", padding: "2px 8px", borderRadius: "10px" }}>
+                Active
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: "1.8rem", fontWeight: "800", color: "#f97316", marginTop: "4px" }}>
+            {summaryStats.autoClosedCount || 0}
+          </div>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+            {statusFilter === "Auto Closed" ? "✓ Viewing auto-closed list" : "👆 Forgot punch-out"}
           </div>
         </div>
 
@@ -1029,6 +1162,28 @@ export default function AttendanceTab({ user, mode }) {
                 🪪 Open Entrance Kiosk
               </a>
             )}
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleSendEveningReport}
+                className="btn-secondary"
+                style={{
+                  padding: "8px 14px",
+                  fontSize: "0.85rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  background: "rgba(249, 115, 22, 0.15)",
+                  color: "#f97316",
+                  border: "1px solid rgba(249, 115, 22, 0.35)",
+                  cursor: "pointer"
+                }}
+                title="Send Evening Attendance & 9:00 PM Auto-Close Report Email on-demand"
+              >
+                🌙 Send 9:30 PM Report
+              </button>
+            )}
           </div>
         </div>
 
@@ -1066,6 +1221,7 @@ export default function AttendanceTab({ user, mode }) {
                   const _netH = Math.floor(_netMins / 60);
                   const _netM = _netMins % 60;
                   const netDisplay = `${_netH}h ${_netM}m`;
+                  const isAutoClosedRow = r.status === 'Auto Closed' || (r.remarks && (r.remarks.toLowerCase().includes('auto punched-out') || r.remarks.toLowerCase().includes('auto closed')));
                   const inTimeStr = r.punchInTime ? new Date(r.punchInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
                   const outTimeStr = r.punchOutTime ? new Date(r.punchOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (r.punchInTime ? 'Active' : '-');
 
@@ -1074,10 +1230,11 @@ export default function AttendanceTab({ user, mode }) {
                       key={r.id}
                       style={{ 
                         borderBottom: "1px solid var(--glass-border)", 
+                        background: isAutoClosedRow ? "rgba(249, 115, 22, 0.04)" : "transparent",
                         transition: "background 0.2s" 
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)"}
-                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      onMouseEnter={(e) => e.currentTarget.style.background = isAutoClosedRow ? "rgba(249, 115, 22, 0.08)" : "rgba(255, 255, 255, 0.02)"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = isAutoClosedRow ? "rgba(249, 115, 22, 0.04)" : "transparent"}
                     >
                       <td style={{ padding: "14px 16px", fontFamily: "monospace", fontWeight: "600", color: "var(--text-primary)" }}>
                         {r.date}
@@ -1119,6 +1276,21 @@ export default function AttendanceTab({ user, mode }) {
                       </td>
                       <td style={{ padding: "14px 16px", fontFamily: "monospace" }}>
                         <div>{outTimeStr}</div>
+                        {isAutoClosedRow && (
+                          <div style={{
+                            display: "inline-block",
+                            marginTop: "3px",
+                            fontSize: "0.68rem",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            background: "rgba(249, 115, 22, 0.15)",
+                            color: "#f97316",
+                            fontWeight: 600,
+                            letterSpacing: "0.3px"
+                          }}>
+                            ⚠️ Auto 9:00 PM
+                          </div>
+                        )}
                         {r.punchOutLatitude && (
                           <a
                             href={`https://www.google.com/maps/search/?api=1&query=${r.punchOutLatitude},${r.punchOutLongitude}`}
@@ -1132,28 +1304,52 @@ export default function AttendanceTab({ user, mode }) {
                         )}
                       </td>
                       <td style={{ padding: "14px 16px" }}>
-                        <span
-                          style={{
-                            padding: "4px 10px",
-                            borderRadius: "20px",
-                            fontSize: "0.75rem",
-                            fontWeight: "700",
-                            background: 
-                              r.status === "Late" ? "rgba(245, 158, 11, 0.15)" :
-                              (r.status === "Half Day" || r.status === "Absent") ? "rgba(239, 68, 68, 0.15)" :
-                              r.status === "Overtime" ? "rgba(139, 92, 246, 0.15)" : "rgba(16, 185, 129, 0.15)",
-                            color:
-                              r.status === "Late" ? "#f59e0b" :
-                              (r.status === "Half Day" || r.status === "Absent") ? "var(--status-critical)" :
-                              r.status === "Overtime" ? "var(--accent-purple)" : "var(--status-resolved)",
-                            border:
-                              r.status === "Late" ? "1px solid rgba(245, 158, 11, 0.3)" :
-                              (r.status === "Half Day" || r.status === "Absent") ? "1px solid rgba(239, 68, 68, 0.3)" :
-                              r.status === "Overtime" ? "1px solid rgba(139, 92, 246, 0.3)" : "1px solid rgba(16, 185, 129, 0.3)"
-                          }}
-                        >
-                          {r.status}
-                        </span>
+                        {isAutoClosedRow ? (
+                          <>
+                            <span
+                              style={{
+                                padding: "4px 10px",
+                                borderRadius: "20px",
+                                fontSize: "0.75rem",
+                                fontWeight: "700",
+                                background: "rgba(249, 115, 22, 0.15)",
+                                color: "#f97316",
+                                border: "1px solid rgba(249, 115, 22, 0.35)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px"
+                              }}
+                            >
+                              ⚠️ Auto Closed (9 PM)
+                            </span>
+                            <span style={{ display: "block", fontSize: "0.7rem", color: "#fb923c", marginTop: "3px", fontWeight: "600" }}>
+                              Forgot Punch-Out
+                            </span>
+                          </>
+                        ) : (
+                          <span
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: "20px",
+                              fontSize: "0.75rem",
+                              fontWeight: "700",
+                              background: 
+                                r.status === "Late" ? "rgba(245, 158, 11, 0.15)" :
+                                (r.status === "Half Day" || r.status === "Absent") ? "rgba(239, 68, 68, 0.15)" :
+                                r.status === "Overtime" ? "rgba(139, 92, 246, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                              color:
+                                r.status === "Late" ? "#f59e0b" :
+                                (r.status === "Half Day" || r.status === "Absent") ? "var(--status-critical)" :
+                                r.status === "Overtime" ? "var(--accent-purple)" : "var(--status-resolved)",
+                              border:
+                                r.status === "Late" ? "1px solid rgba(245, 158, 11, 0.3)" :
+                                (r.status === "Half Day" || r.status === "Absent") ? "1px solid rgba(239, 68, 68, 0.3)" :
+                                r.status === "Overtime" ? "1px solid rgba(139, 92, 246, 0.3)" : "1px solid rgba(16, 185, 129, 0.3)"
+                            }}
+                          >
+                            {r.status}
+                          </span>
+                        )}
                         {r.modifiedBy && (
                           <span style={{ display: "block", fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "2px" }}>
                             Modified by {r.modifiedBy}

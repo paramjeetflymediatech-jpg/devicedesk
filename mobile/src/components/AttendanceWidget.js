@@ -235,25 +235,26 @@ export default function AttendanceWidget({ user, onStatusChange }) {
         lng
       );
 
-      if (data.success) {
+      if (data && data.success) {
         sweetAlert({
           title: 'Success',
-          text: data.message,
+          text: data.message || 'Attendance updated successfully.',
           type: 'success',
         });
         setRemarks('');
         await getStatus();
       } else {
+        const isOffline = data?.offline;
         sweetAlert({
-          title: 'Restricted',
-          text: data.message,
+          title: isOffline ? 'Connection Error' : 'Restricted',
+          text: data?.message || data?.error || 'Unable to connect to server. Please check your internet connection and try again.',
           type: 'error',
         });
       }
     } catch (err) {
       sweetAlert({
-        title: 'Error',
-        text: 'Failed to process request. Please try again.',
+        title: 'Connection Error',
+        text: 'Unable to connect to server. Please check your internet connection and try again.',
         type: 'error',
       });
     } finally {
