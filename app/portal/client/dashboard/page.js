@@ -296,13 +296,28 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm flex items-center gap-4">
-                  <div className="w-12 h-12 bg-cyan-50 text-cyan-600 rounded-lg flex items-center justify-center text-xl shrink-0"><FiTrendingUp /></div>
-                  <div>
-                    <p className="text-sm text-gray-500 font-medium mb-0.5">Latest SEO Report</p>
-                    <h3 className="text-lg font-bold text-gray-900 mt-1">{latestSEO ? `${latestSEO.month} ${latestSEO.year}` : 'N/A'}</h3>
+                {hasSmoPackage ? (
+                  <div 
+                    onClick={() => window.location.href = '/portal/client/smo'}
+                    className="bg-white rounded-xl p-6 border border-pink-100 hover:border-pink-300 shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md group"
+                  >
+                    <div className="w-12 h-12 bg-pink-50 group-hover:bg-pink-100 text-pink-600 rounded-lg flex items-center justify-center text-xl shrink-0 transition-colors">
+                      <FiImage />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium mb-0.5">SMO Automation</p>
+                      <h3 className="text-lg font-bold text-gray-900 mt-1">Graphics Studio Active</h3>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 bg-cyan-50 text-cyan-600 rounded-lg flex items-center justify-center text-xl shrink-0"><FiTrendingUp /></div>
+                    <div>
+                      <p className="text-sm text-gray-500 font-medium mb-0.5">Latest SEO Report</p>
+                      <h3 className="text-lg font-bold text-gray-900 mt-1">{latestSEO ? `${latestSEO.month} ${latestSEO.year}` : 'N/A'}</h3>
+                    </div>
+                  </div>
+                )}
 
               </div>
 
