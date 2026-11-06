@@ -5,8 +5,10 @@ import Swal from 'sweetalert2';
 import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
 import GoogleDriveBadge from '@/app/components/GoogleDriveBadge.js';
+import { useClientProfile } from '../useClientProfile';
 
 export default function ClientNotesPage() {
+  const { name: clientName, company_name: companyName, initials } = useClientProfile();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [myClientId, setMyClientId] = useState('');
   const [notes, setNotes] = useState([]);
@@ -241,6 +243,12 @@ export default function ClientNotesPage() {
     }
   };
 
+  const hasSmoPackage = activePackages.some(pkg => {
+    if (pkg.is_expired) return false;
+    const name = (pkg.name || '').toLowerCase();
+    return name.includes('smo') || name.includes('social');
+  });
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
       <div className="p-6 border-b border-gray-100 flex flex-col items-center justify-center space-y-3">
@@ -262,16 +270,14 @@ export default function ClientNotesPage() {
           <FiEdit3 size={20} /><span>Book Service</span>
         </button>
 
-        {/* <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Projects</div>
-        <button onClick={() => window.location.href = '/portal/client/seo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiFileText size={20} /><span>SEO Reports</span>
-        </button>
-        <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiImage size={20} /><span>SMO Graphics</span>
-        </button>
-        <button onClick={() => window.location.href = '/portal/client/ads'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiDollarSign size={20} /><span>PAID Ads</span>
-        </button> */}
+        {hasSmoPackage && (
+          <>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Services</div>
+            <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-semibold transition-all text-pink-700 bg-pink-50 hover:bg-pink-100">
+              <FiImage size={20} className="text-pink-600" /><span>SMO Automation</span>
+            </button>
+          </>
+        )}
 
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Billing & Packages</div>
         <button onClick={() => window.location.href = '/portal/client/packages'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -316,16 +322,46 @@ export default function ClientNotesPage() {
         <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-4 flex items-center justify-between md:hidden sticky top-0 z-30">
           <div className="flex items-center">
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
-            <h1 className="text-xl font-bold text-gray-800">Project Notes</h1>
+            <div>
+              <h1 className="text-base font-bold text-gray-800 leading-tight">Project Notes</h1>
+              <p suppressHydrationWarning className="text-xs text-gray-500 font-medium truncate max-w-[180px]">{companyName || clientName || 'Client'}</p>
+            </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm">DC</div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs uppercase shadow-sm cursor-pointer"
+            suppressHydrationWarning
+          >
+            {initials}
+          </div>
         </header>
 
         <header className="hidden md:flex bg-white border-b border-gray-100 px-8 py-5 justify-between items-center sticky top-0 z-10">
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Project Notes</h1>
-          <div className="flex items-center space-x-4">
-             <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-10 h-10 rounded-full bg-pink-50 text-pink-600 border border-pink-100 flex items-center justify-center font-bold shadow-sm cursor-pointer">DC</div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Project Notes</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Direct two-way correspondence with your account team leader and project managers.</p>
+          </div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition-opacity"
+            title="Profile Settings"
+          >
+            <div className="text-right">
+              <p suppressHydrationWarning className="text-sm font-bold text-gray-800 leading-tight">
+                {companyName || clientName || 'Client'}
+              </p>
+              {companyName && clientName && (
+                <p suppressHydrationWarning className="text-xs text-gray-500 font-medium leading-tight mt-0.5">
+                  {clientName}
+                </p>
+              )}
+            </div>
+            <div 
+              className="w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm shadow-pink-100 uppercase"
+              suppressHydrationWarning
+            >
+              {initials}
+            </div>
           </div>
         </header>
 

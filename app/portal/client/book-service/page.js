@@ -3,33 +3,42 @@ import Swal from 'sweetalert2';
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiEdit3, FiDownload, FiUser, FiExternalLink, FiAlertCircle } from 'react-icons/fi';
+import Link from 'next/link';
+import { useClientProfile } from '../useClientProfile';
 
 export default function BookServicePage() {
+  const { name: clientName, company_name: companyName, initials } = useClientProfile();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [myClientId, setMyClientId] = useState('');
-  
-  useEffect(() => {
+
+  const getClientId = () => {
     let clientId = 'emp_1789113315702'; // Fallback
     if (typeof window !== 'undefined') {
-      const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
-      if (user && user.id) clientId = user.id;
-
-      const params = new URLSearchParams(window.location.search);
-      const pkgName = params.get('pkg');
-      if (pkgName) {
-        setForm(prev => ({ 
-          ...prev, 
-          service_type: pkgName,
-          requirements: `Booking for package: ${pkgName}\n\nMy Requirements:\n` 
-        }));
-      }
+      try {
+        const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
+        if (user && user.id) clientId = user.id;
+      } catch (e) {}
     }
-    setMyClientId(clientId);
-  }, []);
+    return clientId;
+  };
+
   const [requests, setRequests] = useState([]);
   const [deletedNotices, setDeletedNotices] = useState([]);
-  const [form, setForm] = useState({ service_type: 'SEO', requirements: '', drive_url: '', file: null });
+  const [form, setForm] = useState(() => {
+    let service_type = 'SEO';
+    let requirements = '';
+    if (typeof window !== 'undefined') {
+      try {
+        const pkgName = new URLSearchParams(window.location.search).get('pkg');
+        if (pkgName) {
+          service_type = pkgName;
+          requirements = `Booking for package: ${pkgName}\n\nMy Requirements:\n`;
+        }
+      } catch (e) {}
+    }
+    return { service_type, requirements, drive_url: '', file: null };
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activePackages, setActivePackages] = useState([]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -38,39 +47,52 @@ export default function BookServicePage() {
   const currentRequests = requests.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(requests.length / itemsPerPage);
 
-  const [activePackages, setActivePackages] = useState([]);
+  useEffect(() => {
+    let isMounted = true;
 
-  const fetchActivePackages = async (clientId) => {
-    try {
-      const res = await fetch(`/api/client-services/my-packages?clientId=${clientId}`);
-      const data = await res.json();
-      if (data.success) {
-        const pkgs = data.data.filter(p => !p.is_expired);
-        setActivePackages(pkgs);
-        
-        const urlPkg = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('pkg') : null;
-        if (!urlPkg && pkgs.length > 0) {
-          setForm(prev => ({ ...prev, service_type: pkgs[0].name }));
+    const fetchActivePackages = async (clientId) => {
+      try {
+        const res = await fetch(`/api/client-services/my-packages?clientId=${clientId}`);
+        const data = await res.json();
+        if (data.success && isMounted) {
+          const pkgs = data.data.filter(p => !p.is_expired);
+          setActivePackages(pkgs);
+          
+          const urlPkg = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('pkg') : null;
+          if (!urlPkg && pkgs.length > 0) {
+            setForm(prev => ({ ...prev, service_type: pkgs[0].name }));
+          }
         }
-      }
-    } catch (err) {}
-  };
+      } catch (err) {}
+    };
 
-  const fetchRequests = async () => {
-    try {
-      const res = await fetch(`/api/client-services/requests?clientId=${myClientId}`);
-      const data = await res.json();
-      if (data.success) {
-        setRequests(data.data || []);
-        setDeletedNotices(data.deletedNotices || []);
-      }
-    } catch (err) {}
-  };
+    const fetchRequests = async () => {
+      try {
+        const clientId = getClientId();
+        const res = await fetch(`/api/client-services/requests?clientId=${clientId}`);
+        const data = await res.json();
+        if (data.success && isMounted) {
+          setRequests(data.data || []);
+          setDeletedNotices(data.deletedNotices || []);
+        }
+      } catch (err) {}
+    };
+
+    const myId = getClientId();
+    fetchRequests();
+    fetchActivePackages(myId);
+    const interval = setInterval(fetchRequests, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleDismissNotice = async (noticeId) => {
     setDeletedNotices(prev => prev.filter(n => n.id !== noticeId));
     try {
-      await fetch(`/api/client-services/requests?dismissNoticeId=${encodeURIComponent(noticeId)}&clientId=${encodeURIComponent(myClientId)}`, {
+      const clientId = getClientId();
+      await fetch(`/api/client-services/requests?dismissNoticeId=${encodeURIComponent(noticeId)}&clientId=${encodeURIComponent(clientId)}`, {
         method: 'DELETE'
       });
     } catch (e) {}
@@ -216,25 +238,17 @@ export default function BookServicePage() {
     });
   };
 
-  useEffect(() => { 
-    if (myClientId) {
-      fetchRequests();
-      fetchActivePackages(myClientId);
-      const interval = setInterval(fetchRequests, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [myClientId]);
-
   // Real-time listener for service requests deleted by admin
   useEffect(() => {
-    if (!myClientId) return;
+    const clientId = getClientId();
+    if (!clientId) return;
     try {
       const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || '';
       const socket = io(socketUrl, { path: "/socket.io" });
 
       socket.on('service-request-deleted', (data) => {
         if (!data) return;
-        const myId = String(myClientId || '').toLowerCase();
+        const myId = String(clientId || '').toLowerCase();
         const targetId = String(data.clientId || '').toLowerCase();
         if (myId && targetId && myId === targetId) {
           // Immediately remove the deleted request from the client panel list
@@ -266,7 +280,7 @@ export default function BookServicePage() {
     } catch (e) {
       console.warn('Socket connection error in book-service:', e);
     }
-  }, [myClientId]);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -302,7 +316,7 @@ export default function BookServicePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          clientId: myClientId, 
+          clientId: getClientId(), 
           service_type: form.service_type, 
           requirements: form.requirements,
           attachment: attachmentUrl,
@@ -323,9 +337,16 @@ export default function BookServicePage() {
     }
   };
 
-  const SidebarContent = () => (
+  const hasSmoPackage = activePackages.some(pkg => {
+    if (pkg.is_expired) return false;
+    const name = (pkg.name || '').toLowerCase();
+    return name.includes('smo') || name.includes('social');
+  });
+
+  const renderSidebar = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
       <div className="p-6 border-b border-gray-100 flex flex-col items-center justify-center space-y-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/flymedia-logo.png" alt="Fly Media Technology" className="h-16 object-contain" />
       </div>
       
@@ -334,7 +355,7 @@ export default function BookServicePage() {
         <button onClick={() => window.location.href = '/portal/client/dashboard'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiGrid size={20} /><span>Dashboard</span>
         </button>
-<button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+        <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -344,16 +365,14 @@ export default function BookServicePage() {
           <FiEdit3 size={20} /><span>Book Service</span>
         </button>
 
-        {/* <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Projects</div>
-        <button onClick={() => window.location.href = '/portal/client/seo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiFileText size={20} /><span>SEO Reports</span>
-        </button>
-        <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiImage size={20} /><span>SMO Graphics</span>
-        </button>
-        <button onClick={() => window.location.href = '/portal/client/ads'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiDollarSign size={20} /><span>PAID Ads</span>
-        </button> */}
+        {hasSmoPackage && (
+          <>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Services</div>
+            <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-semibold transition-all text-pink-700 hover:bg-pink-100">
+              <FiImage size={20} className="text-pink-600" /><span>SMO Automation</span>
+            </button>
+          </>
+        )}
 
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Billing & Packages</div>
         <button onClick={() => window.location.href = '/portal/client/packages'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -364,10 +383,10 @@ export default function BookServicePage() {
         </button>
       
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Account</div>
-                <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+        <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiUser size={20} /><span>Profile Settings</span>
         </button>
-            </nav>
+      </nav>
       
       <div className="p-4 border-t border-gray-100">
         <button onClick={() => { localStorage.removeItem('devicedesk_auth_user'); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
@@ -380,7 +399,7 @@ export default function BookServicePage() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans flex flex-col md:flex-row w-full">
       <aside className="hidden md:flex flex-col w-64 fixed inset-y-0 left-0 z-20 shadow-sm bg-white">
-        <SidebarContent />
+        {renderSidebar()}
       </aside>
       
       {isMobileMenuOpen && (
@@ -391,23 +410,53 @@ export default function BookServicePage() {
         <div className="absolute top-4 right-4">
            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-600"><FiX size={20} /></button>
         </div>
-        <SidebarContent />
+        {renderSidebar()}
       </aside>
 
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen relative overflow-x-hidden">
         <header className="bg-white border-b px-4 py-4 flex items-center justify-between md:hidden sticky top-0 z-30 shadow-sm">
           <div className="flex items-center">
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
-            <h1 className="text-xl font-bold text-gray-800">Book a Service</h1>
+            <div>
+              <h1 className="text-base font-bold text-gray-800 leading-tight">Book a Service</h1>
+              <p suppressHydrationWarning className="text-xs text-gray-500 font-medium truncate max-w-[180px]">{companyName || clientName || 'Client'}</p>
+            </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm">DC</div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs uppercase shadow-sm cursor-pointer"
+            suppressHydrationWarning
+          >
+            {initials}
+          </div>
         </header>
 
-        <header className="hidden md:flex bg-white/80 border-b px-8 py-6 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Book a Service</h1>
-          <div className="flex items-center space-x-4">
-             <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold shadow-sm shadow-pink-100">DC</div>
+        <header className="hidden md:flex bg-white/80 border-b px-8 py-5 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Book a Service</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Submit new service requirements to your account manager and design team.</p>
+          </div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition-opacity"
+            title="Profile Settings"
+          >
+            <div className="text-right">
+              <p suppressHydrationWarning className="text-sm font-bold text-gray-800 leading-tight">
+                {companyName || clientName || 'Client'}
+              </p>
+              {companyName && clientName && (
+                <p suppressHydrationWarning className="text-xs text-gray-500 font-medium leading-tight mt-0.5">
+                  {clientName}
+                </p>
+              )}
+            </div>
+            <div 
+              className="w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm shadow-pink-100 uppercase"
+              suppressHydrationWarning
+            >
+              {initials}
+            </div>
           </div>
         </header>
 
@@ -420,9 +469,9 @@ export default function BookServicePage() {
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3">Please Buy Package First</h3>
                 <p className="text-gray-600 mb-6 max-w-md">You need an active package subscription to book services. Please buy a package first as per your requirement.</p>
-                <a href="/portal/client/packages" className="bg-pink-600 text-white px-8 py-3 rounded-xl font-semibold shadow-md hover:bg-pink-700 transition-colors inline-block">
+                <Link href="/portal/client/packages" className="bg-pink-600 text-white px-8 py-3 rounded-xl font-semibold shadow-md hover:bg-pink-700 transition-colors inline-block">
                   View Packages
-                </a>
+                </Link>
               </div>
             ) : (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -524,12 +573,12 @@ export default function BookServicePage() {
                               Service Request Removed by Admin
                             </h4>
                             <p className="text-xs text-red-700 mt-1 leading-relaxed">
-                              Your service request for <span className="font-semibold text-red-900">"{notice.service_type || 'Service'}"</span> was cancelled and removed by the administration on {new Date(notice.deleted_at).toLocaleDateString()}.
+                              Your service request for <span className="font-semibold text-red-900">&quot;{notice.service_type || 'Service'}&quot;</span> was cancelled and removed by the administration on {new Date(notice.deleted_at).toLocaleDateString()}.
                             </p>
                             <div className="flex items-center gap-4 mt-2 text-xs">
-                              <a href="/portal/client/notes" className="text-pink-600 hover:text-pink-800 font-semibold underline">
+                              <Link href="/portal/client/notes" className="text-pink-600 hover:text-pink-800 font-semibold underline">
                                 View Admin Message in Project Notes →
-                              </a>
+                              </Link>
                             </div>
                           </div>
                         </div>

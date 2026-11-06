@@ -27,7 +27,7 @@ export default function TaskBoardPage() {
   const [systems, setSystems] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
@@ -100,8 +100,11 @@ export default function TaskBoardPage() {
   };
 
   useEffect(() => {
-    setMounted(true);
-    refreshData();
+    const timer = setTimeout(() => {
+      setMounted(true);
+      refreshData();
+    }, 0);
+
     if (typeof syncWithServer === 'function') {
       syncWithServer().catch(() => {});
     }
@@ -110,7 +113,10 @@ export default function TaskBoardPage() {
       setNow(Date.now());
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, []);
 
   // Listen for database changes to keep sync
@@ -591,12 +597,36 @@ export default function TaskBoardPage() {
                                   <FiPaperclip size={12} /> Attachment
                                 </span>
                               )}
+                              {t.revision_notes && (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "3px",
+                                    background: "rgba(245, 158, 11, 0.18)",
+                                    border: "1px solid rgba(245, 158, 11, 0.4)",
+                                    color: "#f59e0b",
+                                    fontSize: "0.72rem",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    fontWeight: "700"
+                                  }}
+                                  title={t.revision_notes}
+                                >
+                                  ⚠️ Revision
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td style={{ color: "var(--text-secondary)" }}>
                             <div style={{ whiteSpace: "pre-wrap", maxHeight: "100px", overflowY: "auto", fontSize: "0.85rem", paddingRight: "5px" }}>
                               {t.description || "—"}
                             </div>
+                            {t.revision_notes && (
+                              <div style={{ marginTop: "6px", padding: "6px 8px", borderRadius: "6px", background: "rgba(245, 158, 11, 0.12)", border: "1px solid rgba(245, 158, 11, 0.35)", color: "#fbbf24", fontSize: "0.78rem" }}>
+                                <strong>⚠️ Client Feedback:</strong> {t.revision_notes}
+                              </div>
+                            )}
                           </td>
                           <td>{t.assignedByName || "System"}</td>
                           <td>
@@ -1218,6 +1248,18 @@ export default function TaskBoardPage() {
                   </p>
                 </div>
               </div>
+
+              {/* Client Revision Notes Alert Box */}
+              {selectedTaskDetails.revision_notes && (
+                <div style={{ marginBottom: "1.2rem", padding: "12px 14px", borderRadius: "10px", background: "rgba(245, 158, 11, 0.12)", border: "1.5px solid rgba(245, 158, 11, 0.4)" }}>
+                  <p style={{ margin: "0 0 6px 0", fontWeight: "700", color: "#f59e0b", fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>⚠️ Client Requested Design Revisions:</span>
+                  </p>
+                  <p style={{ margin: 0, color: "#fde68a", fontSize: "0.9rem", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                    {selectedTaskDetails.revision_notes}
+                  </p>
+                </div>
+              )}
 
               {/* Google Drive Requirements Link */}
               {(selectedTaskDetails.client_drive_url || selectedTaskDetails.drive_url) && (

@@ -1,9 +1,31 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 import { useState, useEffect } from 'react';
-import { FiCheckSquare, FiSearch, FiX, FiEye } from 'react-icons/fi';
+import { FiCheckSquare, FiSearch, FiX, FiEye, FiImage, FiRefreshCw, FiSend, FiEdit3, FiExternalLink, FiZap } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import Pagination from '../../../components/Pagination';
 import { useAuth } from '../../../auth/AuthContext';
+
+function extractFirstImg(val) {
+  if (!val) return null;
+  let urls = [];
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try { urls = JSON.parse(trimmed); } catch (e) { urls = [trimmed]; }
+    } else {
+      urls = [trimmed];
+    }
+  } else if (Array.isArray(val)) {
+    urls = val;
+  }
+  for (const u of urls) {
+    if (typeof u === 'string' && /\.(jpeg|jpg|png|webp|svg|gif)($|\?)/i.test(u)) {
+      return u;
+    }
+  }
+  return urls[0] || null;
+}
 
 export default function ClientRequestsPage() {
   const [clientRequests, setClientRequests] = useState([]);
@@ -17,6 +39,15 @@ export default function ClientRequestsPage() {
   const [assigneeId, setAssigneeId] = useState("");
   const [assignNote, setAssignNote] = useState("");
   const [assigning, setAssigning] = useState(false);
+
+  // TL Review & Delivery Modal States
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [selectedReviewReq, setSelectedReviewReq] = useState(null);
+  const [reviewCaption, setReviewCaption] = useState("");
+  const [reviewHashtags, setReviewHashtags] = useState("");
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isDelivering, setIsDelivering] = useState(false);
+
   const { user } = useAuth();
 
   useEffect(() => {
@@ -35,7 +66,14 @@ export default function ClientRequestsPage() {
             date: new Date(req.created_at).toLocaleDateString(),
             status: req.status || 'Pending Assignment',
             attachment: req.attachment,
-            drive_url: req.drive_url
+            drive_url: req.drive_url,
+            revision_notes: req.revision_notes || null,
+            caption: req.caption || '',
+            hashtags: req.hashtags || '',
+            deliverable_files: req.deliverable_files || null,
+            deliverable_note: req.deliverable_note || null,
+            delivered_at: req.delivered_at || null,
+            specialist_name: req.specialist_name || null
           }));
           const isAdmin = ['admin', 'superadmin'].includes((user?.role || '').toLowerCase());
           setClientRequests(
@@ -49,7 +87,7 @@ export default function ClientRequestsPage() {
       }
     }
     fetchData();
-  }, [user?.id, user?.role]);
+  }, [user]);
 
   const filteredRequests = clientRequests.filter(req => {
     const q = search.toLowerCase();
@@ -124,10 +162,21 @@ export default function ClientRequestsPage() {
           <p style="margin-bottom: 8px;"><strong>Status:</strong> ${req.status}</p>
           <p style="margin-bottom: 8px;"><strong>Requirements:</strong></p>
           <div style="background: #f1f5f9; padding: 12px; border-radius: 6px; max-height: 250px; overflow-y: auto; white-space: pre-wrap; margin-top: 5px;">${req.details}</div>
+          ${req.revision_notes ? `
+          <div style="background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 8px; padding: 12px; margin-top: 12px;">
+            <p style="color: #92400e; font-weight: 700; margin: 0 0 4px; font-size: 0.9rem;">⚠️ Client Requested Revisions:</p>
+            <p style="color: #78350f; font-size: 0.88rem; margin: 0; white-space: pre-wrap;">${req.revision_notes}</p>
+          </div>` : ''}
           ${req.drive_url ? `<p style="margin-top: 15px; margin-bottom: 5px;"><strong>Google Drive Requirements Folder:</strong></p>
           <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 10px; border-radius: 6px;"><a href="${req.drive_url}" target="_blank" rel="noopener noreferrer" style="color: #059669; font-weight: 600; text-decoration: underline;">📁 Open Google Drive Requirements Folder ↗</a></div>` : ''}
           ${req.attachment ? `<p style="margin-top: 15px; margin-bottom: 5px;"><strong>Client Attachment:</strong></p>
           <div style="background: #e0f2fe; padding: 10px; border-radius: 6px;"><a href="${req.attachment}" target="_blank" style="color: #2563eb; text-decoration: underline;">View Attached File</a></div>` : ''}
+          ${req.caption ? `
+          <div style="background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 8px; padding: 12px; margin-top: 12px;">
+            <p style="color: #6b21a8; font-weight: 700; margin: 0 0 4px; font-size: 0.9rem;">✨ AI Social Media Caption:</p>
+            <p style="color: #3b0764; font-size: 0.88rem; margin: 0; white-space: pre-wrap;">${req.caption}</p>
+            ${req.hashtags ? `<p style="color: #7e22ce; font-weight: 600; font-size: 0.82rem; margin-top: 6px;">${req.hashtags}</p>` : ''}
+          </div>` : ''}
           ${extraHtml}
         </div>
       `,
@@ -214,7 +263,7 @@ export default function ClientRequestsPage() {
           assignedByName: user?.name || 'Team Leader',
           project_id: selectedReq.id,
           attachment: selectedReq.attachment || null,
-          fileUrl: selectedReq.attachment || null
+          fileUrl: null
         })
       });
       const data = await res.json();
@@ -232,6 +281,132 @@ export default function ClientRequestsPage() {
       setAssigning(false);
     }
   };
+
+  const openReviewDeliverModal = (req) => {
+    setSelectedReviewReq(req);
+    const existingCaption = req.caption || '';
+    const existingHashtags = req.hashtags || '#Flymedia #SocialMedia #Trending';
+    setReviewCaption(existingCaption);
+    setReviewHashtags(existingHashtags);
+    setIsReviewModalOpen(true);
+    if (!existingCaption.trim()) {
+      generateCaptionForReq(req.id);
+    }
+  };
+
+  const generateCaptionForReq = async (reqId) => {
+    try {
+      setIsRegenerating(true);
+      const res = await fetch('/api/client-services/requests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: reqId,
+          action: 'regenerate_caption'
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.caption) {
+        setReviewCaption(data.caption);
+        if (data.hashtags) setReviewHashtags(data.hashtags);
+        setClientRequests(prev => prev.map(r => r.id === reqId ? {
+          ...r,
+          caption: data.caption,
+          hashtags: data.hashtags || r.hashtags
+        } : r));
+      }
+    } catch (err) {
+      console.error('Caption generation error:', err);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleRegenerateCaption = async () => {
+    if (!selectedReviewReq?.id) return;
+    try {
+      setIsRegenerating(true);
+      const res = await fetch('/api/client-services/requests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedReviewReq.id,
+          action: 'regenerate_caption'
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.caption) {
+        setReviewCaption(data.caption);
+        if (data.hashtags) setReviewHashtags(data.hashtags);
+        setClientRequests(prev => prev.map(r => r.id === selectedReviewReq.id ? {
+          ...r,
+          caption: data.caption,
+          hashtags: data.hashtags || r.hashtags
+        } : r));
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: '✨ Fresh AI caption generated!',
+          showConfirmButton: false,
+          timer: 2000
+        });
+      } else {
+        Swal.fire('Error', data.error || 'Failed to regenerate caption', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', err.message, 'error');
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleApproveAndDeliver = async () => {
+    if (!selectedReviewReq?.id) return;
+    try {
+      setIsDelivering(true);
+      const res = await fetch('/api/client-services/requests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedReviewReq.id,
+          status: 'Completed',
+          caption: reviewCaption,
+          hashtags: reviewHashtags
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsReviewModalOpen(false);
+        setClientRequests(prev => prev.map(r => r.id === selectedReviewReq.id ? {
+          ...r,
+          status: 'Completed',
+          caption: reviewCaption,
+          hashtags: reviewHashtags
+        } : r));
+        Swal.fire({
+          icon: 'success',
+          title: 'Delivered Successfully! 🎉',
+          text: 'The approved banner along with the finalized social media caption and hashtags are now available in the Client Portal for review and posting.',
+          confirmButtonColor: '#9333ea'
+        });
+      } else {
+        Swal.fire('Error', data.error || 'Failed to deliver work', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', err.message, 'error');
+    } finally {
+      setIsDelivering(false);
+    }
+  };
+
+  const reviewBannerImg = selectedReviewReq ? (
+    extractFirstImg(selectedReviewReq.deliverable_files) || 
+    extractFirstImg(selectedReviewReq.attachment) || 
+    extractFirstImg(selectedReviewReq.drive_url)
+  ) : null;
 
   if (loading) {
     return (
@@ -287,11 +462,23 @@ export default function ClientRequestsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">{req.service}</span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-600 max-w-sm truncate" title={req.details}>{req.details}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600 max-w-sm">
+                    <div className="truncate" title={req.details}>{req.details}</div>
+                    {req.revision_notes && (
+                      <div className="mt-1.5 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 leading-snug">
+                        <span className="font-bold text-amber-800 block">⚠️ Client Revision Request:</span>
+                        <span>{req.revision_notes}</span>
+                      </div>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`text-xs px-2.5 py-1 rounded-md font-medium border ${
-                      req.status==='Pending Assignment' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    }`}>{req.status}</span>
+                      req.status === 'Revision Requested'
+                        ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold'
+                        : req.status === 'Pending Assignment' 
+                        ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}>{req.status === 'Revision Requested' ? '⚠️ Revision Requested' : req.status}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end items-center gap-2">
@@ -299,22 +486,22 @@ export default function ClientRequestsPage() {
                         <FiEye size={16} />
                       </button>
                       {req.status === 'For TL Review' ? (
-    <button onClick={async () => {
-       const { isConfirmed } = await Swal.fire({
-         title: 'Deliver to Client?',
-         text: 'Are you sure you want to approve this work and deliver it to the client?',
-         icon: 'question',
-         showCancelButton: true
-       });
-       if(isConfirmed) {
-         try {
-           await fetch('/api/client-services/requests', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: req.id, status: 'Completed'})});
-           Swal.fire('Success', 'Delivered to client!', 'success');
-           setClientRequests(prev => prev.map(r => r.id === req.id ? {...r, status: 'Completed'} : r));
-         } catch(e) {}
-       }
-    }} className="text-white bg-purple-600 hover:bg-purple-700 px-3 py-1.5 rounded-md transition-colors">Deliver Work</button>
-  ) : req.status === 'Completed' ? (
+                        <button 
+                          onClick={() => openReviewDeliverModal(req)} 
+                          className="text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 px-3 py-1.5 rounded-md transition-all font-semibold text-xs flex items-center gap-1.5 shadow-sm"
+                          title="Review banner deliverable, edit/regenerate AI caption, and deliver to client"
+                        >
+                          <FiZap size={13} className="text-amber-300" />
+                          <span>Review & Deliver</span>
+                        </button>
+                      ) : req.status === 'Revision Requested' ? (
+                        <button 
+                          onClick={() => handleAssignClick(req)} 
+                          className="text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-3 py-1.5 rounded-md transition-colors font-semibold text-xs flex items-center gap-1 shadow-sm"
+                        >
+                          ⚠️ Re-Assign / Review
+                        </button>
+                      ) : req.status === 'Completed' ? (
     <button disabled className="text-slate-400 bg-slate-100 px-3 py-1.5 rounded-md cursor-not-allowed">Delivered</button>
   ) : req.status === 'Assigned' || req.status === 'In Progress' ? (
     <button disabled className="text-slate-400 bg-slate-100 px-3 py-1.5 rounded-md cursor-not-allowed">Working...</button>
@@ -398,6 +585,187 @@ export default function ClientRequestsPage() {
                   {assigning ? 'Assigning...' : 'Confirm Assignment'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isReviewModalOpen && selectedReviewReq && (
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden border border-slate-200 my-8">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1 bg-purple-600 text-white rounded-md text-[10px] font-bold tracking-wider uppercase px-2 shadow-xs">TL Review</span>
+                  <h3 className="font-bold text-slate-900 text-base">Review Work Deliverable & Social Caption</h3>
+                </div>
+                <p className="text-xs text-slate-600 mt-1">
+                  Client: <span className="font-semibold text-slate-800">{selectedReviewReq.client}</span> • Service: <span className="font-semibold text-slate-800">{selectedReviewReq.service}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setIsReviewModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-white/80 transition-colors"
+                title="Close"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body: 2-column layout */}
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[75vh] overflow-y-auto">
+              {/* Left Column: Work Deliverable Proof */}
+              <div className="flex flex-col gap-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <FiImage className="text-purple-600" /> Specialist Work Proof
+                    </label>
+                    {selectedReviewReq.specialist_name && (
+                      <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        By {selectedReviewReq.specialist_name}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Image Preview Box */}
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden flex flex-col items-center justify-center p-3 relative group min-h-[220px]">
+                    {reviewBannerImg ? (
+                      <div className="w-full flex flex-col items-center">
+                        <img
+                          src={reviewBannerImg}
+                          alt="Uploaded Banner Deliverable"
+                          className="max-h-64 max-w-full object-contain rounded-lg shadow-sm border border-slate-200"
+                        />
+                        <div className="mt-3 flex gap-2">
+                          <a
+                            href={reviewBannerImg}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-md border border-purple-200 transition-colors"
+                          >
+                            <FiExternalLink size={13} /> View Full Size
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center p-6 text-slate-400">
+                        <FiImage size={36} className="mx-auto mb-2 text-slate-300" />
+                        <p className="text-xs font-medium text-slate-500">No image preview available</p>
+                        {selectedReviewReq.deliverable_files && (
+                          <a
+                            href={selectedReviewReq.deliverable_files}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 underline"
+                          >
+                            Open Attachment
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Specialist Note if provided */}
+                {selectedReviewReq.deliverable_note && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
+                    <span className="font-bold text-emerald-900 block mb-1">📝 Specialist Completion Note:</span>
+                    <p className="text-emerald-800 whitespace-pre-wrap">{selectedReviewReq.deliverable_note}</p>
+                  </div>
+                )}
+
+                {/* Client Requirements Box */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  <span className="font-bold text-slate-700 block mb-1">📋 Original Client Brief:</span>
+                  <p className="text-slate-600 max-h-28 overflow-y-auto whitespace-pre-wrap">{selectedReviewReq.details}</p>
+                </div>
+              </div>
+
+              {/* Right Column: AI Caption & Hashtags (Editable + Auto-Regenerate) */}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <FiEdit3 className="text-purple-600" /> Social Media Caption
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateCaption}
+                    disabled={isRegenerating || isDelivering}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-700 bg-purple-100 hover:bg-purple-200 px-2.5 py-1 rounded-md transition-all shadow-xs disabled:opacity-50"
+                    title="Automatically regenerate caption and hashtags with Gemini AI"
+                  >
+                    <FiRefreshCw size={12} className={isRegenerating ? "animate-spin" : ""} />
+                    {isRegenerating ? "Generating with AI..." : "🔄 Regenerate with AI"}
+                  </button>
+                </div>
+
+                <div>
+                  <textarea
+                    rows={8}
+                    value={reviewCaption}
+                    onChange={(e) => setReviewCaption(e.target.value)}
+                    placeholder="Post caption will appear here. You can freely edit or regenerate it..."
+                    className="w-full border border-slate-300 rounded-xl p-3 text-xs leading-relaxed text-slate-800 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none font-sans"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1 flex justify-between">
+                    <span>You can edit this caption before delivering to the client.</span>
+                    <span>{reviewCaption.length} chars</span>
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-1.5">
+                    Trending Hashtags
+                  </label>
+                  <input
+                    type="text"
+                    value={reviewHashtags}
+                    onChange={(e) => setReviewHashtags(e.target.value)}
+                    placeholder="#Brand #SocialMedia #Trending"
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                  />
+                </div>
+
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900 flex items-start gap-2">
+                  <span className="text-base">💡</span>
+                  <p className="leading-snug">
+                    This caption was automatically generated when the specialist submitted work. You can edit any line or click <strong>Regenerate with AI</strong> before clicking <strong>Approve & Deliver</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setIsReviewModalOpen(false)}
+                disabled={isDelivering}
+                className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-white transition-colors"
+              >
+                Cancel / Keep in Review
+              </button>
+
+              <button
+                type="button"
+                onClick={handleApproveAndDeliver}
+                disabled={isDelivering || isRegenerating}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {isDelivering ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Delivering to Client...</span>
+                  </>
+                ) : (
+                  <>
+                    <FiSend size={14} />
+                    <span>Approve & Deliver to Client</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

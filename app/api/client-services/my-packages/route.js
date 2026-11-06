@@ -26,7 +26,7 @@ export async function GET(request) {
         p.billing_cycle, 
         p.features
       FROM client_package_overrides cpo
-      JOIN packages p ON cpo.package_id = p.id
+      JOIN packages p ON (cpo.package_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci)
       WHERE cpo.client_id = ? AND cpo.status = 'Active'
       ORDER BY cpo.created_at DESC
     `, [clientId]);

@@ -44,7 +44,7 @@ export async function GET(request) {
       const [pkgs] = await db.execute(`
         SELECT p.name 
         FROM client_package_overrides cpo 
-        JOIN packages p ON cpo.package_id = p.id 
+        JOIN packages p ON (cpo.package_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci) 
         WHERE cpo.client_id = ?
       `, [user.id]);
 

@@ -403,7 +403,11 @@ export default function AttendanceKioskPage() {
 
         const config = {
           fps: 15,
-          qrbox: { width: 200, height: 200 },
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            const edgeSize = Math.max(100, Math.floor(minEdge * 0.75));
+            return { width: edgeSize, height: edgeSize };
+          },
           aspectRatio: 1.0
         };
 
@@ -447,59 +451,23 @@ export default function AttendanceKioskPage() {
     }
   };
 
-  // Shared Full-Screen Viewport Container with Background Image & Balanced Overlay
-  const fullScreenContainerStyle = {
-    position: "fixed",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    zIndex: 9999,
-    overflowY: "auto",
-    overflowX: "hidden",
-    backgroundImage: "linear-gradient(135deg, rgba(15, 23, 42, 0.65) 0%, rgba(2, 6, 23, 0.8) 100%), url('/kiosk-bg.jpg')",
-    backgroundPosition: "center",
-    backgroundSize: "cover",
-    backgroundRepeat: "no-repeat",
-    backgroundAttachment: "fixed",
-    color: "#f8fafc",
-    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    display: "flex",
-    flexDirection: "column",
-    boxSizing: "border-box"
-  };
-
   // =========================================================================
   // VIEW 1: LOADING STATE
   // =========================================================================
   if (authStatus === "checking") {
     return (
       <div
+        className="fixed inset-0 w-full h-full z-50 flex items-center justify-center p-4 bg-slate-950 text-slate-100 font-sans"
         style={{
-          ...fullScreenContainerStyle,
-          alignItems: "center",
-          justifyContent: "center"
+          backgroundImage: "linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(2, 6, 23, 0.9) 100%), url('/kiosk-bg.jpg')",
+          backgroundPosition: "center",
+          backgroundSize: "cover"
         }}
       >
-        <div
-          style={{
-            background: "rgba(15, 23, 42, 0.85)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255, 255, 255, 0.15)",
-            borderRadius: "20px",
-            padding: "28px 36px",
-            textAlign: "center",
-            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.6)",
-            maxWidth: "90%",
-            boxSizing: "border-box"
-          }}
-        >
-          <div style={{ fontSize: "2.4rem", marginBottom: "12px", animation: "spin 1.5s linear infinite" }}>
-            🔄
-          </div>
-          <div style={{ fontSize: "1.15rem", fontWeight: 700 }}>Verifying Terminal Security...</div>
-          <div style={{ fontSize: "0.8rem", color: "#94a3b8", marginTop: "4px" }}>
-            Checking office network & device credentials
-          </div>
+        <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 sm:p-8 text-center shadow-2xl max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
+          <div className="text-4xl mb-3 animate-spin">🔄</div>
+          <div className="text-base sm:text-lg font-bold text-white">Verifying Terminal Security...</div>
+          <div className="text-xs text-slate-400 mt-1">Checking office network & device credentials</div>
         </div>
       </div>
     );
@@ -511,92 +479,40 @@ export default function AttendanceKioskPage() {
   if (authStatus === "ip_blocked") {
     return (
       <div
+        className="fixed inset-0 w-full h-full overflow-y-auto z-50 flex items-center justify-center p-4 bg-slate-950 text-slate-100 font-sans"
         style={{
-          ...fullScreenContainerStyle,
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "16px"
+          backgroundImage: "linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(2, 6, 23, 0.9) 100%), url('/kiosk-bg.jpg')",
+          backgroundPosition: "center",
+          backgroundSize: "cover"
         }}
       >
-        <div
-          style={{
-            maxWidth: "440px",
-            width: "100%",
-            background: "rgba(15, 23, 42, 0.88)",
-            backdropFilter: "blur(24px)",
-            border: "2px solid #ef4444",
-            borderRadius: "20px",
-            padding: "24px 20px",
-            boxShadow: "0 25px 60px rgba(239, 68, 68, 0.25)",
-            textAlign: "center",
-            boxSizing: "border-box"
-          }}
-        >
-          <div
-            style={{
-              width: "52px",
-              height: "52px",
-              borderRadius: "50%",
-              background: "rgba(239, 68, 68, 0.15)",
-              color: "#ef4444",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.6rem",
-              margin: "0 auto 12px",
-              boxShadow: "0 0 20px rgba(239, 68, 68, 0.3)"
-            }}
-          >
+        <div className="max-w-md w-full bg-slate-900/90 backdrop-blur-2xl border-2 border-red-500 rounded-3xl p-5 sm:p-7 shadow-[0_20px_60px_rgba(239,68,68,0.3)] text-center my-auto">
+          <div className="w-12 h-12 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-2xl mx-auto mb-3 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
             <FiShield />
           </div>
 
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 800, margin: "0 0 6px", color: "#f87171" }}>
+          <h2 className="text-lg sm:text-xl font-extrabold text-red-400 mb-1.5">
             Office Network Required
           </h2>
-          <p style={{ fontSize: "0.8rem", color: "#cbd5e1", lineHeight: 1.4, margin: "0 0 16px" }}>
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-4">
             This Attendance Kiosk is restricted to the office Wi-Fi network. Scanning attendance outside the office is not permitted.
           </p>
 
-          <div
-            style={{
-              background: "rgba(0, 0, 0, 0.5)",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              borderRadius: "12px",
-              padding: "10px 14px",
-              marginBottom: "16px",
-              textAlign: "left"
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", marginBottom: "4px" }}>
-              <span style={{ color: "#94a3b8" }}>Current Detected IP:</span>
-              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fca5a5" }}>
-                {clientIp || "Unknown"}
-              </span>
+          <div className="bg-black/50 border border-white/10 rounded-xl p-3 mb-4 text-left text-xs space-y-1.5">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Current Detected IP:</span>
+              <span className="font-mono font-bold text-red-300">{clientIp || "Unknown"}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem" }}>
-              <span style={{ color: "#94a3b8" }}>Status:</span>
-              <span style={{ fontWeight: 600, color: "#f87171" }}>Outside Office Range</span>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Status:</span>
+              <span className="font-semibold text-red-400">Outside Office Range</span>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={verifyKioskSecurity}
-            style={{
-              width: "100%",
-              padding: "10px",
-              borderRadius: "10px",
-              background: "#2563eb",
-              color: "#ffffff",
-              border: "none",
-              fontSize: "0.86rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              boxShadow: "0 4px 15px rgba(37,99,235,0.4)"
-            }}
+            className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 active:scale-98"
           >
             <FiRefreshCw /> Refresh & Retry Connection
           </button>
@@ -606,126 +522,61 @@ export default function AttendanceKioskPage() {
   }
 
   // =========================================================================
-  // VIEW 3: ADMIN KIOSK PIN LOCK SCREEN (CENTERED & RESPONSIVE)
+  // VIEW 3: ADMIN KIOSK PIN LOCK SCREEN
   // =========================================================================
   if (authStatus === "locked") {
     return (
       <div
+        className="fixed inset-0 w-full h-full overflow-y-auto z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950 text-slate-100 font-sans select-none"
         style={{
-          ...fullScreenContainerStyle,
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "16px",
-          userSelect: "none"
+          backgroundImage: "linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(2, 6, 23, 0.9) 100%), url('/kiosk-bg.jpg')",
+          backgroundPosition: "center",
+          backgroundSize: "cover"
         }}
       >
-        <div
-          style={{
-            maxWidth: "340px",
-            width: "100%",
-            background: "rgba(15, 23, 42, 0.88)",
-            backdropFilter: "blur(24px)",
-            border: "1px solid rgba(255, 255, 255, 0.18)",
-            borderRadius: "20px",
-            padding: "18px 20px 14px",
-            textAlign: "center",
-            boxShadow: "0 25px 60px -10px rgba(0, 0, 0, 0.75)",
-            boxSizing: "border-box"
-          }}
-        >
+        <div className="max-w-[340px] w-full bg-slate-900/90 backdrop-blur-2xl border border-white/15 rounded-3xl p-4 sm:p-5 text-center shadow-2xl my-auto">
           {/* Top Brand Pill */}
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "rgba(255, 255, 255, 0.08)",
-              padding: "3px 10px",
-              borderRadius: "16px",
-              marginBottom: "8px",
-              border: "1px solid rgba(255, 255, 255, 0.1)"
-            }}
-          >
-            <span style={{ fontSize: "0.75rem" }}>🪪</span>
-            <span style={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.5px", color: "#e2e8f0" }}>
-              FLYMEDIA TECHNOLOGY
-            </span>
+          <div className="inline-flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-full mb-2 border border-white/10 text-[10px] font-bold tracking-wider text-slate-200">
+            <span>🪪</span>
+            <span>FLYMEDIA TECHNOLOGY</span>
           </div>
 
           {/* Header Title with Small Glow Lock */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginBottom: "2px" }}>
-            <div
-              style={{
-                width: "26px",
-                height: "26px",
-                borderRadius: "50%",
-                background: "#2563eb",
-                color: "#ffffff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.8rem",
-                boxShadow: "0 0 10px rgba(37, 99, 235, 0.6)"
-              }}
-            >
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs shadow-[0_0_10px_rgba(37,99,235,0.6)]">
               <FiLock />
             </div>
-            <h2 style={{ fontSize: "1.08rem", fontWeight: 800, margin: 0, color: "#ffffff" }}>
+            <h2 className="text-base sm:text-lg font-extrabold text-white">
               Entrance Terminal Locked
             </h2>
           </div>
 
-          <p style={{ fontSize: "0.7rem", color: "#94a3b8", margin: "0 0 10px" }}>
+          <p className="text-[11px] text-slate-400 mb-2.5">
             Enter Admin PIN to unlock scanning on this office terminal
           </p>
 
           {/* PIN Indicator Dots */}
-          <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "10px" }}>
-            {[0, 1, 2, 3].map(idx => (
+          <div className="flex justify-center gap-2.5 mb-2.5">
+            {[0, 1, 2, 3].map((idx) => (
               <div
                 key={idx}
-                style={{
-                  width: "11px",
-                  height: "11px",
-                  borderRadius: "50%",
-                  border: "2px solid #3b82f6",
-                  background: pinInput.length > idx ? "#3b82f6" : "transparent",
-                  boxShadow: pinInput.length > idx ? "0 0 8px #3b82f6" : "none",
-                  transition: "all 0.15s ease"
-                }}
+                className={`w-2.5 h-2.5 rounded-full border-2 border-blue-500 transition-all ${
+                  pinInput.length > idx ? "bg-blue-500 shadow-[0_0_8px_#3b82f6]" : "bg-transparent"
+                }`}
               />
             ))}
           </div>
 
           {/* Error Message */}
           {pinError && (
-            <div
-              style={{
-                background: "rgba(239, 68, 68, 0.15)",
-                color: "#f87171",
-                border: "1px solid rgba(239, 68, 68, 0.3)",
-                borderRadius: "8px",
-                padding: "4px 8px",
-                fontSize: "0.7rem",
-                marginBottom: "8px",
-                fontWeight: 600
-              }}
-            >
+            <div className="bg-red-500/15 border border-red-500/30 text-red-400 rounded-xl py-1 px-2 text-xs mb-2 font-semibold">
               {pinError}
             </div>
           )}
 
-          {/* Compact Interactive On-Screen Keypad */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "6px",
-              maxWidth: "220px",
-              margin: "0 auto 10px"
-            }}
-          >
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+          {/* Keypad */}
+          <div className="grid grid-cols-3 gap-1.5 max-w-[210px] mx-auto mb-2.5">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <button
                 key={num}
                 type="button"
@@ -738,17 +589,7 @@ export default function AttendanceKioskPage() {
                     }
                   }
                 }}
-                style={{
-                  padding: "8px 0",
-                  fontSize: "1.1rem",
-                  fontWeight: 700,
-                  borderRadius: "8px",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  background: "rgba(255, 255, 255, 0.07)",
-                  color: "#ffffff",
-                  cursor: "pointer",
-                  transition: "all 0.12s ease"
-                }}
+                className="py-2 text-base font-bold rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white transition-all active:scale-95 cursor-pointer"
               >
                 {num}
               </button>
@@ -757,16 +598,7 @@ export default function AttendanceKioskPage() {
             <button
               type="button"
               onClick={() => setPinInput("")}
-              style={{
-                padding: "8px 0",
-                fontSize: "0.7rem",
-                fontWeight: 600,
-                borderRadius: "8px",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
-                background: "rgba(255, 255, 255, 0.04)",
-                color: "#94a3b8",
-                cursor: "pointer"
-              }}
+              className="py-2 text-[11px] font-semibold rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-slate-400 transition-all active:scale-95 cursor-pointer"
             >
               Clear
             </button>
@@ -782,36 +614,15 @@ export default function AttendanceKioskPage() {
                   }
                 }
               }}
-              style={{
-                padding: "8px 0",
-                fontSize: "1.1rem",
-                fontWeight: 700,
-                borderRadius: "8px",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                background: "rgba(255, 255, 255, 0.07)",
-                color: "#ffffff",
-                cursor: "pointer"
-              }}
+              className="py-2 text-base font-bold rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white transition-all active:scale-95 cursor-pointer"
             >
               0
             </button>
 
             <button
               type="button"
-              onClick={() => setPinInput(prev => prev.slice(0, -1))}
-              style={{
-                padding: "8px 0",
-                fontSize: "1rem",
-                fontWeight: 700,
-                borderRadius: "8px",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
-                background: "rgba(255, 255, 255, 0.04)",
-                color: "#94a3b8",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}
+              onClick={() => setPinInput((prev) => prev.slice(0, -1))}
+              className="py-2 text-sm font-bold rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-slate-400 transition-all flex items-center justify-center active:scale-95 cursor-pointer"
             >
               <FiDelete />
             </button>
@@ -822,27 +633,16 @@ export default function AttendanceKioskPage() {
             type="button"
             onClick={() => handleUnlockWithPin()}
             disabled={isVerifyingPin || !pinInput}
-            style={{
-              width: "100%",
-              padding: "9px",
-              borderRadius: "10px",
-              background: pinInput ? "#2563eb" : "rgba(37, 99, 235, 0.35)",
-              color: "#ffffff",
-              border: "none",
-              fontSize: "0.82rem",
-              fontWeight: 700,
-              cursor: pinInput ? "pointer" : "not-allowed",
-              boxShadow: pinInput ? "0 4px 15px rgba(37,99,235,0.4)" : "none",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "6px"
-            }}
+            className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md ${
+              pinInput
+                ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 cursor-pointer"
+                : "bg-blue-600/30 text-slate-400 cursor-not-allowed"
+            }`}
           >
             <FiUnlock /> {isVerifyingPin ? "Verifying..." : "Unlock Terminal"}
           </button>
 
-          <div style={{ marginTop: "6px", fontSize: "0.66rem", color: "#94a3b8" }}>
+          <div className="mt-1.5 text-[10px] text-slate-500">
             Terminal IP: {clientIp || "Local LAN"} • DeviceDesk Shield
           </div>
         </div>
@@ -855,22 +655,26 @@ export default function AttendanceKioskPage() {
   // =========================================================================
   return (
     <div
+      className="fixed inset-0 w-full h-full min-h-screen overflow-y-auto overflow-x-hidden z-50 flex flex-col justify-between p-2.5 sm:p-5 text-slate-100 font-sans select-none box-border"
       style={{
-        ...fullScreenContainerStyle,
-        justifyContent: "space-between",
-        padding: "14px"
+        backgroundImage: "linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(2, 6, 23, 0.88) 100%), url('/kiosk-bg.jpg')",
+        backgroundPosition: "center",
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat"
       }}
     >
-      <style jsx global>{`
+      <style>{`
         #kiosk-camera-reader {
           border: none !important;
           position: relative !important;
+          width: 100% !important;
+          height: 100% !important;
         }
         #kiosk-camera-reader video {
           width: 100% !important;
           height: 100% !important;
           object-fit: cover !important;
-          border-radius: 16px !important;
+          border-radius: 14px !important;
         }
         #kiosk-camera-reader__scan_region {
           background: transparent !important;
@@ -882,214 +686,98 @@ export default function AttendanceKioskPage() {
         #kiosk-camera-reader__dashboard, #kiosk-camera-reader__dashboard_section_csr {
           display: none !important;
         }
-
-        /* Responsive Layout Styles */
-        .kiosk-nav-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          max-width: 1200px;
-          width: 100%;
-          margin: 0 auto;
-          background: rgba(15, 23, 42, 0.78);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 16px;
-          padding: 10px 16px;
-          box-sizing: border-box;
-          gap: 10px;
-        }
-
-        .kiosk-controls-group {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        @media (max-width: 680px) {
-          .kiosk-nav-bar {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            padding: 10px 12px !important;
-            gap: 10px !important;
-          }
-          .kiosk-controls-group {
-            display: grid !important;
-            grid-template-columns: repeat(4, 1fr) !important;
-            gap: 6px !important;
-            width: 100% !important;
-          }
-          .kiosk-controls-group button {
-            padding: 6px 4px !important;
-            font-size: 0.72rem !important;
-            justify-content: center !important;
-            white-space: nowrap !important;
-          }
-          .kiosk-camera-view-box {
-            width: min(200px, 55vw) !important;
-            height: min(200px, 55vw) !important;
-          }
-          .kiosk-clock-time {
-            font-size: clamp(2rem, 7vw, 3.2rem) !important;
-          }
-        }
-
-        @media (max-width: 440px) {
-          .kiosk-controls-group {
-            grid-template-columns: repeat(2, 1fr) !important;
-          }
-          .kiosk-brand-status-text {
-            display: none !important;
-          }
-        }
       `}</style>
 
       {/* Responsive Top Bar */}
-      <div className="kiosk-nav-bar">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <img
-              src="/flymedia-logo-white.png"
-              alt="Flymedia"
-              style={{ height: "26px", objectFit: "contain" }}
-              onError={(e) => {
-                e.target.style.display = "none";
-              }}
-            />
-            <div>
-              <div style={{ fontSize: "1rem", fontWeight: 800, letterSpacing: "0.5px" }}>
-                Flymedia Technology
-              </div>
-              <div style={{ fontSize: "0.72rem", color: "#94a3b8", display: "flex", alignItems: "center", gap: "6px" }}>
-                <span>Attendance Kiosk</span>
-                <span className="kiosk-brand-status-text">•</span>
-                <span className="kiosk-brand-status-text" style={{ color: "#34d399", display: "inline-flex", alignItems: "center", gap: "3px", fontWeight: 600 }}>
-                  <FiCheckCircle style={{ fontSize: "0.75rem" }} /> Active
-                </span>
-              </div>
+      <header className="w-full max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4 bg-slate-900/85 backdrop-blur-xl border border-white/10 rounded-2xl p-2.5 sm:px-5 sm:py-3 shadow-2xl shrink-0">
+        {/* Left: Brand Identity */}
+        <div className="flex items-center justify-center sm:justify-start gap-2.5 sm:gap-3 w-full sm:w-auto">
+          <img
+            src="/flymedia-logo-white.png"
+            alt="Flymedia"
+            className="h-6 sm:h-7 object-contain shrink-0"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+          <div className="text-left min-w-0">
+            <div className="text-sm sm:text-base font-extrabold text-white tracking-wide truncate">
+              Flymedia Technology
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-400">
+              <span className="truncate">Attendance Kiosk</span>
+              <span>•</span>
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-400 shrink-0">
+                <FiCheckCircle className="text-xs" /> Active
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Responsive Control Buttons */}
-        <div className="kiosk-controls-group">
+        {/* Right: Controls (Camera Toggle, Switch, Fullscreen, Lock) */}
+        <div className="flex items-center justify-center sm:justify-end gap-1.5 sm:gap-2 w-full sm:w-auto flex-wrap">
           {/* Camera Toggle */}
           <button
-            onClick={() => setCameraActive(prev => !prev)}
-            style={{
-              background: cameraActive ? "rgba(16, 185, 129, 0.2)" : "rgba(255, 255, 255, 0.08)",
-              border: `1px solid ${cameraActive ? "rgba(16, 185, 129, 0.4)" : "rgba(255, 255, 255, 0.15)"}`,
-              color: cameraActive ? "#34d399" : "#cbd5e1",
-              padding: "6px 12px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "5px",
-              fontSize: "0.78rem",
-              fontWeight: 600
-            }}
+            type="button"
+            onClick={() => setCameraActive((prev) => !prev)}
+            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border cursor-pointer ${
+              cameraActive
+                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30"
+                : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+            }`}
           >
-            <FiCamera />
-            {cameraActive ? "Camera ON" : "Camera OFF"}
+            <FiCamera className="text-sm shrink-0" />
+            <span>{cameraActive ? "Camera ON" : "Camera OFF"}</span>
           </button>
 
           {/* Switch Camera */}
           {cameraActive && cameras.length > 1 && (
             <button
+              type="button"
               onClick={() => {
-                const nextIdx = (cameras.findIndex(c => c.id === selectedCameraId) + 1) % cameras.length;
+                const nextIdx = (cameras.findIndex((c) => c.id === selectedCameraId) + 1) % cameras.length;
                 setSelectedCameraId(cameras[nextIdx].id);
               }}
-              style={{
-                background: "rgba(255, 255, 255, 0.08)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#cbd5e1",
-                padding: "6px 10px",
-                borderRadius: "8px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-                fontSize: "0.78rem"
-              }}
-              title="Switch Camera (Front/Back)"
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all cursor-pointer"
+              title="Flip / Switch Camera"
             >
-              <FiRefreshCw /> Switch
+              <FiRefreshCw className="text-sm shrink-0" />
+              <span>Flip</span>
             </button>
           )}
 
-          {/* Fullscreen Button */}
+          {/* Fullscreen Toggle */}
           <button
+            type="button"
             onClick={toggleFullscreen}
-            style={{
-              background: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              color: "#cbd5e1",
-              padding: "6px 10px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "5px",
-              fontSize: "0.78rem"
-            }}
+            className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all cursor-pointer"
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
           >
-            {isFullscreen ? <FiMinimize /> : <FiMaximize />}
-            {isFullscreen ? "Exit" : "Fullscreen"}
+            {isFullscreen ? <FiMinimize className="text-sm shrink-0" /> : <FiMaximize className="text-sm shrink-0" />}
+            <span className="hidden xs:inline">{isFullscreen ? "Exit" : "Fullscreen"}</span>
           </button>
 
-          {/* Lock Terminal Button */}
+          {/* Lock Terminal */}
           <button
+            type="button"
             onClick={handleLockTerminal}
-            style={{
-              background: "rgba(239, 68, 68, 0.18)",
-              border: "1px solid rgba(239, 68, 68, 0.35)",
-              color: "#f87171",
-              padding: "6px 12px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "5px",
-              fontSize: "0.78rem",
-              fontWeight: 600
-            }}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/20 border border-red-500/35 text-red-400 hover:bg-red-500/30 transition-all cursor-pointer"
             title="Lock Kiosk Terminal"
           >
-            <FiLock /> Lock
+            <FiLock className="text-sm shrink-0" />
+            <span>Lock</span>
           </button>
         </div>
-      </div>
+      </header>
 
       {/* Center Main Stage */}
-      <div
-        style={{
-          maxWidth: "800px",
-          width: "100%",
-          margin: "10px auto",
-          textAlign: "center",
-          boxSizing: "border-box"
-        }}
-      >
+      <main className="w-full max-w-md mx-auto my-auto flex flex-col items-center justify-center text-center py-2 sm:py-4">
         {/* Large Digital Clock */}
-        <div style={{ marginBottom: "10px" }}>
-          <div
-            className="kiosk-clock-time"
-            style={{
-              fontSize: "clamp(2.4rem, 5.5vw, 3.8rem)",
-              fontWeight: 800,
-              letterSpacing: "-1.5px",
-              lineHeight: 1,
-              background: "linear-gradient(180deg, #ffffff 40%, #94a3b8 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              textShadow: "0 4px 20px rgba(0,0,0,0.5)"
-            }}
-          >
+        <div className="mb-2 sm:mb-3">
+          <div className="text-3xl sm:text-5xl font-black tracking-tight leading-none bg-gradient-to-b from-white via-slate-100 to-slate-400 bg-clip-text text-transparent drop-shadow-md">
             {time || "--:--:--"}
           </div>
-          <div style={{ fontSize: "0.95rem", color: "#60a5fa", marginTop: "4px", fontWeight: 600 }}>
+          <div className="text-xs sm:text-sm font-semibold text-blue-400 mt-1 sm:mt-1.5 tracking-wide">
             {dateStr || "Loading..."}
           </div>
         </div>
@@ -1097,138 +785,83 @@ export default function AttendanceKioskPage() {
         {/* Scan Status Card OR Camera Viewfinder */}
         {lastResult ? (
           <div
-            style={{
-              background: lastResult.success
+            className={`w-full rounded-2xl p-4 sm:p-5 backdrop-blur-2xl border-2 shadow-2xl transition-all duration-300 box-border ${
+              lastResult.success
                 ? lastResult.action === "ALREADY_PUNCHED"
-                  ? "rgba(234, 179, 8, 0.18)"
-                  : "rgba(16, 185, 129, 0.18)"
-                : "rgba(239, 68, 68, 0.18)",
-              backdropFilter: "blur(20px)",
-              border: `2px solid ${
-                lastResult.success
-                  ? lastResult.action === "ALREADY_PUNCHED"
-                    ? "#eab308"
-                    : "#10b981"
-                  : "#ef4444"
-              }`,
-              borderRadius: "18px",
-              padding: "18px 22px",
-              maxWidth: "420px",
-              margin: "0 auto",
-              boxShadow: "0 25px 60px rgba(0,0,0,0.6)",
-              animation: "fadeIn 0.3s ease-out",
-              boxSizing: "border-box"
-            }}
+                  ? "bg-amber-500/20 border-amber-500"
+                  : "bg-emerald-500/20 border-emerald-500"
+                : "bg-red-500/20 border-red-500"
+            }`}
           >
             {lastResult.success ? (
               <div>
-                <div style={{ fontSize: "2.6rem", marginBottom: "4px" }}>
+                <div className="text-3xl sm:text-4xl mb-1">
                   {lastResult.action === "PUNCH_IN" ? "🟢" : lastResult.action === "PUNCH_OUT" ? "🔴" : "⏳"}
                 </div>
-                <div style={{ fontSize: "1.3rem", fontWeight: 800, marginBottom: "2px" }}>
+                <div className="text-lg sm:text-xl font-black text-white">
                   {lastResult.employee?.name}
                 </div>
-                <div style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: "8px" }}>
+                <div className="text-xs text-slate-300 mb-2">
                   {lastResult.employee?.department}
                 </div>
                 <div
-                  style={{
-                    background: "rgba(0,0,0,0.5)",
-                    padding: "8px 12px",
-                    borderRadius: "10px",
-                    fontSize: "0.98rem",
-                    fontWeight: 700,
-                    color: lastResult.action === "PUNCH_IN" ? "#34d399" : "#f87171"
-                  }}
+                  className={`p-2 rounded-xl text-sm sm:text-base font-bold bg-black/50 ${
+                    lastResult.action === "PUNCH_IN" ? "text-emerald-400" : "text-red-400"
+                  }`}
                 >
                   {lastResult.message}
                 </div>
                 {lastResult.workHours && (
-                  <div style={{ marginTop: "6px", fontSize: "0.78rem", color: "#cbd5e1" }}>
+                  <div className="mt-1.5 text-xs text-slate-300">
                     Total Shift Duration: <strong>{lastResult.workHours}</strong>
                   </div>
                 )}
               </div>
             ) : (
               <div>
-                <div style={{ fontSize: "2.2rem", color: "#ef4444", marginBottom: "4px" }}>
-                  <FiAlertCircle style={{ margin: "0 auto" }} />
+                <div className="text-3xl sm:text-4xl text-red-500 mb-1">
+                  <FiAlertCircle className="mx-auto" />
                 </div>
-                <div style={{ fontSize: "1.15rem", fontWeight: 700, color: "#fca5a5" }}>
+                <div className="text-base sm:text-lg font-bold text-red-300">
                   Scan Rejected
                 </div>
-                <div style={{ fontSize: "0.82rem", color: "#cbd5e1", marginTop: "4px" }}>
+                <div className="text-xs text-slate-200 mt-1">
                   {lastResult.message}
                 </div>
               </div>
             )}
           </div>
         ) : (
-          <div
-            style={{
-              background: "rgba(15, 23, 42, 0.75)",
-              backdropFilter: "blur(20px)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              borderRadius: "18px",
-              padding: "16px 14px",
-              maxWidth: "400px",
-              margin: "0 auto",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
-              boxSizing: "border-box"
-            }}
-          >
+          <div className="w-full bg-slate-900/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-3 sm:p-5 shadow-2xl box-border">
             {/* Live Camera Viewfinder */}
             {cameraActive ? (
-              <div>
-                <div
-                  className="kiosk-camera-view-box"
-                  style={{
-                    width: "210px",
-                    height: "210px",
-                    margin: "0 auto 10px",
-                    borderRadius: "16px",
-                    overflow: "hidden",
-                    border: "3px solid #3b82f6",
-                    boxShadow: "0 0 25px rgba(59, 130, 246, 0.4)",
-                    position: "relative",
-                    background: "#000000"
-                  }}
-                >
-                  <div id="kiosk-camera-reader" style={{ width: "100%", height: "100%" }} />
-
+              <div className="flex flex-col items-center">
+                <div className="w-[170px] h-[170px] sm:w-[210px] sm:h-[210px] rounded-2xl overflow-hidden border-2 sm:border-3 border-blue-500 shadow-[0_0_25px_rgba(59,130,246,0.4)] relative bg-black shrink-0 mx-auto">
+                  <div id="kiosk-camera-reader" className="w-full h-full" />
                   {/* Corner Target Markers */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      pointerEvents: "none",
-                      border: "2px solid rgba(255,255,255,0.2)",
-                      borderRadius: "12px",
-                      margin: "16px"
-                    }}
-                  />
+                  <div className="absolute inset-0 pointer-events-none border border-white/20 rounded-xl m-2.5" />
                 </div>
 
                 {cameraError && (
-                  <div style={{ fontSize: "0.72rem", color: "#f87171", marginBottom: "6px" }}>
+                  <div className="text-xs text-red-400 mt-1.5 font-medium">
                     {cameraError}
                   </div>
                 )}
 
-                <div style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "2px" }}>
+                <div className="text-xs sm:text-sm font-bold text-white mt-2">
                   Hold Card in Front of Camera
                 </div>
-                <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+                <div className="text-[10px] sm:text-xs text-slate-400">
                   Or flash your QR code with a USB scanner gun.
                 </div>
               </div>
             ) : (
-              <div>
-                <div style={{ fontSize: "2.8rem", marginBottom: "4px" }}>🪪</div>
-                <div style={{ fontSize: "1.15rem", fontWeight: 700, marginBottom: "2px" }}>
+              <div className="py-2 sm:py-4">
+                <div className="text-3xl sm:text-4xl mb-1">🪪</div>
+                <div className="text-sm sm:text-base font-bold text-white mb-0.5">
                   USB Scanner Ready
                 </div>
-                <div style={{ fontSize: "0.75rem", color: "#94a3b8", maxWidth: "280px", margin: "0 auto" }}>
+                <div className="text-[11px] sm:text-xs text-slate-400 max-w-xs mx-auto">
                   Flash the QR code on your employee card in front of the scanner.
                 </div>
               </div>
@@ -1240,93 +873,51 @@ export default function AttendanceKioskPage() {
                 e.preventDefault();
                 handleProcessScan(manualCode);
               }}
-              style={{
-                marginTop: "12px",
-                display: "flex",
-                gap: "6px",
-                maxWidth: "280px",
-                margin: "12px auto 0"
-              }}
+              className="mt-2.5 sm:mt-3 flex gap-1.5 max-w-xs w-full mx-auto"
             >
               <input
                 type="text"
                 placeholder="Or enter Card / Emp ID..."
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
-                style={{
-                  flex: 1,
-                  padding: "6px 10px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
-                  background: "rgba(0, 0, 0, 0.5)",
-                  color: "#ffffff",
-                  fontSize: "0.8rem"
-                }}
+                className="flex-1 min-w-0 px-2.5 py-1.5 text-xs sm:text-sm bg-black/50 border border-white/15 rounded-xl text-white placeholder-slate-400 outline-none focus:border-blue-500"
               />
               <button
                 type="submit"
                 disabled={isProcessing}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: "8px",
-                  background: "#2563eb",
-                  color: "#ffffff",
-                  border: "none",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontSize: "0.8rem"
-                }}
+                className="px-3 sm:px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition-all shrink-0 cursor-pointer"
               >
                 {isProcessing ? "..." : "Scan"}
               </button>
             </form>
           </div>
         )}
-      </div>
+      </main>
 
       {/* Bottom Live Activity Ticker */}
-      <div
-        style={{
-          maxWidth: "1000px",
-          width: "100%",
-          margin: "0 auto",
-          background: "rgba(15, 23, 42, 0.75)",
-          backdropFilter: "blur(16px)",
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          borderRadius: "14px",
-          padding: "8px 14px",
-          boxSizing: "border-box"
-        }}
-      >
-        <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px" }}>
-          Live Entrance Logs
+      <footer className="w-full max-w-4xl mx-auto bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-2 sm:px-4 sm:py-2.5 shadow-xl shrink-0">
+        <div className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+          <span>Live Entrance Logs</span>
+          {recentLogs.length > 0 && (
+            <span className="text-slate-500 lowercase font-normal">{recentLogs.length} recent</span>
+          )}
         </div>
 
         {recentLogs.length === 0 ? (
-          <div style={{ fontSize: "0.75rem", color: "#64748b", fontStyle: "italic" }}>
+          <div className="text-xs text-slate-500 italic py-0.5">
             Ready for employee scans today.
           </div>
         ) : (
-          <div style={{ display: "flex", gap: "8px", overflowX: "auto" }}>
-            {recentLogs.map(log => (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            {recentLogs.map((log) => (
               <div
                 key={log.id}
-                style={{
-                  background: "rgba(255, 255, 255, 0.06)",
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
-                  borderRadius: "8px",
-                  padding: "5px 10px",
-                  fontSize: "0.75rem",
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px"
-                }}
+                className="flex items-center gap-2 px-2.5 py-1.5 bg-white/5 border border-white/10 rounded-xl text-xs shrink-0"
               >
                 <span>{log.action === "PUNCH_IN" ? "🟢" : "🔴"}</span>
-                <div>
-                  <div style={{ fontWeight: 600, color: "#f8fafc" }}>{log.name}</div>
-                  <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>
+                <div className="text-left">
+                  <div className="font-semibold text-slate-100">{log.name}</div>
+                  <div className="text-[10px] text-slate-400">
                     {log.action === "PUNCH_IN" ? "Checked In" : "Checked Out"} at {log.time}
                   </div>
                 </div>
@@ -1334,7 +925,7 @@ export default function AttendanceKioskPage() {
             ))}
           </div>
         )}
-      </div>
+      </footer>
     </div>
   );
 }

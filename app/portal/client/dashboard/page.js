@@ -1,20 +1,14 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiArrowRight, FiActivity, FiClock, FiTrendingUp, FiUser, FiMapPin, FiPhone, FiLink, FiSave } from 'react-icons/fi';
+import { useState, useEffect, useCallback } from 'react';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiDollarSign, FiEdit3, FiArrowRight, FiClock, FiTrendingUp, FiUser, FiImage } from 'react-icons/fi';
 import Link from 'next/link';
+import { useClientSmoAccess } from '../useClientSmoAccess';
+import { useClientProfile } from '../useClientProfile';
 
 export default function DashboardPage() {
+  const { name: clientName, company_name: companyName, initials } = useClientProfile();
+  const { hasSmo: hasSmoPackage } = useClientSmoAccess();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [myClientId, setMyClientId] = useState('');
-  
-  useEffect(() => {
-    let clientId = 'emp_1789113315702'; // Fallback
-    if (typeof window !== 'undefined') {
-      const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
-      if (user && user.id) clientId = user.id;
-    }
-    setMyClientId(clientId);
-  }, []);
   
   // Data States
   const [projects, setProjects] = useState([]);
@@ -22,57 +16,72 @@ export default function DashboardPage() {
   const [adsData, setAdsData] = useState([]);
   const [requests, setRequests] = useState([]);
   const [deletedNotices, setDeletedNotices] = useState([]);
-  const [clientDetails, setClientDetails] = useState(null);
+  const [, setClientDetails] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { 
-    if (myClientId) {
-      fetchAllData();
-      const interval = setInterval(fetchAllData, 15000);
-      return () => clearInterval(interval);
+  const getClientId = () => {
+    let clientId = 'emp_1789113315702'; // Fallback
+    if (typeof window !== 'undefined') {
+      try {
+        const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
+        if (user && user.id) clientId = user.id;
+      } catch (e) {}
     }
-  }, [myClientId]);
+    return clientId;
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadAll = async () => {
+      const myClientId = getClientId();
+      try {
+        const [projRes, seoRes, adsRes, reqRes, clientRes] = await Promise.all([
+          fetch("/api/projects").catch(() => null),
+          fetch(`/api/client-services/seo?clientId=${myClientId}`).catch(() => null),
+          fetch(`/api/client-services/ads?clientId=${myClientId}`).catch(() => null),
+          fetch(`/api/client-services/requests?clientId=${myClientId}`).catch(() => null),
+          fetch(`/api/client-details?clientId=${myClientId}`).catch(() => null)
+        ]);
+
+        if (projRes && isMounted) { const d = await projRes.json(); if(d.success) setProjects(d.data || []); }
+        if (seoRes && isMounted) { const d = await seoRes.json(); if(d.success) setSeoReports(d.data || []); }
+        if (adsRes && isMounted) { const d = await adsRes.json(); if(d.success) setAdsData(d.data || []); }
+        if (reqRes && isMounted) { 
+          const d = await reqRes.json(); 
+          if(d.success) {
+            setRequests(d.data || []);
+            setDeletedNotices(d.deletedNotices || []);
+          }
+        }
+        if (clientRes && isMounted) { 
+          const d = await clientRes.json(); 
+          if(d.success && d.data) {
+            setClientDetails(d.data);
+          }
+        }
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadAll();
+    const interval = setInterval(loadAll, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleDismissNotice = async (noticeId) => {
     setDeletedNotices(prev => prev.filter(n => n.id !== noticeId));
     try {
+      const myClientId = getClientId();
       await fetch(`/api/client-services/requests?dismissNoticeId=${encodeURIComponent(noticeId)}&clientId=${encodeURIComponent(myClientId)}`, {
         method: 'DELETE'
       });
     } catch (e) {}
-  };
-
-  const fetchAllData = async () => {
-    try {
-      const [projRes, seoRes, adsRes, reqRes, clientRes] = await Promise.all([
-        fetch("/api/projects").catch(() => null),
-        fetch(`/api/client-services/seo?clientId=${myClientId}`).catch(() => null),
-        fetch(`/api/client-services/ads?clientId=${myClientId}`).catch(() => null),
-        fetch(`/api/client-services/requests?clientId=${myClientId}`).catch(() => null),
-        fetch(`/api/client-details?clientId=${myClientId}`).catch(() => null)
-      ]);
-
-      if (projRes) { const d = await projRes.json(); if(d.success) setProjects(d.data || []); }
-      if (seoRes) { const d = await seoRes.json(); if(d.success) setSeoReports(d.data || []); }
-      if (adsRes) { const d = await adsRes.json(); if(d.success) setAdsData(d.data || []); }
-      if (reqRes) { 
-        const d = await reqRes.json(); 
-        if(d.success) {
-          setRequests(d.data || []);
-          setDeletedNotices(d.deletedNotices || []);
-        }
-      }
-      if (clientRes) { 
-        const d = await clientRes.json(); 
-        if(d.success && d.data) {
-          setClientDetails(d.data);
-        }
-      }
-    } catch (err) {
-      console.error("Dashboard fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const totalAdBudget = adsData.reduce((acc, ad) => acc + parseFloat(ad.total_budget || 0), 0);
@@ -80,15 +89,16 @@ export default function DashboardPage() {
   const pendingRequestsCount = requests.filter(r => r.status === 'Pending').length;
   const latestSEO = seoReports.length > 0 ? seoReports[0] : null;
 
-  const SidebarContent = () => (
+  const renderSidebar = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
       <div className="p-6 border-b border-gray-100 flex flex-col items-center justify-center space-y-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/flymedia-logo.png" alt="Fly Media Technology" className="h-16 object-contain" />
       </div>
       
       <nav className="flex-1 p-4 flex flex-col space-y-2 overflow-y-auto">
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2 px-3">Main</div>
-<button onClick={() => window.location.href = '/portal/client/dashboard'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-pink-50 text-pink-700">
+        <button onClick={() => window.location.href = '/portal/client/dashboard'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all bg-pink-50 text-pink-700">
           <FiGrid size={20} /><span>Dashboard</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -101,16 +111,14 @@ export default function DashboardPage() {
           <FiEdit3 size={20} /><span>Book Service</span>
         </button>
 
-        {/* <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Projects</div>
-        <button onClick={() => window.location.href = '/portal/client/seo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiFileText size={20} /><span>SEO Reports</span>
-        </button>
-        <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiImage size={20} /><span>SMO Graphics</span>
-        </button>
-        <button onClick={() => window.location.href = '/portal/client/ads'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiDollarSign size={20} /><span>PAID Ads</span>
-        </button> */}
+        {hasSmoPackage && (
+          <>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Services</div>
+            <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-semibold transition-all text-pink-700 bg-pink-50 hover:bg-pink-100">
+              <FiImage size={20} className="text-pink-600" /><span>SMO Automation</span>
+            </button>
+          </>
+        )}
 
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Billing & Packages</div>
         <button onClick={() => window.location.href = '/portal/client/packages'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -124,7 +132,7 @@ export default function DashboardPage() {
         <button onClick={() => window.location.href = '/portal/client/profile'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiUser size={20} /><span>Profile Settings</span>
         </button>
-                    </nav>
+      </nav>
       
       <div className="p-4 border-t border-gray-100">
         <button onClick={() => { localStorage.removeItem('devicedesk_auth_user'); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors">
@@ -137,7 +145,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc] text-gray-900 font-sans flex flex-col md:flex-row w-full">
       <aside className="hidden md:flex flex-col w-64 fixed inset-y-0 left-0 z-20 shadow-sm bg-white">
-        <SidebarContent />
+        {renderSidebar()}
       </aside>
       
       {isMobileMenuOpen && (
@@ -148,7 +156,7 @@ export default function DashboardPage() {
         <div className="absolute top-4 right-4">
            <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-600"><FiX size={20} /></button>
         </div>
-        <SidebarContent />
+        {renderSidebar()}
       </aside>
 
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen relative overflow-x-hidden">
@@ -156,17 +164,47 @@ export default function DashboardPage() {
         <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-4 flex items-center justify-between md:hidden sticky top-0 z-30">
           <div className="flex items-center">
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
-            <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
+            <div>
+              <h1 className="text-base font-bold text-gray-800 leading-tight">Dashboard</h1>
+              <p suppressHydrationWarning className="text-xs text-gray-500 font-medium truncate max-w-[180px]">{companyName || clientName || 'Client'}</p>
+            </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm">DC</div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs uppercase shadow-sm cursor-pointer"
+            suppressHydrationWarning
+          >
+            {initials}
+          </div>
         </header>
 
         {/* Desktop Header */}
         <header className="hidden md:flex bg-white border-b border-gray-100 px-8 py-5 justify-between items-center sticky top-0 z-10">
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Dashboard Overview</h1>
-          <div className="flex items-center space-x-4">
-             <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-10 h-10 rounded-full bg-pink-50 text-pink-600 border border-pink-100 flex items-center justify-center font-bold shadow-sm cursor-pointer">DC</div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Dashboard Overview</h1>
+            <p className="text-xs text-gray-500 mt-0.5">High-level operational stats, budget tracking, and performance reports.</p>
+          </div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition-opacity"
+            title="Profile Settings"
+          >
+            <div className="text-right">
+              <p suppressHydrationWarning className="text-sm font-bold text-gray-800 leading-tight">
+                {companyName || clientName || 'Client'}
+              </p>
+              {companyName && clientName && (
+                <p suppressHydrationWarning className="text-xs text-gray-500 font-medium leading-tight mt-0.5">
+                  {clientName}
+                </p>
+              )}
+            </div>
+            <div 
+              className="w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm shadow-pink-100 uppercase"
+              suppressHydrationWarning
+            >
+              {initials}
+            </div>
           </div>
         </header>
 
@@ -186,12 +224,12 @@ export default function DashboardPage() {
                         Service Request Removed by Admin
                       </h4>
                       <p className="text-xs text-red-700 mt-1 leading-relaxed">
-                        Your service request for <span className="font-semibold text-red-900">"{notice.service_type || 'Service'}"</span> has been cancelled and removed by the administration on {new Date(notice.deleted_at).toLocaleDateString()}.
+                        Your service request for <span className="font-semibold text-red-900">&quot;{notice.service_type || 'Service'}&quot;</span> has been cancelled and removed by the administration on {new Date(notice.deleted_at).toLocaleDateString()}.
                       </p>
                       <div className="flex items-center gap-4 mt-2 text-xs">
-                        <a href="/portal/client/notes" className="text-pink-600 hover:text-pink-800 font-semibold underline">
+                        <Link href="/portal/client/notes" className="text-pink-600 hover:text-pink-800 font-semibold underline">
                           View Admin Message in Project Notes →
-                        </a>
+                        </Link>
                       </div>
                     </div>
                   </div>
@@ -214,7 +252,7 @@ export default function DashboardPage() {
             <div className="relative z-10 p-8 md:p-10 flex flex-col md:flex-row justify-between items-center gap-6">
               <div>
                 <h2 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800">Ready to grow your business?</h2>
-                <p className="text-gray-500 text-base max-w-xl">Here's what's happening with your projects, ad campaigns, and SEO performance today.</p>
+                <p className="text-gray-500 text-base max-w-xl">Here&apos;s what&apos;s happening with your projects, ad campaigns, and SEO performance today.</p>
               </div>
               <button onClick={() => window.location.href = '/portal/client/book-service'} className="shrink-0 flex items-center gap-2 bg-pink-600 text-white hover:bg-pink-700 px-6 py-3 rounded-lg font-semibold transition-colors shadow-sm">
                 <FiEdit3 size={18} /> Book a New Service
@@ -352,7 +390,7 @@ export default function DashboardPage() {
                                 ></div>
                               </div>
                             </div>
-                          )
+                          );
                         })}
                       </div>
                     )}

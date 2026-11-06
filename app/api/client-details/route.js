@@ -16,7 +16,7 @@ export async function GET(request) {
     const [rows] = await db.execute(`
       SELECT cd.*, e.name, e.email 
       FROM employees e
-      LEFT JOIN client_details cd ON e.id = cd.client_id
+      LEFT JOIN client_details cd ON (e.id COLLATE utf8mb4_unicode_ci = cd.client_id COLLATE utf8mb4_unicode_ci)
       WHERE e.id = ?
     `, [clientId]);
 

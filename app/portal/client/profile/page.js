@@ -2,8 +2,12 @@
 import { useState, useEffect } from 'react';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiUser, FiMapPin, FiPhone, FiLink, FiSave, FiAlertCircle } from 'react-icons/fi';
 import Link from 'next/link';
+import { useClientSmoAccess } from '../useClientSmoAccess';
+import { useClientProfile } from '../useClientProfile';
 
 export default function ProfilePage() {
+  const { name: clientName, company_name: companyName, initials } = useClientProfile();
+  const { hasSmo: hasSmoPackage } = useClientSmoAccess();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [myClientId, setMyClientId] = useState('');
   
@@ -103,16 +107,14 @@ export default function ProfilePage() {
           <FiEdit3 size={20} /><span>Book Service</span>
         </button>
 
-        {/* <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Projects</div>
-        <button onClick={() => window.location.href = '/portal/client/seo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiFileText size={20} /><span>SEO Reports</span>
-        </button>
-        <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiImage size={20} /><span>SMO Graphics</span>
-        </button>
-        <button onClick={() => window.location.href = '/portal/client/ads'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiDollarSign size={20} /><span>PAID Ads</span>
-        </button> */}
+        {hasSmoPackage && (
+          <>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Services</div>
+            <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-semibold transition-all text-pink-700 hover:bg-pink-100">
+              <FiImage size={20} className="text-pink-600" /><span>SMO Automation</span>
+            </button>
+          </>
+        )}
 
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Billing & Packages</div>
         <button onClick={() => window.location.href = '/portal/client/packages'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -154,19 +156,51 @@ export default function ProfilePage() {
       </aside>
 
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen relative overflow-x-hidden">
+        {/* Mobile Header */}
         <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-4 flex items-center justify-between md:hidden sticky top-0 z-30">
           <div className="flex items-center">
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
-            <h1 className="text-xl font-bold text-gray-800">Profile</h1>
+            <div>
+              <h1 className="text-base font-bold text-gray-800 leading-tight">Profile Settings</h1>
+              <p suppressHydrationWarning className="text-xs text-gray-500 font-medium truncate max-w-[180px]">{companyName || clientDetails?.company_name || clientName || 'Client'}</p>
+            </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm">DC</div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs uppercase shadow-sm cursor-pointer"
+            suppressHydrationWarning
+          >
+            {initials}
+          </div>
         </header>
 
+        {/* Desktop Header */}
         <header className="hidden md:flex bg-white border-b border-gray-100 px-8 py-5 justify-between items-center sticky top-0 z-10">
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Profile Settings</h1>
-          <div className="flex items-center space-x-4">
-             <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-10 h-10 rounded-full bg-pink-50 text-pink-600 border border-pink-100 flex items-center justify-center font-bold shadow-sm cursor-pointer">DC</div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Profile Settings</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Manage your corporate credentials, billing contact details, and registered address.</p>
+          </div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition-opacity"
+            title="Profile Settings"
+          >
+            <div className="text-right">
+              <p suppressHydrationWarning className="text-sm font-bold text-gray-800 leading-tight">
+                {companyName || clientDetails?.company_name || clientName || 'Client'}
+              </p>
+              {(companyName || clientDetails?.company_name) && clientName && (
+                <p suppressHydrationWarning className="text-xs text-gray-500 font-medium leading-tight mt-0.5">
+                  {clientName}
+                </p>
+              )}
+            </div>
+            <div 
+              className="w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm shadow-pink-100 uppercase"
+              suppressHydrationWarning
+            >
+              {initials}
+            </div>
           </div>
         </header>
 
