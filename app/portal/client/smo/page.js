@@ -14,6 +14,30 @@ import { FaWandMagicSparkles } from 'react-icons/fa6';
 import Swal from 'sweetalert2';
 import { useClientProfile } from '../useClientProfile';
 
+function formatScheduledDate(val) {
+  if (!val) return 'Pending';
+  try {
+    let dateObj;
+    if (typeof val === 'string' && val.includes(' ') && !val.includes('T')) {
+      dateObj = new Date(val.replace(' ', 'T'));
+    } else {
+      dateObj = new Date(val);
+    }
+    if (isNaN(dateObj.getTime())) return String(val);
+
+    return dateObj.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (e) {
+    return String(val);
+  }
+}
+
 export default function SMOPage() {
   const { name: clientName, company_name: companyName, initials } = useClientProfile();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -619,7 +643,7 @@ export default function SMOPage() {
         Swal.fire({
           icon: 'success',
           title: 'Post Scheduled!',
-          html: `<p>Your banner is scheduled for <strong>${chosenDate.toLocaleString()}</strong>.</p><p style="font-size:0.85rem;color:#6b7280;margin-top:6px;">Our automated publishing engine will post it live to your selected platforms at this exact time.</p>`,
+          html: `<p>Your banner is scheduled for <strong>${formatScheduledDate(scheduledDateTime)}</strong>.</p><p style="font-size:0.85rem;color:#6b7280;margin-top:6px;">Our automated publishing engine will post it live to your selected platforms at this exact time.</p>`,
           confirmButtonColor: '#4f46e5'
         });
       } else {
@@ -1155,7 +1179,7 @@ export default function SMOPage() {
                             {isScheduled && req.scheduled_at && (
                               <div className="text-[11px] text-indigo-700 font-medium mt-1 flex items-center gap-1">
                                 <FiCalendar size={11} />
-                                {new Date(req.scheduled_at).toLocaleDateString([], { month: 'short', day: 'numeric' })} at {new Date(req.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {formatScheduledDate(req.scheduled_at)}
                               </div>
                             )}
                             {isPublished && req.published_at && (
@@ -1607,7 +1631,7 @@ export default function SMOPage() {
                 ) : selectedRequest.status === 'Scheduled' ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
-                      <FiClock /> Scheduled: {selectedRequest.scheduled_at ? new Date(selectedRequest.scheduled_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Pending'}
+                      <FiClock /> Scheduled: {formatScheduledDate(selectedRequest.scheduled_at)}
                     </div>
                     <button 
                       onClick={() => handleCancelSchedule(selectedRequest.id)}
