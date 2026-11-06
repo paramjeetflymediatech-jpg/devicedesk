@@ -283,6 +283,18 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Standalone Full-Width Pages (e.g. /inactive-account, /flow, /login) */
+body.page-full-width,
+body:has(.page-standalone) {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  min-width: 100vw !important;
+  max-width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 /* Webkit scrollbar customization */
 ::-webkit-scrollbar {
   width: 6px;

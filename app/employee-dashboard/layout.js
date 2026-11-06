@@ -96,6 +96,8 @@ export default function EmployeeLayout({ children }) {
   }, []);
 
   const empDetails = employees.find((e) => e.id === user?.id) || user || {};
+  const userStatusStr = `${empDetails?.status || user?.status || 'active'}`.toLowerCase().trim();
+  const isInactive = userStatusStr === 'inactive' || userStatusStr === 'paused' || userStatusStr === 'disabled' || userStatusStr === 'suspended';
   const deptStr = `${user?.department || empDetails?.department || ''}`.toLowerCase().trim();
   const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
   const isITDepartment =
@@ -129,14 +131,37 @@ export default function EmployeeLayout({ children }) {
   const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
   const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
 
-  // Auth check
+  // Auth & Inactive account access check
   useEffect(() => {
     if (mounted) {
       if (!user) {
         router.push("/login");
+      } else if (isInactive) {
+        router.replace("/inactive-account");
       }
     }
-  }, [user, mounted, router]);
+  }, [user, mounted, router, isInactive]);
+
+  // Live database check to ensure inactive employees are immediately redirected
+  useEffect(() => {
+    if (!user?.id || !mounted) return;
+    fetch(`/api/employees/${user.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          const freshStatus = (data.data.status || "").toLowerCase().trim();
+          if (
+            freshStatus === "inactive" ||
+            freshStatus === "paused" ||
+            freshStatus === "disabled" ||
+            freshStatus === "suspended"
+          ) {
+            router.replace("/inactive-account");
+          }
+        }
+      })
+      .catch(() => {});
+  }, [user?.id, mounted, router]);
 
   // Handle body click to close profile dropdown
   useEffect(() => {
@@ -147,7 +172,7 @@ export default function EmployeeLayout({ children }) {
     return () => window.removeEventListener("click", handleBodyClick);
   }, []);
 
-  if (!mounted || !user) {
+  if (!mounted || !user || isInactive) {
     return null;
   }
 

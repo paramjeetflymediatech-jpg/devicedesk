@@ -1,12 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import Swal from 'sweetalert2';
 import { useAuth } from '../../auth/AuthContext.js';
 import { FiActivity, FiCheckSquare, FiUsers, FiMessageSquare, FiUser, FiMenu, FiX, FiBriefcase, FiLogOut, FiTv } from 'react-icons/fi';
 import NotificationBadge from '../../components/NotificationBadge.js';
 
 export default function LeaderLayout({ children }) {
+  const router = useRouter();
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname() || '';
@@ -14,8 +16,63 @@ export default function LeaderLayout({ children }) {
   
   const [requestsCount, setRequestsCount] = useState(0);
 
+  const statusStr = (user?.status || '').toLowerCase().trim();
+  const isInactive = statusStr === 'inactive' || statusStr === 'paused' || statusStr === 'disabled' || statusStr === 'suspended';
+
+  const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
+  const deptStr = `${user?.department || ''}`.toLowerCase().trim();
+
+  const isLeader =
+    dbRoleStr === 'tl' ||
+    dbRoleStr === 'team lead' ||
+    dbRoleStr === 'team leader' ||
+    dbRoleStr === 'team_lead' ||
+    dbRoleStr === 'leader' ||
+    deptStr.includes('leader') ||
+    deptStr.includes('tl');
+
+  const isAdmin =
+    dbRoleStr === 'admin' ||
+    dbRoleStr === 'superadmin' ||
+    dbRoleStr === 'management' ||
+    dbRoleStr === 'executive' ||
+    user?.email === 'admin@yopmail.com' ||
+    user?.email === 'pravi@yopmail.com';
+
+  const isAuthorized = isLeader || isAdmin;
+
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    // 1. Strict Authentication Guard - redirect if no user session
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+
+    // 2. Inactive account gate
+    if (isInactive) {
+      router.replace('/inactive-account');
+      return;
+    }
+
+    // 3. Role authorization check
+    if (!isAuthorized) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Access Restricted',
+        text: 'You do not have Team Leader privileges to access the Leader Portal.',
+        confirmButtonColor: '#2563eb'
+      }).then(() => {
+        router.replace('/employee-dashboard');
+      });
+      return;
+    }
+
     async function fetchRequests() {
       if (!user?.id) return;
       try {
@@ -31,7 +88,7 @@ export default function LeaderLayout({ children }) {
       } catch (err) {}
     }
     fetchRequests();
-  }, [user?.id, pathname]);
+  }, [user, mounted, router, isInactive, isAuthorized, pathname]);
 
   const getPageTitle = () => {
     if (pathname.includes('client-requests')) return 'Client Requests';
@@ -112,6 +169,10 @@ export default function LeaderLayout({ children }) {
       </div>
     </div>
   );
+
+  if (!mounted || !user || isInactive || !isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex flex-col md:flex-row w-full selection:bg-slate-200 selection:text-slate-900">

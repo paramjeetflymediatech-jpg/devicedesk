@@ -20,10 +20,24 @@ export async function POST(request) {
     const emp = empRows[0];
     const statusLower = (emp.status || 'Active').toLowerCase().trim();
     if (statusLower === 'inactive') {
-      return NextResponse.json({ success: false, message: '🚫 Your account is currently inactive. Please contact Administrator.' }, { status: 403 });
+      return NextResponse.json({
+        success: false,
+        isInactive: true,
+        userId: emp.id,
+        name: emp.name,
+        email: emp.email,
+        message: '⚠️ 🚫 Your account is currently inactive. Please contact Administrator or HR to reactivate your account.'
+      }, { status: 403 });
     }
     if (statusLower === 'paused') {
-      return NextResponse.json({ success: false, message: '🚫 Your account has been paused. Please contact Admin/IT Support.' }, { status: 403 });
+      return NextResponse.json({
+        success: false,
+        isInactive: true,
+        userId: emp.id,
+        name: emp.name,
+        email: emp.email,
+        message: '🚫 Your account has been paused. Please contact Admin/IT Support.'
+      }, { status: 403 });
     }
     
     const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
