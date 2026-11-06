@@ -24,7 +24,7 @@ export default function BookServicePage() {
   const [requests, setRequests] = useState([]);
   const [deletedNotices, setDeletedNotices] = useState([]);
   const [form, setForm] = useState(() => {
-    let service_type = 'SEO';
+    let service_type = 'SMO';
     let requirements = '';
     if (typeof window !== 'undefined') {
       try {
@@ -32,6 +32,9 @@ export default function BookServicePage() {
         if (pkgName) {
           service_type = pkgName;
           requirements = `Booking for package: ${pkgName}\n\nMy Requirements:\n`;
+        } else {
+          const hasSmo = localStorage.getItem('devicedesk_client_has_smo') === 'true';
+          service_type = hasSmo ? 'smo' : 'SEO';
         }
       } catch (e) {}
     }
@@ -59,8 +62,18 @@ export default function BookServicePage() {
           setActivePackages(pkgs);
           
           const urlPkg = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('pkg') : null;
-          if (!urlPkg && pkgs.length > 0) {
-            setForm(prev => ({ ...prev, service_type: pkgs[0].name }));
+          if (pkgs.length > 0) {
+            let matched = null;
+            if (urlPkg) {
+              matched = pkgs.find(p => (p.name || '').toLowerCase() === urlPkg.toLowerCase());
+            }
+            if (!matched) {
+              // Prefer active SMO package if user owns one
+              matched = pkgs.find(p => (p.name || '').toLowerCase().includes('smo') || (p.name || '').toLowerCase().includes('social')) || pkgs[0];
+            }
+            if (matched) {
+              setForm(prev => ({ ...prev, service_type: matched.name }));
+            }
           }
         }
       } catch (err) {}
@@ -487,13 +500,20 @@ export default function BookServicePage() {
                     onChange={(e) => setForm({ ...form, service_type: e.target.value })}
                   >
                     {activePackages.length > 0 ? (
-                      activePackages.map((pkg, idx) => (
-                        <option key={idx} value={pkg.name}>{pkg.name}</option>
-                      ))
+                      activePackages.map((pkg, idx) => {
+                        const raw = pkg.name || '';
+                        const isSmo = raw.toLowerCase().includes('smo') || raw.toLowerCase().includes('social');
+                        const isSeo = raw.toLowerCase().includes('seo');
+                        const isAds = raw.toLowerCase().includes('ad');
+                        const label = isSmo ? 'SMO (Social Media Graphics)' : isSeo ? 'SEO (Search Engine Optimization)' : isAds ? 'Paid Ads Marketing' : raw.toUpperCase();
+                        return (
+                          <option key={idx} value={pkg.name}>{label}</option>
+                        );
+                      })
                     ) : (
                       <>
-                        <option value="SEO">SEO (Search Engine Optimization)</option>
                         <option value="SMO">SMO (Social Media Graphics)</option>
+                        <option value="SEO">SEO (Search Engine Optimization)</option>
                         <option value="PAID Ads">PAID Ads (Google/Meta)</option>
                         <option value="Website Development">Website Development</option>
                         <option value="Other">Other Requirement</option>

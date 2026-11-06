@@ -6,7 +6,8 @@ import {
   FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiDownload, 
   FiEdit3, FiUser, FiCheckCircle, FiClock, FiAlertCircle, 
   FiSettings, FiShare2, FiThumbsUp, FiMessageCircle, FiHeart, 
-  FiBookmark, FiRefreshCw, FiExternalLink, FiUploadCloud, FiZap, FiCalendar, FiSave, FiLock
+  FiBookmark, FiRefreshCw, FiExternalLink, FiUploadCloud, FiZap, FiCalendar, FiSave, FiLock,
+  FiRepeat
 } from 'react-icons/fi';
 import { FaFacebook, FaInstagram } from 'react-icons/fa';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
@@ -457,6 +458,7 @@ export default function SMOPage() {
           });
         } catch (saveErr) {}
       }
+      const isRepost = selectedRequest.status === 'Published';
       const res = await fetch('/api/smo/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -473,10 +475,12 @@ export default function SMOPage() {
         fetchSMO();
         Swal.fire({
           icon: 'success',
-          title: simulate ? 'Test Publish Simulated!' : '🎉 Published to Social Media!',
+          title: simulate 
+            ? (isRepost ? 'Test Repost Simulated!' : 'Test Publish Simulated!') 
+            : (isRepost ? '🎉 Reposted to Social Media!' : '🎉 Published to Social Media!'),
           html: `
             <div style="text-align: left; font-size: 0.9rem;">
-              <p>Your banner has been published via the official Meta Graph API.</p>
+              <p>${isRepost ? 'Your banner has been reposted live via the official Meta Graph API.' : 'Your banner has been published via the official Meta Graph API.'}</p>
               ${data.results?.facebook?.success ? '<p>✅ <strong>Facebook Page:</strong> Posted successfully!</p>' : ''}
               ${data.results?.instagram?.success ? '<p>✅ <strong>Instagram Business:</strong> Posted successfully!</p>' : ''}
               ${data.info?.length ? `<div style="margin-top:8px;padding:8px;background:#fef3c7;color:#92400e;border-radius:8px;font-size:0.8rem;">${data.info.join('<br/>')}</div>` : ''}
@@ -727,7 +731,8 @@ export default function SMOPage() {
               <p><strong>Page Name:</strong> ${data.details?.pageName || 'Connected'}</p>
               <p><strong>Page ID:</strong> ${data.details?.pageId || 'Verified'}</p>
               <p><strong>Instagram Business:</strong> ${data.details?.detectedIgId ? `✅ Linked (${data.details.detectedIgId})` : 'ℹ️ None detected (Optional)'}</p>
-              <p style="margin-top: 8px; color: #059669; font-weight: 600;">Your token is valid and ready to publish posts!</p>
+              ${data.details?.igWarning ? `<div style="margin-top:8px;padding:8px;background:#fef3c7;color:#92400e;border-radius:8px;font-size:0.8rem;border:1px solid #fde68a;">⚠️ ${data.details.igWarning}</div>` : ''}
+              <p style="margin-top: 8px; color: #059669; font-weight: 600;">Your token is verified!</p>
             </div>
           `,
           confirmButtonColor: '#059669'
@@ -1162,23 +1167,41 @@ export default function SMOPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
                             {req.banner_url && (isReady || isApproved || isScheduled || isPublished) ? (
                               <div className="inline-flex items-center gap-1.5">
-                                <button 
-                                  onClick={() => openPreviewModal(req)}
-                                  className={`px-3 py-1.5 text-xs font-bold rounded-lg shadow-sm transition-all ${
-                                    isPublished
-                                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                      : isScheduled
-                                      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                      : 'bg-pink-600 text-white hover:bg-pink-700 shadow-pink-100'
-                                  }`}
-                                >
-                                  {isPublished ? 'View Post' : isScheduled ? '🕒 Scheduled' : '👁️ Preview & Post'}
-                                </button>
+                                {isPublished ? (
+                                  <>
+                                    <button 
+                                      onClick={() => openPreviewModal(req)}
+                                      className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg shadow-xs transition-all cursor-pointer"
+                                      title="View social post mockup"
+                                    >
+                                      👁️ View
+                                    </button>
+                                    <button 
+                                      onClick={() => openPreviewModal(req)}
+                                      className="px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 rounded-lg shadow-sm shadow-pink-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                                      title="Repost this banner to Facebook or Instagram"
+                                    >
+                                      <FiRepeat size={12} />
+                                      <span>Repost</span>
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button 
+                                    onClick={() => openPreviewModal(req)}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer ${
+                                      isScheduled
+                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                        : 'bg-pink-600 text-white hover:bg-pink-700 shadow-pink-100'
+                                    }`}
+                                  >
+                                    {isScheduled ? '🕒 Scheduled' : '👁️ Preview & Post'}
+                                  </button>
+                                )}
                                 {isScheduled && (
                                   <button
                                     onClick={() => handleCancelSchedule(req.id)}
                                     title="Cancel schedule"
-                                    className="p-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-rose-200"
+                                    className="p-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-rose-200 cursor-pointer"
                                   >
                                     <FiX size={14} />
                                   </button>
@@ -1497,51 +1520,89 @@ export default function SMOPage() {
                   ✏️ Request Revision
                 </button>
 
-                {selectedRequest.status !== 'Published' && (
-                  <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs">
-                    <span className="font-bold text-slate-500 uppercase text-[10px] tracking-wider">Publish To:</span>
-                    <label className="flex items-center gap-1 cursor-pointer select-none font-medium text-slate-700 hover:text-slate-900">
-                      <input 
-                        type="checkbox"
-                        checked={targetPublishPlatforms.includes('facebook')}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setTargetPublishPlatforms(prev => [...new Set([...prev, 'facebook'])]);
+                {/* Target Platforms Toggle (Always available so client can choose platforms for posting or reposting) */}
+                <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs">
+                  <span className="font-bold text-slate-500 uppercase text-[10px] tracking-wider">Publish To:</span>
+                  <label className="flex items-center gap-1 cursor-pointer select-none font-medium text-slate-700 hover:text-slate-900">
+                    <input 
+                      type="checkbox"
+                      checked={targetPublishPlatforms.includes('facebook')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setTargetPublishPlatforms(prev => [...new Set([...prev, 'facebook'])]);
+                        } else {
+                          if (targetPublishPlatforms.length > 1) {
+                            setTargetPublishPlatforms(prev => prev.filter(p => p !== 'facebook'));
                           } else {
-                            if (targetPublishPlatforms.length > 1) {
-                              setTargetPublishPlatforms(prev => prev.filter(p => p !== 'facebook'));
-                            }
+                            Swal.fire({ toast: true, icon: 'info', title: 'At least one platform must be selected', timer: 2000, showConfirmButton: false });
                           }
-                        }}
-                        className="rounded text-pink-600 focus:ring-pink-500 cursor-pointer"
-                      />
-                      <span>Facebook</span>
-                    </label>
-                    <label className="flex items-center gap-1 cursor-pointer select-none font-medium text-slate-700 hover:text-slate-900">
-                      <input 
-                        type="checkbox"
-                        checked={targetPublishPlatforms.includes('instagram')}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setTargetPublishPlatforms(prev => [...new Set([...prev, 'instagram'])]);
+                        }
+                      }}
+                      className="rounded text-pink-600 focus:ring-pink-500 cursor-pointer"
+                    />
+                    <FaFacebook className="text-blue-600 text-xs" />
+                    <span>Facebook</span>
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer select-none font-medium text-slate-700 hover:text-slate-900">
+                    <input 
+                      type="checkbox"
+                      checked={targetPublishPlatforms.includes('instagram')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setTargetPublishPlatforms(prev => [...new Set([...prev, 'instagram'])]);
+                        } else {
+                          if (targetPublishPlatforms.length > 1) {
+                            setTargetPublishPlatforms(prev => prev.filter(p => p !== 'instagram'));
                           } else {
-                            if (targetPublishPlatforms.length > 1) {
-                              setTargetPublishPlatforms(prev => prev.filter(p => p !== 'instagram'));
-                            }
+                            Swal.fire({ toast: true, icon: 'info', title: 'At least one platform must be selected', timer: 2000, showConfirmButton: false });
                           }
-                        }}
-                        className="rounded text-pink-600 focus:ring-pink-500 cursor-pointer"
-                      />
-                      <span>Instagram</span>
-                    </label>
-                  </div>
-                )}
+                        }
+                      }}
+                      className="rounded text-pink-600 focus:ring-pink-500 cursor-pointer"
+                    />
+                    <FaInstagram className="text-pink-600 text-xs" />
+                    <span>Instagram</span>
+                  </label>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                 {selectedRequest.status === 'Published' ? (
-                  <div className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 px-3 py-2 bg-emerald-50 rounded-xl">
-                    <FiCheckCircle /> Published Live to Social Media
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
+                      <FiCheckCircle /> Published Live {selectedRequest.published_at ? `(${new Date(selectedRequest.published_at).toLocaleDateString([], { month: 'short', day: 'numeric' })})` : ''}
+                    </div>
+                    <button 
+                      onClick={() => handlePublish(true)}
+                      disabled={publishing}
+                      className="w-full sm:w-auto px-3.5 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all cursor-pointer"
+                      title="Simulate repost in demo mode"
+                    >
+                      🧪 Simulate Repost
+                    </button>
+                    <button 
+                      onClick={() => openScheduleModal(selectedRequest)}
+                      className="w-full sm:w-auto px-3.5 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="Schedule repost for a future time"
+                    >
+                      <FiClock /> Schedule Repost
+                    </button>
+                    <button 
+                      onClick={() => handlePublish(false)}
+                      disabled={publishing}
+                      className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 shadow-md shadow-pink-200 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Repost this banner live immediately to selected platforms"
+                    >
+                      {publishing ? (
+                        <>
+                          <FiRefreshCw className="animate-spin" /> Reposting Live...
+                        </>
+                      ) : (
+                        <>
+                          <FiRepeat /> Repost Live Now
+                        </>
+                      )}
+                    </button>
                   </div>
                 ) : selectedRequest.status === 'Scheduled' ? (
                   <div className="flex flex-wrap items-center gap-2">
