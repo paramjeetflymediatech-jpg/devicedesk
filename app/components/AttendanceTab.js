@@ -686,7 +686,7 @@ export default function AttendanceTab({ user, mode }) {
           title="Click to view employees who forgot to punch out (auto-closed at 9:00 PM)"
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: "0.8rem", color: "#f97316", fontWeight: "600" }}>⚠️ Auto Closed (9 PM)</div>
+            <div style={{ fontSize: "0.8rem", color: "#f97316", fontWeight: "600" }}>Auto Closed </div>
             {statusFilter === "Auto Closed" && (
               <span style={{ fontSize: "0.68rem", fontWeight: "700", color: "#fff", background: "#f97316", padding: "2px 8px", borderRadius: "10px" }}>
                 Active
@@ -1320,7 +1320,7 @@ export default function AttendanceTab({ user, mode }) {
                                 gap: "4px"
                               }}
                             >
-                              ⚠️ Auto Closed (9 PM)
+                              Auto Closed
                             </span>
                             <span style={{ display: "block", fontSize: "0.7rem", color: "#fb923c", marginTop: "3px", fontWeight: "600" }}>
                               Forgot Punch-Out
