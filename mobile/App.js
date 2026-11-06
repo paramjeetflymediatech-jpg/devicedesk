@@ -167,8 +167,6 @@ function MainAppContent() {
   const [currentScreen, setCurrentScreen] = useState('welcome'); // welcome, login, forgot, admin, employee, client, leader
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  const [, setTick] = useState(0);
   const { themeColors } = useTheme();
 
   useEffect(() => {
@@ -267,16 +265,10 @@ function MainAppContent() {
     
     initApp();
 
-    // Subscribe to store notifications so App re-renders when cache updates
-    const unsubscribe = subscribe(() => {
-      setTick(t => t + 1);
-    });
-
-    // Start background sync polling every 6 seconds
-    const intervalId = setInterval(syncWithServer, 6000);
+    // Start background sync polling every 30 seconds
+    const intervalId = setInterval(syncWithServer, 30000);
 
     return () => {
-      unsubscribe();
       clearInterval(intervalId);
     };
   }, []);

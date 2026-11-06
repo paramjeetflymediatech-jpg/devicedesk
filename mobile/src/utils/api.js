@@ -6,8 +6,8 @@ import { emitEODSubmitted } from './socketService';
 const API_URL_KEY = 'devicedesk_api_url';
 
 // Default URLs: 10.0.2.2 for Android Emulator, localhost for iOS simulator
-// const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
+const DEFAULT_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+// const DEFAULT_URL = 'https://devicedesk.flymediatech.com';
 
 let currentApiUrl = DEFAULT_URL;
 
@@ -1073,6 +1073,60 @@ export async function createClientSmoRequestApi(data) {
     return await response.json();
   } catch (err) {
     console.error(`Create client SMO request failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateClientSmoRequestApi(data) {
+  const url = `${currentApiUrl}/api/client-services/smo`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update client SMO request failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function publishSmoNowApi(data) {
+  const url = `${currentApiUrl}/api/smo/publish`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Publish SMO post failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function generateAiCaptionApi(data) {
+  const url = `${currentApiUrl}/api/smo/ai-caption`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Generate AI caption failed at ${url}:`, err);
     throw err;
   }
 }
