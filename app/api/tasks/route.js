@@ -222,7 +222,7 @@ export async function PUT(request) {
             } catch (aiErr) {
               console.warn('AI caption generation fallback on task submit:', aiErr.message);
               aiResult = {
-                caption: `✨ Elevate Your Business with ${brand}!\n\n${requirement}\n\n👉 Connect with us today to learn more!`,
+                caption: `✨ Elevate Your Business with ${brand}!\n\nDelivering top-tier creative solutions designed to help your brand stand out and grow.\n\n👉 Connect with us today to learn more!`,
                 hashtags: `#${brand.replace(/[^a-zA-Z0-9]/g, '')} #Flymedia #DigitalMarketing #Trending`
               };
             }
