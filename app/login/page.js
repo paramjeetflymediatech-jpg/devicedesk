@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import Swal from "sweetalert2";
 import { useAuth } from "../auth/AuthContext";
 import ThemeToggle from "../components/ThemeToggle.js";
 import Logo from "../components/Logo.js";
@@ -142,7 +143,44 @@ export default function LoginPage() {
           router.push('/employee-dashboard');
         }
       } else {
-        setError(data.message || 'Invalid credentials.');
+        const msg = data.message || 'Invalid credentials.';
+        const isInactive = data.isInactive || res.status === 403 || msg.toLowerCase().includes('inactive') || msg.toLowerCase().includes('reactivate');
+        
+        if (isInactive) {
+          Swal.fire({
+            title: 'Account Inactive',
+            html: `
+              <div style="text-align: center; padding: 0.5rem 0;">
+             
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 12px; margin-bottom: 1rem;">
+                  <p style="font-size: 0.96rem; font-weight: 700; color: #ef4444; margin: 0; line-height: 1.5;">
+                    ${msg}
+                  </p>
+                </div>
+                <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 0;">
+                  Please contact the Administrator or HR Department to reactivate your portal access.
+                </p>
+              </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'View Inactive Status',
+            cancelButtonText: 'Close',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              const qParams = new URLSearchParams();
+              if (data.userId) qParams.set('userId', data.userId);
+              if (data.email) qParams.set('email', data.email);
+              if (data.name) qParams.set('name', data.name);
+              router.push(`/inactive-account?${qParams.toString()}`);
+            }
+          });
+          setError(msg);
+        } else {
+          setError(msg);
+        }
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -189,7 +227,43 @@ export default function LoginPage() {
           router.push('/employee-dashboard');
         }
       } else {
-        setError(data.message || 'Invalid OTP.');
+        const msg = data.message || 'Invalid OTP.';
+        const isInactive = data.isInactive || res.status === 403 || msg.toLowerCase().includes('inactive') || msg.toLowerCase().includes('reactivate');
+        
+        if (isInactive) {
+          Swal.fire({
+            title: '⚠️ Account Inactive',
+            html: `
+              <div style="text-align: center; padding: 0.5rem 0;">
+                <div style="font-size: 2.75rem; margin-bottom: 0.75rem;">🚫</div>
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 12px; margin-bottom: 1rem;">
+                  <p style="font-size: 0.96rem; font-weight: 700; color: #ef4444; margin: 0; line-height: 1.5;">
+                    ${msg}
+                  </p>
+                </div>
+                <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 0;">
+                  Please contact the Administrator or HR Department to reactivate your portal access.
+                </p>
+              </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'View Inactive Status',
+            cancelButtonText: 'Close',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              const qParams = new URLSearchParams();
+              if (otpUserId) qParams.set('userId', otpUserId);
+              if (otpEmail) qParams.set('email', otpEmail);
+              router.push(`/inactive-account?${qParams.toString()}`);
+            }
+          });
+          setError(msg);
+        } else {
+          setError(msg);
+        }
       }
     } catch (err) {
       setError('Network error. Please try again.');

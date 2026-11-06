@@ -32,7 +32,8 @@ import {
   FiTrash2,
   FiMenu,
   FiActivity,
-  FiBox
+  FiBox,
+  FiCompass
 } from "react-icons/fi";
 
 export default function AdminLayout({ children }) {
@@ -314,7 +315,8 @@ export default function AdminLayout({ children }) {
       adminOnly: true,
       items: [
         { name: "Projects", path: "/admin/projects", icon: <FiFolder /> },
-        { name: "Work Submissions", path: "/admin/submissions", icon: <FiLayers /> }
+        { name: "Work Submissions", path: "/admin/submissions", icon: <FiLayers /> },
+        { name: "System Flow Map", path: "/flow", icon: <FiCompass /> }
       ]
     },
     {

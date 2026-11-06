@@ -288,7 +288,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
       if (empStatus === 'inactive') {
         sweetAlert({
           title: 'Account Inactive',
-          text: '🚫 Your account is currently inactive. Please contact Administrator or HR to reactivate your account.',
+          text: ' Your account is currently inactive. Please contact Administrator or HR to reactivate your account.',
           type: 'error'
         });
         return;
@@ -296,7 +296,7 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToForgot }) {
       if (empStatus === 'paused') {
         sweetAlert({
           title: 'Account Paused',
-          text: '🚫 Your account has been paused due to suspicious activities. Please contact Admin/IT Support.',
+          text: ' Your account has been paused due to suspicious activities. Please contact Admin/IT Support.',
           type: 'error'
         });
         return;

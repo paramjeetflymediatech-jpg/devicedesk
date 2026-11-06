@@ -40,18 +40,30 @@ export async function POST(request) {
     if (statusLower === 'inactive') {
       return NextResponse.json({
         success: false,
-        message: '🚫 Your account is currently inactive. Please contact Administrator or HR to reactivate your account.'
+        isInactive: true,
+        userId: emp.id,
+        name: emp.name,
+        email: emp.email,
+        message: ' Your account is currently inactive. Please contact Administrator or HR to reactivate your account.'
       }, { status: 403 });
     }
     if (statusLower === 'paused') {
       return NextResponse.json({
         success: false,
+        isInactive: true,
+        userId: emp.id,
+        name: emp.name,
+        email: emp.email,
         message: '🚫 Your account has been paused due to suspicious activities. Please contact Admin/IT Support.'
       }, { status: 403 });
     }
     if (statusLower === 'disabled' || statusLower === 'suspended') {
       return NextResponse.json({
         success: false,
+        isInactive: true,
+        userId: emp.id,
+        name: emp.name,
+        email: emp.email,
         message: '🚫 Your account has been disabled. Please contact Admin/IT Support.'
       }, { status: 403 });
     }
