@@ -138,8 +138,10 @@ export const Task = sequelize.define('Task', {
   startedAt: { type: DataTypes.STRING(50) },
   completedAt: { type: DataTypes.STRING(50) },
   totalDuration: { type: DataTypes.INTEGER, defaultValue: 0 },
-  fileUrl: { type: DataTypes.STRING(512), allowNull: true },
-  project_id: { type: DataTypes.STRING(50), allowNull: true }
+  fileUrl: { type: DataTypes.TEXT, allowNull: true },
+  project_id: { type: DataTypes.STRING(50), allowNull: true },
+  completion_note: { type: DataTypes.TEXT, allowNull: true },
+  revision_notes: { type: DataTypes.TEXT, allowNull: true }
 }, { tableName: 'tasks', timestamps: false });
 
 export const AttendanceRecord = sequelize.define('AttendanceRecord', {
@@ -411,8 +413,32 @@ export const ServiceRequest = sequelize.define('ServiceRequest', {
   requirements: { type: DataTypes.TEXT },
   status: { type: DataTypes.STRING(50), defaultValue: 'Pending' },
   assigned_tl_id: { type: DataTypes.STRING(50), allowNull: true },
+  attachment: { type: DataTypes.TEXT, allowNull: true },
+  drive_url: { type: DataTypes.TEXT, allowNull: true },
+  revision_notes: { type: DataTypes.TEXT, allowNull: true },
+  caption: { type: DataTypes.TEXT, allowNull: true },
+  hashtags: { type: DataTypes.STRING(500), allowNull: true },
   created_at: { type: DataTypes.STRING(50), allowNull: false }
 }, { tableName: 'service_requests', timestamps: false });
+
+export const ClientSmoRequest = sequelize.define('ClientSmoRequest', {
+  id: { type: DataTypes.STRING(50), primaryKey: true },
+  client_id: { type: DataTypes.STRING(50), allowNull: false },
+  requirements: { type: DataTypes.TEXT, allowNull: true },
+  status: { type: DataTypes.STRING(50), defaultValue: 'Ready for Approval' },
+  assigned_tl_id: { type: DataTypes.STRING(50), allowNull: true },
+  banner_url: { type: DataTypes.STRING(500), allowNull: true },
+  caption: { type: DataTypes.TEXT, allowNull: true },
+  hashtags: { type: DataTypes.STRING(500), allowNull: true },
+  platforms: { type: DataTypes.STRING(255), defaultValue: '["facebook", "instagram"]' },
+  scheduled_at: { type: DataTypes.DATE, allowNull: true },
+  published_at: { type: DataTypes.DATE, allowNull: true },
+  social_post_ids: { type: DataTypes.TEXT, allowNull: true },
+  designer_id: { type: DataTypes.STRING(50), allowNull: true },
+  designer_name: { type: DataTypes.STRING(100), allowNull: true },
+  revision_notes: { type: DataTypes.TEXT, allowNull: true },
+  created_at: { type: DataTypes.DATE, allowNull: true }
+}, { tableName: 'client_smo_requests', timestamps: false });
 
 export const Domain = sequelize.define('Domain', {
   id: { type: DataTypes.STRING(100), primaryKey: true },
