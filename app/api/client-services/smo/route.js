@@ -241,31 +241,70 @@ export async function PUT(req) {
 
     // 2b. Schedule Post for a specific future date and time
     if (action === 'schedule_post') {
-      const { scheduled_at } = data;
+      const { scheduled_at, platforms } = data;
       if (!id || !scheduled_at) {
         return NextResponse.json({ success: false, error: 'Request ID and scheduled date/time are required.' }, { status: 400 });
       }
-      const scheduleDate = new Date(scheduled_at);
-      if (isNaN(scheduleDate.getTime())) {
-        return NextResponse.json({ success: false, error: 'Invalid date/time format.' }, { status: 400 });
-      }
-      if (scheduleDate.getTime() <= Date.now()) {
-        return NextResponse.json({ success: false, error: 'Scheduled time must be in the future.' }, { status: 400 });
+
+      let formattedDate;
+      let displayTime;
+
+      // Handle "YYYY-MM-DDTHH:mm" from <input type="datetime-local">
+      if (typeof scheduled_at === 'string' && /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(scheduled_at)) {
+        formattedDate = scheduled_at.replace('T', ' ').slice(0, 19);
+        if (formattedDate.length === 16) formattedDate += ':00';
+        const parsed = new Date(scheduled_at.replace(' ', 'T'));
+        if (parsed.getTime() <= Date.now()) {
+          return NextResponse.json({ success: false, error: 'Scheduled time must be in the future.' }, { status: 400 });
+        }
+        displayTime = parsed.toLocaleString([], {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      } else {
+        const scheduleDate = new Date(scheduled_at);
+        if (isNaN(scheduleDate.getTime())) {
+          return NextResponse.json({ success: false, error: 'Invalid date/time format.' }, { status: 400 });
+        }
+        if (scheduleDate.getTime() <= Date.now()) {
+          return NextResponse.json({ success: false, error: 'Scheduled time must be in the future.' }, { status: 400 });
+        }
+        const pad = n => String(n).padStart(2, '0');
+        formattedDate = `${scheduleDate.getFullYear()}-${pad(scheduleDate.getMonth() + 1)}-${pad(scheduleDate.getDate())} ${pad(scheduleDate.getHours())}:${pad(scheduleDate.getMinutes())}:${pad(scheduleDate.getSeconds())}`;
+        displayTime = scheduleDate.toLocaleString([], {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
       }
 
-      // MySQL DATETIME: YYYY-MM-DD HH:MM:SS
-      const formattedDate = scheduleDate.toISOString().slice(0, 19).replace('T', ' ');
-
-      await db.execute(`
+      let query = `
         UPDATE client_smo_requests 
         SET status = 'Scheduled',
             scheduled_at = ?
-        WHERE id = ?
-      `, [formattedDate, id]);
+      `;
+      const updateParams = [formattedDate];
+
+      if (platforms) {
+        query += `, platforms = ?`;
+        updateParams.push(typeof platforms === 'string' ? platforms : JSON.stringify(platforms));
+      }
+
+      query += ` WHERE id = ?`;
+      updateParams.push(id);
+
+      await db.execute(query, updateParams);
 
       return NextResponse.json({ 
         success: true, 
-        message: `Post successfully scheduled for ${scheduleDate.toLocaleString()}!` 
+        message: `Post successfully scheduled for ${displayTime}!` 
       });
     }
 

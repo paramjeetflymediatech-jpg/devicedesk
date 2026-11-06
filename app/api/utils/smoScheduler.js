@@ -6,6 +6,11 @@ import { getDbConnection } from '../db/db';
 export async function publishDuePosts() {
   const db = await getDbConnection();
 
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const localNow = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  const utcNow = now.toISOString().slice(0, 19).replace('T', ' ');
+
   // Find all scheduled posts whose scheduled_at has arrived
   const [duePosts] = await db.execute(`
     SELECT r.*, 
@@ -19,8 +24,8 @@ export async function publishDuePosts() {
     LEFT JOIN client_details cd ON (r.client_id COLLATE utf8mb4_unicode_ci = cd.client_id COLLATE utf8mb4_unicode_ci)
     WHERE r.status = 'Scheduled'
       AND r.scheduled_at IS NOT NULL
-      AND r.scheduled_at <= NOW()
-  `);
+      AND (r.scheduled_at <= NOW() OR r.scheduled_at <= ? OR r.scheduled_at <= ?)
+  `, [localNow, utcNow]);
 
   if (!duePosts || duePosts.length === 0) {
     return { processed: 0, results: [] };

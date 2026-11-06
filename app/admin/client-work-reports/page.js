@@ -45,6 +45,30 @@ function extractFirstImage(val) {
   return list[0] || null;
 }
 
+function formatScheduledDate(val) {
+  if (!val) return 'Pending';
+  try {
+    let dateObj;
+    if (typeof val === 'string' && val.includes(' ') && !val.includes('T')) {
+      dateObj = new Date(val.replace(' ', 'T'));
+    } else {
+      dateObj = new Date(val);
+    }
+    if (isNaN(dateObj.getTime())) return String(val);
+
+    return dateObj.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (e) {
+    return String(val);
+  }
+}
+
 export default function AdminClientWorkReportsPage() {
   // Data States
   const [requests, setRequests] = useState([]);
@@ -506,7 +530,7 @@ export default function AdminClientWorkReportsPage() {
         Swal.fire({
           icon: 'success',
           title: 'Post Scheduled!',
-          text: data.message || `Post scheduled for ${new Date(scheduledDateTime).toLocaleString()}`,
+          text: data.message || `Post scheduled for ${formatScheduledDate(scheduledDateTime)}`,
           confirmButtonColor: '#6366f1'
         });
       } else {
@@ -658,8 +682,8 @@ export default function AdminClientWorkReportsPage() {
       `"${(r.designer_name || '').replace(/"/g, '""')}"`,
       `"${(r.caption || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
       `"${(r.platforms || []).join(', ')}"`,
-      `"${r.published_at ? new Date(r.published_at).toLocaleString() : ''}"`,
-      `"${r.scheduled_at ? new Date(r.scheduled_at).toLocaleString() : ''}"`
+      `"${r.published_at ? formatScheduledDate(r.published_at) : ''}"`,
+      `"${r.scheduled_at ? formatScheduledDate(r.scheduled_at) : ''}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -1114,7 +1138,7 @@ export default function AdminClientWorkReportsPage() {
                         {renderStatusBadge(req.status)}
                         {req.status === 'Scheduled' && req.scheduled_at && (
                           <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium mt-1">
-                            {new Date(req.scheduled_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            {formatScheduledDate(req.scheduled_at)}
                           </div>
                         )}
                         {req.status === 'Published' && req.published_at && (
