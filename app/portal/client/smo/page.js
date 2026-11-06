@@ -1375,11 +1375,11 @@ export default function SMOPage() {
                       </div>
 
                       {/* IG Banner Image */}
-                      <div className="bg-black/5">
+                      <div className="bg-black/5 aspect-square flex items-center justify-center overflow-hidden">
                         <img 
                           src={selectedRequest.banner_url} 
                           alt="Instagram Banner" 
-                          className="w-full aspect-square object-cover"
+                          className="w-full h-full object-contain"
                         />
                       </div>
 

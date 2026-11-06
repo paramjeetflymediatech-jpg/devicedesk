@@ -1331,11 +1331,11 @@ export default function AdminClientWorkReportsPage() {
                       </div>
 
                       {/* FB Banner Image */}
-                      <div className="bg-slate-100 border-y border-slate-100">
+                      <div className="bg-slate-100 border-y border-slate-100 flex items-center justify-center overflow-hidden">
                         <img 
                           src={selectedReq.banner_url} 
                           alt="Banner Creative" 
-                          className="w-full max-h-[380px] object-cover"
+                          className="w-full max-h-[380px] object-contain mx-auto"
                         />
                       </div>
 
@@ -1384,11 +1384,11 @@ export default function AdminClientWorkReportsPage() {
                       </div>
 
                       {/* IG Banner Image */}
-                      <div className="bg-slate-100 aspect-square">
+                      <div className="bg-slate-900/5 aspect-square flex items-center justify-center overflow-hidden">
                         <img 
                           src={selectedReq.banner_url} 
                           alt="Instagram Creative" 
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                         />
                       </div>
 
