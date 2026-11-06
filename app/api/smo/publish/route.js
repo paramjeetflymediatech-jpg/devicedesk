@@ -243,12 +243,18 @@ export async function POST(req) {
                 permalink: `https://instagram.com`
               };
             } else {
-              const errDetail = publishData.error ? publishData.error.message : 'Instagram publication failed';
+              let errDetail = publishData.error ? publishData.error.message : 'Instagram publication failed';
+              if (publishData.error?.code === 10 || String(errDetail).includes('(#10)') || String(errDetail).toLowerCase().includes('permission')) {
+                errDetail = `(#10) Permission Denied: Your Meta Access Token lacks permission to publish to Instagram. In Graph API Explorer, add 'instagram_content_publish' and 'instagram_basic' permissions, and select your Instagram account when authorizing.`;
+              }
               errors.push(`Instagram Publish: ${errDetail}`);
               publishResults.instagram = { success: false, error: errDetail };
             }
           } else {
-            const errDetail = containerData.error ? containerData.error.message : 'Instagram container creation failed';
+            let errDetail = containerData.error ? containerData.error.message : 'Instagram container creation failed';
+            if (containerData.error?.code === 10 || String(errDetail).includes('(#10)') || String(errDetail).toLowerCase().includes('permission for this action')) {
+              errDetail = `(#10) Permission Missing on Instagram: Meta reported "Application does not have permission for this action". To fix this: 1) In Graph API Explorer, add permissions "instagram_content_publish" and "instagram_basic", 2) When generating the token, check the box next to your Instagram account in the Facebook authorization popup, and 3) Ensure your Instagram account is switched to a Professional (Business/Creator) account and linked to your Facebook Page in Facebook Settings -> Linked Accounts.`;
+            }
             errors.push(`Instagram Media: ${errDetail}`);
             publishResults.instagram = { success: false, error: errDetail };
           }

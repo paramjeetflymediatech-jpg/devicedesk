@@ -731,7 +731,8 @@ export default function SMOPage() {
               <p><strong>Page Name:</strong> ${data.details?.pageName || 'Connected'}</p>
               <p><strong>Page ID:</strong> ${data.details?.pageId || 'Verified'}</p>
               <p><strong>Instagram Business:</strong> ${data.details?.detectedIgId ? `✅ Linked (${data.details.detectedIgId})` : 'ℹ️ None detected (Optional)'}</p>
-              <p style="margin-top: 8px; color: #059669; font-weight: 600;">Your token is valid and ready to publish posts!</p>
+              ${data.details?.igWarning ? `<div style="margin-top:8px;padding:8px;background:#fef3c7;color:#92400e;border-radius:8px;font-size:0.8rem;border:1px solid #fde68a;">⚠️ ${data.details.igWarning}</div>` : ''}
+              <p style="margin-top: 8px; color: #059669; font-weight: 600;">Your token is verified!</p>
             </div>
           `,
           confirmButtonColor: '#059669'

@@ -515,6 +515,12 @@ export async function PUT(req) {
         const permRes = await fetch(`https://graph.facebook.com/v19.0/me/permissions?access_token=${token}`);
         const permData = await permRes.json();
         const grantedPerms = Array.isArray(permData.data) ? permData.data.filter(p => p.status === 'granted').map(p => p.permission) : [];
+        const hasIgPublish = grantedPerms.includes('instagram_content_publish') || grantedPerms.includes('instagram_business_content_publish');
+
+        let igWarning = null;
+        if ((detectedIgId || ig_business_id) && !hasIgPublish) {
+          igWarning = 'Permission "instagram_content_publish" is missing from this token. Add it in Graph API Explorer to enable Instagram posting.';
+        }
 
         return NextResponse.json({
           success: true,
@@ -523,6 +529,8 @@ export async function PUT(req) {
             pageName,
             pageId: pageId || meData.id,
             detectedIgId: detectedIgId || ig_business_id || null,
+            hasIgPublish,
+            igWarning,
             grantedPermissions: grantedPerms
           }
         });
