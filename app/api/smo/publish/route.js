@@ -3,7 +3,7 @@ import { getDbConnection } from '../../db/db';
 
 export async function POST(req) {
   try {
-    const { requestId, simulate } = await req.json();
+    const { requestId, simulate, platforms: customPlatforms } = await req.json();
 
     if (!requestId) {
       return NextResponse.json({ success: false, error: 'Request ID is required' }, { status: 400 });
@@ -14,7 +14,7 @@ export async function POST(req) {
     // 1. Fetch SMO Request + Client Social Credentials
     const [rows] = await db.execute(`
       SELECT r.*, 
-        c.name as client_name,
+        c.name as client_name, 
         cd.company_name,
         cd.fb_page_id,
         cd.ig_business_id,
@@ -39,12 +39,15 @@ export async function POST(req) {
     }
 
     // Determine target platforms
-    let platforms = ['facebook', 'instagram'];
-    try {
-      if (post.platforms) {
+    let platforms = customPlatforms || ['facebook', 'instagram'];
+    if (!customPlatforms && post.platforms) {
+      try {
         platforms = typeof post.platforms === 'string' ? JSON.parse(post.platforms) : post.platforms;
+      } catch (e) {
+        platforms = ['facebook', 'instagram'];
       }
-    } catch (e) {
+    }
+    if (!Array.isArray(platforms) || platforms.length === 0) {
       platforms = ['facebook', 'instagram'];
     }
 
@@ -97,12 +100,64 @@ export async function POST(req) {
 
     const publishResults = {};
     const errors = [];
+    const infoNotes = [];
 
     // Ensure image URL is fully qualified
     let imageUrl = post.banner_url;
     if (imageUrl.startsWith('/')) {
       const baseUrl = process.env.NEXTAUTH_URL || 'https://storage.flymediatech.com';
       imageUrl = `${baseUrl.replace(/\/$/, '')}${imageUrl}`;
+    }
+
+    let effectiveFbToken = String(post.meta_access_token).trim();
+    let effectiveIgToken = String(post.meta_access_token).trim();
+    let effectiveIgId = (post.ig_business_id || '').trim();
+
+    // AUTO-RESOLVE: Check if user provided a User Token and automatically exchange it for the Page Access Token
+    try {
+      const meRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${effectiveFbToken}`);
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        const pages = meData.data || [];
+        const matched = pages.find(p => String(p.id) === String(post.fb_page_id)) || (pages.length === 1 ? pages[0] : null);
+        if (matched) {
+          if (matched.access_token) {
+            effectiveFbToken = matched.access_token;
+            effectiveIgToken = matched.access_token;
+          }
+          if (!effectiveIgId && matched.instagram_business_account?.id) {
+            effectiveIgId = matched.instagram_business_account.id;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error resolving page token via /me/accounts:', e.message);
+    }
+
+    // Also query direct page fields to fetch linked Instagram account if missing
+    if (post.fb_page_id) {
+      try {
+        const pageRes = await fetch(`https://graph.facebook.com/v19.0/${post.fb_page_id}?fields=access_token,instagram_business_account&access_token=${effectiveFbToken}`);
+        if (pageRes.ok) {
+          const pageData = await pageRes.json();
+          if (pageData.access_token && pageData.access_token.length > 20) {
+            effectiveFbToken = pageData.access_token;
+            effectiveIgToken = pageData.access_token;
+          }
+          if (!effectiveIgId && pageData.instagram_business_account?.id) {
+            effectiveIgId = pageData.instagram_business_account.id;
+          }
+        }
+      } catch (e) {
+        console.warn('Error querying page instagram_business_account:', e.message);
+      }
+    }
+
+    // If we auto-detected an Instagram Business ID, persist it back to client_details
+    if (effectiveIgId && String(effectiveIgId) !== String(post.ig_business_id) && post.client_id) {
+      try {
+        await db.execute('UPDATE client_details SET ig_business_id = ? WHERE client_id = ?', [effectiveIgId, post.client_id]);
+      } catch (e) {}
     }
 
     // 4. Publish to Facebook Page
@@ -117,7 +172,7 @@ export async function POST(req) {
             body: JSON.stringify({
               url: imageUrl,
               caption: fullCaption,
-              access_token: post.meta_access_token
+              access_token: effectiveFbToken
             })
           });
 
@@ -130,7 +185,10 @@ export async function POST(req) {
               permalink_url: `https://facebook.com/${fbData.post_id || fbData.id}`
             };
           } else {
-            const errDetail = fbData.error ? fbData.error.message : 'Facebook API error';
+            let errDetail = fbData.error ? fbData.error.message : 'Facebook API error';
+            if (fbData.error?.code === 200 || String(errDetail).toLowerCase().includes('permission')) {
+              errDetail = `(#200) Permission Denied: The access token does not have permission to post photos to this Facebook Page. In Graph API Explorer, switch the top "User or Page" dropdown from "User Token" to your Facebook Page Name to generate a Page Access Token with "pages_manage_posts" permission.`;
+            }
             errors.push(`Facebook: ${errDetail}`);
             publishResults.facebook = { success: false, error: errDetail };
           }
@@ -143,18 +201,24 @@ export async function POST(req) {
 
     // 5. Publish to Instagram Business
     if (platforms.includes('instagram')) {
-      if (!post.ig_business_id) {
-        errors.push('Instagram Business Account ID is missing.');
+      if (!effectiveIgId) {
+        if (platforms.includes('facebook')) {
+          infoNotes.push('Instagram skipped: Instagram Business Account ID is not configured or not linked to your Facebook Page.');
+          publishResults.instagram = { success: false, skipped: true, error: 'Instagram Business ID missing' };
+        } else {
+          errors.push('Instagram Business Account ID is missing. Please add it in Social Settings or link your Instagram account to your Facebook Page in Meta Business Suite.');
+          publishResults.instagram = { success: false, error: 'Instagram Business Account ID missing' };
+        }
       } else {
         try {
           // Step A: Create Media Container
-          const containerRes = await fetch(`https://graph.facebook.com/v19.0/${post.ig_business_id}/media`, {
+          const containerRes = await fetch(`https://graph.facebook.com/v19.0/${effectiveIgId}/media`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               image_url: imageUrl,
               caption: fullCaption,
-              access_token: post.meta_access_token
+              access_token: effectiveIgToken
             })
           });
 
@@ -162,12 +226,12 @@ export async function POST(req) {
 
           if (containerRes.ok && containerData.id) {
             // Step B: Publish Media Container
-            const publishRes = await fetch(`https://graph.facebook.com/v19.0/${post.ig_business_id}/media_publish`, {
+            const publishRes = await fetch(`https://graph.facebook.com/v19.0/${effectiveIgId}/media_publish`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 creation_id: containerData.id,
-                access_token: post.meta_access_token
+                access_token: effectiveIgToken
               })
             });
 
@@ -195,7 +259,7 @@ export async function POST(req) {
       }
     }
 
-    // Determine overall success:
+    // Determine overall success: At least one platform succeeded
     const atLeastOneSuccess = Object.values(publishResults).some(r => r && r.success);
 
     if (atLeastOneSuccess) {
@@ -215,7 +279,8 @@ export async function POST(req) {
         success: true,
         message: 'Successfully published to social channels!',
         results: publishResults,
-        warnings: errors.length > 0 ? errors : undefined
+        warnings: errors.length > 0 ? errors : undefined,
+        info: infoNotes.length > 0 ? infoNotes : undefined
       });
     } else {
       return NextResponse.json({

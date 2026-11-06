@@ -70,6 +70,8 @@ export default function SMOPage() {
     meta_access_token: ''
   });
   const [savingSettings, setSavingSettings] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [targetPublishPlatforms, setTargetPublishPlatforms] = useState(['facebook', 'instagram']);
 
   // Revision Request State
   const [revisionNotes, setRevisionNotes] = useState('');
@@ -339,6 +341,24 @@ export default function SMOPage() {
     setEditCaption(req.caption || '');
     setEditHashtags(req.hashtags || '#Flymedia #SocialMedia #Trending');
     setPreviewTab('facebook');
+
+    // Parse platforms for publish target
+    let reqPlatforms = ['facebook', 'instagram'];
+    try {
+      if (req.platforms) {
+        reqPlatforms = typeof req.platforms === 'string' ? JSON.parse(req.platforms) : req.platforms;
+      }
+    } catch (e) {}
+
+    // Default to Facebook only if no Instagram ID is present and user didn't explicitly request IG
+    if (!socialSettings.ig_business_id && (!req.ig_business_id)) {
+      setTargetPublishPlatforms(['facebook']);
+    } else if (Array.isArray(reqPlatforms) && reqPlatforms.length > 0) {
+      setTargetPublishPlatforms(reqPlatforms);
+    } else {
+      setTargetPublishPlatforms(['facebook']);
+    }
+
     setShowPreviewModal(true);
   };
 
@@ -442,7 +462,8 @@ export default function SMOPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           requestId: selectedRequest.id,
-          simulate
+          simulate,
+          platforms: targetPublishPlatforms.length > 0 ? targetPublishPlatforms : ['facebook']
         })
       });
       const data = await res.json();
@@ -458,6 +479,7 @@ export default function SMOPage() {
               <p>Your banner has been published via the official Meta Graph API.</p>
               ${data.results?.facebook?.success ? '<p>✅ <strong>Facebook Page:</strong> Posted successfully!</p>' : ''}
               ${data.results?.instagram?.success ? '<p>✅ <strong>Instagram Business:</strong> Posted successfully!</p>' : ''}
+              ${data.info?.length ? `<div style="margin-top:8px;padding:8px;background:#fef3c7;color:#92400e;border-radius:8px;font-size:0.8rem;">${data.info.join('<br/>')}</div>` : ''}
             </div>
           `,
           confirmButtonColor: '#059669'
@@ -581,7 +603,8 @@ export default function SMOPage() {
         body: JSON.stringify({
           action: 'schedule_post',
           id: selectedRequest.id,
-          scheduled_at: scheduledDateTime
+          scheduled_at: scheduledDateTime,
+          platforms: targetPublishPlatforms.length > 0 ? targetPublishPlatforms : ['facebook']
         })
       });
       const data = await res.json();
@@ -668,6 +691,58 @@ export default function SMOPage() {
       Swal.fire({ icon: 'error', title: 'Error', text: err.message });
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  // Test Meta Connection
+  const handleTestSocialConnection = async () => {
+    if (!socialSettings.meta_access_token?.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Missing Access Token',
+        text: 'Please paste your Meta Page Access Token before testing.'
+      });
+      return;
+    }
+    try {
+      setTestingConnection(true);
+      const res = await fetch('/api/client-services/smo', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'test_social_connection',
+          ...socialSettings
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.details?.detectedIgId && !socialSettings.ig_business_id) {
+          setSocialSettings(prev => ({ ...prev, ig_business_id: data.details.detectedIgId }));
+        }
+        Swal.fire({
+          icon: 'success',
+          title: 'Meta Connection Verified! 🎉',
+          html: `
+            <div style="text-align: left; font-size: 0.85rem; line-height: 1.6;">
+              <p><strong>Page Name:</strong> ${data.details?.pageName || 'Connected'}</p>
+              <p><strong>Page ID:</strong> ${data.details?.pageId || 'Verified'}</p>
+              <p><strong>Instagram Business:</strong> ${data.details?.detectedIgId ? `✅ Linked (${data.details.detectedIgId})` : 'ℹ️ None detected (Optional)'}</p>
+              <p style="margin-top: 8px; color: #059669; font-weight: 600;">Your token is valid and ready to publish posts!</p>
+            </div>
+          `,
+          confirmButtonColor: '#059669'
+        });
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Connection Test Failed',
+          text: data.error || 'Failed to authenticate with Meta Graph API.'
+        });
+      }
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Connection Error', text: err.message });
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -1410,18 +1485,60 @@ export default function SMOPage() {
             </div>
 
             {/* Modal Action Bar */}
-            <div className="p-5 border-t border-gray-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
-              <button 
-                onClick={() => {
-                  setShowPreviewModal(false);
-                  setShowRevisionModal(true);
-                }}
-                className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors"
-              >
-                ✏️ Request Revision / Changes
-              </button>
+            <div className="p-4 px-5 border-t border-gray-100 bg-white flex flex-col md:flex-row items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                <button 
+                  onClick={() => {
+                    setShowPreviewModal(false);
+                    setShowRevisionModal(true);
+                  }}
+                  className="px-3.5 py-2 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  ✏️ Request Revision
+                </button>
 
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                {selectedRequest.status !== 'Published' && (
+                  <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs">
+                    <span className="font-bold text-slate-500 uppercase text-[10px] tracking-wider">Publish To:</span>
+                    <label className="flex items-center gap-1 cursor-pointer select-none font-medium text-slate-700 hover:text-slate-900">
+                      <input 
+                        type="checkbox"
+                        checked={targetPublishPlatforms.includes('facebook')}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setTargetPublishPlatforms(prev => [...new Set([...prev, 'facebook'])]);
+                          } else {
+                            if (targetPublishPlatforms.length > 1) {
+                              setTargetPublishPlatforms(prev => prev.filter(p => p !== 'facebook'));
+                            }
+                          }
+                        }}
+                        className="rounded text-pink-600 focus:ring-pink-500 cursor-pointer"
+                      />
+                      <span>Facebook</span>
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer select-none font-medium text-slate-700 hover:text-slate-900">
+                      <input 
+                        type="checkbox"
+                        checked={targetPublishPlatforms.includes('instagram')}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setTargetPublishPlatforms(prev => [...new Set([...prev, 'instagram'])]);
+                          } else {
+                            if (targetPublishPlatforms.length > 1) {
+                              setTargetPublishPlatforms(prev => prev.filter(p => p !== 'instagram'));
+                            }
+                          }
+                        }}
+                        className="rounded text-pink-600 focus:ring-pink-500 cursor-pointer"
+                      />
+                      <span>Instagram</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                 {selectedRequest.status === 'Published' ? (
                   <div className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 px-3 py-2 bg-emerald-50 rounded-xl">
                     <FiCheckCircle /> Published Live to Social Media
@@ -1644,8 +1761,27 @@ export default function SMOPage() {
             </div>
 
             <form onSubmit={handleSaveSocialSettings} className="p-6 space-y-4">
-              <div className="bg-blue-50 border border-blue-100 p-3.5 rounded-xl text-xs text-blue-800 leading-relaxed">
-                <strong>💡 Quick Setup Guide:</strong> To publish automatically to your Facebook Page and Instagram Business account, enter your Facebook Page ID, Instagram Business Account ID, and Page Access Token from <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="underline font-bold text-blue-900">Meta Graph API Explorer ↗</a>.
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-xl text-xs text-blue-900 leading-relaxed space-y-2">
+                <div className="font-bold flex items-center gap-1.5 text-blue-950">
+                  <span>💡 How to generate your Meta Page Access Token:</span>
+                </div>
+                <ol className="list-decimal pl-4 space-y-1 text-blue-800">
+                  <li>
+                    Open <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="underline font-bold text-blue-900 hover:text-blue-700">Meta Graph API Explorer ↗</a>.
+                  </li>
+                  <li>
+                    In <strong>&quot;User or Page&quot;</strong> dropdown, switch from <em>User Token</em> to <strong>Your Facebook Page Name</strong>. (Important: User Tokens cause error #200).
+                  </li>
+                  <li>
+                    Ensure permissions are checked: <code className="bg-blue-100 px-1 py-0.5 rounded text-[11px]">pages_show_list</code>, <code className="bg-blue-100 px-1 py-0.5 rounded text-[11px]">pages_manage_posts</code>, <code className="bg-blue-100 px-1 py-0.5 rounded text-[11px]">instagram_content_publish</code>.
+                  </li>
+                  <li>
+                    Click <strong>Generate Access Token</strong> and paste it below.
+                  </li>
+                  <li>
+                    <em>Instagram ID is optional:</em> If your Instagram is connected to your Facebook Page, DeviceDesk will automatically detect it!
+                  </li>
+                </ol>
               </div>
 
               <div>
@@ -1662,9 +1798,12 @@ export default function SMOPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1">
-                  Instagram Business Account ID
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    Instagram Business Account ID
+                  </label>
+                  <span className="text-[10px] text-gray-400 font-medium">Optional (Auto-detected if linked)</span>
+                </div>
                 <input 
                   type="text"
                   className="w-full p-3 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-pink-500 font-mono"
@@ -1685,24 +1824,36 @@ export default function SMOPage() {
                   value={socialSettings.meta_access_token}
                   onChange={(e) => setSocialSettings({ ...socialSettings, meta_access_token: e.target.value })}
                 />
-                <span className="text-[11px] text-gray-400 block mt-1">Requires <code>pages_manage_posts</code> and <code>instagram_content_publish</code> permissions.</span>
+                <span className="text-[11px] text-gray-400 block mt-1">Must be generated for your <strong>Facebook Page</strong> with <code>pages_manage_posts</code> permission.</span>
               </div>
 
-              <div className="pt-2 flex justify-end space-x-2">
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2">
                 <button 
                   type="button" 
-                  onClick={() => setShowSettingsModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl"
+                  onClick={handleTestSocialConnection}
+                  disabled={testingConnection || !socialSettings.meta_access_token}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold rounded-xl text-xs transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  Close
+                  {testingConnection ? <FiRefreshCw className="animate-spin" /> : '⚡'}
+                  <span>{testingConnection ? 'Testing Connection...' : 'Test Connection'}</span>
                 </button>
-                <button 
-                  type="submit"
-                  disabled={savingSettings}
-                  className="px-5 py-2.5 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-md shadow-pink-200 transition-all"
-                >
-                  {savingSettings ? 'Saving...' : 'Save Settings'}
-                </button>
+
+                <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowSettingsModal(false)}
+                    className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={savingSettings}
+                    className="px-5 py-2.5 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-md shadow-pink-200 transition-all cursor-pointer"
+                  >
+                    {savingSettings ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

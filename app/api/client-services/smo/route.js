@@ -456,6 +456,81 @@ export async function PUT(req) {
       return NextResponse.json({ success: true, message: 'Social credentials saved successfully!' });
     }
 
+    // 4b. Test Meta Social Credentials & Connectivity
+    if (action === 'test_social_connection') {
+      const { fb_page_id, meta_access_token, ig_business_id } = data;
+      const token = (meta_access_token || '').trim();
+      const pageId = (fb_page_id || '').trim();
+
+      if (!token) {
+        return NextResponse.json({ success: false, error: 'Please enter a Meta Access Token to test.' }, { status: 400 });
+      }
+
+      try {
+        // Step 1: Check token validity via /me
+        const meRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${token}`);
+        const meData = await meRes.json();
+        if (!meRes.ok) {
+          const errMsg = meData.error?.message || 'Invalid or expired Meta Access Token.';
+          return NextResponse.json({ success: false, error: `Meta Error: ${errMsg}` }, { status: 400 });
+        }
+
+        // Step 2: Check managed accounts via /me/accounts
+        let resolvedPageToken = token;
+        let pageName = meData.name;
+        let detectedIgId = null;
+
+        const accountsRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${token}`);
+        if (accountsRes.ok) {
+          const accData = await accountsRes.json();
+          const pages = accData.data || [];
+          if (pages.length > 0) {
+            const match = pageId ? pages.find(p => String(p.id) === String(pageId)) : pages[0];
+            if (match) {
+              pageName = match.name;
+              resolvedPageToken = match.access_token || resolvedPageToken;
+              if (match.instagram_business_account?.id) {
+                detectedIgId = match.instagram_business_account.id;
+              }
+            }
+          }
+        }
+
+        // Step 3: Check direct Page ID details
+        if (pageId) {
+          const directPageRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}?fields=id,name,access_token,instagram_business_account&access_token=${resolvedPageToken}`);
+          if (directPageRes.ok) {
+            const directPage = await directPageRes.json();
+            pageName = directPage.name || pageName;
+            if (directPage.access_token) {
+              resolvedPageToken = directPage.access_token;
+            }
+            if (!detectedIgId && directPage.instagram_business_account?.id) {
+              detectedIgId = directPage.instagram_business_account.id;
+            }
+          }
+        }
+
+        // Step 4: Check granted permissions
+        const permRes = await fetch(`https://graph.facebook.com/v19.0/me/permissions?access_token=${token}`);
+        const permData = await permRes.json();
+        const grantedPerms = Array.isArray(permData.data) ? permData.data.filter(p => p.status === 'granted').map(p => p.permission) : [];
+
+        return NextResponse.json({
+          success: true,
+          message: `Successfully connected to Facebook Page "${pageName}"!`,
+          details: {
+            pageName,
+            pageId: pageId || meData.id,
+            detectedIgId: detectedIgId || ig_business_id || null,
+            grantedPermissions: grantedPerms
+          }
+        });
+      } catch (testErr) {
+        return NextResponse.json({ success: false, error: `Connection failed: ${testErr.message}` }, { status: 500 });
+      }
+    }
+
     // 5. Default: Update assigned TL or general request status
     const { assigned_tl_id, status } = data;
     if (!id) return NextResponse.json({ success: false, error: 'Request ID required' }, { status: 400 });
