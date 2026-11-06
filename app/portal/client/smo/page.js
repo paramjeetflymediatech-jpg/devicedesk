@@ -336,7 +336,7 @@ export default function SMOPage() {
   // Open Preview & Approval Modal
   const openPreviewModal = (req) => {
     setSelectedRequest(req);
-    setEditCaption(req.caption || req.requirements || '');
+    setEditCaption(req.caption || '');
     setEditHashtags(req.hashtags || '#Flymedia #SocialMedia #Trending');
     setPreviewTab('facebook');
     setShowPreviewModal(true);
@@ -1218,7 +1218,7 @@ export default function SMOPage() {
 
                       {/* FB Caption */}
                       <div className="px-4 pb-3 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                        {editCaption || selectedRequest.caption || selectedRequest.requirements}
+                        {editCaption || selectedRequest.caption || ''}
                         {(editHashtags || selectedRequest.hashtags) && (
                           <div className="text-blue-600 font-medium mt-2">{editHashtags || selectedRequest.hashtags}</div>
                         )}
@@ -1300,7 +1300,7 @@ export default function SMOPage() {
                         </div>
                         <div className="text-xs text-gray-800 whitespace-pre-wrap leading-relaxed">
                           <strong className="lowercase mr-1.5">{userName.replace(/\s+/g, '_').toLowerCase()}</strong>
-                          {editCaption || selectedRequest.caption || selectedRequest.requirements}
+                          {editCaption || selectedRequest.caption || ''}
                           {(editHashtags || selectedRequest.hashtags) && (
                             <div className="text-blue-900 font-medium mt-1.5">{editHashtags || selectedRequest.hashtags}</div>
                           )}
