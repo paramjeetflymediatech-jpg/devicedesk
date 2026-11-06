@@ -342,3 +342,12 @@ cron.schedule('0 15 * * *', () => {
   scheduled: true,
   timezone: "Asia/Kolkata"
 });
+
+// Start the Cron Job for Evening Attendance & 9:00 PM Auto-Close Report (9:30 PM IST daily)
+cron.schedule('30 21 * * *', () => {
+  console.log(`[Cron] Executing daily 9:30 PM IST Evening Attendance & Auto-Close Report...`);
+  triggerAttendanceCheck('Evening');
+}, {
+  scheduled: true,
+  timezone: "Asia/Kolkata"
+});

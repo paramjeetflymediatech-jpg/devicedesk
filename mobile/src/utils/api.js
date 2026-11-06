@@ -243,20 +243,13 @@ export async function postAttendancePunch(employeeId, employeeName, action, brea
     const data = await response.json();
     return data;
   } catch (err) {
-    console.warn(`Post attendance punch failed at ${url} (queuing offline):`, err.message);
-    try {
-      await enqueueAction({
-        type: 'attendance_punch',
-        endpoint: '/api/attendance/punch',
-        method: 'POST',
-        payload: bodyPayload,
-        description: `Attendance Punch (${action})`,
-      });
-      return { success: true, offline: true, message: 'Saved offline. Will sync automatically when connection restores.' };
-    } catch (qErr) {
-      console.error('Failed to queue punch offline:', qErr);
-      throw err;
-    }
+    console.warn(`Post attendance punch failed at ${url} (offline/network error):`, err.message);
+    return {
+      success: false,
+      offline: true,
+      error: 'Please check your connection',
+      message: 'Unable to connect to server. Please check your internet connection and try again.',
+    };
   }
 }
 
