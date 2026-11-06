@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { pickFilesOrPhotos } from '../../utils/filePicker';
 import Video from 'react-native-video';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useTheme } from '../../utils/ThemeContext';
 import AppIcon from '../../components/AppIcon';
 import GoogleDriveBadge from '../../components/GoogleDriveBadge';
@@ -28,10 +29,14 @@ import {
   purchasePackageApi,
   fetchClientRequestsApi,
   createClientRequestApi,
+  updateClientRequestApi,
   dismissDeletedNoticeApi,
   fetchClientSeoReportsApi,
   fetchClientSmoGraphicsApi,
   createClientSmoRequestApi,
+  updateClientSmoRequestApi,
+  publishSmoNowApi,
+  generateAiCaptionApi,
   fetchClientAdsApi,
   fetchClientInvoicesApi,
   fetchClientNotesApi,
@@ -86,7 +91,32 @@ export default function ClientDashboard({ user, onLogout }) {
 
   const [showSmoModal, setShowSmoModal] = useState(false);
   const [smoRequirements, setSmoRequirements] = useState('');
+  const [smoPlatforms, setSmoPlatforms] = useState(['facebook', 'instagram']);
   const [submittingSmo, setSubmittingSmo] = useState(false);
+
+  // SMO Advanced States (Review, Revision, Schedule, Publish, Credentials, Mockup)
+  const [selectedSmoReq, setSelectedSmoReq] = useState(null);
+  const [showRevisionModal, setShowRevisionModal] = useState(false);
+  const [smoRevisionNotes, setSmoRevisionNotes] = useState('');
+  const [submittingRevision, setSubmittingRevision] = useState(false);
+
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [smoScheduleDate, setSmoScheduleDate] = useState('');
+  const [submittingSchedule, setSubmittingSchedule] = useState(false);
+
+  const [showSocialSettingsModal, setShowSocialSettingsModal] = useState(false);
+  const [socialSettings, setSocialSettings] = useState({
+    fb_page_id: '',
+    ig_business_id: '',
+    meta_access_token: '',
+  });
+  const [savingSocialSettings, setSavingSocialSettings] = useState(false);
+
+  const [showMockupModal, setShowMockupModal] = useState(false);
+  const [mockupPlatform, setMockupPlatform] = useState('facebook'); // 'facebook' | 'instagram'
+
+  const [regeneratingAiId, setRegeneratingAiId] = useState(null);
+  const [publishingId, setPublishingId] = useState(null);
 
   const [noteInput, setNoteInput] = useState('');
   const [noteAttachments, setNoteAttachments] = useState([]);
@@ -152,10 +182,12 @@ export default function ClientDashboard({ user, onLogout }) {
 
   const clientId = user?.id || '';
 
-  const loadAllData = useCallback(async () => {
+  const loadAllData = useCallback(async (isInitial = false) => {
     if (!clientId) return;
     try {
-      setLoading(true);
+      if (isInitial) {
+        setLoading(true);
+      }
 
       const [
         myPkgsRes,
@@ -206,6 +238,11 @@ export default function ClientDashboard({ user, onLogout }) {
       }
       if (detailsRes && detailsRes.success && detailsRes.data) {
         setClientDetails(detailsRes.data);
+        setSocialSettings({
+          fb_page_id: detailsRes.data.fb_page_id || '',
+          ig_business_id: detailsRes.data.ig_business_id || '',
+          meta_access_token: detailsRes.data.meta_access_token || '',
+        });
         setProfileForm({
           company_name: detailsRes.data.company_name || '',
           phone: detailsRes.data.phone || '',
@@ -225,9 +262,11 @@ export default function ClientDashboard({ user, onLogout }) {
   }, [clientId]);
 
   useEffect(() => {
-    loadAllData();
-    // Background polling interval to keep requests and notices fresh
-    const interval = setInterval(loadAllData, 20000);
+    loadAllData(true);
+    // Background polling interval to keep requests and notices fresh silently without flashing loaders
+    const interval = setInterval(() => {
+      loadAllData(false);
+    }, 30000);
     return () => clearInterval(interval);
   }, [loadAllData]);
 
@@ -439,8 +478,10 @@ export default function ClientDashboard({ user, onLogout }) {
     setSubmittingSmo(true);
     try {
       const res = await createClientSmoRequestApi({
+        clientId: clientId,
         client_id: clientId,
         requirements: smoRequirements.trim(),
+        platforms: smoPlatforms,
       });
       if (res && res.success) {
         sweetAlert({ title: 'Creative Request Sent! 🎨', text: 'Our design team has received your creative request.', type: 'success' });
@@ -455,6 +496,250 @@ export default function ClientDashboard({ user, onLogout }) {
     } finally {
       setSubmittingSmo(false);
     }
+  };
+
+  const handleToggleSmoPlatform = (plat) => {
+    setSmoPlatforms(prev =>
+      prev.includes(plat) ? prev.filter(p => p !== plat) : [...prev, plat]
+    );
+  };
+
+  const handleCopyText = (text, label = 'Text') => {
+    if (!text) return;
+    try {
+      Clipboard.setString(text);
+      sweetAlert({ title: 'Copied! 📋', text: `${label} copied to clipboard.`, type: 'success' });
+    } catch (e) {
+      console.warn('Clipboard copy error:', e);
+    }
+  };
+
+  const handleApproveSmoCreative = (req) => {
+    sweetAlert({
+      title: 'Approve Creative Banner? ✅',
+      text: 'Are you satisfied with this design and ready to approve it?',
+      type: 'question',
+      showCancel: true,
+      onConfirm: async () => {
+        try {
+          const res = await updateClientSmoRequestApi({ id: req.id, action: 'approve' });
+          if (res && res.success) {
+            sweetAlert({ title: 'Approved! 🎉', text: 'Creative approved successfully. You can now schedule or publish.', type: 'success' });
+            fetchClientSmoGraphicsApi(clientId).then(r => r.success && setSmoRequests(r.data || []));
+          } else {
+            sweetAlert({ title: 'Error', text: res?.error || 'Failed to approve creative.', type: 'error' });
+          }
+        } catch (e) {
+          sweetAlert({ title: 'Error', text: e.message || 'Could not approve creative.', type: 'error' });
+        }
+      }
+    });
+  };
+
+  const handleOpenRevisionModal = (req) => {
+    setSelectedSmoReq(req);
+    setSmoRevisionNotes('');
+    setShowRevisionModal(true);
+  };
+
+  const handleSubmitSmoRevision = async () => {
+    if (!smoRevisionNotes.trim()) {
+      sweetAlert({ title: 'Missing Details', text: 'Please explain the revisions or changes required.', type: 'warning' });
+      return;
+    }
+    setSubmittingRevision(true);
+    try {
+      const res = await updateClientSmoRequestApi({
+        id: selectedSmoReq.id,
+        action: 'request_revision',
+        revision_notes: smoRevisionNotes.trim()
+      });
+      if (res && res.success) {
+        setShowRevisionModal(false);
+        setSmoRevisionNotes('');
+        sweetAlert({
+          title: 'Revision Feedback Sent! ⚠️',
+          text: 'Your instructions have been forwarded to the Team Leader and Designer.',
+          type: 'success'
+        });
+        fetchClientSmoGraphicsApi(clientId).then(r => r.success && setSmoRequests(r.data || []));
+      } else {
+        throw new Error(res?.error || 'Failed to submit revision');
+      }
+    } catch (e) {
+      sweetAlert({ title: 'Error', text: e.message || 'Could not send revision.', type: 'error' });
+    } finally {
+      setSubmittingRevision(false);
+    }
+  };
+
+  const handleOpenScheduleModal = (req) => {
+    setSelectedSmoReq(req);
+    const tomorrow = new Date(Date.now() + 86400000);
+    const dateStr = tomorrow.toISOString().slice(0, 16);
+    setSmoScheduleDate(dateStr);
+    setShowScheduleModal(true);
+  };
+
+  const handleSubmitSmoSchedule = async () => {
+    if (!smoScheduleDate) {
+      sweetAlert({ title: 'Select Date/Time', text: 'Please specify the schedule date and time.', type: 'warning' });
+      return;
+    }
+    setSubmittingSchedule(true);
+    try {
+      const res = await updateClientSmoRequestApi({
+        id: selectedSmoReq.id,
+        action: 'schedule_post',
+        scheduled_at: smoScheduleDate
+      });
+      if (res && res.success) {
+        setShowScheduleModal(false);
+        sweetAlert({ title: 'Post Scheduled! 📅', text: res.message || 'Post scheduled successfully!', type: 'success' });
+        fetchClientSmoGraphicsApi(clientId).then(r => r.success && setSmoRequests(r.data || []));
+      } else {
+        throw new Error(res?.error || 'Failed to schedule post');
+      }
+    } catch (e) {
+      sweetAlert({ title: 'Error', text: e.message || 'Could not schedule post.', type: 'error' });
+    } finally {
+      setSubmittingSchedule(false);
+    }
+  };
+
+  const handleCancelSmoSchedule = (req) => {
+    sweetAlert({
+      title: 'Cancel Schedule?',
+      text: 'Remove scheduled publishing and revert this post to Ready for Approval?',
+      type: 'warning',
+      showCancel: true,
+      onConfirm: async () => {
+        try {
+          const res = await updateClientSmoRequestApi({ id: req.id, action: 'cancel_schedule' });
+          if (res && res.success) {
+            sweetAlert({ title: 'Schedule Cancelled', text: res.message || 'Post schedule cancelled.', type: 'success' });
+            fetchClientSmoGraphicsApi(clientId).then(r => r.success && setSmoRequests(r.data || []));
+          } else {
+            sweetAlert({ title: 'Error', text: res?.error || 'Failed to cancel schedule.', type: 'error' });
+          }
+        } catch (e) {
+          sweetAlert({ title: 'Error', text: e.message || 'Could not cancel schedule.', type: 'error' });
+        }
+      }
+    });
+  };
+
+  const handleRegenerateSmoAiCaption = async (req) => {
+    setRegeneratingAiId(req.id);
+    try {
+      const res = await updateClientSmoRequestApi({
+        id: req.id,
+        action: 'regenerate_ai_caption'
+      });
+      if (res && res.success) {
+        sweetAlert({ title: 'AI Caption Updated! ✨', text: 'New caption and hashtags generated.', type: 'success' });
+        fetchClientSmoGraphicsApi(clientId).then(r => r.success && setSmoRequests(r.data || []));
+      } else {
+        throw new Error(res?.error || 'Failed to regenerate AI caption');
+      }
+    } catch (e) {
+      sweetAlert({ title: 'Error', text: e.message || 'Could not regenerate caption.', type: 'error' });
+    } finally {
+      setRegeneratingAiId(null);
+    }
+  };
+
+  const handlePublishSmoNow = (req, simulate = false) => {
+    sweetAlert({
+      title: simulate ? 'Simulate Test Publish? 🧪' : 'Publish Live to Social Media? 🚀',
+      text: simulate
+        ? 'Run an automated publishing test simulation without calling live Meta servers.'
+        : 'This will publish the banner image and caption to your connected Facebook Page & Instagram account via Meta Graph API.',
+      type: 'info',
+      showCancel: true,
+      onConfirm: async () => {
+        setPublishingId(req.id);
+        try {
+          let targetPlatforms = ['facebook', 'instagram'];
+          if (req.platforms) {
+            try {
+              targetPlatforms = typeof req.platforms === 'string' ? JSON.parse(req.platforms) : req.platforms;
+            } catch (e) {}
+          }
+          const res = await publishSmoNowApi({
+            requestId: req.id,
+            platforms: targetPlatforms,
+            simulate
+          });
+          if (res && res.success) {
+            sweetAlert({
+              title: simulate ? 'Test Publish Simulated! 🧪' : 'Published Successfully! 🎉',
+              text: res.message || (simulate ? 'Simulation successful! Post marked as Published.' : 'Post published to your social accounts!'),
+              type: 'success'
+            });
+            fetchClientSmoGraphicsApi(clientId).then(r => r.success && setSmoRequests(r.data || []));
+          } else if (res && res.requiresSetup) {
+            sweetAlert({
+              title: 'Meta Setup Required ⚙️',
+              text: res.error || 'Meta credentials are not configured yet. Would you like to configure Social Settings or run a Test Simulation?',
+              type: 'warning',
+              showCancel: true,
+              confirmButtonText: 'Configure Settings',
+              cancelButtonText: 'Test Simulation',
+              onConfirm: () => {
+                setShowSocialSettingsModal(true);
+              },
+              onCancel: () => {
+                handlePublishSmoNow(req, true);
+              }
+            });
+          } else {
+            sweetAlert({
+              title: 'Publish Failed',
+              text: res?.error || 'Failed to publish post. Ensure your Meta Access Token and Page IDs are configured in Social Settings.',
+              type: 'error'
+            });
+          }
+        } catch (e) {
+          sweetAlert({
+            title: 'Publish Error',
+            text: e.message || 'Network error publishing post.',
+            type: 'error'
+          });
+        } finally {
+          setPublishingId(null);
+        }
+      }
+    });
+  };
+
+  const handleSaveSocialSettings = async () => {
+    setSavingSocialSettings(true);
+    try {
+      const res = await updateClientSmoRequestApi({
+        action: 'save_social_settings',
+        client_id: clientId,
+        fb_page_id: (socialSettings.fb_page_id || '').trim(),
+        ig_business_id: (socialSettings.ig_business_id || '').trim(),
+        meta_access_token: (socialSettings.meta_access_token || '').trim()
+      });
+      if (res && res.success) {
+        setShowSocialSettingsModal(false);
+        sweetAlert({ title: 'Saved! ⚙️', text: 'Social media credentials updated successfully.', type: 'success' });
+      } else {
+        throw new Error(res?.error || 'Failed to save settings');
+      }
+    } catch (e) {
+      sweetAlert({ title: 'Error', text: e.message || 'Could not save credentials.', type: 'error' });
+    } finally {
+      setSavingSocialSettings(false);
+    }
+  };
+
+  const handleOpenMockup = (req, platform = 'facebook') => {
+    setSelectedSmoReq(req);
+    setMockupPlatform(platform);
+    setShowMockupModal(true);
   };
 
   // 3. Purchase / Activate Package
@@ -1474,20 +1759,79 @@ export default function ClientDashboard({ user, onLogout }) {
             )}
 
             {/* ======================================================== */}
-            {/* 5. TAB: SMO GRAPHICS                                     */}
+            {/* 5. TAB: SMO GRAPHICS & AUTOMATION                        */}
             {/* ======================================================== */}
             {activeTab === 'smo' && (
               <View>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.sectionHeading}>🎨 Social Media Creatives & Banners</Text>
-                  <TouchableOpacity
-                    style={styles.smallActionBtn}
-                    onPress={() => setShowSmoModal(true)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.smallActionBtnText}>+ Request Graphic</Text>
-                  </TouchableOpacity>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={styles.sectionHeading}>🎨 Social Media Creatives & Post Automation</Text>
+                    <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
+                      AI caption generation, post scheduling, and Meta auto-publishing.
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                    <TouchableOpacity
+                      style={[styles.smallActionBtn, { backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderColor: themeColors.border, borderWidth: 1 }]}
+                      onPress={() => setShowSocialSettingsModal(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.smallActionBtnText, { color: themeColors.textPrimary }]}>⚙️ Accounts</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.smallActionBtn}
+                      onPress={() => setShowSmoModal(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.smallActionBtnText}>+ Request</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
+
+                {/* SMO Package Verification Banner */}
+                {(() => {
+                  const hasSmoPackage = activePackages.some(
+                    p => !p.is_expired && ((p.name || '').toLowerCase().includes('smo') || (p.name || '').toLowerCase().includes('social'))
+                  );
+                  if (!hasSmoPackage) {
+                    return (
+                      <View style={{
+                        padding: 14,
+                        borderRadius: 12,
+                        marginTop: 10,
+                        marginBottom: 16,
+                        backgroundColor: isDark ? 'rgba(124, 58, 237, 0.12)' : '#f5f3ff',
+                        borderWidth: 1.5,
+                        borderColor: isDark ? 'rgba(124, 58, 237, 0.35)' : '#ddd6fe',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12
+                      }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 13, fontWeight: '800', color: isDark ? '#c4b5fd' : '#6d28d9', marginBottom: 2 }}>
+                            🚀 Unlock Social Media Automation
+                          </Text>
+                          <Text style={{ fontSize: 11.5, color: themeColors.textSecondary, lineHeight: 16 }}>
+                            Subscribe to an SMO package to request promotional banners, AI captions, post scheduling, and Meta auto-publishing.
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            backgroundColor: '#7c3aed',
+                          }}
+                          onPress={() => setActiveTab('packages')}
+                        >
+                          <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 11.5 }}>View Plans →</Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {smoRequests.length === 0 ? (
                   <View style={styles.emptyCard}>
@@ -1497,19 +1841,385 @@ export default function ClientDashboard({ user, onLogout }) {
                   </View>
                 ) : (
                   smoRequests.map((req) => {
-                    const badge = getStatusBadge(req.status);
+                    const status = req.status || 'Pending Design';
+                    const isReady = status === 'Ready for Approval';
+                    const isApproved = status === 'Approved';
+                    const isScheduled = status === 'Scheduled';
+                    const isPublished = status === 'Published';
+                    const isRevision = status === 'Revision Requested';
+                    const isUnderReview = status === 'Under Review' || status === 'In Progress';
+
+                    let badgeBg = '#fef3c7';
+                    let badgeBorder = '#fde68a';
+                    let badgeText = '#b45309';
+
+                    if (isReady) {
+                      badgeBg = isDark ? '#064e3b' : '#ecfdf5';
+                      badgeBorder = '#10b981';
+                      badgeText = isDark ? '#34d399' : '#059669';
+                    } else if (isApproved) {
+                      badgeBg = isDark ? '#083344' : '#ecfeff';
+                      badgeBorder = '#06b6d4';
+                      badgeText = isDark ? '#38bdf8' : '#0891b2';
+                    } else if (isScheduled) {
+                      badgeBg = isDark ? '#1e1b4b' : '#e0e7ff';
+                      badgeBorder = '#6366f1';
+                      badgeText = isDark ? '#a5b4fc' : '#4f46e5';
+                    } else if (isPublished) {
+                      badgeBg = isDark ? '#14532d' : '#dcfce7';
+                      badgeBorder = '#22c55e';
+                      badgeText = isDark ? '#4ade80' : '#16a34a';
+                    } else if (isRevision) {
+                      badgeBg = isDark ? '#451a03' : '#fff7ed';
+                      badgeBorder = '#f97316';
+                      badgeText = isDark ? '#fdba74' : '#ea580c';
+                    } else if (isUnderReview) {
+                      badgeBg = isDark ? '#311042' : '#fdf4ff';
+                      badgeBorder = '#a855f7';
+                      badgeText = isDark ? '#e879f9' : '#9333ea';
+                    }
+
+                    // Parse target platforms
+                    let platList = ['facebook', 'instagram'];
+                    if (req.platforms) {
+                      try {
+                        platList = typeof req.platforms === 'string' ? JSON.parse(req.platforms) : req.platforms;
+                      } catch (e) {}
+                    }
+
                     return (
-                      <View key={req.id} style={styles.itemCard}>
+                      <View key={req.id} style={[styles.itemCard, { padding: 14 }]}>
+                        {/* Header Row */}
                         <View style={styles.itemCardHeader}>
-                          <Text style={styles.itemCardTitle}>🎨 Creative Request #{req.id}</Text>
-                          <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
-                            <Text style={[styles.badgeText, { color: badge.text }]}>{req.status || 'Pending'}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.itemCardTitle}>🎨 Creative #{req.id}</Text>
+                            <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, marginTop: 1 }}>
+                              Requested: {new Date(req.created_at || Date.now()).toLocaleDateString()}
+                            </Text>
+                          </View>
+                          <View style={[styles.badge, { backgroundColor: badgeBg, borderColor: badgeBorder }]}>
+                            <Text style={[styles.badgeText, { color: badgeText }]}>{status}</Text>
                           </View>
                         </View>
-                        <Text style={styles.itemDesc}>{req.requirements}</Text>
-                        <Text style={styles.itemFooterDate}>
-                          Requested: {new Date(req.created_at || Date.now()).toLocaleDateString()}
+
+                        {/* Client Revision Requested Alert */}
+                        {req.revision_notes ? (
+                          <View style={{
+                            marginVertical: 8,
+                            padding: 10,
+                            borderRadius: 8,
+                            backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb',
+                            borderWidth: 1.2,
+                            borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#fde68a'
+                          }}>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#fbbf24' : '#b45309', marginBottom: 2 }}>
+                              ⚠️ Revision Feedback Sent:
+                            </Text>
+                            <Text style={{ fontSize: 11.5, color: isDark ? '#fef3c7' : '#92400e', lineHeight: 16 }}>
+                              {req.revision_notes}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {/* Target Platforms */}
+                        {platList && platList.length > 0 && (
+                          <View style={{ flexDirection: 'row', gap: 6, marginVertical: 6, flexWrap: 'wrap' }}>
+                            {platList.map((p, pIdx) => (
+                              <View
+                                key={pIdx}
+                                style={{
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 3,
+                                  borderRadius: 6,
+                                  backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                                  borderWidth: 1,
+                                  borderColor: isDark ? '#334155' : '#bfdbfe'
+                                }}
+                              >
+                                <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#2563eb', textTransform: 'capitalize' }}>
+                                  {p === 'facebook' ? '📘 Facebook' : p === 'instagram' ? '📸 Instagram' : p === 'linkedin' ? '💼 LinkedIn' : `📱 ${p}`}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
+                        {/* Requirements */}
+                        <Text style={[styles.itemDesc, { marginTop: 4 }]}>
+                          <Text style={{ fontWeight: '700' }}>Brief: </Text>{req.requirements}
                         </Text>
+
+                        {/* Banner Image Preview */}
+                        {req.banner_url ? (
+                          <View style={{ marginVertical: 10 }}>
+                            <TouchableOpacity
+                              activeOpacity={0.9}
+                              onPress={() => Linking.openURL(resolveMediaUrl(req.banner_url)).catch(() => {})}
+                              style={{
+                                borderRadius: 10,
+                                overflow: 'hidden',
+                                borderWidth: 1,
+                                borderColor: themeColors.border,
+                                backgroundColor: isDark ? '#0f172a' : '#000000',
+                              }}
+                            >
+                              <Image
+                                source={{ uri: resolveMediaUrl(req.banner_url) }}
+                                style={{ width: '100%', height: 180 }}
+                                resizeMode="cover"
+                              />
+                              <View style={{
+                                position: 'absolute',
+                                bottom: 6,
+                                right: 6,
+                                backgroundColor: 'rgba(0,0,0,0.65)',
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: 6
+                              }}>
+                                <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '700' }}>🔍 Tap to Expand</Text>
+                              </View>
+                            </TouchableOpacity>
+
+                            {/* Designer Attribution */}
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                              <Text style={{ fontSize: 11, color: themeColors.textSecondary }}>
+                                🎨 Designed by: <Text style={{ fontWeight: '700', color: themeColors.textPrimary }}>{req.designer_name || 'Design Specialist'}</Text>
+                              </Text>
+                            </View>
+                          </View>
+                        ) : null}
+
+                        {/* AI Generated Caption & Hashtags Card */}
+                        {(req.caption || req.hashtags) ? (
+                          <View style={{
+                            marginVertical: 8,
+                            padding: 10,
+                            borderRadius: 10,
+                            backgroundColor: isDark ? 'rgba(147, 51, 234, 0.1)' : '#faf5ff',
+                            borderWidth: 1,
+                            borderColor: isDark ? 'rgba(147, 51, 234, 0.3)' : '#e9d5ff'
+                          }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#c084fc' : '#7e22ce' }}>
+                                ✨ AI Social Media Copy:
+                              </Text>
+                              <TouchableOpacity
+                                style={{
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 3,
+                                  borderRadius: 5,
+                                  backgroundColor: isDark ? 'rgba(147, 51, 234, 0.25)' : '#f3e8ff'
+                                }}
+                                onPress={() => handleRegenerateSmoAiCaption(req)}
+                                disabled={regeneratingAiId === req.id}
+                              >
+                                {regeneratingAiId === req.id ? (
+                                  <ActivityIndicator size="small" color="#9333ea" />
+                                ) : (
+                                  <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#9333ea' }}>🔄 AI Regenerate</Text>
+                                )}
+                              </TouchableOpacity>
+                            </View>
+
+                            {req.caption ? (
+                              <Text style={{ fontSize: 12, color: themeColors.textPrimary, lineHeight: 17, marginBottom: 6 }}>
+                                {req.caption}
+                              </Text>
+                            ) : null}
+
+                            {req.hashtags ? (
+                              <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#2563eb', marginBottom: 8 }}>
+                                {req.hashtags}
+                              </Text>
+                            ) : null}
+
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                              {req.caption ? (
+                                <TouchableOpacity
+                                  style={{
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 4,
+                                    borderRadius: 6,
+                                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                                    borderWidth: 1,
+                                    borderColor: themeColors.border
+                                  }}
+                                  onPress={() => handleCopyText(req.caption, 'Caption')}
+                                >
+                                  <Text style={{ fontSize: 10.5, fontWeight: '700', color: themeColors.textSecondary }}>📋 Copy Caption</Text>
+                                </TouchableOpacity>
+                              ) : null}
+                              {req.hashtags ? (
+                                <TouchableOpacity
+                                  style={{
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 4,
+                                    borderRadius: 6,
+                                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                                    borderWidth: 1,
+                                    borderColor: themeColors.border
+                                  }}
+                                  onPress={() => handleCopyText(req.hashtags, 'Hashtags')}
+                                >
+                                  <Text style={{ fontSize: 10.5, fontWeight: '700', color: themeColors.textSecondary }}>📋 Copy Tags</Text>
+                                </TouchableOpacity>
+                              ) : null}
+                            </View>
+                          </View>
+                        ) : null}
+
+                        {/* Scheduled Time Banner */}
+                        {isScheduled && req.scheduled_at && (
+                          <View style={{
+                            padding: 8,
+                            borderRadius: 8,
+                            backgroundColor: isDark ? 'rgba(99, 102, 241, 0.15)' : '#e0e7ff',
+                            borderWidth: 1,
+                            borderColor: isDark ? 'rgba(99, 102, 241, 0.3)' : '#c7d2fe',
+                            marginVertical: 6,
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#4f46e5' }}>
+                              ⏰ Auto-publishing: {new Date(req.scheduled_at).toLocaleString()}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => handleCancelSmoSchedule(req)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#dc2626' }}>Cancel ✕</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+
+                        {/* Published Live Banner */}
+                        {isPublished && (
+                          <View style={{
+                            padding: 8,
+                            borderRadius: 8,
+                            backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#dcfce7',
+                            borderWidth: 1,
+                            borderColor: isDark ? 'rgba(34, 197, 94, 0.3)' : '#bbf7d0',
+                            marginVertical: 6
+                          }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#16a34a' }}>
+                              🎉 Live on Connected Social Channels!
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Interactive Actions Grid */}
+                        <View style={{ marginTop: 8, gap: 6 }}>
+                          {isReady && (
+                            <View style={{ flexDirection: 'row', gap: 6 }}>
+                              <TouchableOpacity
+                                style={{
+                                  flex: 1,
+                                  paddingVertical: 9,
+                                  borderRadius: 8,
+                                  backgroundColor: '#10b981',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                                onPress={() => handleApproveSmoCreative(req)}
+                              >
+                                <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 12 }}>✅ Approve</Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                style={{
+                                  flex: 1,
+                                  paddingVertical: 9,
+                                  borderRadius: 8,
+                                  backgroundColor: isDark ? '#78350f' : '#fef3c7',
+                                  borderWidth: 1,
+                                  borderColor: '#f59e0b',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                                onPress={() => handleOpenRevisionModal(req)}
+                              >
+                                <Text style={{ color: isDark ? '#fef3c7' : '#b45309', fontWeight: '800', fontSize: 12 }}>⚠️ Revision</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+
+                          {(isReady || isApproved) && (
+                            <View style={{ flexDirection: 'row', gap: 6 }}>
+                              <TouchableOpacity
+                                style={{
+                                  flex: 1,
+                                  paddingVertical: 8,
+                                  borderRadius: 8,
+                                  backgroundColor: isDark ? '#312e81' : '#e0e7ff',
+                                  borderWidth: 1,
+                                  borderColor: '#6366f1',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                                onPress={() => handleOpenScheduleModal(req)}
+                              >
+                                <Text style={{ color: isDark ? '#c7d2fe' : '#4338ca', fontWeight: '700', fontSize: 11.5 }}>📅 Schedule</Text>
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                style={{
+                                  flex: 1.2,
+                                  paddingVertical: 8,
+                                  borderRadius: 8,
+                                  backgroundColor: '#2563eb',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                                onPress={() => handlePublishSmoNow(req, false)}
+                                disabled={publishingId === req.id}
+                              >
+                                {publishingId === req.id ? (
+                                  <ActivityIndicator size="small" color="#ffffff" />
+                                ) : (
+                                  <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 11.5 }}>🚀 Publish Live</Text>
+                                )}
+                              </TouchableOpacity>
+
+                              <TouchableOpacity
+                                style={{
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 8,
+                                  borderRadius: 8,
+                                  backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+                                  borderWidth: 1,
+                                  borderColor: themeColors.border,
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                                onPress={() => handlePublishSmoNow(req, true)}
+                                disabled={publishingId === req.id}
+                              >
+                                <Text style={{ color: themeColors.textSecondary, fontWeight: '700', fontSize: 11 }}>🧪 Test</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+
+                          {/* Social Mockup Preview Button */}
+                          <TouchableOpacity
+                            style={{
+                              paddingVertical: 7,
+                              borderRadius: 8,
+                              backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                              borderWidth: 1,
+                              borderColor: themeColors.border,
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            onPress={() => handleOpenMockup(req, 'facebook')}
+                          >
+                            <Text style={{ color: themeColors.textPrimary, fontWeight: '700', fontSize: 11 }}>
+                              📱 View Social Media Mockup
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     );
                   })
@@ -2306,6 +3016,9 @@ export default function ClientDashboard({ user, onLogout }) {
       {/* ======================================================== */}
       {/* MODAL: REQUEST SMO GRAPHIC                               */}
       {/* ======================================================== */}
+      {/* ======================================================== */}
+      {/* 1. MODAL: REQUEST SMO GRAPHIC                            */}
+      {/* ======================================================== */}
       <Modal
         visible={showSmoModal}
         transparent
@@ -2333,6 +3046,41 @@ export default function ClientDashboard({ user, onLogout }) {
               onChangeText={setSmoRequirements}
             />
 
+            {/* Target Platforms Selection */}
+            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Target Social Platforms:</Text>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              {[
+                { id: 'facebook', label: '📘 Facebook' },
+                { id: 'instagram', label: '📸 Instagram' },
+                { id: 'linkedin', label: '💼 LinkedIn' },
+                { id: 'twitter', label: '🐦 Twitter/X' }
+              ].map((plat) => {
+                const isSelected = smoPlatforms.includes(plat.id);
+                return (
+                  <TouchableOpacity
+                    key={plat.id}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: 8,
+                      backgroundColor: isSelected ? (isDark ? '#1e3a8a' : '#dbeafe') : (isDark ? '#1e293b' : '#f1f5f9'),
+                      borderWidth: 1,
+                      borderColor: isSelected ? '#3b82f6' : themeColors.border
+                    }}
+                    onPress={() => handleToggleSmoPlatform(plat.id)}
+                  >
+                    <Text style={{
+                      fontSize: 11,
+                      fontWeight: isSelected ? '800' : '600',
+                      color: isSelected ? '#2563eb' : themeColors.textSecondary
+                    }}>
+                      {plat.label} {isSelected ? '✓' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             <View style={styles.modalButtonRow}>
               <TouchableOpacity
                 style={styles.modalCancelBtn}
@@ -2356,6 +3104,437 @@ export default function ClientDashboard({ user, onLogout }) {
           </View>
         </View>
       </Modal>
+
+      {/* ======================================================== */}
+      {/* 2. MODAL: REQUEST SMO REVISION                           */}
+      {/* ======================================================== */}
+      {selectedSmoReq && (
+        <Modal
+          visible={showRevisionModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => !submittingRevision && setShowRevisionModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>⚠️ Request Design Revision</Text>
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
+                    Creative #{selectedSmoReq.id}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => !submittingRevision && setShowRevisionModal(false)}
+                  disabled={submittingRevision}
+                >
+                  <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.inputLabel}>Revision Instructions & Feedback *</Text>
+              <TextInput
+                style={[styles.input, styles.modalTextArea, { minHeight: 110 }]}
+                placeholder="Explain what needs to be changed (e.g., change banner background color to blue, update discount text to 25%, replace logo)..."
+                placeholderTextColor={themeColors.textSecondary}
+                multiline
+                numberOfLines={5}
+                textAlignVertical="top"
+                value={smoRevisionNotes}
+                onChangeText={setSmoRevisionNotes}
+              />
+
+              <View style={styles.modalButtonRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setShowRevisionModal(false)}
+                  disabled={submittingRevision}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalSubmitBtn, { backgroundColor: '#f59e0b' }, submittingRevision && styles.btnDisabled]}
+                  onPress={handleSubmitSmoRevision}
+                  disabled={submittingRevision}
+                >
+                  {submittingRevision ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.modalSubmitText}>Send Feedback ⚠️</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* ======================================================== */}
+      {/* 3. MODAL: SCHEDULE SMO POST                              */}
+      {/* ======================================================== */}
+      {selectedSmoReq && (
+        <Modal
+          visible={showScheduleModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => !submittingSchedule && setShowScheduleModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>📅 Schedule Auto-Publishing</Text>
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
+                    Pick publication date & time for Creative #{selectedSmoReq.id}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => !submittingSchedule && setShowScheduleModal(false)}
+                  disabled={submittingSchedule}
+                >
+                  <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Quick Presets */}
+              <Text style={styles.inputLabel}>Quick Presets:</Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                {[
+                  { label: 'Tomorrow 10 AM', getVal: () => new Date(Date.now() + 86400000).toISOString().slice(0, 10) + ' 10:00:00' },
+                  { label: 'In 2 Days', getVal: () => new Date(Date.now() + 172800000).toISOString().slice(0, 10) + ' 11:00:00' },
+                  { label: 'In 3 Days', getVal: () => new Date(Date.now() + 259200000).toISOString().slice(0, 10) + ' 12:00:00' },
+                ].map((preset, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 5,
+                      borderRadius: 6,
+                      backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                      borderWidth: 1,
+                      borderColor: '#3b82f6'
+                    }}
+                    onPress={() => setSmoScheduleDate(preset.getVal())}
+                  >
+                    <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#2563eb' }}>{preset.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>Scheduled Date & Time (YYYY-MM-DD HH:MM:SS) *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="2026-11-08 10:00:00"
+                placeholderTextColor={themeColors.textSecondary}
+                value={smoScheduleDate}
+                onChangeText={setSmoScheduleDate}
+              />
+
+              <View style={styles.modalButtonRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setShowScheduleModal(false)}
+                  disabled={submittingSchedule}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalSubmitBtn, { backgroundColor: '#6366f1' }, submittingSchedule && styles.btnDisabled]}
+                  onPress={handleSubmitSmoSchedule}
+                  disabled={submittingSchedule}
+                >
+                  {submittingSchedule ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.modalSubmitText}>Schedule Post 📅</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* ======================================================== */}
+      {/* 4. MODAL: SOCIAL MEDIA API SETTINGS                      */}
+      {/* ======================================================== */}
+      <Modal
+        visible={showSocialSettingsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !savingSocialSettings && setShowSocialSettingsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>⚙️ Social API Credentials</Text>
+                <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
+                  Configure Meta Facebook & Instagram auto-publishing
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => !savingSocialSettings && setShowSocialSettingsModal(false)}
+                disabled={savingSocialSettings}
+              >
+                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Facebook Page ID</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 104829104812345"
+                placeholderTextColor={themeColors.textSecondary}
+                value={socialSettings.fb_page_id}
+                onChangeText={(v) => setSocialSettings(prev => ({ ...prev, fb_page_id: v }))}
+              />
+
+              <Text style={[styles.inputLabel, { marginTop: 10 }]}>Instagram Business Account ID</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 17841405309212345"
+                placeholderTextColor={themeColors.textSecondary}
+                value={socialSettings.ig_business_id}
+                onChangeText={(v) => setSocialSettings(prev => ({ ...prev, ig_business_id: v }))}
+              />
+
+              <Text style={[styles.inputLabel, { marginTop: 10 }]}>Meta Page Access Token</Text>
+              <TextInput
+                style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
+                placeholder="EAA..."
+                placeholderTextColor={themeColors.textSecondary}
+                multiline
+                value={socialSettings.meta_access_token}
+                onChangeText={(v) => setSocialSettings(prev => ({ ...prev, meta_access_token: v }))}
+              />
+
+              <View style={{
+                marginTop: 12,
+                padding: 10,
+                borderRadius: 8,
+                backgroundColor: isDark ? '#1e293b' : '#eff6ff',
+                borderWidth: 1,
+                borderColor: '#3b82f6'
+              }}>
+                <Text style={{ fontSize: 11, color: themeColors.textPrimary, lineHeight: 16 }}>
+                  💡 Once saved, approved creative banners can be published directly to your Facebook Page and Instagram feed with 1-click.
+                </Text>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowSocialSettingsModal(false)}
+                disabled={savingSocialSettings}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, savingSocialSettings && styles.btnDisabled]}
+                onPress={handleSaveSocialSettings}
+                disabled={savingSocialSettings}
+              >
+                {savingSocialSettings ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalSubmitText}>Save Settings 💾</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ======================================================== */}
+      {/* 5. MODAL: SOCIAL FEED MOCKUP PREVIEW                     */}
+      {/* ======================================================== */}
+      {selectedSmoReq && (
+        <Modal
+          visible={showMockupModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowMockupModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { maxHeight: '92%', padding: 14 }]}>
+              {/* Header */}
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>📱 Live Social Post Mockup</Text>
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
+                    How your post looks in social feeds
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowMockupModal(false)}>
+                  <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Platform Switcher */}
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    backgroundColor: mockupPlatform === 'facebook' ? '#2563eb' : (isDark ? '#1e293b' : '#f1f5f9'),
+                    alignItems: 'center'
+                  }}
+                  onPress={() => setMockupPlatform('facebook')}
+                >
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '800',
+                    color: mockupPlatform === 'facebook' ? '#ffffff' : themeColors.textSecondary
+                  }}>
+                    📘 Facebook Feed
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    backgroundColor: mockupPlatform === 'instagram' ? '#ec4899' : (isDark ? '#1e293b' : '#f1f5f9'),
+                    alignItems: 'center'
+                  }}
+                  onPress={() => setMockupPlatform('instagram')}
+                >
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '800',
+                    color: mockupPlatform === 'instagram' ? '#ffffff' : themeColors.textSecondary
+                  }}>
+                    📸 Instagram Feed
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Mockup Card */}
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={{
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: isDark ? '#334155' : '#e2e8f0',
+                  backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                  overflow: 'hidden'
+                }}>
+                  {/* Mockup Top Author Bar */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10, gap: 10 }}>
+                    <View style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: mockupPlatform === 'facebook' ? '#2563eb' : '#ec4899',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
+                        {(user?.name || 'C').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12.5, fontWeight: '800', color: themeColors.textPrimary }}>
+                        {clientDetails?.company_name || user?.name || 'Your Brand'}
+                      </Text>
+                      <Text style={{ fontSize: 10, color: themeColors.textSecondary }}>
+                        {mockupPlatform === 'facebook' ? 'Sponsored • 🌐' : 'Sponsored'}
+                      </Text>
+                    </View>
+                    <Text style={{ color: themeColors.textSecondary, fontSize: 14 }}>•••</Text>
+                  </View>
+
+                  {/* Facebook Caption before image */}
+                  {mockupPlatform === 'facebook' && selectedSmoReq.caption ? (
+                    <View style={{ paddingHorizontal: 10, paddingBottom: 8 }}>
+                      <Text style={{ fontSize: 12, color: themeColors.textPrimary, lineHeight: 16 }}>
+                        {selectedSmoReq.caption}
+                      </Text>
+                      {selectedSmoReq.hashtags ? (
+                        <Text style={{ fontSize: 11.5, color: '#2563eb', fontWeight: '700', marginTop: 4 }}>
+                          {selectedSmoReq.hashtags}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  {/* Banner Image */}
+                  {selectedSmoReq.banner_url ? (
+                    <Image
+                      source={{ uri: resolveMediaUrl(selectedSmoReq.banner_url) }}
+                      style={{ width: '100%', height: 220 }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={{ height: 160, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 24 }}>🎨</Text>
+                      <Text style={{ fontSize: 12, color: themeColors.textSecondary, marginTop: 4 }}>Design In Progress</Text>
+                    </View>
+                  )}
+
+                  {/* Instagram Caption after image */}
+                  {mockupPlatform === 'instagram' && (
+                    <View style={{ padding: 10 }}>
+                      <View style={{ flexDirection: 'row', gap: 14, marginBottom: 8 }}>
+                        <Text style={{ fontSize: 18 }}>❤️</Text>
+                        <Text style={{ fontSize: 18 }}>💬</Text>
+                        <Text style={{ fontSize: 18 }}>✈️</Text>
+                      </View>
+                      {selectedSmoReq.caption ? (
+                        <Text style={{ fontSize: 12, color: themeColors.textPrimary, lineHeight: 16 }}>
+                          <Text style={{ fontWeight: '800' }}>{clientDetails?.company_name || user?.name || 'Brand'}: </Text>
+                          {selectedSmoReq.caption}
+                        </Text>
+                      ) : null}
+                      {selectedSmoReq.hashtags ? (
+                        <Text style={{ fontSize: 11.5, color: '#2563eb', fontWeight: '700', marginTop: 4 }}>
+                          {selectedSmoReq.hashtags}
+                        </Text>
+                      ) : null}
+                    </View>
+                  )}
+
+                  {/* Facebook Reactions Bar */}
+                  {mockupPlatform === 'facebook' && (
+                    <View style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-around',
+                      paddingVertical: 10,
+                      borderTopWidth: 1,
+                      borderTopColor: isDark ? '#1e293b' : '#f1f5f9'
+                    }}>
+                      <Text style={{ fontSize: 11.5, color: themeColors.textSecondary, fontWeight: '700' }}>👍 Like</Text>
+                      <Text style={{ fontSize: 11.5, color: themeColors.textSecondary, fontWeight: '700' }}>💬 Comment</Text>
+                      <Text style={{ fontSize: 11.5, color: themeColors.textSecondary, fontWeight: '700' }}>↗️ Share</Text>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+
+              <TouchableOpacity
+                style={{
+                  width: '100%',
+                  paddingVertical: 11,
+                  borderRadius: 8,
+                  backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+                  alignItems: 'center',
+                  marginTop: 12
+                }}
+                onPress={() => setShowMockupModal(false)}
+              >
+                <Text style={{ fontWeight: '800', color: themeColors.textPrimary, fontSize: 12.5 }}>Close Preview ✕</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
 
       {/* ======================================================== */}
       {/* MODAL: EDIT CORPORATE PROFILE                            */}
@@ -2754,6 +3933,128 @@ export default function ClientDashboard({ user, onLogout }) {
                   );
                 })()}
               </View>
+
+              {/* Client Revision Notes Alert Box */}
+              {selectedReqDetails?.revision_notes ? (
+                <View style={{
+                  backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb',
+                  borderWidth: 1.5,
+                  borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#fde68a',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 14
+                }}>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: isDark ? '#fbbf24' : '#b45309', marginBottom: 4 }}>
+                    ⚠️ Revisions Requested
+                  </Text>
+                  <Text style={{ fontSize: 12, color: isDark ? '#fef3c7' : '#92400e', lineHeight: 17 }}>
+                    {selectedReqDetails.revision_notes}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* AI Social Media Copy Details */}
+              {(selectedReqDetails?.caption || selectedReqDetails?.hashtags) ? (
+                <View style={{
+                  backgroundColor: isDark ? 'rgba(147, 51, 234, 0.1)' : '#faf5ff',
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(147, 51, 234, 0.3)' : '#e9d5ff',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 14
+                }}>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: isDark ? '#c084fc' : '#7e22ce', marginBottom: 6 }}>
+                    ✨ AI Social Media Copy
+                  </Text>
+                  {selectedReqDetails.caption ? (
+                    <Text style={{ fontSize: 12, color: themeColors.textPrimary, lineHeight: 17, marginBottom: 6 }}>
+                      {selectedReqDetails.caption}
+                    </Text>
+                  ) : null}
+                  {selectedReqDetails.hashtags ? (
+                    <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#2563eb' }}>
+                      {selectedReqDetails.hashtags}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {/* Specialist Deliverable Notes & Work Proofs */}
+              {selectedReqDetails?.deliverable_note ? (
+                <View style={{
+                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5',
+                  borderWidth: 1,
+                  borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : '#a7f3d0',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 14
+                }}>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: isDark ? '#34d399' : '#059669', marginBottom: 6 }}>
+                    📦 Deliverable Work Note
+                  </Text>
+                  <Text style={{ fontSize: 12, color: themeColors.textPrimary, lineHeight: 17 }}>
+                    {selectedReqDetails.deliverable_note}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Action Buttons for Client Review */}
+              {(selectedReqDetails?.status === 'Completed' || selectedReqDetails?.status === 'For TL Review') && (
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 11,
+                      borderRadius: 8,
+                      backgroundColor: '#10b981',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    onPress={() => {
+                      setReqDetailsModalVisible(false);
+                      sweetAlert({
+                        title: 'Approve Deliverables? ✅',
+                        text: 'Are you satisfied with this delivered work?',
+                        type: 'question',
+                        showCancel: true,
+                        onConfirm: async () => {
+                          try {
+                            await updateClientRequestApi({ id: selectedReqDetails.id, action: 'approve' });
+                            sweetAlert({ title: 'Approved! 🎉', text: 'Thank you for approving this work.', type: 'success' });
+                            fetchClientRequestsApi(clientId).then(r => r.success && setRequests(r.data || []));
+                          } catch (e) {
+                            sweetAlert({ title: 'Error', text: e.message, type: 'error' });
+                          }
+                        }
+                      });
+                    }}
+                  >
+                    <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 12 }}>✅ Approve Work</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 11,
+                      borderRadius: 8,
+                      backgroundColor: isDark ? '#78350f' : '#fef3c7',
+                      borderWidth: 1,
+                      borderColor: '#f59e0b',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    onPress={() => {
+                      const targetReq = selectedReqDetails;
+                      setReqDetailsModalVisible(false);
+                      setSelectedSmoReq(targetReq);
+                      setSmoRevisionNotes('');
+                      setShowRevisionModal(true);
+                    }}
+                  >
+                    <Text style={{ color: isDark ? '#fef3c7' : '#b45309', fontWeight: '800', fontSize: 12 }}>⚠️ Request Revision</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </ScrollView>
 
             <TouchableOpacity

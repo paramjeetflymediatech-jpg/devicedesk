@@ -32,6 +32,7 @@ import {
   fetchClientRequestsApi,
   fetchEodReportsApi,
   updateClientRequestStatusApi,
+  updateClientRequestApi,
   fetchEmployeesApi,
   fetchAllClientNotesApi,
   createClientNoteApi,
@@ -256,6 +257,14 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const [assigningReq, setAssigningReq] = useState(false);
   const [reqAssignDropdownOpen, setReqAssignDropdownOpen] = useState(false);
 
+  // 3b. Review & Deliver Deliverables to Client Modal (SMO & Service Automation)
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [selectedReviewReq, setSelectedReviewReq] = useState(null);
+  const [reviewCaption, setReviewCaption] = useState('');
+  const [reviewHashtags, setReviewHashtags] = useState('');
+  const [isRegeneratingAi, setIsRegeneratingAi] = useState(false);
+  const [isDelivering, setIsDelivering] = useState(false);
+
   // 4. Forward EOD to Client Modal
   const [forwardModalVisible, setForwardModalVisible] = useState(false);
   const [forwardEmail, setForwardEmail] = useState('');
@@ -276,10 +285,12 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   const currentUser = user;
 
   // Load all team leader data matching web portal endpoints
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (isInitial = false) => {
     if (!leaderId) return;
     try {
-      setLoading(true);
+      if (isInitial) {
+        setLoading(true);
+      }
 
       const [empRes, taskRes, reqRes, eodRes, notesRes] = await Promise.all([
         fetchEmployeesApi().catch(() => ({ data: [] })),
@@ -374,12 +385,12 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
   }, [leaderId]);
 
   useEffect(() => {
-    loadData();
+    loadData(true);
   }, [loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadData();
+    loadData(false);
   };
 
   // KPIs
@@ -911,52 +922,88 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
 
   // 5. Deliver Work to Client (when status is 'For TL Review')
   const handleDeliverWork = (req) => {
-    sweetAlert({
-      title: 'Deliver to Client?',
-      text: `Approve the completed deliverables for ${req.service_type || 'this service'} and mark as Completed for the client?`,
-      type: 'question',
-      showCancel: true,
-      onConfirm: async () => {
-        try {
-          const res = await updateClientRequestStatusApi(req.id, 'Completed');
-          if (res && res.success) {
-            // Also update any matching task in store
-            const reqIdStr = String(req.id || req._id || '');
-            const allLocalTasks = getTasks() || [];
-            let changed = false;
-            allLocalTasks.forEach((t) => {
-              if (t.project_id && String(t.project_id) === reqIdStr) {
-                t.status = 'Completed';
-                t.completedAt = new Date().toISOString();
-                changed = true;
-              }
-            });
-            if (changed) {
-              saveTasks(allLocalTasks);
-            }
+    setSelectedReviewReq(req);
+    setReviewCaption(req.caption || '');
+    setReviewHashtags(req.hashtags || '');
+    setReviewModalVisible(true);
+  };
 
-            sweetAlert({
-              title: 'Delivered! 🎉',
-              text: 'Work marked as completed and delivered to the client.',
-              type: 'success',
-            });
-            loadData();
-          } else {
-            sweetAlert({
-              title: 'Error',
-              text: res?.error || 'Failed to deliver work.',
-              type: 'error',
-            });
+  const handleRegenerateReviewCaption = async () => {
+    if (!selectedReviewReq) return;
+    setIsRegeneratingAi(true);
+    try {
+      const res = await updateClientRequestApi({
+        id: selectedReviewReq.id,
+        action: 'regenerate_caption',
+        requirements: selectedReviewReq.requirements || ''
+      });
+      if (res && res.success) {
+        setReviewCaption(res.caption || '');
+        setReviewHashtags(res.hashtags || '');
+      } else {
+        throw new Error(res?.error || 'Failed to regenerate AI caption');
+      }
+    } catch (err) {
+      sweetAlert({
+        title: 'AI Generation Failed',
+        text: err.message || 'Could not generate AI caption.',
+        type: 'error'
+      });
+    } finally {
+      setIsRegeneratingAi(false);
+    }
+  };
+
+  const handleApproveAndDeliver = async () => {
+    if (!selectedReviewReq) return;
+    setIsDelivering(true);
+    try {
+      const res = await updateClientRequestApi({
+        id: selectedReviewReq.id,
+        action: 'deliver',
+        caption: reviewCaption,
+        hashtags: reviewHashtags
+      });
+
+      if (res && res.success) {
+        // Also update any matching task in store
+        const reqIdStr = String(selectedReviewReq.id || selectedReviewReq._id || '');
+        const allLocalTasks = getTasks() || [];
+        let changed = false;
+        allLocalTasks.forEach((t) => {
+          if (t.project_id && String(t.project_id) === reqIdStr) {
+            t.status = 'Completed';
+            t.completedAt = new Date().toISOString();
+            changed = true;
           }
-        } catch (err) {
-          sweetAlert({
-            title: 'Error',
-            text: 'Network error delivering work.',
-            type: 'error',
-          });
+        });
+        if (changed) {
+          saveTasks(allLocalTasks);
         }
-      },
-    });
+
+        setReviewModalVisible(false);
+        sweetAlert({
+          title: 'Delivered to Client! 🚀',
+          text: 'Deliverable banner, AI caption, and trending hashtags sent to client SMO queue.',
+          type: 'success',
+        });
+        loadData();
+      } else {
+        sweetAlert({
+          title: 'Delivery Error',
+          text: res?.error || 'Failed to deliver work.',
+          type: 'error',
+        });
+      }
+    } catch (err) {
+      sweetAlert({
+        title: 'Error',
+        text: err.message || 'Network error delivering work.',
+        type: 'error',
+      });
+    } finally {
+      setIsDelivering(false);
+    }
   };
 
   // 6. Forward EOD to Client
@@ -1374,32 +1421,41 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                         </Text>
                       </View>
 
-                      <View
-                        style={[
-                          styles.statusPill,
-                          isCompleted
-                            ? styles.statusSuccess
-                            : isForReview
-                              ? styles.statusReview
-                              : isAssigned
-                                ? styles.statusWorking
-                                : styles.statusPending,
-                        ]}
-                      >
-                        <Text
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {req.revision_notes ? (
+                          <View style={[styles.statusPill, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7', borderColor: isDark ? 'rgba(245, 158, 11, 0.5)' : '#fde68a', borderWidth: 1, marginRight: 6 }]}>
+                            <Text style={[styles.statusText, { color: isDark ? '#fbbf24' : '#b45309', fontWeight: '800' }]}>
+                              ⚠️ Revision
+                            </Text>
+                          </View>
+                        ) : null}
+                        <View
                           style={[
-                            styles.statusText,
+                            styles.statusPill,
                             isCompleted
-                              ? styles.statusTextSuccess
+                              ? styles.statusSuccess
                               : isForReview
-                                ? styles.statusTextReview
+                                ? styles.statusReview
                                 : isAssigned
-                                  ? styles.statusTextWorking
-                                  : styles.statusTextPending,
+                                  ? styles.statusWorking
+                                  : styles.statusPending,
                           ]}
                         >
-                          {status}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.statusText,
+                              isCompleted
+                                ? styles.statusTextSuccess
+                                : isForReview
+                                  ? styles.statusTextReview
+                                  : isAssigned
+                                    ? styles.statusTextWorking
+                                    : styles.statusTextPending,
+                            ]}
+                          >
+                            {status}
+                          </Text>
+                        </View>
                       </View>
                     </View>
 
@@ -1414,6 +1470,51 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                       {((String(req.assigned_tl_id) === String(user?.id || leaderId)) || user?.role === 'Admin' || user?.role === 'Management') && (
                         <GoogleDriveBadge source={req} isDark={isDark} themeColors={themeColors} />
                       )}
+
+                      {/* Client Revision Requested Alert Box */}
+                      {req.revision_notes ? (
+                        <View style={{
+                          marginTop: 8,
+                          padding: 8,
+                          borderRadius: 8,
+                          backgroundColor: isDark ? 'rgba(245, 158, 11, 0.14)' : '#fffbeb',
+                          borderWidth: 1,
+                          borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#fde68a'
+                        }}>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#fbbf24' : '#b45309', marginBottom: 2 }}>
+                            ⚠️ Client Requested Revisions:
+                          </Text>
+                          <Text style={{ fontSize: 11.5, color: isDark ? '#fef3c7' : '#92400e', lineHeight: 16 }}>
+                            {req.revision_notes}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {/* AI Social Media Copy Snippet */}
+                      {(req.caption || req.hashtags) ? (
+                        <View style={{
+                          marginTop: 8,
+                          padding: 8,
+                          borderRadius: 8,
+                          backgroundColor: isDark ? 'rgba(147, 51, 234, 0.1)' : '#faf5ff',
+                          borderWidth: 1,
+                          borderColor: isDark ? 'rgba(147, 51, 234, 0.3)' : '#e9d5ff'
+                        }}>
+                          <Text style={{ fontSize: 10.5, fontWeight: '800', color: isDark ? '#c084fc' : '#7e22ce', marginBottom: 2 }}>
+                            ✨ Social Media Copy & Hashtags:
+                          </Text>
+                          {req.caption ? (
+                            <Text style={{ fontSize: 11.5, color: themeColors.textPrimary, lineHeight: 16 }} numberOfLines={2}>
+                              {req.caption}
+                            </Text>
+                          ) : null}
+                          {req.hashtags ? (
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb', marginTop: 2 }} numberOfLines={1}>
+                              {req.hashtags}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : null}
 
                       {/* Client Attachments in Request Card */}
                       {(() => {
@@ -2337,6 +2438,51 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                     {selectedRequest.requirements || 'No specific requirements provided.'}
                   </Text>
 
+                  {/* Client Requested Revisions Banner */}
+                  {selectedRequest.revision_notes ? (
+                    <View style={{
+                      marginTop: 10,
+                      padding: 10,
+                      borderRadius: 8,
+                      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.16)' : '#fffbeb',
+                      borderWidth: 1.5,
+                      borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#fde68a'
+                    }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#fbbf24' : '#b45309', marginBottom: 2 }}>
+                        ⚠️ Client Requested Revisions:
+                      </Text>
+                      <Text style={{ fontSize: 12, color: isDark ? '#fef3c7' : '#92400e', lineHeight: 17 }}>
+                        {selectedRequest.revision_notes}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {/* AI Social Media Copy Details */}
+                  {(selectedRequest.caption || selectedRequest.hashtags) ? (
+                    <View style={{
+                      marginTop: 10,
+                      padding: 10,
+                      borderRadius: 8,
+                      backgroundColor: isDark ? 'rgba(147, 51, 234, 0.12)' : '#faf5ff',
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(147, 51, 234, 0.3)' : '#e9d5ff'
+                    }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#c084fc' : '#7e22ce', marginBottom: 4 }}>
+                        ✨ Generated Social Media Copy:
+                      </Text>
+                      {selectedRequest.caption ? (
+                        <Text style={{ fontSize: 12, color: themeColors.textPrimary, lineHeight: 17, marginBottom: 4 }}>
+                          {selectedRequest.caption}
+                        </Text>
+                      ) : null}
+                      {selectedRequest.hashtags ? (
+                        <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#2563eb' }}>
+                          {selectedRequest.hashtags}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+
                   {/* Detected Google Drive Requirement Folder in Details Modal - ONLY shown if assigned to this Team Leader or Admin */}
                   {((String(selectedRequest.assigned_tl_id) === String(user?.id || leaderId)) || user?.role === 'Admin' || user?.role === 'Management') && (
                     <GoogleDriveBadge source={selectedRequest} isDark={isDark} themeColors={themeColors} />
@@ -2498,6 +2644,158 @@ export default function LeaderDashboard({ user, onLogout, onNavigateBack, onSwit
                   Close Details ✕
                 </Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* ======================================================== */}
+      {/* 2b. MODAL: REVIEW & DELIVER WORK TO CLIENT               */}
+      {/* ======================================================== */}
+      {selectedReviewReq && (
+        <Modal
+          visible={reviewModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => !isDelivering && setReviewModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalSheet, { maxHeight: '90%' }]}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>🚀 Review & Deliver to Client</Text>
+                  <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 2 }}>
+                    Audit deliverables and review AI-generated social copy
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => !isDelivering && setReviewModalVisible(false)}
+                  disabled={isDelivering}
+                >
+                  <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+                {/* Request Overview */}
+                <View style={[styles.reportCard, { marginBottom: 12 }]}>
+                  <Text style={styles.reportSectionTitle}>SERVICE & CLIENT</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textPrimary }}>
+                    {selectedReviewReq.client_name || selectedReviewReq.clientId} • <Text style={{ color: '#2563eb' }}>{selectedReviewReq.service_type || 'Creative Service'}</Text>
+                  </Text>
+                  <Text style={{ fontSize: 11.5, color: themeColors.textSecondary, marginTop: 4 }}>
+                    Requirements: {selectedReviewReq.requirements || 'N/A'}
+                  </Text>
+                </View>
+
+                {/* AI Social Media Caption */}
+                <View style={{ marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#c084fc' : '#7e22ce' }}>
+                      ✨ SOCIAL MEDIA CAPTION (AI GENERATED)
+                    </Text>
+                    <TouchableOpacity
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 6,
+                        backgroundColor: isDark ? 'rgba(147, 51, 234, 0.2)' : '#f3e8ff'
+                      }}
+                      onPress={handleRegenerateReviewCaption}
+                      disabled={isRegeneratingAi || isDelivering}
+                    >
+                      {isRegeneratingAi ? (
+                        <ActivityIndicator size="small" color="#9333ea" />
+                      ) : (
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#9333ea' }}>🔄 AI Regenerate</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput
+                    style={{
+                      borderWidth: 1,
+                      borderColor: themeColors.border,
+                      borderRadius: 8,
+                      padding: 10,
+                      fontSize: 12,
+                      color: themeColors.textPrimary,
+                      backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                      minHeight: 90,
+                      textAlignVertical: 'top'
+                    }}
+                    multiline
+                    value={reviewCaption}
+                    onChangeText={setReviewCaption}
+                    placeholder="Enter social media caption..."
+                    placeholderTextColor={themeColors.textSecondary}
+                  />
+                </View>
+
+                {/* Trending Hashtags */}
+                <View style={{ marginBottom: 14 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: themeColors.textSecondary, marginBottom: 6 }}>
+                    # TRENDING HASHTAGS
+                  </Text>
+                  <TextInput
+                    style={{
+                      borderWidth: 1,
+                      borderColor: themeColors.border,
+                      borderRadius: 8,
+                      padding: 10,
+                      fontSize: 12,
+                      color: themeColors.textPrimary,
+                      backgroundColor: isDark ? '#0f172a' : '#f8fafc'
+                    }}
+                    value={reviewHashtags}
+                    onChangeText={setReviewHashtags}
+                    placeholder="#Brand #Trending #SocialMedia"
+                    placeholderTextColor={themeColors.textSecondary}
+                  />
+                </View>
+              </ScrollView>
+
+              {/* Action Buttons */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: themeColors.border,
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  onPress={() => setReviewModalVisible(false)}
+                  disabled={isDelivering}
+                >
+                  <Text style={{ color: themeColors.textSecondary, fontWeight: '700', fontSize: 12 }}>Keep in Review</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 2,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    backgroundColor: '#10b981',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    gap: 6
+                  }}
+                  onPress={handleApproveAndDeliver}
+                  disabled={isDelivering || isRegeneratingAi}
+                >
+                  {isDelivering ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 13 }}>Approve & Deliver 🚀</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>

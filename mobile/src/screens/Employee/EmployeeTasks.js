@@ -536,6 +536,13 @@ export default function EmployeeTasks({ currentUser }) {
                   </View>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {task.revision_notes ? (
+                      <View style={[styles.statusPill, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7', borderColor: isDark ? 'rgba(245, 158, 11, 0.5)' : '#fde68a', borderWidth: 1 }]}>
+                        <Text style={[styles.statusPillText, { color: isDark ? '#fbbf24' : '#b45309', fontWeight: '800' }]}>
+                          ⚠️ Revision
+                        </Text>
+                      </View>
+                    ) : null}
                     <View style={[
                       styles.statusPill,
                       task.status === 'Completed' ? styles.statusPillSuccess :
@@ -583,6 +590,26 @@ export default function EmployeeTasks({ currentUser }) {
 
                 {task.description ? (
                   <Text style={[styles.taskDesc, { color: themeColors.textSecondary }]} numberOfLines={3}>{task.description}</Text>
+                ) : null}
+
+                {/* Client Revision Feedback Alert on Card */}
+                {task.revision_notes ? (
+                  <View style={{
+                    marginTop: 6,
+                    marginBottom: 8,
+                    padding: 8,
+                    borderRadius: 8,
+                    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#fffbeb',
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(245, 158, 11, 0.35)' : '#fde68a',
+                  }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: isDark ? '#fbbf24' : '#b45309', marginBottom: 2 }}>
+                      ⚠️ Client Feedback:
+                    </Text>
+                    <Text style={{ fontSize: 11.5, color: isDark ? '#fef3c7' : '#92400e', lineHeight: 16 }}>
+                      {task.revision_notes}
+                    </Text>
+                  </View>
                 ) : null}
 
                 {/* Detected Google Drive Requirement Folder - ONLY visible to Admin and assigned Team Leader */}
@@ -803,6 +830,24 @@ export default function EmployeeTasks({ currentUser }) {
                     {selectedTask.description || 'No additional task instructions provided.'}
                   </Text>
                 </View>
+
+                {/* Client Revision Notes Alert in Details Modal */}
+                {(selectedTask.revision_notes || selectedLinkedRequest?.revision_notes) && (
+                  <View style={[styles.sectionCard, {
+                    backgroundColor: isDark ? 'rgba(245, 158, 11, 0.14)' : '#fffbeb',
+                    borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#fde68a',
+                  }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      <Text style={{ fontSize: 15 }}>⚠️</Text>
+                      <Text style={[styles.sectionCardHeader, { color: isDark ? '#fbbf24' : '#b45309', marginBottom: 0 }]}>
+                        Client Requested Design Revisions
+                      </Text>
+                    </View>
+                    <Text style={[styles.sectionBodyText, { color: isDark ? '#fef3c7' : '#92400e', fontWeight: '600', lineHeight: 18 }]}>
+                      {selectedTask.revision_notes || selectedLinkedRequest?.revision_notes}
+                    </Text>
+                  </View>
+                )}
 
                 {/* Linked Client Request & Client Attachments Section */}
                 {(() => {

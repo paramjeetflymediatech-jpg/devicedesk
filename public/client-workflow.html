@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeviceDesk — Client Workflow Architecture & Ultra-Clear Diagrams</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    /* ----------------------------------------------------
+       LIGHT THEME (DEFAULT: MAXIMUM READABILITY & CONTRAST)
+       ---------------------------------------------------- */
+    :root, [data-theme="light"] {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-card: #f1f5f9;
+      --canvas-bg: #ffffff;
+      --border: #cbd5e1;
+      --border-strong: #94a3b8;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-subtle: #eff6ff;
+      --emerald: #059669;
+      --emerald-subtle: #ecfdf5;
+      --purple: #7c3aed;
+      --purple-subtle: #f5f3ff;
+      --rose: #e11d48;
+      --rose-subtle: #fff1f2;
+      --card-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 20px 25px -5px rgba(0,0,0,0.05);
+    }
+
+    /* ----------------------------------------------------
+       DARK THEME (HIGH CONTRAST DARK MODE)
+       ---------------------------------------------------- */
+    [data-theme="dark"] {
+      --bg: #090d16;
+      --surface: #111827;
+      --surface-card: #1e293b;
+      --canvas-bg: #0b1120;
+      --border: #334155;
+      --border-strong: #475569;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #60a5fa;
+      --primary-subtle: rgba(59, 130, 246, 0.15);
+      --emerald: #10b981;
+      --emerald-subtle: rgba(16, 185, 129, 0.15);
+      --purple: #a855f7;
+      --purple-subtle: rgba(168, 85, 247, 0.15);
+      --rose: #fb7185;
+      --rose-subtle: rgba(251, 113, 133, 0.15);
+      --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem 1.5rem 6rem;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .container {
+      max-width: 1360px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 3rem;
+    }
+
+    /* Header Bar */
+    header {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 2.25rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      box-shadow: var(--card-shadow);
+      position: relative;
+    }
+
+    header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 5px;
+      border-radius: 20px 20px 0 0;
+      background: linear-gradient(90deg, #2563eb, #7c3aed, #059669, #e11d48);
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--primary);
+      background: var(--primary-subtle);
+      border: 1.5px solid var(--primary);
+      padding: 5px 14px;
+      border-radius: 30px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4vw, 2.6rem);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 860px;
+      font-weight: 500;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      user-select: none;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff !important;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface-card);
+      border-color: var(--border-strong);
+    }
+
+    .btn-zoom {
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+    }
+
+    .btn-zoom:hover {
+      background: var(--surface-card);
+      border-color: var(--primary);
+    }
+
+    /* Diagram Card */
+    .diagram-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      background: var(--surface);
+    }
+
+    .card-title-group h2 {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+    }
+
+    .card-title-group p {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+    }
+
+    .controls-toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .zoom-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--surface-card);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .zoom-label {
+      font-size: 0.8rem;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      padding: 0 8px;
+      min-width: 50px;
+      text-align: center;
+    }
+
+    /* The canvas holding the rendered SVG */
+    .diagram-canvas {
+      padding: 3rem 2rem;
+      overflow: auto;
+      background: var(--canvas-bg);
+      min-height: 480px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .diagram-viewport {
+      transform-origin: top center;
+      transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* ==========================================================
+       CRUCIAL: MERMAID SVG TYPOGRAPHY & READABILITY OVERRIDES
+       ========================================================== */
+    .mermaid {
+      width: 100% !important;
+      display: flex;
+      justify-content: center;
+    }
+
+    .mermaid svg {
+      max-width: none !important; /* Prevents auto-shrinking of text! */
+      height: auto !important;
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+    }
+
+    /* Node Card Text Styling */
+    .mermaid .node text,
+    .mermaid .node .label {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+      font-size: 15px !important;
+      line-height: 1.45 !important;
+      font-weight: 600 !important;
+    }
+
+    /* Subgraph Cluster Titles */
+    .mermaid .cluster text,
+    .mermaid .cluster-label span {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+      font-size: 16px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.05em !important;
+      text-transform: uppercase !important;
+    }
+
+    /* Sequence Diagram Actors */
+    .mermaid text.actor {
+      font-size: 15px !important;
+      font-weight: 800 !important;
+    }
+
+    .mermaid .messageText {
+      font-size: 14.5px !important;
+      font-weight: 700 !important;
+    }
+
+    .mermaid .noteText {
+      font-size: 14px !important;
+      font-weight: 600 !important;
+      line-height: 1.4 !important;
+    }
+
+    /* Step-by-Step Reference Table */
+    .table-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 2.25rem;
+      box-shadow: var(--card-shadow);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.92rem;
+    }
+
+    th {
+      padding: 14px 18px;
+      background: var(--surface-card);
+      color: var(--text-muted);
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 0.74rem;
+      letter-spacing: 0.06em;
+      border-bottom: 2px solid var(--border);
+    }
+
+    td {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      line-height: 1.6;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 6px;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-purple { background: var(--purple-subtle); color: var(--purple); border: 1.5px solid var(--purple); }
+    .badge-blue { background: var(--primary-subtle); color: var(--primary); border: 1.5px solid var(--primary); }
+    .badge-emerald { background: var(--emerald-subtle); color: var(--emerald); border: 1.5px solid var(--emerald); }
+    .badge-rose { background: var(--rose-subtle); color: var(--rose); border: 1.5px solid var(--rose); }
+
+    /* Print Optimizations */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        padding: 0 !important;
+      }
+      header, .controls-toolbar, .top-actions {
+        display: none !important;
+      }
+      .diagram-card, .table-card {
+        border: 1.5px solid #000000 !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+        margin-bottom: 2.5rem;
+      }
+      .diagram-canvas {
+        background: #ffffff !important;
+        padding: 1rem !important;
+      }
+      th {
+        background: #e2e8f0 !important;
+        color: #000000 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header Bar -->
+    <header>
+      <div class="header-top">
+        <div class="brand-pill">
+          <span>DeviceDesk • Architecture Blueprint</span>
+        </div>
+        <div class="top-actions">
+          <button class="btn btn-secondary" id="theme-toggle-btn" onclick="toggleTheme()">
+            🌙 Switch to Dark Mode
+          </button>
+          <button class="btn btn-secondary" onclick="window.print()">
+            🖨️ Print / Save as PDF
+          </button>
+        </div>
+      </div>
+      <h1>Client Workflow & Verification Architecture</h1>
+      <p class="subtitle">
+        High-resolution visual flowchart, interaction sequence diagram, and stage reference table. Use the <strong>Zoom (+ / -)</strong> controls to inspect details clearly, or click <strong>Download PNG</strong> for a razor-sharp 300 DPI image.
+      </p>
+    </header>
+
+    <!-- ========================================================
+         DIAGRAM 1: VISUAL FLOWCHART
+         ======================================================== -->
+    <section class="diagram-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <h2>1. Visual Flowchart: End-to-End Client Lifecycle</h2>
+          <p>Multi-department swimlane workflow from client booking to TL verification and final delivery.</p>
+        </div>
+
+        <div class="controls-toolbar">
+          <div class="zoom-group">
+            <button class="btn btn-zoom" onclick="zoomDiagram('flowchart', -0.15)" title="Zoom Out">➖</button>
+            <span class="zoom-label" id="flowchart-zoom-val">100%</span>
+            <button class="btn btn-zoom" onclick="zoomDiagram('flowchart', 0.15)" title="Zoom In">➕</button>
+            <button class="btn btn-zoom" onclick="resetZoom('flowchart')" title="Reset Zoom">↺ 100%</button>
+          </div>
+
+          <button class="btn btn-secondary" onclick="downloadSvg('flowchart-container', 'devicedesk-client-workflow.svg')">
+            ⬇️ Download SVG
+          </button>
+          <button class="btn btn-primary" onclick="downloadPng('flowchart-container', 'devicedesk-client-workflow.png')">
+            🖼️ Download High-Res PNG
+          </button>
+        </div>
+      </div>
+
+      <div class="diagram-canvas">
+        <div class="diagram-viewport" id="flowchart-viewport">
+          <div class="mermaid" id="flowchart-container">
+flowchart TD
+    subgraph ClientZone ["🏢 1. Client Domain"]
+        A["<b>Client Logs In to Portal</b><br/>Workspace: /portal/client"] --> B["<b>Selects Service or Package</b><br/>SEO, Web Dev, SMO, Paid Ads"]
+        B --> C["<b>Submits Requirements & Brief</b><br/>Google Drive Folder Link + Brief Docs"]
+    end
+
+    subgraph MgmtZone ["👑 2. Management / Admin Triage"]
+        C --> D["<b>New Booking in Admin Queue</b><br/>Status: 'Pending Assignment'"]
+        D --> E{"<b>Management Scope Analysis</b><br/>Evaluate technical capacity & bandwidth"}
+        E -->|"Dev / Tech"| F1["<b>Assign Web Dev TL</b>"]
+        E -->|"SEO / Marketing"| F2["<b>Assign Marketing / SEO TL</b>"]
+        E -->|"Creative / Design"| F3["<b>Assign Design TL</b>"]
+    end
+
+    subgraph TLZone ["⭐ 3. Team Leader (TL) Scoping"]
+        F1 & F2 & F3 --> G["<b>TL Receives Booking in Queue</b><br/>Workspace: /portal/leader/client-requests"]
+        G --> H["<b>TL Reviews Client Brief & Guidelines</b><br/>Inspects Drive folder & scope requirements"]
+        H --> I["<b>TL Adds Technical Notes & Assigns</b><br/>Selects specialized employee from hierarchy"]
+        I --> J["<b>Dispatches Task to Specialist</b><br/>POST /api/tasks (linked to project_id)"]
+    end
+
+    subgraph EmpZone ["💻 4. Team Member Execution"]
+        J --> K["<b>Task Appears on Member Kanban</b><br/>Workspace: /employee-dashboard"]
+        K --> L["<b>Member Moves Task to 'In Progress'</b><br/>Work timer ticks & Desktop Agent logs"]
+        L --> M["<b>Member Executes Project Work</b>"]
+        M --> N["<b>Uploads Deliverables & Proof Links</b><br/>GitHub PR, Figma, Drive, or ZIP Package"]
+        N --> O["<b>Enters Completion Summary Note</b><br/>Explains what was built & marks 'Done'"]
+    end
+
+    subgraph AuditZone ["🔍 5. Quality Audit (Before vs. After)"]
+        O --> P["<b>TL Opens Verification Modal</b><br/>Side-by-side audit of brief vs deliverables"]
+        P --> Q{"<b>Does Deliverable Match<br/>Original Client Brief?</b>"}
+        Q -->|"❌ Flaws Found / Incomplete"| R["<b>TL Rejects Back to Member</b><br/>Feedback & notes sent via Team Chat"]
+        R --> L
+        Q -->|"✅ Quality Matched & Verified"| S["<b>TL Approves & Signs Off</b><br/>PUT /api/client-services/requests"]
+    end
+
+    subgraph DeliveryZone ["🎉 6. Client Delivery & Sign-Off"]
+        S --> T["<b>Request Marked 'Completed'</b><br/>delivered_at timestamp stamped"]
+        T --> U["<b>Client Portal Displays Green Card:</b><br/>'🎉 Work Delivered & Completed'"]
+        U --> V["<b>Client Downloads Final Deliverables</b><br/>Reads team completion note & files"]
+        V --> W{"<b>Client Review</b>"}
+        W -->|"Need Revisions / Questions"| X["<b>Opens Direct Client-to-TL Chat</b><br/>Socket.IO real-time channel"]
+        X --> G
+        W -->|"Approved"| Y["<b>Final Sign-Off & Retainer Renewal</b>"]
+    end
+
+    %% High-contrast crisp styling
+    style ClientZone fill:#f5f3ff,stroke:#7c3aed,stroke-width:2.5px,color:#1e1b4b
+    style MgmtZone fill:#f0fdfa,stroke:#0f766e,stroke-width:2.5px,color:#042f2e
+    style TLZone fill:#eff6ff,stroke:#2563eb,stroke-width:2.5px,color:#172554
+    style EmpZone fill:#ecfeff,stroke:#0284c7,stroke-width:2.5px,color:#083344
+    style AuditZone fill:#fff1f2,stroke:#e11d48,stroke-width:2.5px,color:#4c0519
+    style DeliveryZone fill:#f0fdf4,stroke:#059669,stroke-width:2.5px,color:#052e16
+
+    style A fill:#ffffff,stroke:#7c3aed,stroke-width:2px,color:#0f172a
+    style B fill:#ffffff,stroke:#7c3aed,stroke-width:2px,color:#0f172a
+    style C fill:#ffffff,stroke:#7c3aed,stroke-width:2px,color:#0f172a
+    style D fill:#ffffff,stroke:#0f766e,stroke-width:2px,color:#0f172a
+    style E fill:#ffffff,stroke:#0f766e,stroke-width:2px,color:#0f172a
+    style F1 fill:#ffffff,stroke:#0f766e,stroke-width:2px,color:#0f172a
+    style F2 fill:#ffffff,stroke:#0f766e,stroke-width:2px,color:#0f172a
+    style F3 fill:#ffffff,stroke:#0f766e,stroke-width:2px,color:#0f172a
+    style G fill:#ffffff,stroke:#2563eb,stroke-width:2px,color:#0f172a
+    style H fill:#ffffff,stroke:#2563eb,stroke-width:2px,color:#0f172a
+    style I fill:#ffffff,stroke:#2563eb,stroke-width:2px,color:#0f172a
+    style J fill:#ffffff,stroke:#2563eb,stroke-width:2px,color:#0f172a
+    style K fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
+    style L fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
+    style M fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
+    style N fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
+    style O fill:#ffffff,stroke:#0284c7,stroke-width:2px,color:#0f172a
+    style P fill:#ffffff,stroke:#e11d48,stroke-width:2px,color:#0f172a
+    style Q fill:#ffffff,stroke:#e11d48,stroke-width:2px,color:#0f172a
+    style R fill:#ffffff,stroke:#e11d48,stroke-width:2px,color:#0f172a
+    style S fill:#ffffff,stroke:#e11d48,stroke-width:2px,color:#0f172a
+    style T fill:#ffffff,stroke:#059669,stroke-width:2px,color:#0f172a
+    style U fill:#ffffff,stroke:#059669,stroke-width:2px,color:#0f172a
+    style V fill:#ffffff,stroke:#059669,stroke-width:2px,color:#0f172a
+    style W fill:#ffffff,stroke:#059669,stroke-width:2px,color:#0f172a
+    style X fill:#ffffff,stroke:#059669,stroke-width:2px,color:#0f172a
+    style Y fill:#ffffff,stroke:#059669,stroke-width:2px,color:#0f172a
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         DIAGRAM 2: SEQUENCE DIAGRAM
+         ======================================================== -->
+    <section class="diagram-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <h2>2. Interaction Sequence Diagram (Actor & API Communication)</h2>
+          <p>Chronological message flow, API payloads, and state transitions between roles.</p>
+        </div>
+
+        <div class="controls-toolbar">
+          <div class="zoom-group">
+            <button class="btn btn-zoom" onclick="zoomDiagram('sequence', -0.15)" title="Zoom Out">➖</button>
+            <span class="zoom-label" id="sequence-zoom-val">100%</span>
+            <button class="btn btn-zoom" onclick="zoomDiagram('sequence', 0.15)" title="Zoom In">➕</button>
+            <button class="btn btn-zoom" onclick="resetZoom('sequence')" title="Reset Zoom">↺ 100%</button>
+          </div>
+
+          <button class="btn btn-secondary" onclick="downloadSvg('sequence-container', 'devicedesk-client-sequence.svg')">
+            ⬇️ Download SVG
+          </button>
+          <button class="btn btn-primary" onclick="downloadPng('sequence-container', 'devicedesk-client-sequence.png')">
+            🖼️ Download High-Res PNG
+          </button>
+        </div>
+      </div>
+
+      <div class="diagram-canvas">
+        <div class="diagram-viewport" id="sequence-viewport">
+          <div class="mermaid" id="sequence-container">
+sequenceDiagram
+    autonumber
+    actor Client as 🏢 Corporate Client
+    actor Admin as 👑 Admin / Management
+    actor TL as ⭐ Team Leader (TL)
+    actor Member as 💻 Team Member (Specialist)
+
+    %% Step 1: Request
+    Note over Client: Step 1: Client Onboard & Booking
+    Client->>Client: Selects Package / Enters Brief & Drive URL
+    Client->>Admin: POST /api/client-services/requests (Pending Assignment)
+
+    %% Step 2: Management Triage
+    Note over Admin: Step 2: Management Triage & Allocation
+    Admin->>Admin: Evaluates Scope & Department Bandwidth
+    Admin->>TL: Assigns TL (PUT assigned_tl_id)
+
+    %% Step 3: TL Delegation
+    Note over TL: Step 3: TL Scoping & Delegation
+    TL->>TL: Inspects Client Attachments & Drive Brief
+    TL->>Member: POST /api/tasks (assignedTo: MemberId, project_id: ReqId)
+
+    %% Step 4: Member Works
+    Note over Member: Step 4: Member Execution & Proofs
+    Member->>Member: Starts Timer & Works under Screenshot Agent
+    Member->>TL: PUT /api/tasks (Status: Done, Proofs: URLs, Notes: Summary)
+
+    %% Step 5: Before vs After Quality Check
+    Note over TL: Step 5: Side-by-Side Quality Audit
+    TL->>TL: Matches Client Brief (Before) vs Deliverable (After)
+    alt Flaws Detected / Incomplete
+        TL-->>Member: Rejection Notice & Revision Note via Team Chat
+        Member->>Member: Updates code / assets & re-submits
+    else Quality Verified
+        TL->>Client: Marks Request 'Completed' (delivered_at timestamp)
+    end
+
+    %% Step 6: Delivery & Chat
+    Note over Client: Step 6: Final Delivery & Collaboration
+    Client->>Client: Downloads Final Assets from Client Portal
+    opt Clarification or Tweaks
+        Client->>TL: Direct Client-TL Chat Message (Socket.IO)
+        TL->>Client: Instant Response & File Adjustments
+    end
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         STEP-BY-STEP BREAKDOWN TABLE
+         ======================================================== -->
+    <section class="table-card">
+      <h2 style="font-size: 1.35rem; font-weight: 800; margin-bottom: 1.25rem; color: var(--text);">
+        3. Step-by-Step Execution Reference Table
+      </h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Stage</th>
+            <th>Role</th>
+            <th>Platform Area</th>
+            <th>Actions & API Payload</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>01. Service Booking</strong></td>
+            <td><span class="badge badge-purple">Corporate Client</span></td>
+            <td><code>/portal/client/book-service</code></td>
+            <td>Selects retainer, fills detailed brief, attaches files & Google Drive folder URL (<code>POST /api/client-services/requests</code>).</td>
+          </tr>
+          <tr>
+            <td><strong>02. Management Triage</strong></td>
+            <td><span class="badge badge-blue">Admin / Management</span></td>
+            <td><code>/admin (Client Queue)</code></td>
+            <td>Evaluates project requirements, checks team capacity, assigns designated Team Leader (<code>assigned_tl_id</code>).</td>
+          </tr>
+          <tr>
+            <td><strong>03. Task Delegation</strong></td>
+            <td><span class="badge badge-blue">Team Leader (TL)</span></td>
+            <td><code>/portal/leader/client-requests</code></td>
+            <td>Selects active reporting specialist, adds technical guidelines and execution notes (<code>POST /api/tasks</code> with <code>project_id</code>).</td>
+          </tr>
+          <tr>
+            <td><strong>04. Member Execution</strong></td>
+            <td><span class="badge badge-emerald">Specialist (Dev / Design / SEO)</span></td>
+            <td><code>/employee-dashboard</code></td>
+            <td>Accepts task on Kanban, works under Desktop Screenshot Agent, attaches proofs (GitHub/Figma/Drive), and enters completion note.</td>
+          </tr>
+          <tr>
+            <td><strong>05. Quality Audit</strong></td>
+            <td><span class="badge badge-rose">Team Leader (TL)</span></td>
+            <td><code>/portal/leader (Modal)</code></td>
+            <td>Side-by-side verification: Matches original client brief (Before) against employee deliverables (After). Rejects or marks <code>Completed</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>06. Client Delivery</strong></td>
+            <td><span class="badge badge-emerald">Corporate Client</span></td>
+            <td><code>/portal/client</code></td>
+            <td>Green 'Work Delivered & Completed' card appears. Client downloads verified assets and can chat directly with TL for questions.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    // ----------------------------------------------------
+    // 1. INITIALIZE MERMAID WITH MAX CLARITY (useMaxWidth: false)
+    // ----------------------------------------------------
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'neutral',
+      themeVariables: {
+        fontSize: '15px',
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        primaryTextColor: '#0f172a',
+        primaryBorderColor: '#2563eb',
+        lineColor: '#2563eb',
+        secondaryColor: '#f1f5f9',
+        tertiaryColor: '#ffffff'
+      },
+      flowchart: {
+        htmlLabels: true,
+        curve: 'basis',
+        useMaxWidth: false // Essential: Keeps text at 100% natural readable scale!
+      },
+      sequence: {
+        useMaxWidth: false,
+        showSequenceNumbers: true,
+        actorFontSize: 16,
+        messageFontSize: 15,
+        noteFontSize: 14
+      }
+    });
+
+    // ----------------------------------------------------
+    // 2. INTERACTIVE ZOOM CONTROLS
+    // ----------------------------------------------------
+    const zoomLevels = {
+      flowchart: 1.0,
+      sequence: 1.0
+    };
+
+    function zoomDiagram(diagramKey, delta) {
+      const current = zoomLevels[diagramKey] || 1.0;
+      const next = Math.min(Math.max(current + delta, 0.5), 2.5); // Clamp between 50% and 250%
+      zoomLevels[diagramKey] = next;
+
+      const viewport = document.getElementById(`${diagramKey}-viewport`);
+      const label = document.getElementById(`${diagramKey}-zoom-val`);
+      if (viewport) {
+        viewport.style.transform = `scale(${next})`;
+      }
+      if (label) {
+        label.textContent = `${Math.round(next * 100)}%`;
+      }
+    }
+
+    function resetZoom(diagramKey) {
+      zoomLevels[diagramKey] = 1.0;
+      const viewport = document.getElementById(`${diagramKey}-viewport`);
+      const label = document.getElementById(`${diagramKey}-zoom-val`);
+      if (viewport) {
+        viewport.style.transform = `scale(1)`;
+      }
+      if (label) {
+        label.textContent = `100%`;
+      }
+    }
+
+    // ----------------------------------------------------
+    // 3. THEME TOGGLE
+    // ----------------------------------------------------
+    function toggleTheme() {
+      const html = document.documentElement;
+      const currentTheme = html.getAttribute('data-theme') || 'light';
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', newTheme);
+
+      const btn = document.getElementById('theme-toggle-btn');
+      if (btn) {
+        btn.textContent = newTheme === 'light' ? '🌙 Switch to Dark Mode' : '☀️ Switch to Light Mode';
+      }
+    }
+
+    // ----------------------------------------------------
+    // 4. DOWNLOAD SVG
+    // ----------------------------------------------------
+    function downloadSvg(containerId, filename) {
+      const container = document.getElementById(containerId);
+      const svg = container ? container.querySelector('svg') : null;
+      if (!svg) {
+        alert('Diagram is rendering, please wait a second.');
+        return;
+      }
+
+      const serializer = new XMLSerializer();
+      let source = serializer.serializeToString(svg);
+
+      if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+        source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      if (!source.match(/^<svg[^>]+xmlns:xlink="http\:\/\/www\.w3\.org\/1999\/xlink"/)) {
+        source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+      }
+
+      source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+      const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // ----------------------------------------------------
+    // 5. DOWNLOAD ULTRA HIGH-RES PNG (3X SCALE / 300 DPI)
+    // ----------------------------------------------------
+    function downloadPng(containerId, filename) {
+      const container = document.getElementById(containerId);
+      const svg = container ? container.querySelector('svg') : null;
+      if (!svg) {
+        alert('Diagram is rendering, please wait a second.');
+        return;
+      }
+
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+
+      const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+      const URL = window.URL || window.webkitURL || window;
+      const blobURL = URL.createObjectURL(svgBlob);
+
+      img.onload = function () {
+        const scale = 3; // 3x Ultra-Sharp Retina Scale (300 DPI)
+        const bbox = svg.getBoundingClientRect();
+        canvas.width = Math.max(bbox.width, 1200) * scale;
+        canvas.height = Math.max(bbox.height, 800) * scale;
+        ctx.scale(scale, scale);
+
+        // Fill crisp white background so text has perfect contrast
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(blobURL);
+
+        const pngUrl = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.href = pngUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      img.src = blobURL;
+    }
+  </script>
+</body>
+</html>
