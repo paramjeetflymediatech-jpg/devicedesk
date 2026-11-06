@@ -37,7 +37,9 @@ export default function ClientPortalLayout({ children }) {
           try {
             const res = await fetch(`/api/client-services/my-packages?clientId=${clientId}`);
             const data = await res.json();
-            if (data.success && (!data.data || data.data.length === 0)) {
+            const pkgs = data.data || [];
+
+            if (data.success && pkgs.length === 0) {
               // No packages, redirect to packages page
               Swal.fire({
                 icon: 'info',
@@ -47,6 +49,31 @@ export default function ClientPortalLayout({ children }) {
               });
               router.push('/portal/client/packages');
               return;
+            }
+
+            const hasSmo = pkgs.some(pkg => {
+              if (pkg.is_expired) return false;
+              const name = (pkg.name || '').toLowerCase();
+              return name.includes('smo') || name.includes('social');
+            });
+
+            try {
+              localStorage.setItem('devicedesk_client_has_smo', hasSmo ? 'true' : 'false');
+            } catch (e) {}
+
+            // Specific check for SMO Automation Studio: Only accessible if SMO package is purchased
+            if (pathname === '/portal/client/smo' || pathname.startsWith('/portal/client/smo/')) {
+              if (!hasSmo) {
+                Swal.fire({
+                  icon: 'warning',
+                  title: 'SMO Package Required',
+                  text: 'You need an active SMO subscription to access the SMO Automation Studio.',
+                  confirmButtonColor: '#db2777',
+                  confirmButtonText: 'View Packages'
+                });
+                router.replace('/portal/client/packages');
+                return;
+              }
             }
           } catch (err) {}
         }

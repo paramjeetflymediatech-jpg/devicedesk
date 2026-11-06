@@ -1,8 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3 , FiUser} from 'react-icons/fi';
+import { useClientProfile } from '../useClientProfile';
 
 export default function SEOReportsPage() {
+  const { name: clientName, company_name: companyName, initials } = useClientProfile();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [myClientId, setMyClientId] = useState('');
   
@@ -102,16 +104,46 @@ export default function SEOReportsPage() {
         <header className="bg-white border-b px-4 py-4 flex items-center justify-between md:hidden sticky top-0 z-30 shadow-sm">
           <div className="flex items-center">
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:bg-gray-100 rounded-lg"><FiMenu size={24} /></button>
-            <h1 className="text-xl font-bold text-gray-800">SEO Reports</h1>
+            <div>
+              <h1 className="text-base font-bold text-gray-800 leading-tight">SEO Reports</h1>
+              <p suppressHydrationWarning className="text-xs text-gray-500 font-medium truncate max-w-[180px]">{companyName || clientName || 'Client'}</p>
+            </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm">DC</div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs uppercase shadow-sm cursor-pointer"
+            suppressHydrationWarning
+          >
+            {initials}
+          </div>
         </header>
 
-        <header className="hidden md:flex bg-white/80 border-b px-8 py-6 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">SEO Reports</h1>
-          <div className="flex items-center space-x-4">
-             <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold shadow-sm shadow-pink-100">DC</div>
+        <header className="hidden md:flex bg-white/80 border-b px-8 py-5 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">SEO Reports</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Download and review your website's search engine performance.</p>
+          </div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition-opacity"
+            title="Profile Settings"
+          >
+            <div className="text-right">
+              <p suppressHydrationWarning className="text-sm font-bold text-gray-800 leading-tight">
+                {companyName || clientName || 'Client'}
+              </p>
+              {companyName && clientName && (
+                <p suppressHydrationWarning className="text-xs text-gray-500 font-medium leading-tight mt-0.5">
+                  {clientName}
+                </p>
+              )}
+            </div>
+            <div 
+              className="w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm shadow-pink-100 uppercase"
+              suppressHydrationWarning
+            >
+              {initials}
+            </div>
           </div>
         </header>
 

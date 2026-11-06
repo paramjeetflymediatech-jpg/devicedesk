@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
 import { sendNotification } from '../../utils/notificationsHelper.js';
+import { generateAICaption } from '../../utils/generateCaption.js';
 
 export async function GET(request) {
   try {
@@ -27,6 +28,18 @@ export async function GET(request) {
     try {
       await db.query(`ALTER TABLE service_requests ADD COLUMN drive_url TEXT DEFAULT NULL`);
     } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN revision_notes TEXT DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN caption TEXT DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN hashtags VARCHAR(500) DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE tasks ADD COLUMN revision_notes TEXT DEFAULT NULL`);
+    } catch (e) {}
 
     const baseQuery = `
       SELECT r.*, 
@@ -36,11 +49,15 @@ export async function GET(request) {
         t.completion_note as deliverable_note,
         t.completedAt as delivered_at,
         t.status as task_status,
-        ea.name as specialist_name
+        ea.name as specialist_name,
+        COALESCE(r.revision_notes, smo.revision_notes, t.revision_notes) as revision_notes,
+        COALESCE(r.caption, smo.caption) as caption,
+        COALESCE(r.hashtags, smo.hashtags) as hashtags
       FROM service_requests r 
       LEFT JOIN employees c ON (r.clientId COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci) 
       LEFT JOIN employees tl ON (r.assigned_tl_id COLLATE utf8mb4_unicode_ci = tl.id COLLATE utf8mb4_unicode_ci) 
       LEFT JOIN tasks t ON (r.id COLLATE utf8mb4_unicode_ci = t.project_id COLLATE utf8mb4_unicode_ci)
+      LEFT JOIN client_smo_requests smo ON (r.id COLLATE utf8mb4_unicode_ci = smo.id COLLATE utf8mb4_unicode_ci)
       LEFT JOIN employees ea ON (t.assignedTo COLLATE utf8mb4_unicode_ci = ea.id COLLATE utf8mb4_unicode_ci)
     `;
 
@@ -166,7 +183,7 @@ export async function POST(request) {
     // Verify client has an active package before allowing service booking
     const [activePkgs] = await db.query(
       `SELECT cpo.id, p.name FROM client_package_overrides cpo 
-       LEFT JOIN packages p ON cpo.package_id = p.id 
+       LEFT JOIN packages p ON (cpo.package_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci) 
        WHERE cpo.client_id = ? AND (cpo.status = 'Active' OR cpo.status = 'active')`,
       [clientId]
     );
@@ -192,6 +209,21 @@ export async function POST(request) {
        VALUES (?, ?, ?, ?, 'Pending', ?, ?, ?)`,
       [id, clientId, service_type, requirements, now, attachment || null, autoDriveUrl || null]
     );
+
+    // Auto-sync into client_smo_requests if service_type is SMO, Social Media, or Graphic Design
+    const sType = String(service_type || '').toLowerCase();
+    if (sType.includes('smo') || sType.includes('social') || sType.includes('graphic') || sType.includes('banner')) {
+      try {
+        await db.query(
+          `INSERT INTO client_smo_requests (id, client_id, requirements, status, platforms, banner_url, created_at)
+           VALUES (?, ?, ?, 'Pending Design', '["facebook", "instagram"]', NULL, NOW())
+           ON DUPLICATE KEY UPDATE requirements = VALUES(requirements)`,
+          [id, clientId, requirements]
+        );
+      } catch (smoSyncErr) {
+        console.warn('Auto-sync to client_smo_requests failed:', smoSyncErr.message);
+      }
+    }
 
     // Notify Management (Admins & Management)
     try {
@@ -220,7 +252,8 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, status, assigned_tl_id, drive_url } = await request.json();
+    const body = await request.json();
+    const { id, status, assigned_tl_id, drive_url, caption, hashtags, action } = body;
     if (!id) {
       return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 });
     }
@@ -229,8 +262,99 @@ export async function PUT(request) {
     try {
       await db.query(`ALTER TABLE service_requests ADD COLUMN drive_url TEXT`);
     } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN caption TEXT DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN hashtags VARCHAR(500) DEFAULT NULL`);
+    } catch (e) {}
+
+    // 1. Action: regenerate_caption (triggered on-demand by Team Leader via AI button)
+    if (action === 'regenerate_caption') {
+      const [rows] = await db.query(`
+        SELECT sr.id, sr.clientId, sr.service_type, sr.requirements, sr.attachment, sr.drive_url,
+               t.fileUrl as task_file_url, t.completion_note,
+               c.name as client_name,
+               cd.company_name
+        FROM service_requests sr
+        LEFT JOIN tasks t ON sr.id COLLATE utf8mb4_unicode_ci = t.project_id COLLATE utf8mb4_unicode_ci
+        LEFT JOIN employees c ON sr.clientId COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci
+        LEFT JOIN client_details cd ON sr.clientId COLLATE utf8mb4_unicode_ci = cd.client_id COLLATE utf8mb4_unicode_ci
+        WHERE sr.id = ?
+      `, [id]);
+
+      if (!rows || rows.length === 0) {
+        return NextResponse.json({ success: false, error: 'Service request not found.' }, { status: 404 });
+      }
+
+      const sr = rows[0];
+      function extractFirstImg(val) {
+        if (!val) return null;
+        let urls = [];
+        if (typeof val === 'string') {
+          const trimmed = val.trim();
+          if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            try { urls = JSON.parse(trimmed); } catch (e) { urls = [trimmed]; }
+          } else {
+            urls = [trimmed];
+          }
+        } else if (Array.isArray(val)) {
+          urls = val;
+        }
+        for (const u of urls) {
+          if (typeof u === 'string' && /\.(jpeg|jpg|png|webp|svg|gif)($|\?)/i.test(u)) {
+            return u;
+          }
+        }
+        return urls[0] || null;
+      }
+
+      const detectedBanner = extractFirstImg(sr.task_file_url) || extractFirstImg(sr.attachment) || extractFirstImg(sr.drive_url);
+      const brandName = sr.company_name || sr.client_name || 'Flymedia Technology';
+      const requirement = sr.requirements || sr.completion_note || 'Engaging creative banner post';
+
+      const aiResult = await generateAICaption({
+        requirement,
+        brandName,
+        bannerUrl: detectedBanner
+      });
+
+      // Persist regenerated caption & hashtags in service_requests & client_smo_requests
+      await db.execute(
+        `UPDATE service_requests SET caption = ?, hashtags = ? WHERE id = ?`,
+        [aiResult.caption, aiResult.hashtags, id]
+      );
+      try {
+        await db.execute(
+          `UPDATE client_smo_requests SET caption = ?, hashtags = ? WHERE id = ?`,
+          [aiResult.caption, aiResult.hashtags, id]
+        );
+      } catch (e) {}
+
+      return NextResponse.json({
+        success: true,
+        caption: aiResult.caption,
+        hashtags: aiResult.hashtags,
+        message: 'Caption and hashtags regenerated successfully!'
+      });
+    }
+
+    // 2. Action: update_caption / save edits made by TL
+    if (action === 'update_caption') {
+      await db.execute(
+        `UPDATE service_requests SET caption = ?, hashtags = ? WHERE id = ?`,
+        [caption || '', hashtags || '', id]
+      );
+      try {
+        await db.execute(
+          `UPDATE client_smo_requests SET caption = ?, hashtags = ? WHERE id = ?`,
+          [caption || '', hashtags || '', id]
+        );
+      } catch (e) {}
+      return NextResponse.json({ success: true, message: 'Caption & hashtags updated.' });
+    }
     
-    // Update assigned_tl_id and/or drive_url if provided
+    // 3. Update assigned_tl_id and/or drive_url if provided
     if (assigned_tl_id !== undefined || drive_url !== undefined) {
       const updates = [];
       const params = [];
@@ -264,12 +388,25 @@ export async function PUT(request) {
       return NextResponse.json({ success: true });
     }
 
-    // Update status logic
+    // 4. Update status logic (e.g., Deliver to Client)
     if (status) {
+      const updates = ['status = ?'];
+      const params = [status];
+      if (caption !== undefined) {
+        updates.push('caption = ?');
+        params.push(caption);
+      }
+      if (hashtags !== undefined) {
+        updates.push('hashtags = ?');
+        params.push(hashtags);
+      }
+      params.push(id);
+
       await db.query(
-        `UPDATE service_requests SET status = ? WHERE id = ?`,
-        [status, id]
+        `UPDATE service_requests SET ${updates.join(', ')} WHERE id = ?`,
+        params
       );
+
       if (status === 'Completed') {
         try {
           await db.query(
@@ -278,6 +415,13 @@ export async function PUT(request) {
           );
         } catch (e) {
           console.error('Failed to sync tasks status on request completion:', e);
+        }
+
+        // Deliver approved banner with final caption & hashtags to Client SMO queue
+        try {
+          await deliverToClientSMO(id, db, { caption, hashtags });
+        } catch (smoDeliverErr) {
+          console.error('Failed to auto-deliver to client SMO:', smoDeliverErr);
         }
       }
       return NextResponse.json({ success: true });
@@ -417,5 +561,127 @@ export async function DELETE(request) {
   } catch (err) {
     console.error('Delete Service Request Error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+/**
+ * Automatically delivers an approved banner to the Client SMO queue
+ * with an approved or AI-generated social media caption and trending hashtags.
+ */
+async function deliverToClientSMO(requestId, db, options = {}) {
+  try {
+    const [rows] = await db.query(`
+      SELECT sr.id, sr.clientId, sr.service_type, sr.requirements, sr.created_at, sr.attachment, sr.drive_url,
+             sr.caption as sr_caption, sr.hashtags as sr_hashtags,
+             t.fileUrl as task_file_url, t.assignedToName as designer_name, t.completion_note,
+             c.name as client_name,
+             cd.company_name
+      FROM service_requests sr
+      LEFT JOIN tasks t ON sr.id COLLATE utf8mb4_unicode_ci = t.project_id COLLATE utf8mb4_unicode_ci
+      LEFT JOIN employees c ON sr.clientId COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci
+      LEFT JOIN client_details cd ON sr.clientId COLLATE utf8mb4_unicode_ci = cd.client_id COLLATE utf8mb4_unicode_ci
+      WHERE sr.id = ?
+    `, [requestId]);
+
+    if (!rows || rows.length === 0) return;
+    const sr = rows[0];
+
+    function extractFirstImg(val) {
+      if (!val) return null;
+      let urls = [];
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          try { urls = JSON.parse(trimmed); } catch (e) { urls = [trimmed]; }
+        } else {
+          urls = [trimmed];
+        }
+      } else if (Array.isArray(val)) {
+        urls = val;
+      }
+      for (const u of urls) {
+        if (typeof u === 'string' && /\.(jpeg|jpg|png|webp|svg|gif)($|\?)/i.test(u)) {
+          return u;
+        }
+      }
+      return urls[0] || null;
+    }
+
+    const detectedBanner = extractFirstImg(sr.task_file_url) || extractFirstImg(sr.attachment) || extractFirstImg(sr.drive_url);
+    const brandName = sr.company_name || sr.client_name || 'Flymedia Technology';
+
+    let finalCaption = (options.caption !== undefined ? options.caption : sr.sr_caption || '').trim();
+    let finalHashtags = (options.hashtags !== undefined ? options.hashtags : sr.sr_hashtags || '').trim();
+
+    // If caption was not already generated, generate now
+    if (!finalCaption) {
+      const aiResult = await generateAICaption({
+        requirement: sr.requirements || sr.completion_note || 'Engaging creative banner post',
+        brandName,
+        bannerUrl: detectedBanner
+      });
+      finalCaption = aiResult.caption;
+      finalHashtags = aiResult.hashtags;
+    }
+
+    // Ensure client_smo_requests table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS client_smo_requests (
+        id VARCHAR(50) PRIMARY KEY,
+        client_id VARCHAR(50) NOT NULL,
+        requirements TEXT,
+        banner_url VARCHAR(500),
+        caption TEXT,
+        hashtags VARCHAR(500),
+        platforms VARCHAR(255) DEFAULT '["facebook", "instagram"]',
+        status VARCHAR(50) DEFAULT 'Ready for Approval',
+        designer_id VARCHAR(50),
+        designer_name VARCHAR(100),
+        revision_notes TEXT,
+        scheduled_at DATETIME NULL,
+        published_at DATETIME NULL,
+        fb_post_id VARCHAR(100),
+        ig_post_id VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Insert or update client_smo_requests with 'Ready for Approval'
+    await db.query(`
+      INSERT INTO client_smo_requests (
+        id, client_id, requirements, banner_url, caption, hashtags, status, designer_name, created_at
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, 'Ready for Approval', ?, NOW()
+      )
+      ON DUPLICATE KEY UPDATE
+        banner_url = COALESCE(VALUES(banner_url), client_smo_requests.banner_url),
+        caption = VALUES(caption),
+        hashtags = VALUES(hashtags),
+        status = IF(client_smo_requests.status IN ('Published', 'Scheduled'), client_smo_requests.status, 'Ready for Approval'),
+        designer_name = COALESCE(VALUES(designer_name), client_smo_requests.designer_name)
+    `, [
+      sr.id,
+      sr.clientId,
+      sr.requirements,
+      detectedBanner,
+      finalCaption,
+      finalHashtags,
+      sr.designer_name || 'Design Specialist'
+    ]);
+
+    // Send push notification to client
+    try {
+      await sendNotification(
+        sr.clientId,
+        '🎉 Creative Banner & Caption Ready!',
+        'Your banner is ready for review with an AI-generated caption. Check, edit, and post now.',
+        '/portal/client/smo'
+      );
+    } catch (notifErr) {
+      console.error('Failed to notify client on SMO delivery:', notifErr);
+    }
+  } catch (err) {
+    console.error('deliverToClientSMO error:', err);
   }
 }

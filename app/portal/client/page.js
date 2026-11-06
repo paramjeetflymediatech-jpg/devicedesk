@@ -1,8 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { FiLayout, FiMessageSquare, FiFileText, FiClock, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3, FiUser, FiActivity } from 'react-icons/fi';
+import Link from 'next/link';
+import { useClientProfile } from './useClientProfile';
 
 export default function ClientDashboard() {
+  const { name: clientName, company_name: companyName, initials } = useClientProfile();
   const [activeTab, setActiveTab] = useState('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activePackages, setActivePackages] = useState([]);
@@ -26,25 +29,44 @@ export default function ClientDashboard() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+    const fetchRequests = async () => {
+      try {
+        const clientId = getClientId();
+        const res = await fetch(`/api/client-services/requests?clientId=${clientId}`);
+        const data = await res.json();
+        if (data.success && isMounted) {
+          setRequests(data.data || []);
+          setDeletedNotices(data.deletedNotices || []);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    const fetchActivePackages = async () => {
+      try {
+        const clientId = getClientId();
+        const res = await fetch(`/api/client-services/my-packages?clientId=${clientId}`);
+        const data = await res.json();
+        if (data.success && isMounted) {
+          setActivePackages(data.data || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
     fetchActivePackages();
     fetchRequests();
     const interval = setInterval(fetchRequests, 15000);
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
-
-  const fetchRequests = async () => {
-    try {
-      const clientId = getClientId();
-      const res = await fetch(`/api/client-services/requests?clientId=${clientId}`);
-      const data = await res.json();
-      if (data.success) {
-        setRequests(data.data || []);
-        setDeletedNotices(data.deletedNotices || []);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleDismissNotice = async (noticeId) => {
     setDeletedNotices(prev => prev.filter(n => n.id !== noticeId));
@@ -56,21 +78,6 @@ export default function ClientDashboard() {
     } catch (e) {}
   };
 
-  const fetchActivePackages = async () => {
-    try {
-      const clientId = getClientId();
-      const res = await fetch(`/api/client-services/my-packages?clientId=${clientId}`);
-      const data = await res.json();
-      if (data.success) {
-        setActivePackages(data.data || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Prevent scrolling when mobile menu is open
   useEffect(() => {
     if (isMobileMenuOpen) {
@@ -80,9 +87,16 @@ export default function ClientDashboard() {
     }
   }, [isMobileMenuOpen]);
 
-  const SidebarContent = () => (
+  const hasSmoPackage = activePackages.some(pkg => {
+    if (pkg.is_expired) return false;
+    const name = (pkg.name || '').toLowerCase();
+    return name.includes('smo') || name.includes('social');
+  });
+
+  const renderSidebar = () => (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
       <div className="p-6 border-b border-gray-100 flex flex-col items-center justify-center space-y-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/flymedia-logo.png" alt="Fly Media Technology" className="h-16 object-contain" />
       </div>
       
@@ -101,16 +115,14 @@ export default function ClientDashboard() {
           <FiEdit3 size={20} /><span>Book Service</span>
         </button>
 
-        {/* <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Projects</div>
-        <button onClick={() => window.location.href = '/portal/client/seo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiFileText size={20} /><span>SEO Reports</span>
-        </button>
-        <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiImage size={20} /><span>SMO Graphics</span>
-        </button>
-        <button onClick={() => window.location.href = '/portal/client/ads'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
-          <FiDollarSign size={20} /><span>PAID Ads</span>
-        </button> */}
+        {hasSmoPackage && (
+          <>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Services</div>
+            <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center space-x-3 p-3 rounded-lg font-semibold transition-all text-pink-700 bg-pink-50 hover:bg-pink-100">
+              <FiImage size={20} className="text-pink-600" /><span>SMO Automation</span>
+            </button>
+          </>
+        )}
 
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 px-3">Billing & Packages</div>
         <button onClick={() => window.location.href = '/portal/client/packages'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
@@ -137,7 +149,7 @@ export default function ClientDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans flex flex-col md:flex-row w-full">
       <aside className="hidden md:flex flex-col w-64 fixed inset-y-0 left-0 z-20 shadow-sm bg-white">
-        <SidebarContent />
+        {renderSidebar()}
       </aside>
 
       {isMobileMenuOpen && (
@@ -150,7 +162,7 @@ export default function ClientDashboard() {
              <FiX size={20} />
            </button>
         </div>
-        <SidebarContent />
+        {renderSidebar()}
       </aside>
 
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen relative overflow-x-hidden">
@@ -159,16 +171,46 @@ export default function ClientDashboard() {
             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 mr-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
               <FiMenu size={24} />
             </button>
-            <h1 className="text-xl font-bold text-gray-800">Overview</h1>
+            <div>
+              <h1 className="text-base font-bold text-gray-800 leading-tight">Project Overview</h1>
+              <p suppressHydrationWarning className="text-xs text-gray-500 font-medium truncate max-w-[180px]">{companyName || clientName || 'Client'}</p>
+            </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm">DC</div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs uppercase shadow-sm cursor-pointer"
+            suppressHydrationWarning
+          >
+            {initials}
+          </div>
         </header>
 
-        <header className="hidden md:flex bg-white/80 border-b px-8 py-6 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Project Overview</h1>
-          <div className="flex items-center space-x-4">
-             <span className="text-sm text-gray-500 font-medium">Welcome back, Demo Client</span>
-             <div className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold shadow-sm shadow-pink-100">DC</div>
+        <header className="hidden md:flex bg-white/80 border-b px-8 py-5 justify-between items-center sticky top-0 z-10 backdrop-blur-md shadow-sm">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Project Overview</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Overview of your active subscriptions and project submissions.</p>
+          </div>
+          <div 
+            onClick={() => window.location.href = '/portal/client/profile'}
+            className="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition-opacity"
+            title="Profile Settings"
+          >
+            <div className="text-right">
+              <p suppressHydrationWarning className="text-sm font-bold text-gray-800 leading-tight">
+                {companyName || clientName || 'Client'}
+              </p>
+              {companyName && clientName && (
+                <p suppressHydrationWarning className="text-xs text-gray-500 font-medium leading-tight mt-0.5">
+                  {clientName}
+                </p>
+              )}
+            </div>
+            <div 
+              className="w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm shadow-sm shadow-pink-100 uppercase"
+              suppressHydrationWarning
+            >
+              {initials}
+            </div>
           </div>
         </header>
 
@@ -177,11 +219,11 @@ export default function ClientDashboard() {
             <div className="space-y-6 md:space-y-8">
               
               <div className="mb-6">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-1">Welcome back</h2>
+                <h2 suppressHydrationWarning className="text-2xl font-semibold text-gray-800 mb-1">Welcome back{companyName ? `, ${companyName}` : clientName ? `, ${clientName}` : ''}</h2>
                 <p className="text-gray-500 text-sm">Overview of your active subscriptions and recent project submissions.</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white p-5 rounded-lg border border-gray-200 flex items-center space-x-4">
                   <div className="w-10 h-10 rounded bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
                     <FiActivity />
@@ -201,6 +243,24 @@ export default function ClientDashboard() {
                     <p className="text-2xl font-bold text-gray-900">{loading ? '-' : requests.filter(r => r.status === 'Pending').length}</p>
                   </div>
                 </div>
+
+                {hasSmoPackage && (
+                  <div 
+                    onClick={() => window.location.href = '/portal/client/smo'} 
+                    className="bg-gradient-to-br from-pink-600 to-rose-600 text-white p-5 rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center justify-between group"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center text-lg text-white">
+                        <FiImage />
+                      </div>
+                      <div>
+                        <p className="text-xs text-pink-100 font-bold uppercase tracking-wider">Social Automation</p>
+                        <p className="text-base font-bold text-white mt-0.5">SMO Graphics Studio</p>
+                      </div>
+                    </div>
+                    <span className="text-xl transform group-hover:translate-x-1 transition-transform">→</span>
+                  </div>
+                )}
               </div>
 
               {activePackages.length > 0 && (
@@ -237,9 +297,16 @@ export default function ClientDashboard() {
                    <div>
                      <h3 className="text-lg font-semibold text-gray-800">Recent Submissions</h3>
                    </div>
-                   <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                     <FiEdit3 className="mr-2" /> New Request
-                   </button>
+                   <div className="flex items-center gap-2">
+                     {hasSmoPackage && (
+                       <button onClick={() => window.location.href = '/portal/client/smo'} className="flex items-center px-4 py-2 bg-pink-600 text-white rounded text-sm font-semibold hover:bg-pink-700 transition-colors shadow-sm">
+                         <FiImage className="mr-2" /> SMO Automation Studio
+                       </button>
+                     )}
+                     <button onClick={() => window.location.href = '/portal/client/book-service'} className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                       <FiEdit3 className="mr-2" /> New Request
+                     </button>
+                   </div>
                 </div>
                 {/* Deletion Notices for requests deleted by Admin */}
                 {deletedNotices && deletedNotices.length > 0 && (
@@ -253,12 +320,12 @@ export default function ClientDashboard() {
                               Service Request Removed by Admin
                             </h4>
                             <p className="text-xs text-red-700 mt-1">
-                              Your service request for <span className="font-semibold text-red-900">"{notice.service_type || 'Service'}"</span> was cancelled & removed by Administration on {new Date(notice.deleted_at).toLocaleDateString()}.
+                              Your service request for <span className="font-semibold text-red-900">&quot;{notice.service_type || 'Service'}&quot;</span> was cancelled &amp; removed by Administration on {new Date(notice.deleted_at).toLocaleDateString()}.
                             </p>
                             <div className="flex items-center gap-3 mt-1.5 text-xs">
-                              <a href="/portal/client/notes" className="text-pink-600 hover:text-pink-800 font-semibold underline">
+                              <Link href="/portal/client/notes" className="text-pink-600 hover:text-pink-800 font-semibold underline">
                                 View Admin Message in Project Notes →
-                              </a>
+                              </Link>
                             </div>
                           </div>
                         </div>

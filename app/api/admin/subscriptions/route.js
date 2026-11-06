@@ -19,8 +19,8 @@ export async function GET(request) {
         e.name as client_name,
         e.email as client_email
       FROM client_package_overrides cpo
-      JOIN packages p ON cpo.package_id = p.id
-      JOIN employees e ON cpo.client_id = e.id
+      JOIN packages p ON (cpo.package_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci)
+      JOIN employees e ON (cpo.client_id COLLATE utf8mb4_unicode_ci = e.id COLLATE utf8mb4_unicode_ci)
       ORDER BY cpo.created_at DESC
     `);
 

@@ -898,7 +898,7 @@ export function stopTask(taskId, operatorName = 'System') {
 }
 
 export function completeTask(taskId, operatorName = 'System', fileUrl = null, completionNote = null) {
-  if(typeof window !== 'undefined') { fetch('/api/tasks', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: taskId, status: 'Completed'}) }).catch(e => console.error(e)); }
+  if(typeof window !== 'undefined') { fetch('/api/tasks', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: taskId, status: 'Completed', fileUrl: fileUrl, completion_note: completionNote}) }).catch(e => console.error(e)); }
   const tasks = getTasks();
   const index = tasks.findIndex(t => t.id === taskId);
   if (index !== -1 && tasks[index].status !== 'Completed') {

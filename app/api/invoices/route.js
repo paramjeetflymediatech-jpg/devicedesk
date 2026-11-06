@@ -28,7 +28,7 @@ export async function GET(request) {
       const [result] = await db.query(`
         SELECT i.*, p.name as package_name 
         FROM invoices i 
-        LEFT JOIN packages p ON i.package_id = p.id 
+        LEFT JOIN packages p ON (i.package_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci) 
         WHERE i.client_id = ? 
         ORDER BY i.created_at DESC
       `, [clientId]);
@@ -37,7 +37,7 @@ export async function GET(request) {
       const [result] = await db.query(`
         SELECT i.*, p.name as package_name 
         FROM invoices i 
-        LEFT JOIN packages p ON i.package_id = p.id 
+        LEFT JOIN packages p ON (i.package_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci) 
         WHERE i.client_id = ? 
         ORDER BY i.id DESC
       `, [clientId]);

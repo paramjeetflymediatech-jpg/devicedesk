@@ -148,11 +148,22 @@ export async function POST(request) {
       });
     }
 
+    let companyName = null;
+    if (dbRoleStr === 'client') {
+      try {
+        const [cdRows] = await db.execute('SELECT company_name FROM client_details WHERE client_id = ? LIMIT 1', [emp.id]);
+        if (cdRows.length > 0 && cdRows[0].company_name) {
+          companyName = cdRows[0].company_name;
+        }
+      } catch (cdErr) {}
+    }
+
     return NextResponse.json({
       success: true,
       user: {
         id: emp.id,
         name: emp.name,
+        company_name: companyName,
         email: emp.email,
         role: isDeskRole ? 'admin' : 'employee',
         dbRole: emp.role,

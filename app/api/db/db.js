@@ -665,12 +665,26 @@ async function initializeDatabase(db) {
   
   try { await db.execute(`ALTER TABLE client_seo_reports ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN banner_url TEXT DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN caption TEXT DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN hashtags TEXT DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN platforms VARCHAR(255) DEFAULT '["facebook", "instagram"]'`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN scheduled_at DATETIME DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN published_at DATETIME DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN social_post_ids TEXT DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN designer_id VARCHAR(50) DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN designer_name VARCHAR(100) DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN revision_notes TEXT DEFAULT NULL`); } catch (err) {}
   
   try { await db.execute(`ALTER TABLE client_paid_ads ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_paid_ads ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
   
+  try { await db.execute(`ALTER TABLE client_details MODIFY COLUMN client_id VARCHAR(50) COLLATE utf8mb4_unicode_ci`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_details ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_details ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_details ADD COLUMN fb_page_id VARCHAR(100) DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_details ADD COLUMN ig_business_id VARCHAR(100) DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_details ADD COLUMN meta_access_token TEXT DEFAULT NULL`); } catch (err) {}
   
   try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}
