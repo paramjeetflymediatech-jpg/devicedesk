@@ -1237,7 +1237,7 @@ export default function AdminClientWorkReportsPage() {
       {/* 1. SOCIAL MEDIA LIVE PREVIEW & PUBLISH MODAL */}
       {/* ======================================================== */}
       {showPostModal && selectedReq && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1000] flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-5xl w-full border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
@@ -1635,7 +1635,7 @@ export default function AdminClientWorkReportsPage() {
       {/* 2. REJECT REQUEST MODAL */}
       {/* ======================================================== */}
       {showRejectModal && rejectReq && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-rose-50/50 dark:bg-rose-950/20">
               <div className="flex items-center gap-2.5">
@@ -1716,7 +1716,7 @@ export default function AdminClientWorkReportsPage() {
       {/* 3. SCHEDULE POST MODAL */}
       {/* ======================================================== */}
       {showScheduleModal && selectedReq && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-purple-50/50 dark:bg-purple-950/20">
               <div className="flex items-center gap-2.5">
@@ -1778,7 +1778,7 @@ export default function AdminClientWorkReportsPage() {
       {/* 4. FULL DETAILS MODAL */}
       {/* ======================================================== */}
       {showDetailsModal && detailReq && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1000] flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
             <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
               <div>
@@ -1886,7 +1886,7 @@ export default function AdminClientWorkReportsPage() {
       {fullImageZoom && (
         <div 
           onClick={() => setFullImageZoom(null)}
-          className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 cursor-zoom-out"
+          className="fixed inset-0 bg-black/85 backdrop-blur-md z-[1000] flex items-center justify-center p-4 cursor-zoom-out"
         >
           <div className="relative max-w-4xl max-h-[90vh]">
             <img

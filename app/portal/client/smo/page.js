@@ -1240,7 +1240,7 @@ export default function SMOPage() {
       {/* MODAL 1: LIVE SOCIAL MEDIA PREVIEW & ONE-CLICK APPROVE/PUBLISH */}
       {/* ============================================================== */}
       {showPreviewModal && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-5xl w-full overflow-hidden my-6 animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/75">
@@ -1665,7 +1665,7 @@ export default function SMOPage() {
       {/* MODAL 2: DESIGNER BANNER UPLOAD & AI CAPTION DRAFTING         */}
       {/* ============================================================== */}
       {showUploadModal && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-xl w-full overflow-hidden my-8 animate-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/75">
               <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
@@ -1768,7 +1768,7 @@ export default function SMOPage() {
       {/* MODAL 3: REVISION REQUEST MODAL                                */}
       {/* ============================================================== */}
       {showRevisionModal && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-md w-full overflow-hidden p-6 animate-in zoom-in-95 duration-200">
             <h3 className="text-base font-bold text-gray-800 mb-1 flex items-center gap-2">
               ✏️ Request Design Revisions
@@ -1810,7 +1810,7 @@ export default function SMOPage() {
       {/* MODAL 4: META SOCIAL ACCOUNTS CONFIGURATION                   */}
       {/* ============================================================== */}
       {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-lg w-full overflow-hidden my-8 animate-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/75">
               <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
@@ -1924,7 +1924,7 @@ export default function SMOPage() {
       {/* MODAL 5: SCHEDULE POST MODAL                                   */}
       {/* ============================================================== */}
       {showScheduleModal && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-md w-full overflow-hidden p-6 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
               <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
