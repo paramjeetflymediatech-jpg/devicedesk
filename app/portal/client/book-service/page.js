@@ -1,6 +1,6 @@
 'use client';
 import Swal from 'sweetalert2';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiEdit3, FiDownload, FiUser, FiExternalLink, FiAlertCircle } from 'react-icons/fi';
 import Link from 'next/link';
@@ -50,6 +50,20 @@ export default function BookServicePage() {
   const currentRequests = requests.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(requests.length / itemsPerPage);
 
+  const fetchRequests = useCallback(async () => {
+    try {
+      const clientId = getClientId();
+      const res = await fetch(`/api/client-services/requests?clientId=${clientId}`);
+      const data = await res.json();
+      if (data.success) {
+        setRequests(data.data || []);
+        setDeletedNotices(data.deletedNotices || []);
+      }
+    } catch (err) {
+      console.error('fetchRequests error:', err);
+    }
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -79,27 +93,23 @@ export default function BookServicePage() {
       } catch (err) {}
     };
 
-    const fetchRequests = async () => {
-      try {
-        const clientId = getClientId();
-        const res = await fetch(`/api/client-services/requests?clientId=${clientId}`);
-        const data = await res.json();
-        if (data.success && isMounted) {
-          setRequests(data.data || []);
-          setDeletedNotices(data.deletedNotices || []);
-        }
-      } catch (err) {}
-    };
-
     const myId = getClientId();
-    fetchRequests();
-    fetchActivePackages(myId);
-    const interval = setInterval(fetchRequests, 15000);
+    (async () => {
+      if (isMounted) {
+        await fetchRequests();
+        await fetchActivePackages(myId);
+      }
+    })();
+
+    const interval = setInterval(() => {
+      if (isMounted) fetchRequests();
+    }, 15000);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [fetchRequests]);
 
   const handleDismissNotice = async (noticeId) => {
     setDeletedNotices(prev => prev.filter(n => n.id !== noticeId));
