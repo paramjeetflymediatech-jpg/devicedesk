@@ -269,6 +269,63 @@ export async function PUT(request) {
       await db.query(`ALTER TABLE service_requests ADD COLUMN hashtags VARCHAR(500) DEFAULT NULL`);
     } catch (e) {}
 
+    // 0. Action: reject_request
+    if (action === 'reject_request' || status === 'Rejected') {
+      const rejection_notes = (body.rejection_notes || body.reason || 'Request rejected by Admin').trim();
+
+      try {
+        await db.query(`ALTER TABLE service_requests ADD COLUMN revision_notes TEXT DEFAULT NULL`);
+      } catch (e) {}
+      try {
+        await db.query(`ALTER TABLE client_smo_requests ADD COLUMN revision_notes TEXT DEFAULT NULL`);
+      } catch (e) {}
+      try {
+        await db.query(`ALTER TABLE tasks ADD COLUMN revision_notes TEXT DEFAULT NULL`);
+      } catch (e) {}
+
+      await db.execute(`UPDATE service_requests SET status = 'Rejected', revision_notes = ? WHERE id = ?`, [rejection_notes, id]);
+      try {
+        await db.execute(`UPDATE client_smo_requests SET status = 'Rejected', revision_notes = ? WHERE id = ?`, [rejection_notes, id]);
+      } catch (e) {}
+      try {
+        await db.execute(`UPDATE tasks SET status = 'Cancelled', revision_notes = ? WHERE project_id = ?`, [rejection_notes, id]);
+      } catch (e) {}
+
+      // Notify TL and Client
+      try {
+        const [rows] = await db.query(`
+          SELECT sr.clientId, sr.service_type, sr.assigned_tl_id, c.name as client_name
+          FROM service_requests sr
+          LEFT JOIN employees c ON sr.clientId COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci
+          WHERE sr.id = ?
+        `, [id]);
+
+        if (rows && rows.length > 0) {
+          const r = rows[0];
+          if (r.clientId) {
+            await sendNotification(
+              r.clientId,
+              '❌ Request Rejected by Admin',
+              `Your request for "${r.service_type || 'Service'}" was rejected by Admin. Reason: ${rejection_notes.slice(0, 120)}`,
+              '/portal/client/book-service'
+            );
+          }
+          if (r.assigned_tl_id) {
+            await sendNotification(
+              r.assigned_tl_id,
+              '❌ Request Rejected by Admin',
+              `Request #${id} for "${r.service_type || 'Service'}" was rejected by Admin. Reason: ${rejection_notes.slice(0, 120)}`,
+              '/portal/leader/client-requests'
+            );
+          }
+        }
+      } catch (nErr) {
+        console.warn('Rejection notification error:', nErr);
+      }
+
+      return NextResponse.json({ success: true, message: 'Request rejected successfully.' });
+    }
+
     // 1. Action: regenerate_caption (triggered on-demand by Team Leader via AI button)
     if (action === 'regenerate_caption') {
       const [rows] = await db.query(`
@@ -472,11 +529,25 @@ export async function DELETE(request) {
     const db = await getDbConnection();
 
     // 1. Fetch request details before deleting so we can record notice and inform client
+    let targetReq = null;
     const [existingRows] = await db.query('SELECT * FROM service_requests WHERE id = ?', [id]);
-    if (existingRows.length === 0) {
+    if (existingRows.length > 0) {
+      targetReq = existingRows[0];
+    } else {
+      const [smoRows] = await db.query('SELECT * FROM client_smo_requests WHERE id = ?', [id]);
+      if (smoRows.length > 0) {
+        targetReq = {
+          id: smoRows[0].id,
+          clientId: smoRows[0].client_id,
+          service_type: 'SMO / Social Media',
+          requirements: smoRows[0].requirements
+        };
+      }
+    }
+
+    if (!targetReq) {
       return NextResponse.json({ success: false, error: 'Request not found' }, { status: 404 });
     }
-    const targetReq = existingRows[0];
     const targetClientId = targetReq.clientId;
     const targetServiceType = targetReq.service_type || 'Service Request';
 
@@ -538,6 +609,13 @@ export async function DELETE(request) {
 
     // 6. Delete from service_requests
     const [result] = await db.query('DELETE FROM service_requests WHERE id = ?', [id]);
+
+    // 6b. Delete from client_smo_requests
+    try {
+      await db.query('DELETE FROM client_smo_requests WHERE id = ?', [id]);
+    } catch (smoErr) {
+      console.warn('Error deleting from client_smo_requests:', smoErr);
+    }
 
     // 7. Emit real-time socket event so active client panel sessions instantly delete it and show message
     try {
