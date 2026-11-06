@@ -1288,7 +1288,7 @@ export default function AttendanceTab({ user, mode }) {
                             fontWeight: 600,
                             letterSpacing: "0.3px"
                           }}>
-                            ⚠️ Auto 9:00 PM
+                             9:00 PM
                           </div>
                         )}
                         {r.punchOutLatitude && (
