@@ -539,6 +539,92 @@ export async function PUT(req) {
       }
     }
 
+    // 4c. Reject Request by Admin
+    if (action === 'reject_request' || action === 'reject') {
+      const { rejection_notes, reason } = data;
+      const note = (rejection_notes || reason || 'Request rejected by Admin').trim();
+      if (!id) return NextResponse.json({ success: false, error: 'Request ID required.' }, { status: 400 });
+
+      try {
+        await db.query(`ALTER TABLE client_smo_requests ADD COLUMN revision_notes TEXT DEFAULT NULL`);
+      } catch (e) {}
+      try {
+        await db.query(`ALTER TABLE service_requests ADD COLUMN revision_notes TEXT DEFAULT NULL`);
+      } catch (e) {}
+      try {
+        await db.query(`ALTER TABLE tasks ADD COLUMN revision_notes TEXT DEFAULT NULL`);
+      } catch (e) {}
+
+      await db.execute(`
+        UPDATE client_smo_requests 
+        SET status = 'Rejected',
+            revision_notes = ?
+        WHERE id = ?
+      `, [note, id]);
+
+      try {
+        await db.execute(`
+          UPDATE service_requests 
+          SET status = 'Rejected',
+              revision_notes = ?
+          WHERE id = ?
+        `, [note, id]);
+      } catch (e) {}
+
+      try {
+        await db.execute(`
+          UPDATE tasks 
+          SET status = 'Cancelled',
+              revision_notes = ?
+          WHERE project_id = ?
+        `, [note, id]);
+      } catch (e) {}
+
+      // Notify TL, Designer, and Client
+      try {
+        const [infoRows] = await db.query(`
+          SELECT r.client_id, sr.assigned_tl_id, t.assignedTo as designer_id, c.name as client_name
+          FROM client_smo_requests r
+          LEFT JOIN service_requests sr ON r.id COLLATE utf8mb4_unicode_ci = sr.id COLLATE utf8mb4_unicode_ci
+          LEFT JOIN tasks t ON r.id COLLATE utf8mb4_unicode_ci = t.project_id COLLATE utf8mb4_unicode_ci
+          LEFT JOIN employees c ON r.client_id COLLATE utf8mb4_unicode_ci = c.id COLLATE utf8mb4_unicode_ci
+          WHERE r.id = ?
+        `, [id]);
+
+        if (infoRows.length > 0) {
+          const info = infoRows[0];
+          if (info.client_id) {
+            await sendNotification(
+              info.client_id,
+              '❌ Request Rejected by Admin',
+              `Your SMO request was rejected by Admin. Reason: ${note.slice(0, 120)}`,
+              '/portal/client/smo'
+            );
+          }
+          if (info.assigned_tl_id) {
+            await sendNotification(
+              info.assigned_tl_id,
+              '❌ Request Rejected by Admin',
+              `SMO Request #${id} was rejected by Admin. Reason: ${note.slice(0, 120)}`,
+              '/portal/leader/client-requests'
+            );
+          }
+          if (info.designer_id) {
+            await sendNotification(
+              info.designer_id,
+              '❌ Task Cancelled / Rejected',
+              `Task for request #${id} was cancelled. Reason: ${note.slice(0, 120)}`,
+              '/employee-dashboard/tasks'
+            );
+          }
+        }
+      } catch (notifErr) {
+        console.error('Failed to notify on SMO rejection:', notifErr);
+      }
+
+      return NextResponse.json({ success: true, message: 'Request has been rejected successfully.' });
+    }
+
     // 5. Default: Update assigned TL or general request status
     const { assigned_tl_id, status } = data;
     if (!id) return NextResponse.json({ success: false, error: 'Request ID required' }, { status: 400 });
@@ -608,6 +694,96 @@ export async function POST(req) {
     });
   } catch (error) {
     console.error('POST SMO Request Error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const viewerRole = searchParams.get('viewerRole') || req.headers.get('x-user-role');
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Request ID is required' }, { status: 400 });
+    }
+
+    const normalizedRole = (viewerRole || '').trim().toLowerCase();
+    const isAdmin = !viewerRole || ['admin', 'management', 'superadmin'].includes(normalizedRole);
+
+    if (!isAdmin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Only admins can delete requests' }, { status: 403 });
+    }
+
+    const db = await getDbConnection();
+
+    // Fetch details before deleting
+    let clientId = null;
+    let requirements = '';
+    const [smoRows] = await db.query('SELECT * FROM client_smo_requests WHERE id = ?', [id]);
+    if (smoRows.length > 0) {
+      clientId = smoRows[0].client_id;
+      requirements = smoRows[0].requirements || '';
+    } else {
+      const [srRows] = await db.query('SELECT * FROM service_requests WHERE id = ?', [id]);
+      if (srRows.length > 0) {
+        clientId = srRows[0].clientId;
+        requirements = srRows[0].requirements || '';
+      }
+    }
+
+    // Record deletion for client transparency
+    if (clientId) {
+      try {
+        await db.query(`
+          CREATE TABLE IF NOT EXISTS service_request_deletions (
+            id VARCHAR(100) PRIMARY KEY,
+            request_id VARCHAR(100) NOT NULL,
+            client_id VARCHAR(100) NOT NULL,
+            service_type VARCHAR(255),
+            requirements TEXT,
+            deleted_by VARCHAR(100) DEFAULT 'Admin',
+            deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            dismissed_by_client TINYINT(1) DEFAULT 0
+          )
+        `);
+        const delId = 'del_' + Date.now() + Math.random().toString(36).substring(2, 7);
+        await db.query(
+          `INSERT INTO service_request_deletions (id, request_id, client_id, service_type, requirements, deleted_by, deleted_at, dismissed_by_client)
+           VALUES (?, ?, ?, 'SMO / Social Media', ?, 'Admin', NOW(), 0)`,
+          [delId, id, clientId, requirements]
+        );
+      } catch (logErr) {
+        console.warn('Error recording deletion notice:', logErr);
+      }
+
+      // Notify client
+      try {
+        await sendNotification(
+          clientId,
+          'Service Request Removed',
+          'Your SMO request was removed by Admin.',
+          '/portal/client/smo'
+        );
+      } catch (nErr) {}
+    }
+
+    // Clean up tasks
+    try {
+      await db.query('DELETE FROM tasks WHERE project_id = ?', [id]);
+    } catch (tErr) {}
+
+    // Clean up service_requests
+    try {
+      await db.query('DELETE FROM service_requests WHERE id = ?', [id]);
+    } catch (srErr) {}
+
+    // Clean up client_smo_requests
+    await db.query('DELETE FROM client_smo_requests WHERE id = ?', [id]);
+
+    return NextResponse.json({ success: true, message: 'Request permanently deleted.' });
+  } catch (error) {
+    console.error('DELETE SMO Request Error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
