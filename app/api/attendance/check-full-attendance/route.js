@@ -6,7 +6,8 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'Morning';
     const force = searchParams.get('force') === 'true';
-    const result = await checkAndSendSummaryReport(null, period, force);
+    const date = searchParams.get('date') || null;
+    const result = await checkAndSendSummaryReport(null, period, force, date);
     return NextResponse.json(result);
   } catch (error) {
     console.error('API Check Attendance GET Error:', error);
@@ -16,15 +17,19 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    let period = 'Morning';
-    let force = false;
+    const { searchParams } = new URL(request.url);
+    let period = searchParams.get('period') || 'Morning';
+    let force = searchParams.get('force') === 'true';
+    let date = searchParams.get('date') || null;
+
     try {
       const body = await request.json();
       if (body.period) period = body.period;
-      if (body.force) force = true;
+      if (body.force !== undefined) force = Boolean(body.force);
+      if (body.date) date = body.date;
     } catch (e) { }
 
-    const result = await checkAndSendSummaryReport(null, period, force);
+    const result = await checkAndSendSummaryReport(null, period, force, date);
     return NextResponse.json(result);
   } catch (error) {
     console.error('API Check Attendance POST Error:', error);

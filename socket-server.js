@@ -64,15 +64,15 @@ async function triggerAutoClose() {
 }
 
 // Trigger Attendance Check Email via the Next.js API
-async function triggerAttendanceCheck(period) {
+async function triggerAttendanceCheck(period, force = false) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const secret = process.env.SOCKET_INTERNAL_SECRET || 'devicedesk_socket_secret_2026';
-  const body = JSON.stringify({ period, secret });
+  const body = JSON.stringify({ period, secret, force });
 
-  const url = new URL(`/api/attendance/check-full-attendance?period=${period}`, appUrl);
+  const url = new URL(`/api/attendance/check-full-attendance?period=${period}&force=${force ? 'true' : 'false'}`, appUrl);
   const lib = url.protocol === 'https:' ? https : http;
 
-  console.log(`[Cron] Triggering ${period} Attendance Check...`);
+  console.log(`[Cron] Triggering ${period} Attendance Check (force=${force})...`);
   return new Promise((resolve) => {
     const req = lib.request(
       {
@@ -346,7 +346,7 @@ cron.schedule('0 15 * * *', () => {
 // Start the Cron Job for Evening Attendance & 9:00 PM Auto-Close Report (9:30 PM IST daily)
 cron.schedule('30 21 * * *', () => {
   console.log(`[Cron] Executing daily 9:30 PM IST Evening Attendance & Auto-Close Report...`);
-  triggerAttendanceCheck('Evening');
+  triggerAttendanceCheck('Evening', true);
 }, {
   scheduled: true,
   timezone: "Asia/Kolkata"
