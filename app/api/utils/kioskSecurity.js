@@ -1,9 +1,10 @@
 import crypto from 'crypto';
 
 export function getClientIp(request) {
+  const cfIp = request.headers.get('cf-connecting-ip');
   const forwarded = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');
-  let ip = (forwarded ? forwarded.split(',')[0].trim() : realIp) || '127.0.0.1';
+  let ip = cfIp || (forwarded ? forwarded.split(',')[0].trim() : realIp) || '127.0.0.1';
   if (ip.startsWith('::ffff:')) {
     ip = ip.replace('::ffff:', '');
   }
@@ -25,14 +26,22 @@ export function isAllowedOfficeIp(ip) {
     return true;
   }
 
-  const officeIpsEnv = process.env.KIOSK_OFFICE_IPS || process.env.OFFICE_IPS || '';
-  if (!officeIpsEnv.trim()) {
-    // If no specific external IPs are configured in .env, allow by default
+  const officeIpsEnv = process.env.KIOSK_OFFICE_IPS !== undefined
+    ? process.env.KIOSK_OFFICE_IPS
+    : (process.env.OFFICE_IPS || '');
+
+  // If set to '*' or 'any' or empty/none, allow all IPs (e.g. secured by Kiosk PIN)
+  const trimmed = officeIpsEnv.trim().toLowerCase();
+  if (!trimmed || trimmed === '*' || trimmed === 'any' || trimmed === 'all' || trimmed === 'none') {
     return true;
   }
 
   const allowedIps = officeIpsEnv.split(',').map(s => s.trim()).filter(Boolean);
-  return allowedIps.includes(ip);
+  return allowedIps.some(allowed => {
+    if (allowed === '*' || allowed.toLowerCase() === 'any') return true;
+    if (allowed.endsWith('*')) return ip.startsWith(allowed.slice(0, -1));
+    return allowed === ip;
+  });
 }
 
 export function generateKioskToken() {

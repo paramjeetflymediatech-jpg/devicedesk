@@ -9,9 +9,12 @@ import {
 // GET: Check client IP status and verify if current token is valid
 export async function GET(request) {
   const clientIp = getClientIp(request);
-  const officeIpsEnv = process.env.KIOSK_OFFICE_IPS || process.env.OFFICE_IPS || '';
+  const officeIpsEnv = process.env.KIOSK_OFFICE_IPS !== undefined
+    ? process.env.KIOSK_OFFICE_IPS
+    : (process.env.OFFICE_IPS || '');
+  const trimmed = officeIpsEnv.trim().toLowerCase();
+  const hasIpConfig = Boolean(trimmed && trimmed !== '*' && trimmed !== 'any' && trimmed !== 'all' && trimmed !== 'none');
   const isOfficeIp = isAllowedOfficeIp(clientIp);
-  const hasIpConfig = Boolean(officeIpsEnv.trim());
 
   const token = request.headers.get('x-kiosk-token') || new URL(request.url).searchParams.get('token');
   const isUnlocked = verifyKioskToken(token);
@@ -33,8 +36,13 @@ export async function POST(request) {
     const isOfficeIp = isAllowedOfficeIp(clientIp);
 
     // If external office IP restriction is active and client IP doesn't match
-    const officeIpsEnv = process.env.KIOSK_OFFICE_IPS || process.env.OFFICE_IPS || '';
-    if (officeIpsEnv.trim() && !isOfficeIp) {
+    const officeIpsEnv = process.env.KIOSK_OFFICE_IPS !== undefined
+      ? process.env.KIOSK_OFFICE_IPS
+      : (process.env.OFFICE_IPS || '');
+    const trimmed = officeIpsEnv.trim().toLowerCase();
+    const hasIpConfig = Boolean(trimmed && trimmed !== '*' && trimmed !== 'any' && trimmed !== 'all' && trimmed !== 'none');
+
+    if (hasIpConfig && !isOfficeIp) {
       return NextResponse.json({
         success: false,
         errorType: 'IP_RESTRICTED',

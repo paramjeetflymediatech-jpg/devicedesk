@@ -132,7 +132,7 @@ export async function POST(request) {
     return NextResponse.json({ success: false, message: 'employeeId and action are required' }, { status: 400 });
   }
 
-  const ipAddressRaw = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
+  const ipAddressRaw = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
   let clientIp = ipAddressRaw.split(',')[0].trim();
   
   // Normalize IPv4-mapped IPv6 addresses
@@ -145,7 +145,7 @@ export async function POST(request) {
   
   // Also check common private network prefixes in case LAN uses a different subnet
   const isPrivateSubnet = clientIp.startsWith('192.168.') || clientIp.startsWith('10.') || clientIp.startsWith('172.');
-  const isOfficeIp = officeIps.includes(clientIp) || isPrivateSubnet;
+  const isOfficeIp = officeIps.some(allowed => allowed === '*' || allowed.toLowerCase() === 'any' || allowed === clientIp || (allowed.endsWith('*') && clientIp.startsWith(allowed.slice(0, -1)))) || isPrivateSubnet;
 
   // Location validation for punch in
   if (action === 'PUNCH_IN') {
