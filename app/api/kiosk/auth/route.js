@@ -6,6 +6,8 @@ import {
   verifyKioskToken
 } from '../../utils/kioskSecurity.js';
 
+export const dynamic = 'force-dynamic';
+
 // GET: Check client IP status and verify if current token is valid
 export async function GET(request) {
   const clientIp = getClientIp(request);
