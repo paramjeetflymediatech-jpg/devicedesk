@@ -136,10 +136,79 @@ export function extractSecurityContext(request) {
   };
 }
 
+/**
+ * Extracts Chrome/Browser Profile and Google Identity metadata from cookies or headers.
+ */
+export function extractBrowserProfile(request) {
+  if (!request) return null;
+
+  try {
+    let rawCookieValue = null;
+
+    // 1. Try reading devicedesk_browser_profile from request cookies
+    if (request.cookies) {
+      if (typeof request.cookies.get === 'function') {
+        const c = request.cookies.get('devicedesk_browser_profile');
+        rawCookieValue = c?.value || null;
+      } else if (typeof request.cookies === 'object') {
+        rawCookieValue = request.cookies['devicedesk_browser_profile'] || null;
+      }
+    }
+
+    // 2. Check Cookie header fallback
+    if (!rawCookieValue && request.headers) {
+      let cookieHeader = '';
+      if (typeof request.headers.get === 'function') {
+        cookieHeader = request.headers.get('cookie') || '';
+      } else if (typeof request.headers.cookie === 'string') {
+        cookieHeader = request.headers.cookie;
+      } else if (typeof request.headers['cookie'] === 'string') {
+        cookieHeader = request.headers['cookie'];
+      }
+
+      if (cookieHeader) {
+        const match = cookieHeader.match(/(?:^|;\s*)devicedesk_browser_profile=([^;]*)/);
+        if (match) {
+          rawCookieValue = decodeURIComponent(match[1]);
+        }
+      }
+    }
+
+    if (rawCookieValue) {
+      try {
+        const decoded = typeof rawCookieValue === 'string' && rawCookieValue.startsWith('%')
+          ? decodeURIComponent(rawCookieValue)
+          : rawCookieValue;
+        const parsed = typeof decoded === 'string' ? JSON.parse(decoded) : decoded;
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      } catch (e) {}
+    }
+
+    // 3. Fallback to custom x-browser-profile-* headers if available
+    if (request.headers) {
+      const getH = (k) => typeof request.headers.get === 'function' ? request.headers.get(k) : (request.headers[k] || request.headers[k.toLowerCase()]);
+      const profileId = getH('x-browser-profile-id');
+      const googleEmail = getH('x-google-email');
+      const googleName = getH('x-google-name');
+      if (profileId || googleEmail) {
+        return {
+          profileId: profileId || null,
+          googleEmail: googleEmail || null,
+          googleName: googleName || null
+        };
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
+
 let tableEnsured = false;
 
 /**
- * Ensures the security_audit_logs table exists in the database with target user columns.
+ * Ensures the security_audit_logs table exists in the database with target user & browser profile columns.
  */
 export async function ensureSecurityLogsTable(db) {
   if (tableEnsured) return;
@@ -153,6 +222,11 @@ export async function ensureSecurityLogsTable(db) {
         user_role VARCHAR(50) NULL,
         target_user_id VARCHAR(100) NULL,
         target_user_name VARCHAR(150) NULL,
+        browser_profile_id VARCHAR(150) NULL,
+        google_email VARCHAR(150) NULL,
+        google_name VARCHAR(150) NULL,
+        google_sub VARCHAR(100) NULL,
+        browser_profile_data TEXT NULL,
         action VARCHAR(100) NOT NULL,
         category VARCHAR(50) NOT NULL DEFAULT 'SECURITY',
         status VARCHAR(50) NOT NULL DEFAULT 'INFO',
@@ -172,11 +246,13 @@ export async function ensureSecurityLogsTable(db) {
         INDEX idx_ip (ip_address),
         INDEX idx_user_id (user_id),
         INDEX idx_target_user_id (target_user_id),
+        INDEX idx_browser_profile_id (browser_profile_id),
+        INDEX idx_google_email (google_email),
         INDEX idx_created_at (created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
-    // Dynamically add columns if table already existed prior to target user tracking
+    // Dynamically add columns if table already existed prior to migration
     try {
       await db.query(`ALTER TABLE security_audit_logs ADD COLUMN target_user_id VARCHAR(100) NULL`);
     } catch (e) {}
@@ -184,7 +260,28 @@ export async function ensureSecurityLogsTable(db) {
       await db.query(`ALTER TABLE security_audit_logs ADD COLUMN target_user_name VARCHAR(150) NULL`);
     } catch (e) {}
     try {
+      await db.query(`ALTER TABLE security_audit_logs ADD COLUMN browser_profile_id VARCHAR(150) NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE security_audit_logs ADD COLUMN google_email VARCHAR(150) NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE security_audit_logs ADD COLUMN google_name VARCHAR(150) NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE security_audit_logs ADD COLUMN google_sub VARCHAR(100) NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE security_audit_logs ADD COLUMN browser_profile_data TEXT NULL`);
+    } catch (e) {}
+    try {
       await db.query(`ALTER TABLE security_audit_logs ADD INDEX idx_target_user_id (target_user_id)`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE security_audit_logs ADD INDEX idx_browser_profile_id (browser_profile_id)`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE security_audit_logs ADD INDEX idx_google_email (google_email)`);
     } catch (e) {}
 
     tableEnsured = true;
@@ -203,6 +300,7 @@ export async function ensureSecurityLogsTable(db) {
  * @param {string} [params.status='INFO'] - 'SUCCESS' | 'FAILURE' | 'WARNING' | 'BLOCKED' | 'CRITICAL'
  * @param {Object} [params.user] - The logged-in browser profile user ({ id, name, email, role })
  * @param {Object} [params.targetUser] - The employee for whom the request was submitted ({ id, name, email })
+ * @param {Object} [params.browserProfile] - Active Chrome browser profile & Google account metadata ({ profileId, googleEmail, googleName, googleSub, ... })
  * @param {string} [params.identifier] - Input identifier (email, username, ID)
  * @param {Object|string} [params.details] - Arbitrary additional metadata or reasons
  * @param {string} [params.ip] - IP address override if request not available
@@ -214,6 +312,7 @@ export async function logSecurityEvent({
   status = 'INFO',
   user = null,
   targetUser = null,
+  browserProfile = null,
   identifier = null,
   details = null,
   ip = null
@@ -221,6 +320,14 @@ export async function logSecurityEvent({
   try {
     const ctx = extractSecurityContext(request);
     const clientIp = ip || ctx.ip;
+
+    // Resolve Browser Profile & Google Identity from param OR request cookies/headers
+    const activeProfile = browserProfile || extractBrowserProfile(request) || null;
+    const browserProfileId = activeProfile?.profileId || null;
+    const googleEmail = activeProfile?.googleEmail || null;
+    const googleName = activeProfile?.googleName || null;
+    const googleSub = activeProfile?.googleSub || null;
+    const browserProfileData = activeProfile ? (typeof activeProfile === 'string' ? activeProfile : JSON.stringify(activeProfile)) : null;
 
     // If user is not explicitly passed, attempt to resolve from browser request cookies / headers
     let resolvedUser = user;
@@ -233,7 +340,7 @@ export async function logSecurityEvent({
     const userId = resolvedUser?.id || null;
     const userName = resolvedUser?.name || null;
     const userRole = resolvedUser?.role || resolvedUser?.dbRole || null;
-    const resolvedIdentifier = identifier || resolvedUser?.email || resolvedUser?.name || resolvedUser?.id || null;
+    const resolvedIdentifier = identifier || resolvedUser?.email || resolvedUser?.name || resolvedUser?.id || googleEmail || null;
 
     const targetUserId = targetUser?.id || targetUser?.employeeId || null;
     const targetUserName = targetUser?.name || targetUser?.employeeName || null;
@@ -251,6 +358,13 @@ export async function logSecurityEvent({
         browserUser: resolvedUser ? { id: resolvedUser.id, name: resolvedUser.name, role: resolvedUser.role, email: resolvedUser.email } : 'Anonymous Browser',
         targetEmployee: targetUserId ? { id: targetUserId, name: targetUserName } : null,
         isProxySubmission,
+        chromeProfile: activeProfile ? {
+          profileId: browserProfileId,
+          googleEmail,
+          googleName,
+          googleSub,
+          isChrome: activeProfile.isChrome ?? true
+        } : null,
         clientBrowser: ctx.browser,
         clientOS: ctx.os,
         clientDevice: ctx.device,
@@ -276,8 +390,8 @@ export async function logSecurityEvent({
 
     await db.execute(
       `INSERT INTO security_audit_logs 
-        (user_id, identifier, user_name, user_role, target_user_id, target_user_name, action, category, status, ip_address, country, browser, os, device, user_agent, path, method, details)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (user_id, identifier, user_name, user_role, target_user_id, target_user_name, browser_profile_id, google_email, google_name, google_sub, browser_profile_data, action, category, status, ip_address, country, browser, os, device, user_agent, path, method, details)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
         resolvedIdentifier,
@@ -285,6 +399,11 @@ export async function logSecurityEvent({
         userRole,
         targetUserId,
         targetUserName,
+        browserProfileId,
+        googleEmail,
+        googleName,
+        googleSub,
+        browserProfileData,
         action,
         category,
         status,
@@ -302,7 +421,7 @@ export async function logSecurityEvent({
 
     // Also output a structured security notice in server logs
     console.log(
-      `[SECURITY AUDIT] [${status}] [${category}] ${action} | Submitter: ${userName || resolvedIdentifier || 'Anonymous'} | Target: ${targetUserName || 'Self/None'} | IP: ${clientIp} (${ctx.browser} on ${ctx.os})`
+      `[SECURITY AUDIT] [${status}] [${category}] ${action} | Submitter: ${userName || resolvedIdentifier || 'Anonymous'} | Target: ${targetUserName || 'Self/None'} | ChromeProfile: ${browserProfileId || 'None'} | Google: ${googleEmail || 'None'} | IP: ${clientIp} (${ctx.browser} on ${ctx.os})`
     );
   } catch (err) {
     // Non-blocking: Logging failure should never crash the main application request

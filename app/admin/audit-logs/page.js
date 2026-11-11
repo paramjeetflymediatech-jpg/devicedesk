@@ -21,6 +21,7 @@ import {
   FiUser,
   FiChevronRight
 } from "react-icons/fi";
+import { FcGoogle } from "react-icons/fc";
 import Pagination from "../../components/Pagination";
 
 export default function AdminAuditLogsPage() {
@@ -35,6 +36,7 @@ export default function AdminAuditLogsPage() {
   const [selectedTimeframe, setSelectedTimeframe] = useState("all");
   const [selectedIpFilter, setSelectedIpFilter] = useState("");
   const [proxyOnly, setProxyOnly] = useState(false);
+  const [googleOnly, setGoogleOnly] = useState(false);
   const [securityPage, setSecurityPage] = useState(1);
   const [securityLimit, setSecurityLimit] = useState(25);
   const [securityPagination, setSecurityPagination] = useState({ total: 0, totalPages: 1 });
@@ -67,6 +69,7 @@ export default function AdminAuditLogsPage() {
       if (selectedIpFilter) params.set("ip", selectedIpFilter);
       if (securitySearch) params.set("search", securitySearch);
       if (proxyOnly) params.set("proxyOnly", "true");
+      if (googleOnly) params.set("googleOnly", "true");
 
       const res = await fetch(`/api/admin/security-logs?${params.toString()}`);
       const data = await res.json();
@@ -80,7 +83,7 @@ export default function AdminAuditLogsPage() {
     } finally {
       setLoadingSecurity(false);
     }
-  }, [securityPage, securityLimit, selectedCategory, selectedStatus, selectedTimeframe, selectedIpFilter, securitySearch, proxyOnly]);
+  }, [securityPage, securityLimit, selectedCategory, selectedStatus, selectedTimeframe, selectedIpFilter, securitySearch, proxyOnly, googleOnly]);
 
   // Fetch Submissions Logs
   const fetchSubmissionLogs = useCallback(async () => {
@@ -480,6 +483,24 @@ export default function AdminAuditLogsPage() {
                   <span>Proxy Only</span>
                 </button>
 
+                {/* Google / Chrome Profile Only Toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGoogleOnly(!googleOnly);
+                    setSecurityPage(1);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    googleOnly
+                      ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                      : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  }`}
+                  title="Filter events with an identified Chrome profile Google ID"
+                >
+                  <FcGoogle size={14} />
+                  <span>Google Profile {googleOnly ? "(Active)" : ""}</span>
+                </button>
+
                 {/* Clear Active IP filter */}
                 {selectedIpFilter && (
                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
@@ -631,14 +652,31 @@ export default function AdminAuditLogsPage() {
                           </td>
 
                           {/* Browser & Device */}
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-4 min-w-[190px]">
                             <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
-                              <FiMonitor size={13} className="text-slate-400" />
-                              <span>{log.browser || "Unknown"}</span>
+                              <FiMonitor size={13} className="text-slate-400 shrink-0" />
+                              <span className="truncate">{log.browser || "Unknown"}</span>
                             </div>
                             <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                               {log.os || "Unknown OS"} · {log.device || "Desktop"}
                             </div>
+
+                            {/* Google Chrome Profile Pill */}
+                            {log.google_email && (
+                              <div className="mt-1">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 max-w-[200px] truncate" title={`Google Account: ${log.google_email}`}>
+                                  <FcGoogle size={11} className="shrink-0" />
+                                  <span className="truncate">{log.google_email}</span>
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Chrome Profile Sandbox ID */}
+                            {log.browser_profile_id && (
+                              <div className="text-[10px] font-mono text-slate-400 dark:text-slate-500 mt-0.5" title={`Chrome Profile ID: ${log.browser_profile_id}`}>
+                                Prof: #{log.browser_profile_id.replace('chrome_prof_', '').slice(0, 12)}
+                              </div>
+                            )}
                           </td>
 
                           {/* Status */}
@@ -893,6 +931,89 @@ export default function AdminAuditLogsPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Chrome Profile & Google Identity Card */}
+              <div className="p-4 rounded-2xl border bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                      <FcGoogle size={16} />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                      Chrome Profile & Google Identity Forensics
+                    </span>
+                  </div>
+                  {activeDetailLog.google_email ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      <FcGoogle size={13} /> Linked Google Account
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                      No Google ID Attached
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                      Google Profile Account
+                    </span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white mt-1 block">
+                      {activeDetailLog.google_email || "Anonymous / Not specified"}
+                    </span>
+                    {activeDetailLog.google_name && (
+                      <div className="text-slate-600 dark:text-slate-300 mt-1">
+                        Display Name: <span className="font-semibold">{activeDetailLog.google_name}</span>
+                      </div>
+                    )}
+                    {activeDetailLog.google_sub && (
+                      <div className="text-[11px] font-mono text-slate-400 mt-0.5">
+                        Google Sub ID: {activeDetailLog.google_sub}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                      Chrome Profile Sandbox ID
+                    </span>
+                    <span className="text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400 mt-1 block break-all">
+                      {activeDetailLog.browser_profile_id || "Unregistered Sandbox"}
+                    </span>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                      Unique persistent UUID tied to this Chrome profile's storage sandbox
+                    </div>
+                  </div>
+                </div>
+
+                {/* Extended Client Hints & Environment */}
+                {(() => {
+                  try {
+                    const parsed = activeDetailLog.browser_profile_data ? JSON.parse(activeDetailLog.browser_profile_data) : null;
+                    if (!parsed) return null;
+                    return (
+                      <div className="mt-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px]">
+                        <span className="font-bold uppercase tracking-wider text-slate-400 block mb-2">
+                          High-Entropy Chrome Profile & Client Environment
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-slate-600 dark:text-slate-300">
+                          <div>Chrome: <strong className="text-slate-900 dark:text-white">{parsed.chromeVersion || "Default"}</strong></div>
+                          <div>Arch: <strong className="text-slate-900 dark:text-white">{parsed.architecture ? `${parsed.architecture} (${parsed.bitness || '64'}-bit)` : "Standard"}</strong></div>
+                          <div>Screen: <strong className="text-slate-900 dark:text-white">{parsed.screen || "Standard"}</strong></div>
+                          <div>Timezone: <strong className="text-slate-900 dark:text-white">{parsed.timezone || "Local"}</strong></div>
+                          <div>Language: <strong className="text-slate-900 dark:text-white">{parsed.language || "en"}</strong></div>
+                          <div>RAM: <strong className="text-slate-900 dark:text-white">{parsed.deviceMemory ? `${parsed.deviceMemory} GB` : "Standard"}</strong></div>
+                          <div>CPU Cores: <strong className="text-slate-900 dark:text-white">{parsed.hardwareConcurrency ? `${parsed.hardwareConcurrency} Cores` : "Standard"}</strong></div>
+                          <div>Profile Type: <strong className="text-slate-900 dark:text-white">{parsed.isChrome ? "Google Chrome" : "Web"}</strong></div>
+                        </div>
+                      </div>
+                    );
+                  } catch (e) {
+                    return null;
+                  }
+                })()}
               </div>
 
               {/* Top Details Grid */}

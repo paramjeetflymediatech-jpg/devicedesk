@@ -356,6 +356,11 @@ async function initializeDatabase(db) {
       user_role VARCHAR(50) NULL,
       target_user_id VARCHAR(100) NULL,
       target_user_name VARCHAR(150) NULL,
+      browser_profile_id VARCHAR(150) NULL,
+      google_email VARCHAR(150) NULL,
+      google_name VARCHAR(150) NULL,
+      google_sub VARCHAR(100) NULL,
+      browser_profile_data TEXT NULL,
       action VARCHAR(100) NOT NULL,
       category VARCHAR(50) NOT NULL DEFAULT 'SECURITY',
       status VARCHAR(50) NOT NULL DEFAULT 'INFO',
@@ -375,6 +380,8 @@ async function initializeDatabase(db) {
       INDEX idx_ip (ip_address),
       INDEX idx_user_id (user_id),
       INDEX idx_target_user_id (target_user_id),
+      INDEX idx_browser_profile_id (browser_profile_id),
+      INDEX idx_google_email (google_email),
       INDEX idx_created_at (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
@@ -386,7 +393,41 @@ async function initializeDatabase(db) {
     await db.query(`ALTER TABLE security_audit_logs ADD COLUMN target_user_name VARCHAR(150) NULL`);
   } catch (e) {}
   try {
+    await db.query(`ALTER TABLE security_audit_logs ADD COLUMN browser_profile_id VARCHAR(150) NULL`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE security_audit_logs ADD COLUMN google_email VARCHAR(150) NULL`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE security_audit_logs ADD COLUMN google_name VARCHAR(150) NULL`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE security_audit_logs ADD COLUMN google_sub VARCHAR(100) NULL`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE security_audit_logs ADD COLUMN browser_profile_data TEXT NULL`);
+  } catch (e) {}
+  try {
     await db.query(`ALTER TABLE security_audit_logs ADD INDEX idx_target_user_id (target_user_id)`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE security_audit_logs ADD INDEX idx_browser_profile_id (browser_profile_id)`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE security_audit_logs ADD INDEX idx_google_email (google_email)`);
+  } catch (e) {}
+
+  try {
+    await db.query(`ALTER TABLE employees ADD COLUMN google_email VARCHAR(150) NULL`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE employees ADD COLUMN google_sub VARCHAR(100) NULL`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE employees ADD COLUMN chrome_profile_id VARCHAR(150) NULL`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE employees ADD COLUMN last_browser_profile TEXT NULL`);
   } catch (e) {}
 
   await db.execute(`

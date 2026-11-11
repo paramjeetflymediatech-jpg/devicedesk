@@ -6,8 +6,8 @@ import { logSecurityEvent } from '../utils/securityLogger.js';
 
 export async function POST(request) {
   try {
-    const { identifier, password, deviceId, deviceModel } = await request.json();
-    console.log(`[API /login] Login attempt for identifier: "${identifier}" from device: "${deviceId || 'web/unknown'}" at ${new Date().toISOString()}`);
+    const { identifier, password, deviceId, deviceModel, browserProfile } = await request.json();
+    console.log(`[API /login] Login attempt for identifier: "${identifier}" from device: "${deviceId || 'web/unknown'}" ChromeProfile: "${browserProfile?.profileId || 'N/A'}" GoogleEmail: "${browserProfile?.googleEmail || 'N/A'}" at ${new Date().toISOString()}`);
 
     if (!identifier || !password) {
       await logSecurityEvent({
@@ -16,6 +16,7 @@ export async function POST(request) {
         category: 'AUTH',
         status: 'FAILURE',
         identifier: identifier || 'Unknown',
+        browserProfile,
         details: { reason: 'Email/name or password was missing in request payload.' }
       });
       return NextResponse.json({ success: false, message: 'Email/name and password are required.' }, { status: 400 });
@@ -39,6 +40,7 @@ export async function POST(request) {
         category: 'AUTH',
         status: 'FAILURE',
         identifier,
+        browserProfile,
         details: { reason: 'Account not found with this identifier.', deviceId: deviceId || null }
       });
       return NextResponse.json({ success: false, message: '⚠️ Account not found or incorrect password.' }, { status: 401 });
@@ -54,6 +56,7 @@ export async function POST(request) {
         status: 'BLOCKED',
         user: emp,
         identifier,
+        browserProfile,
         details: { reason: 'Account is inactive. Contact Administrator or HR.', status: emp.status }
       });
       return NextResponse.json({
@@ -73,6 +76,7 @@ export async function POST(request) {
         status: 'BLOCKED',
         user: emp,
         identifier,
+        browserProfile,
         details: { reason: 'Account paused due to suspicious activity.', status: emp.status }
       });
       return NextResponse.json({
@@ -92,6 +96,7 @@ export async function POST(request) {
         status: 'BLOCKED',
         user: emp,
         identifier,
+        browserProfile,
         details: { reason: `Account is ${statusLower}. Contact Admin/IT Support.`, status: emp.status }
       });
       return NextResponse.json({
@@ -136,6 +141,7 @@ export async function POST(request) {
         status: 'FAILURE',
         user: emp,
         identifier,
+        browserProfile,
         details: { reason: 'Incorrect password provided.', deviceId: deviceId || null }
       });
       return NextResponse.json({ success: false, message: '⚠️ Account not found or incorrect password.' }, { status: 401 });
@@ -149,6 +155,30 @@ export async function POST(request) {
         await db.execute('UPDATE employees SET password = ? WHERE id = ?', [newHash, emp.id]);
       } catch (migrateErr) {
         console.warn('Auto-hash password migration failed:', migrateErr);
+      }
+    }
+
+    // Save/link Chrome Profile & Google Identity to Employee Record
+    if (browserProfile && (browserProfile.googleEmail || browserProfile.profileId)) {
+      try {
+        const serializedProfile = typeof browserProfile === 'string' ? browserProfile : JSON.stringify(browserProfile);
+        await db.execute(
+          `UPDATE employees 
+           SET google_email = COALESCE(?, google_email),
+               google_sub = COALESCE(?, google_sub),
+               chrome_profile_id = COALESCE(?, chrome_profile_id),
+               last_browser_profile = ?
+           WHERE id = ?`,
+          [
+            browserProfile.googleEmail || null,
+            browserProfile.googleSub || null,
+            browserProfile.profileId || null,
+            serializedProfile,
+            emp.id
+          ]
+        );
+      } catch (profErr) {
+        console.warn('Failed to update employee browser profile link:', profErr.message);
       }
     }
 
@@ -192,6 +222,7 @@ export async function POST(request) {
         status: 'SUCCESS',
         user: emp,
         identifier,
+        browserProfile,
         details: { reason: 'HR/DNS 2FA OTP verification required before granting session access.' }
       });
       return NextResponse.json({
@@ -219,6 +250,7 @@ export async function POST(request) {
       status: 'SUCCESS',
       user: emp,
       identifier,
+      browserProfile,
       details: {
         role: emp.role,
         department: emp.department,

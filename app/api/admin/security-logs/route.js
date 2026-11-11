@@ -27,6 +27,7 @@ export async function GET(request) {
     const ip = (searchParams.get('ip') || '').trim();
     const timeframe = (searchParams.get('timeframe') || 'all').trim();
     const proxyOnly = searchParams.get('proxyOnly') === 'true';
+    const googleOnly = searchParams.get('googleOnly') === 'true';
 
     const db = await getDbConnection();
     await ensureSecurityLogsTable(db);
@@ -58,6 +59,10 @@ export async function GET(request) {
       conditions.push('target_user_id IS NOT NULL AND user_id IS NOT NULL AND user_id != target_user_id');
     }
 
+    if (googleOnly) {
+      conditions.push("google_email IS NOT NULL AND google_email != ''");
+    }
+
     if (timeframe === 'today') {
       conditions.push('created_at >= CURDATE()');
     } else if (timeframe === '7d') {
@@ -67,9 +72,9 @@ export async function GET(request) {
     }
 
     if (search) {
-      conditions.push('(ip_address LIKE ? OR identifier LIKE ? OR user_name LIKE ? OR target_user_name LIKE ? OR target_user_id LIKE ? OR action LIKE ? OR details LIKE ?)');
+      conditions.push('(ip_address LIKE ? OR identifier LIKE ? OR user_name LIKE ? OR target_user_name LIKE ? OR target_user_id LIKE ? OR google_email LIKE ? OR google_name LIKE ? OR browser_profile_id LIKE ? OR action LIKE ? OR details LIKE ?)');
       const wild = `%${search}%`;
-      params.push(wild, wild, wild, wild, wild, wild, wild);
+      params.push(wild, wild, wild, wild, wild, wild, wild, wild, wild, wild);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

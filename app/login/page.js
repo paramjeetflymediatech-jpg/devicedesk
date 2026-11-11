@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import { useAuth } from "../auth/AuthContext";
 import ThemeToggle from "../components/ThemeToggle.js";
 import Logo from "../components/Logo.js";
 import { FiEye, FiEyeOff } from "react-icons/fi";
+import { FcGoogle } from "react-icons/fc";
+import { getBrowserProfileData, saveGoogleProfile, initGoogleOneTap } from "../utils/browserProfile.js";
 
 const isITDeptOrRole = (dbRoleLower, deptLower) => {
   const isDept =
@@ -50,6 +52,11 @@ export default function LoginPage() {
   const [showModal, setShowModal] = useState(false);
   const [showQR, setShowQR] = useState(false);
   
+  // Chrome Profile & Google Identity state
+  const [browserProfile, setBrowserProfile] = useState(null);
+  const [googleAccount, setGoogleAccount] = useState("");
+  const [isEditingGoogle, setIsEditingGoogle] = useState(false);
+
   // OTP States
   const [requiresOtp, setRequiresOtp] = useState(false);
   const [otpUserId, setOtpUserId] = useState(null);
@@ -58,7 +65,85 @@ export default function LoginPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const [sendingOtp, setSendingOtp] = useState(false);
   
-  const isSubmitting = React.useRef(false);
+  const isSubmitting = useRef(false);
+
+  const redirectUser = (usr) => {
+    const dbRoleLower = (usr?.dbRole || '').toLowerCase();
+    const emailLower = (usr?.email || '').toLowerCase();
+    const deptLower = (usr?.department || '').toLowerCase();
+
+    const isRootAdmin = 
+      dbRoleLower === 'admin' ||
+      dbRoleLower === 'management' ||
+      dbRoleLower === 'executive' ||
+      dbRoleLower === 'superadmin' ||
+      emailLower === 'admin@yopmail.com' ||
+      emailLower === 'pravi@yopmail.com' ||
+      emailLower === 'admin@devicedesk.com';
+
+    const isIT = isITDeptOrRole(dbRoleLower, deptLower);
+
+    if (emailLower === 'developer@devicedesk.com') {
+      router.push('/developer/dashboard');
+    } else if (dbRoleLower === 'client') {
+      router.push('/portal/client');
+    } else if (dbRoleLower === 'candidate') {
+      router.push('/candidate-dashboard');
+    } else if (dbRoleLower === 'marketing') {
+      router.push('/portal/marketing');
+    } else if (dbRoleLower === 'tl' || dbRoleLower === 'team lead' || dbRoleLower === 'team leader' || dbRoleLower === 'team_lead') {
+      router.push('/portal/leader');
+    } else if (isRootAdmin) {
+      router.push('/');
+    } else if (isIT) {
+      router.push('/?tab=dashboard');
+    } else {
+      router.push('/employee-dashboard');
+    }
+  };
+
+  useEffect(() => {
+    getBrowserProfileData().then((prof) => {
+      setBrowserProfile(prof);
+      if (prof?.googleEmail) {
+        setGoogleAccount(prof.googleEmail);
+      }
+    });
+
+    initGoogleOneTap({
+      onGoogleUser: async ({ credential, profile }) => {
+        if (profile?.email) {
+          setGoogleAccount(profile.email);
+        }
+        try {
+          setLoading(true);
+          const currentProf = await getBrowserProfileData();
+          const res = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential, googleProfile: profile, browserProfile: currentProf })
+          });
+          const data = await res.json();
+          if (data.success) {
+            login(data.user);
+            redirectUser(data.user);
+          } else if (data.unlinked) {
+            Swal.fire({
+              title: 'Google Profile Detected',
+              text: data.message,
+              icon: 'info',
+              confirmButtonText: 'OK, Log in to Link',
+              confirmButtonColor: '#0284c7'
+            });
+          }
+        } catch (err) {
+          console.error('Google One Tap auth failed:', err);
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  }, []);
 
   const requestOtp = async (uid, uemail) => {
     setSendingOtp(true);
@@ -92,10 +177,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const currentProf = await getBrowserProfileData();
+      if (googleAccount && googleAccount.trim()) {
+        currentProf.googleEmail = googleAccount.trim().toLowerCase();
+        saveGoogleProfile({ email: googleAccount.trim().toLowerCase() });
+      }
+
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: name.trim(), password })
+        body: JSON.stringify({
+          identifier: name.trim(),
+          password,
+          browserProfile: currentProf
+        })
       });
       const data = await res.json();
 
@@ -109,39 +204,7 @@ export default function LoginPage() {
         
       } else if (data.success) {
         login(data.user);
-        const dbRoleLower = (data.user?.dbRole || '').toLowerCase();
-        const emailLower = (data.user?.email || '').toLowerCase();
-        const deptLower = (data.user?.department || '').toLowerCase();
-
-        // Root Admin / Executive Management has full unrestricted access to Admin Panel ('/')
-        const isRootAdmin = 
-          dbRoleLower === 'admin' ||
-          dbRoleLower === 'management' ||
-          dbRoleLower === 'executive' ||
-          dbRoleLower === 'superadmin' ||
-          emailLower === 'admin@yopmail.com' ||
-          emailLower === 'pravi@yopmail.com' ||
-          emailLower === 'admin@devicedesk.com';
-
-        const isIT = isITDeptOrRole(dbRoleLower, deptLower);
-
-        if (emailLower === 'developer@devicedesk.com') {
-          router.push('/developer/dashboard');
-        } else if (dbRoleLower === 'client') {
-          router.push('/portal/client');
-        } else if (dbRoleLower === 'candidate') {
-          router.push('/candidate-dashboard');
-        } else if (dbRoleLower === 'marketing') {
-          router.push('/portal/marketing');
-        } else if (dbRoleLower === 'tl' || dbRoleLower === 'team lead' || dbRoleLower === 'team leader' || dbRoleLower === 'team_lead') {
-          router.push('/portal/leader');
-        } else if (isRootAdmin) {
-          router.push('/');
-        } else if (isIT) {
-          router.push('/?tab=dashboard');
-        } else {
-          router.push('/employee-dashboard');
-        }
+        redirectUser(data.user);
       } else {
         const msg = data.message || 'Invalid credentials.';
         const isInactive = data.isInactive || res.status === 403 || msg.toLowerCase().includes('inactive') || msg.toLowerCase().includes('reactivate');
@@ -199,33 +262,21 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const currentProf = await getBrowserProfileData();
+      if (googleAccount && googleAccount.trim()) {
+        currentProf.googleEmail = googleAccount.trim().toLowerCase();
+      }
+
       const res = await fetch('/api/login/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: otpUserId, otp })
+        body: JSON.stringify({ userId: otpUserId, otp, browserProfile: currentProf })
       });
       const data = await res.json();
 
       if (data.success) {
         login(data.user);
-        const dbRoleLower = (data.user?.dbRole || '').toLowerCase();
-        const deptLower = (data.user?.department || '').toLowerCase();
-        
-        const isIT = isITDeptOrRole(dbRoleLower, deptLower);
-        
-        if (dbRoleLower === 'dns manager' || deptLower === 'dns manager') {
-          router.push('/admin/domains');
-        } else if (dbRoleLower === 'candidate') {
-          router.push('/candidate-dashboard');
-        } else if (dbRoleLower === 'tl' || dbRoleLower === 'team lead' || dbRoleLower === 'team leader' || dbRoleLower === 'team_lead') {
-          router.push('/portal/leader');
-        } else if (dbRoleLower === 'admin' || dbRoleLower === 'superadmin' || data.user?.email === 'admin@yopmail.com' || data.user?.email === 'pravi@yopmail.com') {
-          router.push('/');
-        } else if (isIT) {
-          router.push('/?tab=dashboard');
-        } else {
-          router.push('/employee-dashboard');
-        }
+        redirectUser(data.user);
       } else {
         const msg = data.message || 'Invalid OTP.';
         const isInactive = data.isInactive || res.status === 403 || msg.toLowerCase().includes('inactive') || msg.toLowerCase().includes('reactivate');
@@ -435,6 +486,103 @@ export default function LoginPage() {
                   {showPassword ? <FiEyeOff style={{ fontSize: "1.1rem" }} /> : <FiEye style={{ fontSize: "1.1rem" }} />}
                 </button>
               </div>
+            </div>
+
+            {/* Chrome Profile & Google Identity Forensics Indicator */}
+            <div style={{
+              background: "rgba(15, 23, 42, 0.4)",
+              border: "1px solid var(--glass-border)",
+              borderRadius: "14px",
+              padding: "10px 14px",
+              marginBottom: "1.25rem",
+              fontSize: "0.8rem"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <FcGoogle size={16} />
+                  <span style={{ fontWeight: "700", color: "var(--text-primary)" }}>
+                    Chrome Profile Identity
+                  </span>
+                </div>
+                <span style={{
+                  fontSize: "0.65rem",
+                  padding: "2px 6px",
+                  borderRadius: "999px",
+                  background: "rgba(56, 189, 248, 0.15)",
+                  color: "var(--accent-cyan)",
+                  fontWeight: "700"
+                }}>
+                  {browserProfile?.isChrome ? "Chrome Verified" : "Web Profile"}
+                </span>
+              </div>
+
+              {isEditingGoogle ? (
+                <div style={{ marginTop: "6px" }}>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    <input
+                      type="email"
+                      placeholder="your.email@gmail.com"
+                      value={googleAccount}
+                      onChange={(e) => setGoogleAccount(e.target.value)}
+                      className="form-control"
+                      style={{ fontSize: "0.8rem", padding: "6px 10px", height: "auto" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (googleAccount.trim()) {
+                          saveGoogleProfile({ email: googleAccount.trim().toLowerCase() });
+                        }
+                        setIsEditingGoogle(false);
+                      }}
+                      className="btn-primary"
+                      style={{ padding: "6px 12px", fontSize: "0.75rem", borderRadius: "8px" }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                  <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: "4px", margin: 0 }}>
+                    Tracks which Google account this Chrome profile uses.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
+                    <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Google ID:</span>
+                    <span style={{
+                      fontWeight: "600",
+                      color: googleAccount ? "var(--text-primary)" : "var(--text-secondary)",
+                      fontSize: "0.8rem",
+                      textOverflow: "ellipsis",
+                      overflow: "hidden",
+                      whiteSpace: "nowrap"
+                    }}>
+                      {googleAccount || "Not linked"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingGoogle(true)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--accent-cyan)",
+                      fontSize: "0.75rem",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      padding: "2px 4px"
+                    }}
+                  >
+                    {googleAccount ? "Edit" : "+ Link Google ID"}
+                  </button>
+                </div>
+              )}
+
+              {browserProfile?.profileId && (
+                <div style={{ fontSize: "0.68rem", color: "var(--text-secondary)", marginTop: "4px", fontFamily: "monospace" }}>
+                  Profile #{browserProfile.profileId.replace('chrome_prof_', '')}
+                </div>
+              )}
             </div>
 
             {error && (

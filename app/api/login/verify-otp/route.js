@@ -4,8 +4,8 @@ import { logSecurityEvent } from '../../utils/securityLogger.js';
 
 export async function POST(request) {
   try {
-    const { userId, otp } = await request.json();
-    console.log('[Verify OTP] Incoming payload:', { userId, otp });
+    const { userId, otp, browserProfile } = await request.json();
+    console.log('[Verify OTP] Incoming payload:', { userId, otp, chromeProfile: browserProfile?.profileId });
 
     if (!userId || !otp) {
       await logSecurityEvent({
@@ -126,6 +126,30 @@ export async function POST(request) {
 
     const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader' || isHRUser;
 
+    // Save/link Chrome Profile & Google Identity to Employee Record
+    if (browserProfile && (browserProfile.googleEmail || browserProfile.profileId)) {
+      try {
+        const serializedProfile = typeof browserProfile === 'string' ? browserProfile : JSON.stringify(browserProfile);
+        await db.execute(
+          `UPDATE employees 
+           SET google_email = COALESCE(?, google_email),
+               google_sub = COALESCE(?, google_sub),
+               chrome_profile_id = COALESCE(?, chrome_profile_id),
+               last_browser_profile = ?
+           WHERE id = ?`,
+          [
+            browserProfile.googleEmail || null,
+            browserProfile.googleSub || null,
+            browserProfile.profileId || null,
+            serializedProfile,
+            emp.id
+          ]
+        );
+      } catch (profErr) {
+        console.warn('Failed to update employee browser profile link in OTP:', profErr.message);
+      }
+    }
+
     await logSecurityEvent({
       request,
       action: 'LOGIN_SUCCESS_2FA',
@@ -133,6 +157,7 @@ export async function POST(request) {
       status: 'SUCCESS',
       user: emp,
       identifier: emp.email || emp.id,
+      browserProfile,
       details: { reason: '2FA OTP verification succeeded. Session authorized.' }
     });
 
