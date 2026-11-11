@@ -204,3 +204,4 @@ export async function POST(request) {
     return NextResponse.json({ success: false, message: 'Server error during Google profile authentication.' }, { status: 500 });
   }
 }
+

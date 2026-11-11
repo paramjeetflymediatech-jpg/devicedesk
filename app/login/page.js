@@ -7,7 +7,6 @@ import { useAuth } from "../auth/AuthContext";
 import ThemeToggle from "../components/ThemeToggle.js";
 import Logo from "../components/Logo.js";
 import { FiEye, FiEyeOff } from "react-icons/fi";
-import { FcGoogle } from "react-icons/fc";
 import { getBrowserProfileData, saveGoogleProfile, initGoogleOneTap } from "../utils/browserProfile.js";
 
 const isITDeptOrRole = (dbRoleLower, deptLower) => {
@@ -52,10 +51,9 @@ export default function LoginPage() {
   const [showModal, setShowModal] = useState(false);
   const [showQR, setShowQR] = useState(false);
   
-  // Chrome Profile & Google Identity state
+  // Chrome Profile & Google Identity state (silent background tracking)
   const [browserProfile, setBrowserProfile] = useState(null);
   const [googleAccount, setGoogleAccount] = useState("");
-  const [isEditingGoogle, setIsEditingGoogle] = useState(false);
 
   // OTP States
   const [requiresOtp, setRequiresOtp] = useState(false);
@@ -486,103 +484,6 @@ export default function LoginPage() {
                   {showPassword ? <FiEyeOff style={{ fontSize: "1.1rem" }} /> : <FiEye style={{ fontSize: "1.1rem" }} />}
                 </button>
               </div>
-            </div>
-
-            {/* Chrome Profile & Google Identity Forensics Indicator */}
-            <div style={{
-              background: "rgba(15, 23, 42, 0.4)",
-              border: "1px solid var(--glass-border)",
-              borderRadius: "14px",
-              padding: "10px 14px",
-              marginBottom: "1.25rem",
-              fontSize: "0.8rem"
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <FcGoogle size={16} />
-                  <span style={{ fontWeight: "700", color: "var(--text-primary)" }}>
-                    Chrome Profile Identity
-                  </span>
-                </div>
-                <span style={{
-                  fontSize: "0.65rem",
-                  padding: "2px 6px",
-                  borderRadius: "999px",
-                  background: "rgba(56, 189, 248, 0.15)",
-                  color: "var(--accent-cyan)",
-                  fontWeight: "700"
-                }}>
-                  {browserProfile?.isChrome ? "Chrome Verified" : "Web Profile"}
-                </span>
-              </div>
-
-              {isEditingGoogle ? (
-                <div style={{ marginTop: "6px" }}>
-                  <div style={{ display: "flex", gap: "6px" }}>
-                    <input
-                      type="email"
-                      placeholder="your.email@gmail.com"
-                      value={googleAccount}
-                      onChange={(e) => setGoogleAccount(e.target.value)}
-                      className="form-control"
-                      style={{ fontSize: "0.8rem", padding: "6px 10px", height: "auto" }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (googleAccount.trim()) {
-                          saveGoogleProfile({ email: googleAccount.trim().toLowerCase() });
-                        }
-                        setIsEditingGoogle(false);
-                      }}
-                      className="btn-primary"
-                      style={{ padding: "6px 12px", fontSize: "0.75rem", borderRadius: "8px" }}
-                    >
-                      Save
-                    </button>
-                  </div>
-                  <p style={{ fontSize: "0.7rem", color: "var(--text-secondary)", marginTop: "4px", margin: 0 }}>
-                    Tracks which Google account this Chrome profile uses.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "4px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", overflow: "hidden" }}>
-                    <span style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Google ID:</span>
-                    <span style={{
-                      fontWeight: "600",
-                      color: googleAccount ? "var(--text-primary)" : "var(--text-secondary)",
-                      fontSize: "0.8rem",
-                      textOverflow: "ellipsis",
-                      overflow: "hidden",
-                      whiteSpace: "nowrap"
-                    }}>
-                      {googleAccount || "Not linked"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingGoogle(true)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--accent-cyan)",
-                      fontSize: "0.75rem",
-                      fontWeight: "600",
-                      cursor: "pointer",
-                      padding: "2px 4px"
-                    }}
-                  >
-                    {googleAccount ? "Edit" : "+ Link Google ID"}
-                  </button>
-                </div>
-              )}
-
-              {browserProfile?.profileId && (
-                <div style={{ fontSize: "0.68rem", color: "var(--text-secondary)", marginTop: "4px", fontFamily: "monospace" }}>
-                  Profile #{browserProfile.profileId.replace('chrome_prof_', '')}
-                </div>
-              )}
             </div>
 
             {error && (
