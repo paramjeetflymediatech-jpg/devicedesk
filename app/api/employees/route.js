@@ -14,6 +14,12 @@ export async function GET(request) {
     try {
       await db.query(`ALTER TABLE employees ADD COLUMN createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
     } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE employees ADD COLUMN joining_date VARCHAR(50) DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE employees ADD COLUMN leaving_date VARCHAR(50) DEFAULT NULL`);
+    } catch (e) {}
 
     let [rows] = await db.query(
       `SELECT * FROM employees ORDER BY name ASC`

@@ -239,6 +239,8 @@ export default function UsersManagementPage() {
       department: user.department || 'Development',
       ticketLimit: user.ticketLimit || 100,
       status: user.status || 'Active',
+      joining_date: user.joining_date || (user.createdAt ? String(user.createdAt).slice(0, 10) : ''),
+      leaving_date: user.leaving_date || '',
       documents: Array.isArray(docs) ? docs : []
     });
     setShowEditModal(true);
@@ -264,7 +266,9 @@ export default function UsersManagementPage() {
         role: editForm.role,
         department: editForm.role === 'Candidate' ? 'N/A' : editForm.department,
         ticketLimit: editForm.ticketLimit,
-        status: editForm.status
+        status: editForm.status,
+        joining_date: editForm.joining_date || null,
+        leaving_date: editForm.leaving_date || null
       };
 
       const res = await fetch(`/api/employees/${editForm.id}`, {
@@ -587,9 +591,18 @@ export default function UsersManagementPage() {
                       {user.department || '—'}
                     </td>
                     <td style={{ padding: '14px 16px' }}>
-                      <span className={`status-tag ${user.status === 'Inactive' ? 'open' : 'resolved'}`}>
-                        {user.status || 'Active'}
+                      <span className={`status-tag ${user.status === 'Inactive' || user.leaving_date ? 'open' : 'resolved'}`}>
+                        {user.leaving_date ? 'Left' : (user.status || 'Active')}
                       </span>
+                      {user.leaving_date ? (
+                        <span style={{ display: 'block', fontSize: '0.7rem', color: '#f87171', marginTop: '3px' }} title={`Leaving Date: ${user.leaving_date}`}>
+                          Left: {new Date(user.leaving_date).toLocaleDateString()}
+                        </span>
+                      ) : (
+                        <span style={{ display: 'block', fontSize: '0.7rem', color: '#10b981', marginTop: '3px' }}>
+                          Currently Working
+                        </span>
+                      )}
                     </td>
 
                     <td style={{ padding: '14px 16px' }}>
@@ -1141,6 +1154,37 @@ export default function UsersManagementPage() {
                     className="form-control"
                     style={{ width: '100%' }}
                   />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
+                    Joining Date (Member Since)
+                  </label>
+                  <input
+                    type="date"
+                    value={editForm.joining_date || ''}
+                    onChange={e => setEditForm({ ...editForm, joining_date: e.target.value })}
+                    className="form-control"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary, #cbd5e1)' }}>
+                    Leaving Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editForm.leaving_date || ''}
+                    onChange={e => setEditForm({ ...editForm, leaving_date: e.target.value })}
+                    className="form-control"
+                    style={{ width: '100%' }}
+                  />
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)', marginTop: '2px', display: 'block' }}>
+                    Leave blank if currently working
+                  </span>
                 </div>
               </div>
 

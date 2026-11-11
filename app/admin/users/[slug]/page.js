@@ -37,7 +37,11 @@ import {
   FiShare2,
   FiActivity,
   FiLayers,
-  FiHardDrive
+  FiHardDrive,
+  FiCalendar,
+  FiUserCheck,
+  FiUserX,
+  FiEdit2
 } from "react-icons/fi";
 
 const DOCUMENT_CATEGORIES = [
@@ -50,6 +54,93 @@ const DOCUMENT_CATEGORIES = [
   "Bank / Salary Slip Document",
   "Other Document"
 ];
+
+export function getMemberSince(emp) {
+  if (!emp) return { dateStr: "", formatted: "N/A", relative: "" };
+  let rawDate = emp.joining_date || emp.createdAt || emp.created_at;
+
+  // Try extracting timestamp from ID if emp_1792038530085 format
+  if (!rawDate && emp.id && String(emp.id).startsWith("emp_")) {
+    const rawNum = String(emp.id).replace("emp_", "").split("_")[0];
+    const ts = Number(rawNum);
+    if (!isNaN(ts) && ts > 1000000000000 && ts < 2500000000000) {
+      rawDate = new Date(ts).toISOString();
+    }
+  }
+
+  if (!rawDate) return { dateStr: "", formatted: "Registered Staff", relative: "" };
+
+  const d = new Date(rawDate);
+  if (isNaN(d.getTime())) return { dateStr: String(rawDate), formatted: String(rawDate), relative: "" };
+
+  const formatted = d.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  });
+
+  const now = new Date();
+  const diffMs = now - d;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  let relative = "";
+  if (diffDays < 1) {
+    relative = "Joined today";
+  } else if (diffDays === 1) {
+    relative = "Joined yesterday";
+  } else if (diffDays < 30) {
+    relative = `${diffDays} days ago`;
+  } else if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30);
+    relative = `${months} ${months === 1 ? "month" : "months"} ago`;
+  } else {
+    const years = (diffDays / 365).toFixed(1);
+    relative = `${years} yrs tenure`;
+  }
+
+  return { dateStr: d.toISOString().slice(0, 10), formatted, relative };
+}
+
+export function getLeavingStatus(emp) {
+  if (!emp) return { hasLeavingDate: false, dateStr: "", formatted: null, isPast: false, label: "Unknown" };
+  const rawDate = emp.leaving_date;
+  if (!rawDate || String(rawDate).trim() === "") {
+    return {
+      hasLeavingDate: false,
+      dateStr: "",
+      formatted: null,
+      isPast: false,
+      label: "Currently Active (No Leaving Date)"
+    };
+  }
+
+  const d = new Date(rawDate);
+  if (isNaN(d.getTime())) {
+    return {
+      hasLeavingDate: true,
+      dateStr: String(rawDate),
+      formatted: String(rawDate),
+      isPast: false,
+      label: `Leaving Date: ${rawDate}`
+    };
+  }
+
+  const formatted = d.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  });
+
+  const now = new Date();
+  const isPast = d <= now;
+
+  return {
+    hasLeavingDate: true,
+    dateStr: d.toISOString().slice(0, 10),
+    formatted,
+    isPast,
+    label: isPast ? `Left on ${formatted}` : `Leaving on ${formatted} (Notice Period)`
+  };
+}
 
 export default function UserSlugDetailPage() {
   const params = useParams();
@@ -85,6 +176,30 @@ export default function UserSlugDetailPage() {
     file: null
   });
   const [previewDoc, setPreviewDoc] = useState(null);
+
+  // Employment Dates State
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [savingDates, setSavingDates] = useState(false);
+  const [dateForm, setDateForm] = useState({
+    joining_date: "",
+    leaving_date: "",
+    status: "Active"
+  });
+
+  const fetchLiveEmployee = async (empId) => {
+    try {
+      const res = await fetch(`/api/employees/${empId}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setEmployee(prev => ({
+          ...(prev || {}),
+          ...data.data
+        }));
+      }
+    } catch (err) {
+      console.error("Error fetching live employee details:", err);
+    }
+  };
 
   const fetchDocs = async (empId) => {
     try {
@@ -126,7 +241,8 @@ export default function UserSlugDetailPage() {
         setUserTasks(allTasks.filter(t => String(t.assignedTo) === String(emp.id)));
         setUserLogs(allLogs.filter(h => String(h.employeeId) === String(emp.id)));
 
-        // Load documents
+        // Load live employee data from server DB & load documents
+        fetchLiveEmployee(emp.id);
         fetchDocs(emp.id);
       } else {
         setDocuments([]);
@@ -158,6 +274,7 @@ export default function UserSlugDetailPage() {
         setUserTickets(empTickets);
         setUserTasks(allTasks.filter(t => String(t.assignedTo) === String(emp.id)));
         setUserLogs(allLogs.filter(h => String(h.employeeId) === String(emp.id)));
+        fetchLiveEmployee(emp.id);
         fetchDocs(emp.id);
       }
     };
@@ -165,6 +282,105 @@ export default function UserSlugDetailPage() {
     window.addEventListener('devicedesk_db_synced', handleSync);
     return () => window.removeEventListener('devicedesk_db_synced', handleSync);
   }, [slug, employee]);
+
+  const handleOpenDateModal = () => {
+    const rawJoin = employee?.joining_date || employee?.createdAt || employee?.created_at;
+    let initialJoin = "";
+    if (rawJoin) {
+      try {
+        const d = new Date(rawJoin);
+        if (!isNaN(d.getTime())) {
+          initialJoin = d.toISOString().slice(0, 10);
+        }
+      } catch (e) {}
+    } else if (employee?.id && String(employee.id).startsWith("emp_")) {
+      const rawNum = String(employee.id).replace("emp_", "").split("_")[0];
+      const ts = Number(rawNum);
+      if (!isNaN(ts) && ts > 1000000000000 && ts < 2500000000000) {
+        try {
+          initialJoin = new Date(ts).toISOString().slice(0, 10);
+        } catch (e) {}
+      }
+    }
+
+    let initialLeave = "";
+    if (employee?.leaving_date) {
+      try {
+        const d = new Date(employee.leaving_date);
+        if (!isNaN(d.getTime())) {
+          initialLeave = d.toISOString().slice(0, 10);
+        } else {
+          initialLeave = String(employee.leaving_date);
+        }
+      } catch (e) {}
+    }
+
+    setDateForm({
+      joining_date: initialJoin,
+      leaving_date: initialLeave,
+      status: employee?.status || "Active"
+    });
+    setShowDateModal(true);
+  };
+
+  const handleSaveDates = async (e) => {
+    e.preventDefault();
+    if (!employee?.id) return;
+    try {
+      setSavingDates(true);
+      const res = await fetch(`/api/employees/${employee.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          joining_date: dateForm.joining_date || null,
+          leaving_date: dateForm.leaving_date || null,
+          status: dateForm.status
+        })
+      });
+      const data = await res.json();
+      if (res.ok && (data.success || data.message || !data.error)) {
+        Swal.fire({
+          icon: "success",
+          title: "Dates Updated",
+          text: "Employment & tenancy dates updated successfully.",
+          timer: 1800,
+          showConfirmButton: false,
+          background: "#161b22",
+          color: "#f0f6fc"
+        });
+        setEmployee(prev => ({
+          ...prev,
+          joining_date: dateForm.joining_date || null,
+          leaving_date: dateForm.leaving_date || null,
+          status: dateForm.status
+        }));
+        updateEmployee(employee.id, {
+          joining_date: dateForm.joining_date || null,
+          leaving_date: dateForm.leaving_date || null,
+          status: dateForm.status
+        });
+        setShowDateModal(false);
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Update Failed",
+          text: data.error || "Failed to update employment dates",
+          background: "#161b22",
+          color: "#f0f6fc"
+        });
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.message || "Failed to update employment dates",
+        background: "#161b22",
+        color: "#f0f6fc"
+      });
+    } finally {
+      setSavingDates(false);
+    }
+  };
 
   const copyToClipboard = (text, fieldName) => {
     if (!text) return;
@@ -348,6 +564,8 @@ export default function UserSlugDetailPage() {
   }
 
   const userSlug = getEmployeeSlug(employee);
+  const memberSinceInfo = getMemberSince(employee);
+  const leavingInfo = getLeavingStatus(employee);
   const completedTasks = userTasks.filter(t => t.status === "Completed").length;
   const pendingTasks = userTasks.length - completedTasks;
   const taskCompletionRate = userTasks.length > 0 ? Math.round((completedTasks / userTasks.length) * 100) : 0;
@@ -760,6 +978,15 @@ export default function UserSlugDetailPage() {
 
         <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
           <button
+            onClick={handleOpenDateModal}
+            className="btn-secondary"
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "10px", fontSize: "0.85rem", borderColor: "rgba(6, 182, 212, 0.4)" }}
+            title="Edit Joining & Leaving Dates"
+          >
+            <FiCalendar style={{ color: "var(--accent-cyan)" }} /> Manage Dates
+          </button>
+
+          <button
             onClick={() => copyToClipboard(window.location.href, "link")}
             className="btn-secondary"
             style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "10px", fontSize: "0.85rem" }}
@@ -847,6 +1074,55 @@ export default function UserSlugDetailPage() {
                 {copiedField === "id" ? <FiCheck size={12} style={{ color: "#10b981" }} /> : <FiCopy size={12} style={{ opacity: 0.6 }} />}
               </div>
 
+              {/* Member Since Chip */}
+              <div
+                className="meta-chip"
+                onClick={handleOpenDateModal}
+                style={{ cursor: "pointer", borderColor: "rgba(6, 182, 212, 0.4)", background: "rgba(6, 182, 212, 0.08)" }}
+                title="Click to edit Joining Date / Member Since"
+              >
+                <FiCalendar size={13} style={{ color: "var(--accent-cyan)" }} />
+                <span><strong>Member Since:</strong> {memberSinceInfo.formatted}</span>
+                {memberSinceInfo.relative && (
+                  <span style={{ fontSize: "0.74rem", opacity: 0.85, color: "var(--accent-cyan)" }}>
+                    • {memberSinceInfo.relative}
+                  </span>
+                )}
+                <FiEdit2 size={11} style={{ opacity: 0.6, marginLeft: "3px" }} />
+              </div>
+
+              {/* Leaving Date / Currently Working Chip */}
+              <div
+                className="meta-chip"
+                onClick={handleOpenDateModal}
+                style={{
+                  cursor: "pointer",
+                  borderColor: leavingInfo.hasLeavingDate ? "rgba(239, 68, 68, 0.45)" : "rgba(16, 185, 129, 0.45)",
+                  background: leavingInfo.hasLeavingDate ? "rgba(239, 68, 68, 0.08)" : "rgba(16, 185, 129, 0.08)"
+                }}
+                title="Click to set or clear Leaving Date"
+              >
+                {leavingInfo.hasLeavingDate ? (
+                  <>
+                    <FiClock size={13} style={{ color: "#ef4444" }} />
+                    <span style={{ color: "#f87171" }}>
+                      <strong>Leaving Date:</strong> {leavingInfo.formatted}
+                    </span>
+                    <span style={{ fontSize: "0.72rem", background: "rgba(239,68,68,0.2)", padding: "1px 6px", borderRadius: "8px", color: "#fca5a5" }}>
+                      {leavingInfo.isPast ? "Relieved" : "Notice Period"}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <FiCheckCircle size={13} style={{ color: "#10b981" }} />
+                    <span style={{ color: "#10b981" }}>
+                      <strong>Currently Working</strong> (No Leaving Date)
+                    </span>
+                  </>
+                )}
+                <FiEdit2 size={11} style={{ opacity: 0.6, marginLeft: "3px" }} />
+              </div>
+
               {employee.ticketLimit !== undefined && (
                 <div className="meta-chip" style={{ cursor: "default" }}>
                   <span>🎫 Ticket Limit: {employee.ticketLimit}</span>
@@ -903,6 +1179,87 @@ export default function UserSlugDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Employment Status & Tenancy Banner */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)",
+          border: "1px solid var(--glass-border)",
+          borderRadius: "14px",
+          padding: "14px 18px",
+          marginBottom: "1.25rem",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "14px"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <div
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "12px",
+              background: leavingInfo.hasLeavingDate ? "rgba(239, 68, 68, 0.12)" : "rgba(16, 185, 129, 0.12)",
+              color: leavingInfo.hasLeavingDate ? "#ef4444" : "#10b981",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.3rem",
+              flexShrink: 0
+            }}
+          >
+            {leavingInfo.hasLeavingDate ? <FiUserX /> : <FiUserCheck />}
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "0.98rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                {leavingInfo.hasLeavingDate
+                  ? (leavingInfo.isPast ? "Relieved / Former Team Member" : "Departing Staff (Notice Period)")
+                  : "Active Staff Member"}
+              </span>
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  background: leavingInfo.hasLeavingDate ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                  color: leavingInfo.hasLeavingDate ? "#f87171" : "#10b981",
+                  border: `1px solid ${leavingInfo.hasLeavingDate ? "rgba(239, 68, 68, 0.3)" : "rgba(16, 185, 129, 0.3)"}`
+                }}
+              >
+                {leavingInfo.hasLeavingDate ? (leavingInfo.isPast ? "Leaving Date Set" : "Notice Period") : "Currently Working"}
+              </span>
+            </div>
+            <div style={{ fontSize: "0.83rem", color: "var(--text-secondary)", marginTop: "4px", display: "flex", gap: "14px", flexWrap: "wrap", alignItems: "center" }}>
+              <span>
+                📅 <strong>Member Since:</strong>{" "}
+                <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{memberSinceInfo.formatted}</span>{" "}
+                {memberSinceInfo.relative ? `(${memberSinceInfo.relative})` : ""}
+              </span>
+              <span>•</span>
+              <span>
+                🚪 <strong>Leaving Date:</strong>{" "}
+                {leavingInfo.hasLeavingDate ? (
+                  <span style={{ color: "#f87171", fontWeight: 700 }}>{leavingInfo.formatted}</span>
+                ) : (
+                  <span style={{ color: "#10b981", fontWeight: 600 }}>Currently Active (No Leaving Date)</span>
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={handleOpenDateModal}
+          className="btn-secondary"
+          style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.82rem", padding: "7px 14px", borderRadius: "8px" }}
+        >
+          <FiEdit2 size={13} /> Update Dates
+        </button>
       </div>
 
       {/* Quick Document Status Checklist Bar */}
@@ -2047,6 +2404,149 @@ export default function UserSlugDetailPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Employment & Tenancy Dates */}
+      {showDateModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "1rem"
+          }}
+        >
+          <div
+            style={{
+              background: "var(--bg-card, #161b22)",
+              padding: "1.75rem",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "460px",
+              border: "1px solid var(--glass-border)",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.6)"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
+                <FiCalendar style={{ color: "var(--accent-cyan)" }} /> Employment & Tenancy Dates
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowDateModal(false)}
+                style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "1.2rem", cursor: "pointer", padding: "4px" }}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <p style={{ margin: "0 0 1.25rem 0", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+              Manage employment joining date and leaving status for <strong>{employee?.name}</strong>.
+            </p>
+
+            <form onSubmit={handleSaveDates} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "6px", color: "var(--text-secondary)" }}>
+                  Joining Date (Member Since)
+                </label>
+                <input
+                  type="date"
+                  value={dateForm.joining_date}
+                  onChange={(e) => setDateForm({ ...dateForm, joining_date: e.target.value })}
+                  className="form-control"
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: "8px" }}
+                />
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "4px", display: "block" }}>
+                  The date this member joined or was registered.
+                </span>
+              </div>
+
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>
+                    Leaving Date
+                  </label>
+                  {dateForm.leaving_date && (
+                    <button
+                      type="button"
+                      onClick={() => setDateForm({ ...dateForm, leaving_date: "", status: "Active" })}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--accent-cyan)",
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        padding: 0
+                      }}
+                    >
+                      Clear Date (Currently Working)
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="date"
+                  value={dateForm.leaving_date}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDateForm({
+                      ...dateForm,
+                      leaving_date: val,
+                      status: val ? (new Date(val) <= new Date() ? "Inactive" : dateForm.status) : "Active"
+                    });
+                  }}
+                  className="form-control"
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: "8px" }}
+                />
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "4px", display: "block" }}>
+                  {dateForm.leaving_date
+                    ? "Leaving date is set. Account marked with departure record."
+                    : "Leave blank if currently working (No leaving date)."}
+                </span>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, marginBottom: "6px", color: "var(--text-secondary)" }}>
+                  Account Status
+                </label>
+                <select
+                  value={dateForm.status}
+                  onChange={(e) => setDateForm({ ...dateForm, status: e.target.value })}
+                  className="form-control"
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: "8px" }}
+                >
+                  <option value="Active">Active (Currently Employed)</option>
+                  <option value="Inactive">Inactive (Relieved / Left)</option>
+                  <option value="Paused">Paused (Suspended)</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "1rem" }}>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={savingDates}
+                  style={{ flex: 1, padding: "10px", borderRadius: "8px", fontWeight: 600, display: "inline-flex", justifyContent: "center", alignItems: "center", gap: "6px" }}
+                >
+                  <FiCheck /> {savingDates ? "Saving..." : "Save Employment Dates"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDateModal(false)}
+                  className="btn-secondary"
+                  style={{ padding: "10px 18px", borderRadius: "8px" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

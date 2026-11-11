@@ -168,6 +168,15 @@ async function initializeDatabase(db) {
     await db.execute(`ALTER TABLE employees ADD COLUMN id_proof_url VARCHAR(512) DEFAULT NULL`);
   } catch (err) {}
   try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN joining_date VARCHAR(50) DEFAULT NULL`);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE employees ADD COLUMN leaving_date VARCHAR(50) DEFAULT NULL`);
+  } catch (err) {}
+  try {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS employee_team_leaders (
         id INT AUTO_INCREMENT PRIMARY KEY,

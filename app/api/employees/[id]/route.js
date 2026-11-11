@@ -9,6 +9,13 @@ export async function GET(request, { params }) {
     const { id } = await params;
     const db = await getDbConnection();
 
+    try {
+      await db.query(`ALTER TABLE employees ADD COLUMN joining_date VARCHAR(50) DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE employees ADD COLUMN leaving_date VARCHAR(50) DEFAULT NULL`);
+    } catch (e) {}
+
     const [rows] = await db.query('SELECT * FROM employees WHERE id = ? LIMIT 1', [id]);
     if (rows.length === 0) {
       return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
@@ -56,10 +63,18 @@ export async function PUT(request, { params }) {
     const body = await request.json();
     const { 
       name, email, role, department, status, ticketLimit, avatarUrl, tl_id, documents, resume_url, id_proof_url, biometric_id,
-      company_name, phone, whatsapp, address, gst_number, website_url, primary_service, notes 
+      company_name, phone, whatsapp, address, gst_number, website_url, primary_service, notes,
+      joining_date, leaving_date
     } = body;
 
     const db = await getDbConnection();
+
+    try {
+      await db.query(`ALTER TABLE employees ADD COLUMN joining_date VARCHAR(50) DEFAULT NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE employees ADD COLUMN leaving_date VARCHAR(50) DEFAULT NULL`);
+    } catch (e) {}
     
     // Dynamically build the update query
     let updates = [];
@@ -112,6 +127,14 @@ export async function PUT(request, { params }) {
     if (biometric_id !== undefined) {
       updates.push('biometric_id = ?');
       values.push(biometric_id && String(biometric_id).trim() !== '' ? String(biometric_id).trim() : null);
+    }
+    if (joining_date !== undefined) {
+      updates.push('joining_date = ?');
+      values.push(joining_date && String(joining_date).trim() !== '' ? String(joining_date).trim() : null);
+    }
+    if (leaving_date !== undefined) {
+      updates.push('leaving_date = ?');
+      values.push(leaving_date && String(leaving_date).trim() !== '' ? String(leaving_date).trim() : null);
     }
 
     if (updates.length === 0) {
