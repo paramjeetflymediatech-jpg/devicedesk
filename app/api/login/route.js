@@ -140,37 +140,6 @@ export async function POST(request) {
       });
       return NextResponse.json({ success: false, message: '⚠️ Account not found or incorrect password.' }, { status: 401 });
     }
-      // 1. Try with configured pepper
-      passwordMatch = await bcrypt.compare(password + pepper, storedPassword);
-      // 2. Try without pepper (in case hashed directly)
-      if (!passwordMatch) {
-        passwordMatch = await bcrypt.compare(password, storedPassword);
-      }
-      // 3. Try with default fallback pepper
-      if (!passwordMatch && pepper !== 'devicedesk_secure_pepper_key_2026') {
-        passwordMatch = await bcrypt.compare(password + 'devicedesk_secure_pepper_key_2026', storedPassword);
-      }
-      // 4. Try with securelevel fallback pepper
-      if (!passwordMatch && pepper !== 'securelevel') {
-        passwordMatch = await bcrypt.compare(password + 'securelevel', storedPassword);
-      }
-    } else {
-      // Legacy plain-text fallback
-      passwordMatch = storedPassword === password;
-    }
-
-    if (!passwordMatch) {
-      await logSecurityEvent({
-        request,
-        action: 'LOGIN_FAILED',
-        category: 'AUTH',
-        status: 'FAILURE',
-        user: emp,
-        identifier,
-        details: { reason: 'Incorrect password provided.', deviceId: deviceId || null }
-      });
-      return NextResponse.json({ success: false, message: '⚠️ Account not found or incorrect password.' }, { status: 401 });
-    }
 
     // Auto-migrate legacy plain-text password to bcrypt hash upon successful login
     if (!storedPassword.startsWith('$2') && passwordMatch) {
