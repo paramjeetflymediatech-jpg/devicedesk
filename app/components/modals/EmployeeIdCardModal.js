@@ -8,6 +8,7 @@ import { FiPrinter, FiDownload, FiX, FiCheck } from "react-icons/fi";
 export default function EmployeeIdCardModal({ employee, isOpen, onClose }) {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [cardLayout, setCardLayout] = useState("horizontal"); // "horizontal" (Landscape) or "vertical" (Portrait)
+  const [showLargeQr, setShowLargeQr] = useState(false);
   const cardRef = useRef(null);
 
   useEffect(() => {
@@ -22,13 +23,13 @@ export default function EmployeeIdCardModal({ employee, isOpen, onClose }) {
     });
 
     QRCode.toDataURL(payload, {
-      width: 400,
-      margin: 1,
+      width: 500,
+      margin: 3,
       color: {
-        dark: "#0f172a",
+        dark: "#000000",
         light: "#ffffff"
       },
-      errorCorrectionLevel: "H"
+      errorCorrectionLevel: "M"
     }).then(url => {
       setQrDataUrl(url);
     }).catch(err => {
@@ -234,7 +235,68 @@ export default function EmployeeIdCardModal({ employee, isOpen, onClose }) {
             background: "var(--bg-card, #ffffff)"
           }}
         >
-          {cardLayout === "horizontal" ? (
+          {showLargeQr ? (
+            /* ================= SCREEN SCAN MODE (LARGE HIGH-CONTRAST QR) ================= */
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                padding: "24px 28px",
+                background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+                borderRadius: "18px",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                boxShadow: "0 15px 35px rgba(0, 0, 0, 0.45)",
+                maxWidth: "380px",
+                width: "100%"
+              }}
+            >
+              <div style={{ color: "#38bdf8", fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>
+                📱 Kiosk Screen Scanner
+              </div>
+              <h4 style={{ margin: "0 0 14px", color: "#ffffff", fontSize: "1.1rem", fontWeight: 700 }}>
+                {employee.name}
+              </h4>
+
+              <div
+                style={{
+                  background: "#ffffff",
+                  padding: "16px",
+                  borderRadius: "16px",
+                  boxShadow: "0 6px 24px rgba(0, 0, 0, 0.4)",
+                  display: "inline-block",
+                  marginBottom: "14px"
+                }}
+              >
+                {qrDataUrl ? (
+                  <img
+                    src={qrDataUrl}
+                    alt="Employee Attendance QR Code"
+                    style={{ width: "230px", height: "230px", display: "block" }}
+                  />
+                ) : (
+                  <div style={{ color: "#64748b", padding: "40px 20px" }}>Generating QR...</div>
+                )}
+              </div>
+
+              <div style={{ fontSize: "0.82rem", color: "#cbd5e1", marginBottom: "8px", fontWeight: 500 }}>
+                Point this screen directly at the <strong>Kiosk Camera</strong> to punch.
+              </div>
+
+              <div style={{
+                fontSize: "0.72rem",
+                fontFamily: "monospace",
+                color: "#94a3b8",
+                background: "rgba(255,255,255,0.08)",
+                padding: "4px 12px",
+                borderRadius: "6px"
+              }}>
+                ID: {cardIdentifier}
+              </div>
+            </div>
+          ) : cardLayout === "horizontal" ? (
             /* ================= 1. LANDSCAPE ID CARD ================= */
             <div
               id="printable-id-card"
@@ -343,30 +405,37 @@ export default function EmployeeIdCardModal({ employee, isOpen, onClose }) {
                 {/* Right: QR Code */}
                 <div style={{ textAlign: "center", flexShrink: 0 }}>
                   <div
+                    onClick={() => setShowLargeQr(true)}
+                    title="Click to enlarge QR for screen scanning"
                     style={{
                       background: "#ffffff",
-                      padding: "5px",
-                      borderRadius: "8px",
-                      width: "88px",
-                      height: "88px",
+                      padding: "6px",
+                      borderRadius: "10px",
+                      width: "100px",
+                      height: "100px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      boxShadow: "0 2px 6px rgba(0,0,0,0.25)"
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                      cursor: "pointer",
+                      transition: "transform 0.15s ease"
                     }}
                   >
                     {qrDataUrl ? (
                       <img
                         src={qrDataUrl}
                         alt="Employee Attendance QR Code"
-                        style={{ width: "78px", height: "78px", display: "block" }}
+                        style={{ width: "88px", height: "88px", display: "block" }}
                       />
                     ) : (
                       <div style={{ color: "#64748b", fontSize: "0.62rem" }}>Generating QR...</div>
                     )}
                   </div>
-                  <div style={{ fontSize: "0.6rem", color: "#94a3b8", marginTop: "3px" }}>
-                    Scan at Kiosk
+                  <div
+                    onClick={() => setShowLargeQr(true)}
+                    style={{ fontSize: "0.62rem", color: "#60a5fa", marginTop: "4px", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    🔍 Enlarge QR
                   </div>
                 </div>
               </div>
@@ -446,26 +515,33 @@ export default function EmployeeIdCardModal({ employee, isOpen, onClose }) {
                 </div>
 
                 <div
+                  onClick={() => setShowLargeQr(true)}
+                  title="Click to enlarge QR for screen scanning"
                   style={{
                     background: "#ffffff",
-                    padding: "5px",
-                    borderRadius: "8px",
-                    width: "88px",
-                    height: "88px",
-                    margin: "0 auto 5px",
+                    padding: "6px",
+                    borderRadius: "10px",
+                    width: "100px",
+                    height: "100px",
+                    margin: "0 auto 4px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.25)"
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                    cursor: "pointer",
+                    transition: "transform 0.15s ease"
                   }}
                 >
                   {qrDataUrl && (
-                    <img src={qrDataUrl} alt="QR Code" style={{ width: "78px", height: "78px", display: "block" }} />
+                    <img src={qrDataUrl} alt="QR Code" style={{ width: "88px", height: "88px", display: "block" }} />
                   )}
                 </div>
 
-                <div style={{ fontSize: "0.6rem", color: "#94a3b8", marginBottom: "3px" }}>
-                  Scan at Office Kiosk
+                <div
+                  onClick={() => setShowLargeQr(true)}
+                  style={{ fontSize: "0.62rem", color: "#60a5fa", marginBottom: "4px", fontWeight: 600, cursor: "pointer" }}
+                >
+                  🔍 Enlarge QR
                 </div>
                 <div style={{
                   fontSize: "0.64rem",
@@ -520,6 +596,27 @@ export default function EmployeeIdCardModal({ employee, isOpen, onClose }) {
             }}
           >
             Close
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowLargeQr((prev) => !prev)}
+            style={{
+              padding: "7px 14px",
+              fontSize: "0.78rem",
+              fontWeight: 600,
+              borderRadius: "8px",
+              border: "1px solid #3b82f6",
+              background: showLargeQr ? "rgba(59, 130, 246, 0.15)" : "transparent",
+              color: "#3b82f6",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              cursor: "pointer",
+              transition: "all 0.15s ease"
+            }}
+          >
+            {showLargeQr ? "🪪 View ID Card" : "📱 Enlarge QR for Kiosk"}
           </button>
 
           <button

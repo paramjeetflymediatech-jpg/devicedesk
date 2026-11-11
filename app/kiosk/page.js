@@ -14,13 +14,14 @@ import {
   FiCheckCircle,
   FiDelete
 } from "react-icons/fi";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
 export default function AttendanceKioskPage() {
   const [time, setTime] = useState("");
   const [dateStr, setDateStr] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
   const [lastResult, setLastResult] = useState(null);
   const [recentLogs, setRecentLogs] = useState([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -309,6 +310,10 @@ export default function AttendanceKioskPage() {
           success: false,
           message: data.message || "Card scan failed."
         });
+        // On failed scan, clear throttle lock after 1.2s so user can re-align screen and try again immediately
+        setTimeout(() => {
+          lastScannedCodeRef.current = "";
+        }, 1200);
       }
 
       // Auto-dismiss confirmation card after 4.5 seconds
@@ -323,6 +328,9 @@ export default function AttendanceKioskPage() {
         success: false,
         message: "Server network error. Please try again."
       });
+      setTimeout(() => {
+        lastScannedCodeRef.current = "";
+      }, 1200);
     } finally {
       setIsProcessing(false);
       setManualCode("");
@@ -372,15 +380,26 @@ export default function AttendanceKioskPage() {
 
   // Initialize Camera Scanner Viewfinder only when unlocked
   useEffect(() => {
-    if (authStatus !== "unlocked" || !cameraActive) {
+    let isMounted = true;
+
+    const stopScanner = async () => {
       if (scannerRef.current) {
-        scannerRef.current.stop().then(() => scannerRef.current.clear()).catch(() => {});
+        try {
+          if (scannerRef.current.isScanning) {
+            await scannerRef.current.stop();
+          }
+          await scannerRef.current.clear();
+        } catch (e) {
+          console.warn("Camera stop warning:", e);
+        }
         scannerRef.current = null;
       }
+    };
+
+    if (authStatus !== "unlocked" || !cameraActive) {
+      stopScanner();
       return;
     }
-
-    let isMounted = true;
 
     const startScanner = async () => {
       setCameraError("");
@@ -390,28 +409,56 @@ export default function AttendanceKioskPage() {
 
         if (!availableDevices || availableDevices.length === 0) {
           setCameraError("No webcam found on this device.");
+          setIsSwitchingCamera(false);
           return;
         }
 
         setCameras(availableDevices);
-        const deviceToUse = selectedCameraId || availableDevices[0].id;
 
-        // Create scanner instance
-        if (!scannerRef.current) {
-          scannerRef.current = new Html5Qrcode("kiosk-camera-reader");
+        // Determine device to use
+        let deviceToUse = selectedCameraId;
+        const exists = availableDevices.some((c) => c.id === selectedCameraId);
+        if (!exists) {
+          deviceToUse = availableDevices[0].id;
+          setSelectedCameraId(availableDevices[0].id);
         }
 
+        // Cleanly stop any existing scanner before starting a new one
+        await stopScanner();
+        if (!isMounted) return;
+
+        // Create scanner instance with high-performance QR-only options
+        const qrFormat = typeof Html5QrcodeSupportedFormats !== "undefined" && Html5QrcodeSupportedFormats.QR_CODE !== undefined
+          ? Html5QrcodeSupportedFormats.QR_CODE
+          : 0;
+
+        const scanner = new Html5Qrcode("kiosk-camera-reader", {
+          formatsToSupport: [qrFormat],
+          verbose: false,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          }
+        });
+        scannerRef.current = scanner;
+
+        // High responsiveness & large scan area (90% box for easy capture of phone/laptop screens)
         const config = {
-          fps: 15,
+          fps: 24,
           qrbox: (viewfinderWidth, viewfinderHeight) => {
             const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const edgeSize = Math.max(100, Math.floor(minEdge * 0.75));
+            const edgeSize = Math.max(160, Math.floor(minEdge * 0.90));
             return { width: edgeSize, height: edgeSize };
           },
-          aspectRatio: 1.0
+          videoConstraints: {
+            deviceId: { exact: deviceToUse },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            focusMode: "continuous",
+            advanced: [{ focusMode: "continuous" }]
+          }
         };
 
-        await scannerRef.current.start(
+        await scanner.start(
           deviceToUse,
           config,
           (decodedText) => {
@@ -426,20 +473,19 @@ export default function AttendanceKioskPage() {
           console.warn("Camera init warning:", err);
           setCameraError(err.message || "Camera access denied or unavailable.");
         }
+      } finally {
+        if (isMounted) {
+          setIsSwitchingCamera(false);
+        }
       }
     };
 
-    const timer = setTimeout(startScanner, 250);
+    const timer = setTimeout(startScanner, 150);
 
     return () => {
       isMounted = false;
       clearTimeout(timer);
-      if (scannerRef.current) {
-        try {
-          scannerRef.current.stop().then(() => scannerRef.current.clear()).catch(() => {});
-        } catch (e) {}
-        scannerRef.current = null;
-      }
+      stopScanner();
     };
   }, [authStatus, cameraActive, selectedCameraId]);
 
@@ -686,6 +732,22 @@ export default function AttendanceKioskPage() {
         #kiosk-camera-reader__dashboard, #kiosk-camera-reader__dashboard_section_csr {
           display: none !important;
         }
+        @keyframes scanLaser {
+          0% { top: 6%; opacity: 0.8; }
+          50% { top: 92%; opacity: 1; }
+          100% { top: 6%; opacity: 0.8; }
+        }
+        .scan-laser-line {
+          position: absolute;
+          left: 6%;
+          right: 6%;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, #38bdf8, #60a5fa, #38bdf8, transparent);
+          box-shadow: 0 0 12px #38bdf8, 0 0 4px #60a5fa;
+          animation: scanLaser 2.2s ease-in-out infinite;
+          pointer-events: none;
+          z-index: 10;
+        }
       `}</style>
 
       {/* Responsive Top Bar */}
@@ -734,15 +796,19 @@ export default function AttendanceKioskPage() {
           {cameraActive && cameras.length > 1 && (
             <button
               type="button"
+              disabled={isSwitchingCamera}
               onClick={() => {
-                const nextIdx = (cameras.findIndex((c) => c.id === selectedCameraId) + 1) % cameras.length;
+                if (cameras.length <= 1 || isSwitchingCamera) return;
+                setIsSwitchingCamera(true);
+                const currentIdx = cameras.findIndex((c) => c.id === selectedCameraId);
+                const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % cameras.length : 1;
                 setSelectedCameraId(cameras[nextIdx].id);
               }}
-              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-all cursor-pointer disabled:opacity-50"
               title="Flip / Switch Camera"
             >
-              <FiRefreshCw className="text-sm shrink-0" />
-              <span>Flip</span>
+              <FiRefreshCw className={`text-sm shrink-0 ${isSwitchingCamera ? "animate-spin text-cyan-400" : ""}`} />
+              <span>{isSwitchingCamera ? "Flipping..." : "Flip"}</span>
             </button>
           )}
 
@@ -836,10 +902,32 @@ export default function AttendanceKioskPage() {
             {/* Live Camera Viewfinder */}
             {cameraActive ? (
               <div className="flex flex-col items-center">
-                <div className="w-[170px] h-[170px] sm:w-[210px] sm:h-[210px] rounded-2xl overflow-hidden border-2 sm:border-3 border-blue-500 shadow-[0_0_25px_rgba(59,130,246,0.4)] relative bg-black shrink-0 mx-auto">
+                <div className="w-[210px] h-[210px] sm:w-[260px] sm:h-[260px] rounded-2xl overflow-hidden border-2 sm:border-3 border-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.45)] relative bg-black shrink-0 mx-auto">
                   <div id="kiosk-camera-reader" className="w-full h-full" />
+                  
+                  {/* Active Laser Scanning Beam */}
+                  {!isProcessing && !isSwitchingCamera && !cameraError && (
+                    <div className="scan-laser-line" />
+                  )}
+
                   {/* Corner Target Markers */}
-                  <div className="absolute inset-0 pointer-events-none border border-white/20 rounded-xl m-2.5" />
+                  <div className="absolute inset-0 pointer-events-none border border-white/20 rounded-xl m-2.5 z-10" />
+
+                  {/* Processing Overlay */}
+                  {isProcessing && (
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-20 pointer-events-none">
+                      <div className="w-8 h-8 border-3 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs font-bold text-cyan-300">Processing Scan...</span>
+                    </div>
+                  )}
+
+                  {/* Switching Camera Overlay */}
+                  {isSwitchingCamera && (
+                    <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-20 pointer-events-none">
+                      <FiRefreshCw className="text-2xl text-blue-400 animate-spin" />
+                      <span className="text-xs font-semibold text-slate-300">Switching Camera...</span>
+                    </div>
+                  )}
                 </div>
 
                 {cameraError && (
@@ -849,10 +937,10 @@ export default function AttendanceKioskPage() {
                 )}
 
                 <div className="text-xs sm:text-sm font-bold text-white mt-2">
-                  Hold Card in Front of Camera
+                  Hold Card or Phone/Screen in Front of Camera
                 </div>
                 <div className="text-[10px] sm:text-xs text-slate-400">
-                  Or flash your QR code with a USB scanner gun.
+                  Aim QR code into viewfinder or use USB scanner gun.
                 </div>
               </div>
             ) : (

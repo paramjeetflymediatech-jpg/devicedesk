@@ -29,15 +29,15 @@ export async function GET(request, { params }) {
       type: 'DEVICEDESK_CARD'
     });
 
-    // Generate high-resolution PNG Data URL
+    // Generate high-resolution PNG Data URL optimized for screen and card scanning
     const qrDataUrl = await QRCode.toDataURL(qrPayload, {
-      width: 400,
-      margin: 2,
+      width: 500,
+      margin: 3,
       color: {
         dark: '#000000',
         light: '#ffffff'
       },
-      errorCorrectionLevel: 'H'
+      errorCorrectionLevel: 'M'
     });
 
     return NextResponse.json({
