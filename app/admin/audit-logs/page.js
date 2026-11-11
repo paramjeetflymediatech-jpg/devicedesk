@@ -6,7 +6,6 @@ import {
   FiActivity,
   FiArrowLeft,
   FiSearch,
-  FiFilter,
   FiAlertTriangle,
   FiCheckCircle,
   FiXCircle,
@@ -18,7 +17,9 @@ import {
   FiEye,
   FiClock,
   FiLayers,
-  FiX
+  FiX,
+  FiUser,
+  FiChevronRight
 } from "react-icons/fi";
 import Pagination from "../../components/Pagination";
 
@@ -118,361 +119,349 @@ export default function AdminAuditLogsPage() {
   const paginatedSubmissionLogs = filteredSubmissionLogs.slice((safeSubmissionPage - 1) * submissionPageSize, safeSubmissionPage * submissionPageSize);
 
   // Helper for Status Badge styling
-  const getStatusBadge = (status) => {
+  const renderStatusBadge = (status) => {
     const s = String(status || "INFO").toUpperCase();
     if (s === "SUCCESS") {
       return (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, background: "rgba(16, 185, 129, 0.15)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
           <FiCheckCircle size={12} /> SUCCESS
         </span>
       );
     }
     if (s === "FAILURE" || s === "FAILED") {
       return (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, background: "rgba(239, 68, 68, 0.15)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.3)" }}>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
           <FiXCircle size={12} /> FAILED
         </span>
       );
     }
     if (s === "BLOCKED") {
       return (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, background: "rgba(245, 158, 11, 0.15)", color: "#f59e0b", border: "1px solid rgba(245, 158, 11, 0.3)" }}>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
           <FiLock size={12} /> BLOCKED
         </span>
       );
     }
     if (s === "CRITICAL") {
       return (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700, background: "rgba(220, 38, 38, 0.2)", color: "#f87171", border: "1px solid rgba(220, 38, 38, 0.4)" }}>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300 border border-red-300 dark:border-red-800">
           <FiAlertTriangle size={12} /> CRITICAL
         </span>
       );
     }
     return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 600, background: "rgba(148, 163, 184, 0.15)", color: "#94a3b8", border: "1px solid rgba(148, 163, 184, 0.3)" }}>
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
         {s}
       </span>
     );
   };
 
   // Helper for Category styling
-  const getCategoryBadge = (cat) => {
+  const renderCategoryBadge = (cat) => {
     const c = String(cat || "SECURITY").toUpperCase();
-    let bg = "rgba(100, 116, 139, 0.15)";
-    let color = "#94a3b8";
     if (c === "AUTH") {
-      bg = "rgba(6, 182, 212, 0.15)";
-      color = "#06b6d4";
-    } else if (c === "PASSWORD_RESET") {
-      bg = "rgba(168, 85, 247, 0.15)";
-      color = "#c084fc";
-    } else if (c === "ADMIN_PANEL") {
-      bg = "rgba(59, 130, 246, 0.15)";
-      color = "#60a5fa";
-    } else if (c === "ACCESS_CONTROL") {
-      bg = "rgba(245, 158, 11, 0.15)";
-      color = "#fbbf24";
-    } else if (c === "DANGER_ZONE") {
-      bg = "rgba(239, 68, 68, 0.2)";
-      color = "#f87171";
+      return (
+        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+          AUTH
+        </span>
+      );
+    }
+    if (c === "PASSWORD_RESET") {
+      return (
+        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+          RESET
+        </span>
+      );
+    }
+    if (c === "ADMIN_PANEL") {
+      return (
+        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+          ADMIN
+        </span>
+      );
+    }
+    if (c === "ACCESS_CONTROL") {
+      return (
+        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+          SECURITY
+        </span>
+      );
+    }
+    if (c === "DANGER_ZONE") {
+      return (
+        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+          DANGER
+        </span>
+      );
     }
     return (
-      <span style={{ padding: "2px 6px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: 700, background: bg, color }}>
+      <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
         {c}
       </span>
     );
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-primary, #0f172a)", color: "var(--text-primary, #f8fafc)", padding: "2rem" }}>
-      <div style={{ maxWidth: "1350px", margin: "0 auto" }}>
-        
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.75rem", flexWrap: "wrap", gap: "1rem" }}>
+    <div className="space-y-6 max-w-[1600px] mx-auto text-slate-900 dark:text-slate-100">
+      
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 text-xs font-semibold mb-2"
+          >
+            <FiArrowLeft /> Back to Dashboard
+          </Link>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-gradient-to-tr from-cyan-500 to-blue-600 text-white rounded-xl shadow-md">
+              <FiShield size={24} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                Security Audit & Activity Logs
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Track logins, password resets, admin panel actions, device forensics & IP activity.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (activeTab === "security") fetchSecurityLogs();
+              else fetchSubmissionLogs();
+            }}
+            disabled={loadingSecurity || loadingSubmissions}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+          >
+            <FiRefreshCw className={loadingSecurity || loadingSubmissions ? "animate-spin" : ""} size={14} />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Events */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div>
-            <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--accent-cyan, #06b6d4)", textDecoration: "none", fontSize: "0.85rem", marginBottom: "8px" }}>
-              <FiArrowLeft /> Back to Dashboard
-            </Link>
-            <h1 style={{ fontSize: "1.85rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>
-              <FiShield style={{ color: "#06b6d4" }} /> Security Audit & Activity Logs
-            </h1>
-            <p style={{ color: "var(--text-secondary, #94a3b8)", fontSize: "0.875rem", marginTop: "4px" }}>
-              Real-time security auditing: login attempts, password resets, admin panel actions, network forensics & IP tracing.
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Total Logged Events
             </p>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <button
-              onClick={() => {
-                if (activeTab === "security") fetchSecurityLogs();
-                else fetchSubmissionLogs();
-              }}
-              className="btn-action"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "8px 14px",
-                background: "rgba(255, 255, 255, 0.05)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                borderRadius: "10px",
-                color: "#f8fafc",
-                fontSize: "0.85rem",
-                cursor: "pointer"
-              }}
-            >
-              <FiRefreshCw className={loadingSecurity || loadingSubmissions ? "animate-spin" : ""} /> Refresh Logs
-            </button>
-          </div>
-        </div>
-
-        {/* Security Metric Stat Cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
-          <div style={{ background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "14px", padding: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#94a3b8", fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase" }}>
-              <span>Total Audit Events</span>
-              <FiLayers style={{ color: "#06b6d4" }} />
-            </div>
-            <div style={{ fontSize: "1.75rem", fontWeight: 800, marginTop: "0.5rem", color: "#f8fafc" }}>
+            <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
               {securityPagination.total || 0}
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "4px" }}>Registered system security events</div>
+            </h3>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Registered security actions
+            </p>
           </div>
-
-          <div style={{ background: "rgba(239, 68, 68, 0.06)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "14px", padding: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#f87171", fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase" }}>
-              <span>Failed Logins (24h)</span>
-              <FiXCircle style={{ color: "#ef4444" }} />
-            </div>
-            <div style={{ fontSize: "1.75rem", fontWeight: 800, marginTop: "0.5rem", color: "#ef4444" }}>
-              {securityStats.failedLogins24h || 0}
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "#fca5a5", marginTop: "4px" }}>Wrong password or bad username</div>
-          </div>
-
-          <div style={{ background: "rgba(168, 85, 247, 0.06)", border: "1px solid rgba(168, 85, 247, 0.2)", borderRadius: "14px", padding: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#c084fc", fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase" }}>
-              <span>Password Resets (24h)</span>
-              <FiKey style={{ color: "#a855f7" }} />
-            </div>
-            <div style={{ fontSize: "1.75rem", fontWeight: 800, marginTop: "0.5rem", color: "#c084fc" }}>
-              {securityStats.passwordResets24h || 0}
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "#d8b4fe", marginTop: "4px" }}>Dispatches & token validations</div>
-          </div>
-
-          <div style={{ background: "rgba(245, 158, 11, 0.06)", border: "1px solid rgba(245, 158, 11, 0.2)", borderRadius: "14px", padding: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#fbbf24", fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase" }}>
-              <span>Blocked Attempts (24h)</span>
-              <FiLock style={{ color: "#f59e0b" }} />
-            </div>
-            <div style={{ fontSize: "1.75rem", fontWeight: 800, marginTop: "0.5rem", color: "#fbbf24" }}>
-              {securityStats.blockedAttempts24h || 0}
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "#fde68a", marginTop: "4px" }}>Paused or inactive accounts</div>
+          <div className="p-3 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-cyan-800">
+            <FiLayers size={22} />
           </div>
         </div>
 
-        {/* Suspicious IP Alert Banner */}
-        {securityStats.suspiciousIps && securityStats.suspiciousIps.length > 0 && (
-          <div style={{ marginBottom: "1.5rem", background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.35)", borderRadius: "14px", padding: "1rem 1.25rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#ef4444", fontWeight: 700, fontSize: "0.95rem" }}>
-              <FiAlertTriangle /> High-Priority Security Warning: Repeated Failed Attempts Detected
-            </div>
-            <p style={{ color: "#fca5a5", fontSize: "0.825rem", margin: "6px 0 10px 0" }}>
-              The following IP addresses have recorded 3 or more failed or blocked login attempts in the past 24 hours:
+        {/* Failed Logins (24h) */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+              Failed Logins (24h)
             </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-              {securityStats.suspiciousIps.map((s, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setSelectedIpFilter(s.ip);
+            <h3 className="text-2xl font-extrabold text-rose-600 dark:text-rose-400 mt-1">
+              {securityStats.failedLogins24h || 0}
+            </h3>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Wrong credentials provided
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800">
+            <FiXCircle size={22} />
+          </div>
+        </div>
+
+        {/* Password Resets (24h) */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+              Password Resets (24h)
+            </p>
+            <h3 className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 mt-1">
+              {securityStats.passwordResets24h || 0}
+            </h3>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Reset requests & changes
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800">
+            <FiKey size={22} />
+          </div>
+        </div>
+
+        {/* Blocked Accounts (24h) */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+              Blocked Attempts (24h)
+            </p>
+            <h3 className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">
+              {securityStats.blockedAttempts24h || 0}
+            </h3>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Paused or inactive accounts
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800">
+            <FiLock size={22} />
+          </div>
+        </div>
+      </div>
+
+      {/* Suspicious IP Warning Alert */}
+      {securityStats.suspiciousIps && securityStats.suspiciousIps.length > 0 && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50">
+          <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-bold text-sm">
+            <FiAlertTriangle size={18} />
+            <span>High-Priority Security Warning: Repeated Failed Attempts Detected</span>
+          </div>
+          <p className="text-xs text-rose-600 dark:text-rose-300 mt-1 mb-3">
+            The following IP addresses have recorded 3 or more failed or blocked login attempts in the past 24 hours:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {securityStats.suspiciousIps.map((s, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  setSelectedIpFilter(s.ip);
+                  setSecurityPage(1);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-950/60 shadow-sm transition-all cursor-pointer"
+              >
+                <FiGlobe size={13} />
+                <span>{s.ip} {s.country ? `(${s.country})` : ""}</span>
+                <span className="px-1.5 py-0.2 rounded bg-rose-200 dark:bg-rose-900 text-rose-800 dark:text-rose-200 font-bold text-[10px]">
+                  {s.attempts} attempts
+                </span>
+                <FiChevronRight size={12} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
+        <button
+          onClick={() => setActiveTab("security")}
+          className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === "security"
+              ? "border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+          }`}
+        >
+          <FiShield size={16} />
+          <span>Security & Auth Logs</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("submissions")}
+          className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === "submissions"
+              ? "border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+          }`}
+        >
+          <FiActivity size={16} />
+          <span>Task Submissions Trail</span>
+        </button>
+      </div>
+
+      {/* ======================================================== */}
+      {/* TAB 1: SECURITY AUDIT LOGS */}
+      {/* ======================================================== */}
+      {activeTab === "security" && (
+        <div className="space-y-4">
+          
+          {/* Filter Bar */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
+              
+              {/* Search Bar */}
+              <div className="relative flex-1">
+                <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Search IP, user email, identifier, action..."
+                  value={securitySearch}
+                  onChange={(e) => {
+                    setSecuritySearch(e.target.value);
                     setSecurityPage(1);
                   }}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    background: "rgba(239, 68, 68, 0.2)",
-                    border: "1px solid rgba(239, 68, 68, 0.4)",
-                    color: "#fee2e2",
-                    padding: "5px 12px",
-                    borderRadius: "8px",
-                    fontSize: "0.8rem",
-                    cursor: "pointer"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+
+              {/* Filters Group */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Category */}
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value);
+                    setSecurityPage(1);
                   }}
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
-                  <FiGlobe size={13} />
-                  <strong>{s.ip}</strong> ({s.country || "Unknown"}) — {s.attempts} attempts
-                  <span style={{ fontSize: "0.7rem", color: "#f87171" }}>Filter &rarr;</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+                  <option value="ALL">All Categories</option>
+                  <option value="AUTH">Authentication (Logins & 2FA)</option>
+                  <option value="PASSWORD_RESET">Password Resets</option>
+                  <option value="ADMIN_PANEL">Admin Panel Actions</option>
+                  <option value="ACCESS_CONTROL">Access Control & Blocks</option>
+                  <option value="DANGER_ZONE">Danger Zone Purges</option>
+                </select>
 
-        {/* Tab Navigation */}
-        <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", marginBottom: "1.5rem" }}>
-          <button
-            onClick={() => setActiveTab("security")}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "10px 18px",
-              background: "transparent",
-              border: "none",
-              borderBottom: activeTab === "security" ? "3px solid #06b6d4" : "3px solid transparent",
-              color: activeTab === "security" ? "#06b6d4" : "#94a3b8",
-              fontWeight: 700,
-              fontSize: "0.95rem",
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-          >
-            <FiShield /> Security & Auth Audit Logs
-          </button>
-          <button
-            onClick={() => setActiveTab("submissions")}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "10px 18px",
-              background: "transparent",
-              border: "none",
-              borderBottom: activeTab === "submissions" ? "3px solid #06b6d4" : "3px solid transparent",
-              color: activeTab === "submissions" ? "#06b6d4" : "#94a3b8",
-              fontWeight: 700,
-              fontSize: "0.95rem",
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-          >
-            <FiActivity /> Task Submissions Trail
-          </button>
-        </div>
+                {/* Status */}
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => {
+                    setSelectedStatus(e.target.value);
+                    setSecurityPage(1);
+                  }}
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="FAILURE">Failed Attempts</option>
+                  <option value="BLOCKED">Blocked Accounts</option>
+                  <option value="SUCCESS">Success Only</option>
+                  <option value="CRITICAL">Critical Events</option>
+                </select>
 
-        {/* TAB 1: SECURITY AUDIT LOGS */}
-        {activeTab === "security" && (
-          <div>
-            {/* Filter Bar */}
-            <div style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "14px", padding: "1rem", marginBottom: "1.25rem" }}>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
-                
-                {/* Search */}
-                <div style={{ position: "relative", flex: "1 1 240px" }}>
-                  <FiSearch style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#64748b" }} />
-                  <input
-                    type="text"
-                    placeholder="Search IP, user email, identifier, action..."
-                    value={securitySearch}
-                    onChange={(e) => {
-                      setSecuritySearch(e.target.value);
-                      setSecurityPage(1);
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px 8px 36px",
-                      background: "rgba(255, 255, 255, 0.05)",
-                      border: "1px solid rgba(255, 255, 255, 0.12)",
-                      borderRadius: "8px",
-                      color: "#fff",
-                      fontSize: "0.85rem"
-                    }}
-                  />
-                </div>
+                {/* Timeframe */}
+                <select
+                  value={selectedTimeframe}
+                  onChange={(e) => {
+                    setSelectedTimeframe(e.target.value);
+                    setSecurityPage(1);
+                  }}
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="all">All Time</option>
+                  <option value="today">Today Only</option>
+                  <option value="7d">Last 7 Days</option>
+                  <option value="30d">Last 30 Days</option>
+                </select>
 
-                {/* Category Dropdown */}
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span style={{ fontSize: "0.75rem", color: "#94a3b8", textTransform: "uppercase" }}>Category:</span>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => {
-                      setSelectedCategory(e.target.value);
-                      setSecurityPage(1);
-                    }}
-                    style={{
-                      background: "#1e293b",
-                      border: "1px solid rgba(255, 255, 255, 0.15)",
-                      color: "#fff",
-                      borderRadius: "8px",
-                      padding: "7px 10px",
-                      fontSize: "0.85rem"
-                    }}
-                  >
-                    <option value="ALL">All Categories</option>
-                    <option value="AUTH">Authentication (Logins & 2FA)</option>
-                    <option value="PASSWORD_RESET">Password Resets</option>
-                    <option value="ADMIN_PANEL">Admin Panel Actions</option>
-                    <option value="ACCESS_CONTROL">Access Control & Blocks</option>
-                    <option value="DANGER_ZONE">Danger Zone Purges</option>
-                  </select>
-                </div>
-
-                {/* Status Dropdown */}
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span style={{ fontSize: "0.75rem", color: "#94a3b8", textTransform: "uppercase" }}>Status:</span>
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => {
-                      setSelectedStatus(e.target.value);
-                      setSecurityPage(1);
-                    }}
-                    style={{
-                      background: "#1e293b",
-                      border: "1px solid rgba(255, 255, 255, 0.15)",
-                      color: "#fff",
-                      borderRadius: "8px",
-                      padding: "7px 10px",
-                      fontSize: "0.85rem"
-                    }}
-                  >
-                    <option value="ALL">All Statuses</option>
-                    <option value="FAILURE">Failed Attempts</option>
-                    <option value="BLOCKED">Blocked Accounts</option>
-                    <option value="SUCCESS">Success Only</option>
-                    <option value="WARNING">Warnings</option>
-                    <option value="CRITICAL">Critical Events</option>
-                  </select>
-                </div>
-
-                {/* Timeframe Dropdown */}
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span style={{ fontSize: "0.75rem", color: "#94a3b8", textTransform: "uppercase" }}>Time:</span>
-                  <select
-                    value={selectedTimeframe}
-                    onChange={(e) => {
-                      setSelectedTimeframe(e.target.value);
-                      setSecurityPage(1);
-                    }}
-                    style={{
-                      background: "#1e293b",
-                      border: "1px solid rgba(255, 255, 255, 0.15)",
-                      color: "#fff",
-                      borderRadius: "8px",
-                      padding: "7px 10px",
-                      fontSize: "0.85rem"
-                    }}
-                  >
-                    <option value="all">All Time</option>
-                    <option value="today">Today Only</option>
-                    <option value="7d">Last 7 Days</option>
-                    <option value="30d">Last 30 Days</option>
-                  </select>
-                </div>
-
-                {/* Clear IP filter pill if active */}
+                {/* Clear Active IP filter */}
                 {selectedIpFilter && (
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(6, 182, 212, 0.2)", border: "1px solid rgba(6, 182, 212, 0.4)", padding: "4px 10px", borderRadius: "8px", fontSize: "0.8rem", color: "#67e8f9" }}>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
                     <span>IP: <strong>{selectedIpFilter}</strong></span>
                     <button
                       onClick={() => {
                         setSelectedIpFilter("");
                         setSecurityPage(1);
                       }}
-                      style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center" }}
+                      className="hover:opacity-75 cursor-pointer ml-1"
                     >
                       <FiX size={14} />
                     </button>
@@ -480,74 +469,79 @@ export default function AdminAuditLogsPage() {
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Security Audit Table */}
-            <div className="table-wrapper" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border, rgba(255,255,255,0.08))", borderRadius: "14px", overflow: "hidden" }}>
-              <table className="custom-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+          {/* Table Container */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr style={{ background: "rgba(255,255,255,0.04)", textAlign: "left", fontSize: "0.8rem", color: "#94a3b8", textTransform: "uppercase" }}>
-                    <th style={{ padding: "12px 14px" }}>Timestamp</th>
-                    <th style={{ padding: "12px 14px" }}>Action & Category</th>
-                    <th style={{ padding: "12px 14px" }}>User / Identifier</th>
-                    <th style={{ padding: "12px 14px" }}>Network & IP</th>
-                    <th style={{ padding: "12px 14px" }}>Browser & System</th>
-                    <th style={{ padding: "12px 14px" }}>Status</th>
-                    <th style={{ padding: "12px 14px", textAlign: "right" }}>Inspect</th>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <th className="py-3.5 px-4">Timestamp</th>
+                    <th className="py-3.5 px-4">Action & Category</th>
+                    <th className="py-3.5 px-4">User / Identifier</th>
+                    <th className="py-3.5 px-4">Network & IP</th>
+                    <th className="py-3.5 px-4">Browser & Device</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Inspect</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 text-xs sm:text-sm">
                   {loadingSecurity ? (
                     <tr>
-                      <td colSpan="7" style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
-                        <FiRefreshCw className="animate-spin" size={24} style={{ margin: "0 auto 8px auto" }} />
-                        <div>Loading security audit records...</div>
+                      <td colSpan="7" className="py-12 text-center text-slate-400">
+                        <FiRefreshCw className="animate-spin mx-auto mb-2 text-cyan-600" size={24} />
+                        <span className="font-medium">Loading security audit records...</span>
                       </td>
                     </tr>
                   ) : securityLogs.length > 0 ? (
                     securityLogs.map((log) => {
-                      const isFail = log.status === "FAILURE" || log.status === "BLOCKED";
+                      const isFailure = log.status === "FAILURE" || log.status === "BLOCKED";
                       return (
                         <tr
                           key={log.id}
-                          style={{
-                            borderBottom: "1px solid rgba(255,255,255,0.05)",
-                            background: isFail ? "rgba(239, 68, 68, 0.03)" : "transparent"
-                          }}
+                          className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${
+                            isFailure ? "bg-rose-50/20 dark:bg-rose-950/10" : ""
+                          }`}
                         >
-                          <td style={{ padding: "12px 14px", fontSize: "0.8rem", color: "#94a3b8", whiteSpace: "nowrap" }}>
-                            <div style={{ color: "#f8fafc", fontWeight: 600 }}>
+                          {/* Timestamp */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="font-semibold text-slate-900 dark:text-white text-xs">
                               {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                             </div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                            <div className="text-[11px] text-slate-400 dark:text-slate-500">
                               {new Date(log.created_at).toLocaleDateString()}
                             </div>
                           </td>
 
-                          <td style={{ padding: "12px 14px" }}>
-                            <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#f1f5f9" }}>
+                          {/* Action & Category */}
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
                               {log.action}
                             </div>
-                            <div style={{ marginTop: "4px" }}>
-                              {getCategoryBadge(log.category)}
+                            <div className="mt-1">
+                              {renderCategoryBadge(log.category)}
                             </div>
                           </td>
 
-                          <td style={{ padding: "12px 14px" }}>
-                            <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "#f8fafc" }}>
+                          {/* User / Identifier */}
+                          <td className="py-3.5 px-4">
+                            <div className="font-semibold text-slate-800 dark:text-slate-200">
                               {log.user_name || log.identifier || "—"}
                             </div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                              {log.user_role ? `${log.user_role}` : log.identifier && log.user_name ? log.identifier : "Unauthenticated"}
+                            <div className="text-[11px] text-slate-400 dark:text-slate-500">
+                              {log.user_role ? log.user_role : log.identifier && log.user_name ? log.identifier : "Unauthenticated"}
                             </div>
                           </td>
 
-                          <td style={{ padding: "12px 14px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <span style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#38bdf8", fontWeight: 600 }}>
+                          {/* Network & IP */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-xs font-bold text-cyan-700 dark:text-cyan-400">
                                 {log.ip_address || "127.0.0.1"}
                               </span>
                               {log.country && (
-                                <span style={{ fontSize: "0.7rem", background: "rgba(255,255,255,0.1)", padding: "1px 5px", borderRadius: "4px", color: "#cbd5e1" }}>
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold">
                                   {log.country}
                                 </span>
                               )}
@@ -557,44 +551,36 @@ export default function AdminAuditLogsPage() {
                                 setSelectedIpFilter(log.ip_address);
                                 setSecurityPage(1);
                               }}
-                              style={{ background: "none", border: "none", padding: 0, color: "#94a3b8", fontSize: "0.7rem", cursor: "pointer", textDecoration: "underline", marginTop: "2px" }}
+                              className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline cursor-pointer block mt-0.5"
                             >
-                              Trace IP history
+                              Filter by IP
                             </button>
                           </td>
 
-                          <td style={{ padding: "12px 14px", fontSize: "0.8rem", color: "#cbd5e1" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                              <FiMonitor size={13} style={{ color: "#94a3b8" }} />
+                          {/* Browser & Device */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                              <FiMonitor size={13} className="text-slate-400" />
                               <span>{log.browser || "Unknown"}</span>
                             </div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
-                              {log.os || "Unknown OS"} • {log.device || "Desktop"}
+                            <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                              {log.os || "Unknown OS"} · {log.device || "Desktop"}
                             </div>
                           </td>
 
-                          <td style={{ padding: "12px 14px" }}>
-                            {getStatusBadge(log.status)}
+                          {/* Status */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {renderStatusBadge(log.status)}
                           </td>
 
-                          <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                          {/* Details Button */}
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
                             <button
                               onClick={() => setActiveDetailLog(log)}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                                padding: "5px 10px",
-                                background: "rgba(6, 182, 212, 0.12)",
-                                border: "1px solid rgba(6, 182, 212, 0.3)",
-                                color: "#22d3ee",
-                                borderRadius: "6px",
-                                fontSize: "0.75rem",
-                                fontWeight: 600,
-                                cursor: "pointer"
-                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-cyan-50 text-cyan-700 hover:bg-cyan-100 dark:bg-cyan-950/60 dark:text-cyan-300 dark:hover:bg-cyan-900/60 border border-cyan-200 dark:border-cyan-800 transition-colors shadow-sm cursor-pointer"
                             >
-                              <FiEye size={12} /> Details
+                              <FiEye size={12} />
+                              <span>Details</span>
                             </button>
                           </td>
                         </tr>
@@ -602,10 +588,10 @@ export default function AdminAuditLogsPage() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="7" style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
-                        <FiCheckCircle size={32} style={{ color: "#10b981", margin: "0 auto 8px auto" }} />
-                        <div style={{ fontWeight: 600, color: "#cbd5e1" }}>No security events matching this criteria.</div>
-                        <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: "4px" }}>All logins and activity within this filter are clear.</div>
+                      <td colSpan="7" className="py-12 text-center text-slate-500">
+                        <FiCheckCircle size={32} className="text-emerald-500 mx-auto mb-2" />
+                        <div className="font-bold text-slate-800 dark:text-slate-200">No security logs match this filter.</div>
+                        <div className="text-xs text-slate-400 mt-1">All authentication and admin events in this range are clear.</div>
                       </td>
                     </tr>
                   )}
@@ -613,8 +599,8 @@ export default function AdminAuditLogsPage() {
               </table>
             </div>
 
-            {/* Pagination for Security Logs */}
-            <div style={{ marginTop: "1rem" }}>
+            {/* Pagination */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
               <Pagination
                 currentPage={securityPage}
                 totalPages={securityPagination.totalPages}
@@ -629,72 +615,78 @@ export default function AdminAuditLogsPage() {
               />
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* TAB 2: TASK SUBMISSIONS TRAIL (Legacy) */}
-        {activeTab === "submissions" && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <div style={{ position: "relative", minWidth: "280px" }}>
-                <FiSearch style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#64748b" }} />
-                <input
-                  type="text"
-                  placeholder="Search task submissions..."
-                  value={submissionSearch}
-                  onChange={(e) => {
-                    setSubmissionSearch(e.target.value);
-                    setSubmissionPage(1);
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px 8px 36px",
-                    background: "rgba(255, 255, 255, 0.05)",
-                    border: "1px solid rgba(255, 255, 255, 0.12)",
-                    borderRadius: "8px",
-                    color: "#fff",
-                    fontSize: "0.85rem"
-                  }}
-                />
-              </div>
+      {/* ======================================================== */}
+      {/* TAB 2: TASK SUBMISSIONS TRAIL (Legacy) */}
+      {/* ======================================================== */}
+      {activeTab === "submissions" && (
+        <div className="space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="relative max-w-md">
+              <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder="Search submission ID, employee, notes..."
+                value={submissionSearch}
+                onChange={(e) => {
+                  setSubmissionSearch(e.target.value);
+                  setSubmissionPage(1);
+                }}
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
             </div>
+          </div>
 
-            <div className="table-wrapper" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px", overflow: "hidden" }}>
-              <table className="custom-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr style={{ background: "rgba(255,255,255,0.04)", textAlign: "left", fontSize: "0.8rem", color: "#94a3b8" }}>
-                    <th style={{ padding: "12px 14px" }}>Timestamp</th>
-                    <th style={{ padding: "12px 14px" }}>Submission / Entity</th>
-                    <th style={{ padding: "12px 14px" }}>Changed By</th>
-                    <th style={{ padding: "12px 14px" }}>Status Change</th>
-                    <th style={{ padding: "12px 14px" }}>Notes</th>
-                    <th style={{ padding: "12px 14px", textAlign: "right" }}>Action</th>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <th className="py-3.5 px-4">Timestamp</th>
+                    <th className="py-3.5 px-4">Submission / Entity</th>
+                    <th className="py-3.5 px-4">Changed By</th>
+                    <th className="py-3.5 px-4">Status Change</th>
+                    <th className="py-3.5 px-4">Notes</th>
+                    <th className="py-3.5 px-4 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 text-xs sm:text-sm">
                   {loadingSubmissions ? (
                     <tr>
-                      <td colSpan="6" style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>
-                        Loading audit trail...
+                      <td colSpan="6" className="py-10 text-center text-slate-400">
+                        Loading submission trail...
                       </td>
                     </tr>
                   ) : paginatedSubmissionLogs.length > 0 ? (
                     paginatedSubmissionLogs.map((log) => {
                       const logSlug = `log-${log.id}`;
                       return (
-                        <tr key={log.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                          <td style={{ padding: "12px 14px", fontSize: "0.8rem", color: "#94a3b8" }}>
+                        <tr key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap text-xs">
                             {new Date(log.created_at).toLocaleString()}
                           </td>
-                          <td style={{ padding: "12px 14px", fontWeight: 600 }}>{log.submission_id}</td>
-                          <td style={{ padding: "12px 14px" }}>{log.employee_name || log.changed_by}</td>
-                          <td style={{ padding: "12px 14px" }}>
-                            <span style={{ color: "#64748b", marginRight: "4px" }}>{log.old_status || "None"}</span>
-                            &rarr; <span style={{ color: "#06b6d4", fontWeight: 600 }}>{log.new_status}</span>
+                          <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                            {log.submission_id}
                           </td>
-                          <td style={{ padding: "12px 14px", fontSize: "0.85rem", color: "#94a3b8" }}>{log.comment || "—"}</td>
-                          <td style={{ padding: "12px 14px", textAlign: "right" }}>
-                            <Link href={`/admin/audit-logs/${logSlug}`} className="btn-action start" style={{ padding: "4px 10px", fontSize: "0.75rem", textDecoration: "none" }}>
-                              View &rarr;
+                          <td className="py-3.5 px-4 text-slate-800 dark:text-slate-200">
+                            {log.employee_name || log.changed_by}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="text-slate-400 line-through mr-1.5">{log.old_status || "None"}</span>
+                            <span className="font-bold text-cyan-600 dark:text-cyan-400">{log.new_status}</span>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 max-w-xs truncate">
+                            {log.comment || "—"}
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <Link
+                              href={`/admin/audit-logs/${logSlug}`}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                            >
+                              <span>View</span>
+                              <FiChevronRight size={12} />
                             </Link>
                           </td>
                         </tr>
@@ -702,8 +694,8 @@ export default function AdminAuditLogsPage() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="6" style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>
-                        {submissionSearch ? "No submission logs matching search criteria." : "No submission records registered yet."}
+                      <td colSpan="6" className="py-10 text-center text-slate-400">
+                        No submission logs found.
                       </td>
                     </tr>
                   )}
@@ -711,7 +703,7 @@ export default function AdminAuditLogsPage() {
               </table>
             </div>
 
-            <div style={{ marginTop: "1rem" }}>
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
               <Pagination
                 currentPage={safeSubmissionPage}
                 totalPages={submissionTotalPages}
@@ -726,164 +718,155 @@ export default function AdminAuditLogsPage() {
               />
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Detailed Inspection Modal */}
-        {activeDetailLog && (
+      {/* ======================================================== */}
+      {/* 3. FORENSICS DETAILS MODAL */}
+      {/* ======================================================== */}
+      {activeDetailLog && (
+        <div
+          onClick={() => setActiveDetailLog(null)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] flex items-center justify-center p-3 sm:p-5 overflow-y-auto"
+        >
           <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0, 0, 0, 0.75)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 9999,
-              padding: "1rem"
-            }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200"
           >
-            <div
-              style={{
-                background: "#0f172a",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                borderRadius: "16px",
-                width: "100%",
-                maxWidth: "650px",
-                maxHeight: "90vh",
-                overflowY: "auto",
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-                padding: "1.5rem"
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", paddingBottom: "12px", marginBottom: "1rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <FiShield style={{ color: "#06b6d4" }} />
-                  <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Security Audit Forensics</h3>
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-tr from-cyan-500 to-blue-600 text-white rounded-xl shadow-md">
+                  <FiShield size={20} />
                 </div>
-                <button
-                  onClick={() => setActiveDetailLog(null)}
-                  style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px" }}
-                >
-                  <FiX size={18} />
-                </button>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                    Security Event Forensics
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    ID #{activeDetailLog.id} · Registered on {new Date(activeDetailLog.created_at).toLocaleString()}
+                  </p>
+                </div>
               </div>
+              <button
+                onClick={() => setActiveDetailLog(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem", fontSize: "0.85rem" }}>
-                <div>
-                  <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase" }}>Event Action</div>
-                  <div style={{ fontWeight: 700, color: "#f8fafc", marginTop: "2px" }}>{activeDetailLog.action}</div>
-                </div>
-
-                <div>
-                  <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase" }}>Status & Severity</div>
-                  <div style={{ marginTop: "2px" }}>{getStatusBadge(activeDetailLog.status)}</div>
-                </div>
-
-                <div>
-                  <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase" }}>Target / Identifier</div>
-                  <div style={{ fontWeight: 600, color: "#f8fafc", marginTop: "2px" }}>
-                    {activeDetailLog.user_name || activeDetailLog.identifier || "None"}
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              
+              {/* Top Details Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                
+                {/* Event Action */}
+                <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Action Event
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white mt-1 block">
+                    {activeDetailLog.action}
+                  </span>
+                  <div className="mt-1.5">
+                    {renderCategoryBadge(activeDetailLog.category)}
                   </div>
                 </div>
 
-                <div>
-                  <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase" }}>Role / Account Type</div>
-                  <div style={{ color: "#cbd5e1", marginTop: "2px" }}>{activeDetailLog.user_role || "Unauthenticated User"}</div>
-                </div>
-
-                <div>
-                  <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase" }}>IP Address</div>
-                  <div style={{ fontFamily: "monospace", color: "#38bdf8", fontWeight: 700, marginTop: "2px" }}>
-                    {activeDetailLog.ip_address} {activeDetailLog.country ? `(${activeDetailLog.country})` : ""}
+                {/* Status */}
+                <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Result Status
+                  </span>
+                  <div className="mt-2">
+                    {renderStatusBadge(activeDetailLog.status)}
                   </div>
                 </div>
 
-                <div>
-                  <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase" }}>Timestamp</div>
-                  <div style={{ color: "#cbd5e1", marginTop: "2px" }}>{new Date(activeDetailLog.created_at).toLocaleString()}</div>
+                {/* User / Identifier */}
+                <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Target / Actor
+                  </span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white mt-1 block">
+                    {activeDetailLog.user_name || activeDetailLog.identifier || "Anonymous / Unauthenticated"}
+                  </span>
+                  <span className="text-xs text-slate-500 mt-0.5 block">
+                    {activeDetailLog.user_role ? `Role: ${activeDetailLog.user_role}` : "No active session"}
+                  </span>
                 </div>
 
-                <div>
-                  <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase" }}>Browser & Engine</div>
-                  <div style={{ color: "#cbd5e1", marginTop: "2px" }}>{activeDetailLog.browser || "Unknown"}</div>
+                {/* IP Address & Network */}
+                <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Network IP & Origin
+                  </span>
+                  <span className="text-sm font-mono font-bold text-cyan-600 dark:text-cyan-400 mt-1 block">
+                    {activeDetailLog.ip_address || "127.0.0.1"} {activeDetailLog.country ? `(${activeDetailLog.country})` : ""}
+                  </span>
+                  <span className="text-xs text-slate-500 mt-0.5 block">
+                    Method: {activeDetailLog.method || "POST"} · {activeDetailLog.path || "/api/..."}
+                  </span>
                 </div>
 
-                <div>
-                  <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase" }}>Operating System & Device</div>
-                  <div style={{ color: "#cbd5e1", marginTop: "2px" }}>{activeDetailLog.os || "Unknown"} ({activeDetailLog.device || "Desktop"})</div>
+                {/* Browser & OS */}
+                <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-700/60 sm:col-span-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Client Platform
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-white mt-1 block">
+                    {activeDetailLog.browser || "Unknown Browser"} on {activeDetailLog.os || "Unknown OS"} ({activeDetailLog.device || "Desktop"})
+                  </span>
                 </div>
               </div>
 
-              {/* Parsed JSON Details */}
-              <div style={{ marginBottom: "1rem" }}>
-                <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase", marginBottom: "6px" }}>Detailed Audit Payload</div>
-                <pre
-                  style={{
-                    background: "rgba(0, 0, 0, 0.4)",
-                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                    borderRadius: "8px",
-                    padding: "12px",
-                    color: "#a5f3fc",
-                    fontSize: "0.8rem",
-                    overflowX: "auto",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-all"
-                  }}
-                >
+              {/* Parsed JSON Details Payload */}
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                  Audit Payload & Specific Reason
+                </span>
+                <div className="bg-slate-900 text-cyan-300 p-4 rounded-xl text-xs font-mono overflow-x-auto max-h-56 border border-slate-800">
                   {(() => {
                     try {
                       const parsed = JSON.parse(activeDetailLog.details);
-                      return JSON.stringify(parsed, null, 2);
+                      return (
+                        <pre className="whitespace-pre-wrap word-break-all">
+                          {JSON.stringify(parsed, null, 2)}
+                        </pre>
+                      );
                     } catch (e) {
-                      return activeDetailLog.details || "No additional metadata recorded.";
+                      return <span>{activeDetailLog.details || "No custom payload parameters provided."}</span>;
                     }
                   })()}
-                </pre>
-              </div>
-
-              {/* Raw User Agent */}
-              <div>
-                <div style={{ color: "#64748b", fontSize: "0.75rem", textTransform: "uppercase", marginBottom: "4px" }}>Raw User-Agent Header</div>
-                <div
-                  style={{
-                    background: "rgba(0, 0, 0, 0.25)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    borderRadius: "8px",
-                    padding: "8px 12px",
-                    color: "#94a3b8",
-                    fontSize: "0.75rem",
-                    fontFamily: "monospace",
-                    wordBreak: "break-all"
-                  }}
-                >
-                  {activeDetailLog.user_agent || "Not provided"}
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1.5rem" }}>
-                <button
-                  onClick={() => setActiveDetailLog(null)}
-                  style={{
-                    padding: "8px 16px",
-                    background: "rgba(255, 255, 255, 0.1)",
-                    border: "1px solid rgba(255, 255, 255, 0.2)",
-                    borderRadius: "8px",
-                    color: "#fff",
-                    fontSize: "0.85rem",
-                    cursor: "pointer"
-                  }}
-                >
-                  Close Forensics
-                </button>
+              {/* Raw User Agent Header */}
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                  Raw User-Agent Header
+                </span>
+                <div className="bg-slate-100 dark:bg-slate-800/80 p-3 rounded-xl text-xs font-mono text-slate-600 dark:text-slate-300 break-all border border-slate-200 dark:border-slate-700">
+                  {activeDetailLog.user_agent || "Header not provided"}
+                </div>
               </div>
             </div>
-          </div>
-        )}
 
-      </div>
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex justify-end">
+              <button
+                onClick={() => setActiveDetailLog(null)}
+                className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white transition-colors cursor-pointer"
+              >
+                Close Forensics
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
