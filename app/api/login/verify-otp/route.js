@@ -126,9 +126,11 @@ export async function POST(request) {
 
     const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader' || isHRUser;
 
-    // Save/link Chrome Profile & Google Identity to Employee Record
-    const effectiveGoogleEmail = browserProfile?.googleEmail || (emp.email?.includes('@') ? emp.email : null);
-    const effectiveGoogleName = browserProfile?.googleName || emp.name || null;
+    // Primary verified identity is the authenticating employee's own email and name
+    const effectiveGoogleEmail = (emp.email && emp.email.includes('@'))
+      ? emp.email
+      : (browserProfile?.googleEmail || null);
+    const effectiveGoogleName = emp.name || browserProfile?.googleName || null;
     const effectiveProfileId = browserProfile?.profileId || null;
 
     if (effectiveProfileId || effectiveGoogleEmail) {

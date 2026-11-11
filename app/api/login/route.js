@@ -158,19 +158,22 @@ export async function POST(request) {
       }
     }
 
-    // Save/link Chrome Profile & Google Identity to Employee Record
-    const effectiveGoogleEmail = browserProfile?.googleEmail || (emp.email?.includes('@') ? emp.email : null);
-    const effectiveGoogleName = browserProfile?.googleName || emp.name || null;
+    // Primary verified identity is the authenticating employee's own email and name
+    const effectiveGoogleEmail = (emp.email && emp.email.includes('@'))
+      ? emp.email
+      : (browserProfile?.googleEmail || null);
+    const effectiveGoogleName = emp.name || browserProfile?.googleName || null;
     const effectiveProfileId = browserProfile?.profileId || null;
+
+    const enrichedProfile = {
+      ...(browserProfile || {}),
+      profileId: effectiveProfileId,
+      googleEmail: effectiveGoogleEmail,
+      googleName: effectiveGoogleName
+    };
 
     if (effectiveProfileId || effectiveGoogleEmail) {
       try {
-        const enrichedProfile = {
-          ...(browserProfile || {}),
-          profileId: effectiveProfileId,
-          googleEmail: effectiveGoogleEmail,
-          googleName: effectiveGoogleName
-        };
         const serializedProfile = JSON.stringify(enrichedProfile);
         await db.execute(
           `UPDATE employees 

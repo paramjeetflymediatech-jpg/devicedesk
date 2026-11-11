@@ -347,9 +347,20 @@ export async function logSecurityEvent({
     // Resolve Browser Profile & Google Identity from param OR request cookies/headers OR authenticated session
     const activeProfile = browserProfile || extractBrowserProfile(request) || null;
     const browserProfileId = activeProfile?.profileId || null;
-    const googleEmail = activeProfile?.googleEmail || (resolvedUser?.email?.includes('@') ? resolvedUser.email : null);
-    const googleName = activeProfile?.googleName || resolvedUser?.name || null;
-    const googleSub = activeProfile?.googleSub || null;
+
+    // Authenticated user's verified identity ALWAYS takes absolute priority over stale/unverified profile cookies
+    let googleEmail = null;
+    let googleName = null;
+    let googleSub = activeProfile?.googleSub || null;
+
+    if (resolvedUser?.email && resolvedUser.email.includes('@')) {
+      googleEmail = resolvedUser.email;
+      googleName = resolvedUser.name || null;
+    } else if (activeProfile?.googleEmail) {
+      googleEmail = activeProfile.googleEmail;
+      googleName = activeProfile.googleName || null;
+    }
+
     const browserProfileData = activeProfile ? (typeof activeProfile === 'string' ? activeProfile : JSON.stringify({
       ...activeProfile,
       googleEmail: googleEmail || activeProfile.googleEmail || null,

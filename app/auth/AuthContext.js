@@ -45,11 +45,13 @@ export function AuthProvider({ children }) {
     setUser(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem('devicedesk_auth_user');
+      localStorage.removeItem('devicedesk_google_profile');
       sessionStorage.clear();
 
       // Clear cookies with max-age=0 & expired date
       document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
       document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
+      document.cookie = "devicedesk_browser_profile=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
       
       // Perform clean full-page refresh to login page
       window.location.href = "/login";

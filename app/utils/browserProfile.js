@@ -124,12 +124,12 @@ export function saveGoogleProfile(googleData) {
  * Synchronizes browser profile and Google ID state to the `devicedesk_browser_profile` cookie,
  * ensuring all subsequent API calls inherit the browser profile automatically.
  */
-export function syncBrowserProfileCookie(explicitGoogle = null) {
+export function syncBrowserProfileCookie(explicitGoogle = undefined) {
   if (typeof window === 'undefined') return;
   try {
     const profileId = getStoredProfileId();
     let google = explicitGoogle;
-    if (!google) {
+    if (explicitGoogle === undefined) {
       const stored = localStorage.getItem('devicedesk_google_profile');
       if (stored) {
         try {

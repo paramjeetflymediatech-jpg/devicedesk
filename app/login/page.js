@@ -103,9 +103,8 @@ export default function LoginPage() {
   useEffect(() => {
     getBrowserProfileData().then((prof) => {
       setBrowserProfile(prof);
-      if (prof?.googleEmail) {
-        setGoogleAccount(prof.googleEmail);
-      }
+      // Note: We do not pre-fill googleAccount from localStorage on the login form
+      // so we never bleed an older session's Google email into a different employee's credentials.
     });
 
     initGoogleOneTap({
@@ -176,10 +175,6 @@ export default function LoginPage() {
 
     try {
       const currentProf = await getBrowserProfileData();
-      if (googleAccount && googleAccount.trim()) {
-        currentProf.googleEmail = googleAccount.trim().toLowerCase();
-        saveGoogleProfile({ email: googleAccount.trim().toLowerCase() });
-      }
 
       const res = await fetch('/api/login', {
         method: 'POST',
@@ -201,6 +196,9 @@ export default function LoginPage() {
         requestOtp(data.userId, data.email);
         
       } else if (data.success) {
+        if (data.user && data.user.email) {
+          saveGoogleProfile({ email: data.user.email, name: data.user.name });
+        }
         login(data.user);
         redirectUser(data.user);
       } else {

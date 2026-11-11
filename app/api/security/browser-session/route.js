@@ -13,12 +13,16 @@ export async function POST(request) {
     } catch (e) {}
 
     const profileId = browserProfile?.profileId || null;
-    let googleEmail = browserProfile?.googleEmail || user?.email || null;
-    let googleName = browserProfile?.googleName || user?.name || null;
     const browserName = browserProfile?.browserName || 'Web Browser';
 
-    // If unauthenticated visitor, check if this Chrome Profile ID was previously bound to an employee
-    let knownEmployee = null;
+    // If authenticated, the user's account identity is authoritative
+    let googleEmail = (user?.email && user.email.includes('@'))
+      ? user.email
+      : (browserProfile?.googleEmail || null);
+    let googleName = user?.name || browserProfile?.googleName || null;
+
+    // For unauthenticated visitors, do NOT assign employee email to the visitor's public profile badge!
+    let previouslyBoundEmployee = null;
     if (!user && profileId) {
       try {
         const db = await getDbConnection();
@@ -27,9 +31,10 @@ export async function POST(request) {
           [profileId]
         );
         if (empRows.length > 0) {
-          knownEmployee = empRows[0];
-          googleEmail = googleEmail || knownEmployee.email;
-          googleName = googleName || knownEmployee.name;
+          previouslyBoundEmployee = empRows[0];
+          // Keep googleEmail null for anonymous visitors prior to login so a new visitor is not spoofed as that employee
+          googleEmail = null;
+          googleName = null;
         }
       } catch (e) {}
     }
@@ -76,23 +81,31 @@ export async function POST(request) {
         console.warn('Failed to update employee browser session:', dbErr.message);
       }
     } else {
-      // Visitor arrival analysis (shows known employee profile if previously logged in from this browser profile)
+      // Visitor arrival analysis (anonymous / pre-authentication)
       await logSecurityEvent({
         request,
         action: 'SITE_VISITOR_ANALYZED',
         category: 'ACCESS_CONTROL',
         status: 'INFO',
-        identifier: googleEmail || profileId || 'Guest Visitor',
-        browserProfile: enrichedProfile,
+        identifier: profileId || 'Guest Visitor',
+        browserProfile: {
+          ...(browserProfile || {}),
+          profileId,
+          googleEmail: null,
+          googleName: null
+        },
         details: {
           pageUrl: pageUrl || '/',
           referrer: referrer || null,
           browserProfileId: profileId,
           browserName,
-          googleEmail,
-          knownEmployee: knownEmployee ? { id: knownEmployee.id, name: knownEmployee.name, email: knownEmployee.email } : null,
-          note: knownEmployee
-            ? `Analyzed known browser profile (${knownEmployee.name} - ${knownEmployee.email}) upon site arrival`
+          previouslyBoundEmployee: previouslyBoundEmployee ? {
+            id: previouslyBoundEmployee.id,
+            name: previouslyBoundEmployee.name,
+            email: previouslyBoundEmployee.email
+          } : null,
+          note: previouslyBoundEmployee
+            ? `Analyzed visitor browser profile (hardware profile previously used by ${previouslyBoundEmployee.name})`
             : 'Analyzed visitor browser profile upon visiting site prior to authentication'
         }
       });
