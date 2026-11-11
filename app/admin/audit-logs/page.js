@@ -465,42 +465,6 @@ export default function AdminAuditLogsPage() {
                   <option value="30d">Last 30 Days</option>
                 </select>
 
-                {/* Proxy Only Filter Toggle */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProxyOnly(!proxyOnly);
-                    setSecurityPage(1);
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    proxyOnly
-                      ? "bg-amber-500 text-white border-amber-600 shadow-sm"
-                      : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  }`}
-                  title="Filter requests submitted by one user on behalf of another employee"
-                >
-                  <FiAlertTriangle size={13} className={proxyOnly ? "text-white" : "text-amber-500"} />
-                  <span>Proxy Only</span>
-                </button>
-
-                {/* Google / Chrome Profile Only Toggle */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGoogleOnly(!googleOnly);
-                    setSecurityPage(1);
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    googleOnly
-                      ? "bg-blue-600 text-white border-blue-700 shadow-sm"
-                      : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  }`}
-                  title="Filter events with an identified Chrome profile Google ID"
-                >
-                  <FcGoogle size={14} />
-                  <span>Google Profile {googleOnly ? "(Active)" : ""}</span>
-                </button>
-
                 {/* Clear Active IP filter */}
                 {selectedIpFilter && (
                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
