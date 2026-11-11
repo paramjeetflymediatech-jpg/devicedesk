@@ -1,9 +1,61 @@
 'use client';
 
 /**
- * Generates or retrieves a persistent Browser Profile Identifier unique to this browser's profile sandbox.
- * Because Google Chrome keeps separate localStorage, IndexedDB, and cookies for each Chrome profile,
- * this identifier uniquely isolates and identifies the specific Chrome profile.
+ * Detects the specific Browser Name and Brand accurately.
+ */
+export function detectBrowserBrand() {
+  if (typeof window === 'undefined') return 'Unknown Browser';
+  const ua = navigator.userAgent || '';
+  const brands = navigator.userAgentData?.brands || [];
+
+  if (navigator.brave && typeof navigator.brave.isBrave === 'function') {
+    return 'Brave Browser';
+  }
+  if (brands.some((b) => b.brand.toLowerCase().includes('edge') || b.brand.toLowerCase().includes('edg'))) {
+    return 'Microsoft Edge';
+  }
+  if (brands.some((b) => b.brand.toLowerCase().includes('opera') || b.brand.toLowerCase().includes('opr'))) {
+    return 'Opera';
+  }
+  if (brands.some((b) => b.brand.toLowerCase().includes('chrome'))) {
+    return 'Google Chrome';
+  }
+  if (ua.includes('Edg/')) return 'Microsoft Edge';
+  if (ua.includes('OPR/') || ua.includes('Opera')) return 'Opera';
+  if (ua.includes('Vivaldi/')) return 'Vivaldi';
+  if (ua.includes('Firefox/')) return 'Mozilla Firefox';
+  if (ua.includes('Safari/') && !ua.includes('Chrome/')) return 'Apple Safari';
+  if (ua.includes('Chrome/')) return 'Google Chrome';
+
+  return 'Web Browser';
+}
+
+/**
+ * Extracts WebGL Hardware GPU Renderer & Vendor.
+ */
+export function getGpuRenderer() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) return null;
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    if (!debugInfo) return null;
+    const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+    const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+    return {
+      renderer: renderer || 'Standard WebGL',
+      vendor: vendor || 'Unknown Vendor'
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Generates or retrieves a persistent Browser Profile Identifier unique to this browser profile sandbox.
+ * Because Google Chrome, Edge, and other browsers isolate localStorage per profile directory,
+ * this identifier uniquely and permanently tracks the specific profile.
  */
 export function getStoredProfileId() {
   if (typeof window === 'undefined') return 'server_render';
@@ -22,7 +74,7 @@ export function getStoredProfileId() {
 }
 
 /**
- * Decodes a Google JWT Credential returned by Google One Tap / Google Identity Services.
+ * Decodes a Google JWT Credential returned by Google Identity Services / One Tap.
  */
 export function decodeGoogleJwt(token) {
   if (!token || typeof token !== 'string') return null;
@@ -86,13 +138,12 @@ export function syncBrowserProfileCookie(explicitGoogle = null) {
       }
     }
 
-    const isChrome = Boolean(
-      window.chrome ||
-      (navigator.userAgentData?.brands || []).some((b) => b.brand.toLowerCase().includes('chrome'))
-    );
+    const browserName = detectBrowserBrand();
+    const isChrome = browserName.toLowerCase().includes('chrome');
 
     const cookiePayload = {
       profileId,
+      browserName,
       googleEmail: google?.email || null,
       googleName: google?.name || null,
       googleSub: google?.sub || null,
@@ -114,6 +165,7 @@ export async function getBrowserProfileData() {
   if (typeof window === 'undefined') {
     return {
       profileId: 'server',
+      browserName: 'Server',
       isChrome: false,
       googleEmail: null,
       googleName: null
@@ -121,6 +173,7 @@ export async function getBrowserProfileData() {
   }
 
   const profileId = getStoredProfileId();
+  const browserName = detectBrowserBrand();
 
   let google = null;
   try {
@@ -144,13 +197,16 @@ export async function getBrowserProfileData() {
   const brands = navigator.userAgentData?.brands || [];
   const isChrome = Boolean(
     window.chrome ||
+    browserName.toLowerCase().includes('chrome') ||
     brands.some((b) => b.brand.toLowerCase().includes('chrome'))
   );
 
   const chromeBrand = brands.find((b) => b.brand.toLowerCase().includes('chrome')) || null;
+  const gpu = getGpuRenderer();
 
   const data = {
     profileId,
+    browserName,
     googleEmail: google?.email || null,
     googleName: google?.name || null,
     googleSub: google?.sub || null,
@@ -161,11 +217,14 @@ export async function getBrowserProfileData() {
     bitness: clientHints?.bitness || null,
     platformVersion: clientHints?.platformVersion || null,
     deviceModel: clientHints?.model || null,
-    screen: `${window.screen.width}x${window.screen.height} (${window.devicePixelRatio || 1}x)`,
+    screen: `${window.screen?.width || 0}x${window.screen?.height || 0} (${window.devicePixelRatio || 1}x, ${window.screen?.colorDepth || 24}-bit)`,
+    gpuRenderer: gpu?.renderer || null,
+    gpuVendor: gpu?.vendor || null,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    language: navigator.language || 'en-US',
+    language: navigator.languages ? navigator.languages.join(', ') : (navigator.language || 'en-US'),
     deviceMemory: navigator.deviceMemory || null,
-    hardwareConcurrency: navigator.hardwareConcurrency || null
+    hardwareConcurrency: navigator.hardwareConcurrency || null,
+    maxTouchPoints: navigator.maxTouchPoints || 0
   };
 
   syncBrowserProfileCookie(google);
@@ -225,7 +284,6 @@ export function initGoogleOneTap({ clientId, onGoogleUser }) {
   if (window.google?.accounts?.id) {
     setupOneTap();
   } else {
-    // Dynamically inject Google Identity Services script
     const existingScript = document.getElementById('google-gsi-client');
     if (!existingScript) {
       const script = document.createElement('script');
@@ -241,3 +299,81 @@ export function initGoogleOneTap({ clientId, onGoogleUser }) {
   }
 }
 
+/**
+ * Installs a lightweight global fetch interceptor to automatically attach browser profile
+ * headers (`x-browser-profile-id`, `x-google-email`, `x-browser-name`) to every client-side API call.
+ */
+let interceptorInstalled = false;
+export function installGlobalFetchInterceptor() {
+  if (typeof window === 'undefined' || interceptorInstalled) return;
+  interceptorInstalled = true;
+
+  const originalFetch = window.fetch;
+  window.fetch = async function (...args) {
+    try {
+      const [resource, config = {}] = args;
+      const profileId = getStoredProfileId();
+      let googleEmail = null;
+      try {
+        const stored = localStorage.getItem('devicedesk_google_profile');
+        if (stored) googleEmail = JSON.parse(stored)?.email;
+      } catch (e) {}
+
+      const browserName = detectBrowserBrand();
+
+      // Check if URL is internal API request
+      const isApi = typeof resource === 'string' && (resource.startsWith('/api') || resource.includes('/api/'));
+
+      if (isApi) {
+        const headers = new Headers(config.headers || {});
+        if (profileId && !headers.has('x-browser-profile-id')) {
+          headers.set('x-browser-profile-id', profileId);
+        }
+        if (googleEmail && !headers.has('x-google-email')) {
+          headers.set('x-google-email', googleEmail);
+        }
+        if (browserName && !headers.has('x-browser-name')) {
+          headers.set('x-browser-name', browserName);
+        }
+        config.headers = headers;
+        args[1] = config;
+      }
+    } catch (e) {}
+
+    return originalFetch.apply(this, args);
+  };
+}
+
+/**
+ * Analyzes browser and sends session arrival audit to the backend once per browser tab session.
+ */
+export async function trackSiteArrival() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    installGlobalFetchInterceptor();
+    const profile = await getBrowserProfileData();
+
+    // Check if session arrival was already recorded in this tab session
+    const sessionKey = 'devicedesk_session_analyzed_' + (profile.profileId || 'default');
+    if (sessionStorage.getItem(sessionKey)) {
+      return profile;
+    }
+    sessionStorage.setItem(sessionKey, 'true');
+
+    // Notify backend about the analyzed browser arrival
+    fetch('/api/security/browser-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        browserProfile: profile,
+        pageUrl: window.location.pathname,
+        referrer: document.referrer || null
+      })
+    }).catch(() => {});
+
+    return profile;
+  } catch (err) {
+    console.warn('Browser profile site arrival check:', err);
+  }
+}

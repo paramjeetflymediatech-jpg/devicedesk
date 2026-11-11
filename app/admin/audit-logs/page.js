@@ -999,14 +999,14 @@ export default function AdminAuditLogsPage() {
                           High-Entropy Chrome Profile & Client Environment
                         </span>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-slate-600 dark:text-slate-300">
-                          <div>Chrome: <strong className="text-slate-900 dark:text-white">{parsed.chromeVersion || "Default"}</strong></div>
+                          <div>Browser: <strong className="text-slate-900 dark:text-white">{parsed.browserName || (parsed.isChrome ? "Google Chrome" : "Web")}</strong></div>
                           <div>Arch: <strong className="text-slate-900 dark:text-white">{parsed.architecture ? `${parsed.architecture} (${parsed.bitness || '64'}-bit)` : "Standard"}</strong></div>
                           <div>Screen: <strong className="text-slate-900 dark:text-white">{parsed.screen || "Standard"}</strong></div>
                           <div>Timezone: <strong className="text-slate-900 dark:text-white">{parsed.timezone || "Local"}</strong></div>
                           <div>Language: <strong className="text-slate-900 dark:text-white">{parsed.language || "en"}</strong></div>
                           <div>RAM: <strong className="text-slate-900 dark:text-white">{parsed.deviceMemory ? `${parsed.deviceMemory} GB` : "Standard"}</strong></div>
                           <div>CPU Cores: <strong className="text-slate-900 dark:text-white">{parsed.hardwareConcurrency ? `${parsed.hardwareConcurrency} Cores` : "Standard"}</strong></div>
-                          <div>Profile Type: <strong className="text-slate-900 dark:text-white">{parsed.isChrome ? "Google Chrome" : "Web"}</strong></div>
+                          <div className="col-span-2 sm:col-span-4">Graphics / GPU: <strong className="text-slate-900 dark:text-white">{parsed.gpuRenderer || "Standard GPU"}</strong></div>
                         </div>
                       </div>
                     );

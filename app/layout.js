@@ -4,6 +4,7 @@ import { AuthProvider } from "./auth/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import EmailToast from "./components/EmailToast";
+import BrowserProfileTracker from "./components/BrowserProfileTracker";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -27,6 +28,7 @@ export default function RootLayout({ children }) {
         <ThemeProvider>
           <AuthProvider>
             <NotificationProvider>
+              <BrowserProfileTracker />
               {children}
               <EmailToast />
             </NotificationProvider>

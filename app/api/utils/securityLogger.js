@@ -111,7 +111,16 @@ export function extractSecurityContext(request) {
   const ip = getClientIp(request);
   const country = getH('cf-ipcountry') || null;
   const userAgent = getH('user-agent') || 'Unknown';
-  const { browser, os, device } = parseUserAgent(userAgent);
+  let { browser, os, device } = parseUserAgent(userAgent);
+
+  const headerBrowser = getH('x-browser-name');
+  if (headerBrowser) {
+    browser = headerBrowser;
+  }
+  const headerOs = getH('x-browser-os');
+  if (headerOs) {
+    os = headerOs;
+  }
 
   let path = null;
   try {
@@ -174,6 +183,7 @@ export function extractBrowserProfile(request) {
       }
     }
 
+    let result = null;
     if (rawCookieValue) {
       try {
         const decoded = typeof rawCookieValue === 'string' && rawCookieValue.startsWith('%')
@@ -181,25 +191,30 @@ export function extractBrowserProfile(request) {
           : rawCookieValue;
         const parsed = typeof decoded === 'string' ? JSON.parse(decoded) : decoded;
         if (parsed && typeof parsed === 'object') {
-          return parsed;
+          result = parsed;
         }
       } catch (e) {}
     }
 
-    // 3. Fallback to custom x-browser-profile-* headers if available
+    // 3. Fallback / enrichment with custom x-browser-profile-* headers if available
     if (request.headers) {
       const getH = (k) => typeof request.headers.get === 'function' ? request.headers.get(k) : (request.headers[k] || request.headers[k.toLowerCase()]);
       const profileId = getH('x-browser-profile-id');
       const googleEmail = getH('x-google-email');
       const googleName = getH('x-google-name');
-      if (profileId || googleEmail) {
-        return {
-          profileId: profileId || null,
-          googleEmail: googleEmail || null,
-          googleName: googleName || null
+      const browserName = getH('x-browser-name');
+      if (profileId || googleEmail || browserName) {
+        result = {
+          ...(result || {}),
+          profileId: profileId || result?.profileId || null,
+          googleEmail: googleEmail || result?.googleEmail || null,
+          googleName: googleName || result?.googleName || null,
+          browserName: browserName || result?.browserName || null
         };
       }
     }
+
+    return result;
   } catch (e) {}
 
   return null;
