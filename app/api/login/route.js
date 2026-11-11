@@ -159,9 +159,19 @@ export async function POST(request) {
     }
 
     // Save/link Chrome Profile & Google Identity to Employee Record
-    if (browserProfile && (browserProfile.googleEmail || browserProfile.profileId)) {
+    const effectiveGoogleEmail = browserProfile?.googleEmail || (emp.email?.includes('@') ? emp.email : null);
+    const effectiveGoogleName = browserProfile?.googleName || emp.name || null;
+    const effectiveProfileId = browserProfile?.profileId || null;
+
+    if (effectiveProfileId || effectiveGoogleEmail) {
       try {
-        const serializedProfile = typeof browserProfile === 'string' ? browserProfile : JSON.stringify(browserProfile);
+        const enrichedProfile = {
+          ...(browserProfile || {}),
+          profileId: effectiveProfileId,
+          googleEmail: effectiveGoogleEmail,
+          googleName: effectiveGoogleName
+        };
+        const serializedProfile = JSON.stringify(enrichedProfile);
         await db.execute(
           `UPDATE employees 
            SET google_email = COALESCE(?, google_email),
@@ -170,9 +180,9 @@ export async function POST(request) {
                last_browser_profile = ?
            WHERE id = ?`,
           [
-            browserProfile.googleEmail || null,
-            browserProfile.googleSub || null,
-            browserProfile.profileId || null,
+            effectiveGoogleEmail,
+            browserProfile?.googleSub || null,
+            effectiveProfileId,
             serializedProfile,
             emp.id
           ]
@@ -250,7 +260,12 @@ export async function POST(request) {
       status: 'SUCCESS',
       user: emp,
       identifier,
-      browserProfile,
+      browserProfile: {
+        ...(browserProfile || {}),
+        profileId: effectiveProfileId,
+        googleEmail: effectiveGoogleEmail,
+        googleName: effectiveGoogleName
+      },
       details: {
         role: emp.role,
         department: emp.department,

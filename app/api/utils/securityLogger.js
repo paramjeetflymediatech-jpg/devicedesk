@@ -336,14 +336,6 @@ export async function logSecurityEvent({
     const ctx = extractSecurityContext(request);
     const clientIp = ip || ctx.ip;
 
-    // Resolve Browser Profile & Google Identity from param OR request cookies/headers
-    const activeProfile = browserProfile || extractBrowserProfile(request) || null;
-    const browserProfileId = activeProfile?.profileId || null;
-    const googleEmail = activeProfile?.googleEmail || null;
-    const googleName = activeProfile?.googleName || null;
-    const googleSub = activeProfile?.googleSub || null;
-    const browserProfileData = activeProfile ? (typeof activeProfile === 'string' ? activeProfile : JSON.stringify(activeProfile)) : null;
-
     // If user is not explicitly passed, attempt to resolve from browser request cookies / headers
     let resolvedUser = user;
     if (!resolvedUser && request) {
@@ -351,6 +343,18 @@ export async function logSecurityEvent({
         resolvedUser = await checkAuth(request);
       } catch (authErr) {}
     }
+
+    // Resolve Browser Profile & Google Identity from param OR request cookies/headers OR authenticated session
+    const activeProfile = browserProfile || extractBrowserProfile(request) || null;
+    const browserProfileId = activeProfile?.profileId || null;
+    const googleEmail = activeProfile?.googleEmail || (resolvedUser?.email?.includes('@') ? resolvedUser.email : null);
+    const googleName = activeProfile?.googleName || resolvedUser?.name || null;
+    const googleSub = activeProfile?.googleSub || null;
+    const browserProfileData = activeProfile ? (typeof activeProfile === 'string' ? activeProfile : JSON.stringify({
+      ...activeProfile,
+      googleEmail: googleEmail || activeProfile.googleEmail || null,
+      googleName: googleName || activeProfile.googleName || null
+    })) : null;
 
     const userId = resolvedUser?.id || null;
     const userName = resolvedUser?.name || null;
@@ -373,12 +377,12 @@ export async function logSecurityEvent({
         browserUser: resolvedUser ? { id: resolvedUser.id, name: resolvedUser.name, role: resolvedUser.role, email: resolvedUser.email } : 'Anonymous Browser',
         targetEmployee: targetUserId ? { id: targetUserId, name: targetUserName } : null,
         isProxySubmission,
-        chromeProfile: activeProfile ? {
+        chromeProfile: (activeProfile || browserProfileId || googleEmail) ? {
           profileId: browserProfileId,
           googleEmail,
           googleName,
           googleSub,
-          isChrome: activeProfile.isChrome ?? true
+          isChrome: activeProfile?.isChrome ?? (ctx.browser.toLowerCase().includes('chrome'))
         } : null,
         clientBrowser: ctx.browser,
         clientOS: ctx.os,

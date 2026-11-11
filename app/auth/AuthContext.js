@@ -1,6 +1,7 @@
 // app/auth/AuthContext.js
 "use client";
 import { createContext, useContext, useState } from "react";
+import { saveGoogleProfile } from "../utils/browserProfile.js";
 
 const AuthContext = createContext(null);
 
@@ -14,6 +15,9 @@ export function AuthProvider({ children }) {
           // Sync cookie just in case it expired but localStorage is still active
           document.cookie = `devicedesk_user_role=${parsedUser.role}; path=/; max-age=86400; SameSite=Lax`;
           document.cookie = `devicedesk_auth_user=${encodeURIComponent(stored)}; path=/; max-age=86400; SameSite=Lax`;
+          if (parsedUser && parsedUser.email) {
+            saveGoogleProfile({ email: parsedUser.email, name: parsedUser.name });
+          }
           return parsedUser;
         } catch (e) {
           localStorage.removeItem("devicedesk_auth_user");
@@ -29,6 +33,11 @@ export function AuthProvider({ children }) {
       localStorage.setItem("devicedesk_auth_user", JSON.stringify(usr));
       document.cookie = `devicedesk_user_role=${usr.role}; path=/; max-age=86400; SameSite=Lax`;
       document.cookie = `devicedesk_auth_user=${encodeURIComponent(JSON.stringify(usr))}; path=/; max-age=86400; SameSite=Lax`;
+
+      // Auto-bind active browser profile to logged-in user's email
+      if (usr && usr.email) {
+        saveGoogleProfile({ email: usr.email, name: usr.name });
+      }
     }
   };
 

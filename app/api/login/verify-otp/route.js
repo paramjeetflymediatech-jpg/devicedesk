@@ -127,9 +127,19 @@ export async function POST(request) {
     const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader' || isHRUser;
 
     // Save/link Chrome Profile & Google Identity to Employee Record
-    if (browserProfile && (browserProfile.googleEmail || browserProfile.profileId)) {
+    const effectiveGoogleEmail = browserProfile?.googleEmail || (emp.email?.includes('@') ? emp.email : null);
+    const effectiveGoogleName = browserProfile?.googleName || emp.name || null;
+    const effectiveProfileId = browserProfile?.profileId || null;
+
+    if (effectiveProfileId || effectiveGoogleEmail) {
       try {
-        const serializedProfile = typeof browserProfile === 'string' ? browserProfile : JSON.stringify(browserProfile);
+        const enrichedProfile = {
+          ...(browserProfile || {}),
+          profileId: effectiveProfileId,
+          googleEmail: effectiveGoogleEmail,
+          googleName: effectiveGoogleName
+        };
+        const serializedProfile = JSON.stringify(enrichedProfile);
         await db.execute(
           `UPDATE employees 
            SET google_email = COALESCE(?, google_email),
@@ -138,9 +148,9 @@ export async function POST(request) {
                last_browser_profile = ?
            WHERE id = ?`,
           [
-            browserProfile.googleEmail || null,
-            browserProfile.googleSub || null,
-            browserProfile.profileId || null,
+            effectiveGoogleEmail,
+            browserProfile?.googleSub || null,
+            effectiveProfileId,
             serializedProfile,
             emp.id
           ]
@@ -157,7 +167,12 @@ export async function POST(request) {
       status: 'SUCCESS',
       user: emp,
       identifier: emp.email || emp.id,
-      browserProfile,
+      browserProfile: {
+        ...(browserProfile || {}),
+        profileId: effectiveProfileId,
+        googleEmail: effectiveGoogleEmail,
+        googleName: effectiveGoogleName
+      },
       details: { reason: '2FA OTP verification succeeded. Session authorized.' }
     });
 
