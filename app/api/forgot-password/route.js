@@ -4,6 +4,7 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { logSecurityEvent } from '../utils/securityLogger.js';
 
 export async function POST(request) {
   try {
@@ -11,6 +12,14 @@ export async function POST(request) {
     const cleanEmail = String(email || '').trim().toLowerCase();
 
     if (!cleanEmail) {
+      await logSecurityEvent({
+        request,
+        action: 'FORGOT_PASSWORD_ATTEMPT',
+        category: 'PASSWORD_RESET',
+        status: 'FAILURE',
+        identifier: 'Unknown',
+        details: { reason: 'Email parameter empty in forgot password request.' }
+      });
       return NextResponse.json({ error: 'Email address is required.' }, { status: 400 });
     }
 
@@ -32,13 +41,21 @@ export async function POST(request) {
 
     // 1. Verify employee exists by email, name, or id
     const [empRows] = await db.execute(
-      'SELECT id, name, email FROM employees WHERE LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?) LIMIT 1',
+      'SELECT id, name, email, role FROM employees WHERE LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?) LIMIT 1',
       [cleanEmail, cleanEmail, cleanEmail]
     );
 
     const isDefaultAdmin = cleanEmail === 'admin@devicedesk.com' || cleanEmail === 'admin' || cleanEmail === 'superadmin';
 
     if (empRows.length === 0 && !isDefaultAdmin) {
+      await logSecurityEvent({
+        request,
+        action: 'FORGOT_PASSWORD_ATTEMPT',
+        category: 'PASSWORD_RESET',
+        status: 'WARNING',
+        identifier: cleanEmail,
+        details: { reason: 'Password reset requested for non-existent account identifier.' }
+      });
       return NextResponse.json({ success: false, message: 'No account found with this email or username.' }, { status: 404 });
     }
 
@@ -148,11 +165,30 @@ export async function POST(request) {
     }
 
     if (!emailSent) {
+      await logSecurityEvent({
+        request,
+        action: 'FORGOT_PASSWORD_DISPATCH_FAILED',
+        category: 'PASSWORD_RESET',
+        status: 'FAILURE',
+        user: empRows.length > 0 ? empRows[0] : null,
+        identifier: cleanEmail,
+        details: { targetEmail, reason: 'Nodemailer/SMTP delivery failed' }
+      });
       return NextResponse.json({
         success: false,
         message: 'Unable to deliver the password reset email at this moment. Please verify your email configuration or contact administration.'
       }, { status: 500 });
     }
+
+    await logSecurityEvent({
+      request,
+      action: 'FORGOT_PASSWORD_REQUEST',
+      category: 'PASSWORD_RESET',
+      status: 'SUCCESS',
+      user: empRows.length > 0 ? empRows[0] : null,
+      identifier: cleanEmail,
+      details: { targetEmail, note: 'Password reset link dispatched to user email.' }
+    });
 
     // Security: NEVER return resetUrl, token, or previewUrl in the HTTP response
     return NextResponse.json({

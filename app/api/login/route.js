@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
 import bcrypt from 'bcryptjs';
 import { sendMailNotification } from '../utils/mailHelper.js';
+import { logSecurityEvent } from '../utils/securityLogger.js';
 
 export async function POST(request) {
   try {
@@ -9,16 +10,16 @@ export async function POST(request) {
     console.log(`[API /login] Login attempt for identifier: "${identifier}" from device: "${deviceId || 'web/unknown'}" at ${new Date().toISOString()}`);
 
     if (!identifier || !password) {
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_FAILED',
+        category: 'AUTH',
+        status: 'FAILURE',
+        identifier: identifier || 'Unknown',
+        details: { reason: 'Email/name or password was missing in request payload.' }
+      });
       return NextResponse.json({ success: false, message: 'Email/name and password are required.' }, { status: 400 });
     }
-
-    // Hard-coded admin shortcut
-    // if (identifier.toLowerCase() === 'admin' && password === 'admin123') {
-    //   return NextResponse.json({
-    //     success: true,
-    //     user: { role: 'admin', name: 'Admin', dbRole: 'Admin' }
-    //   });
-    // }
 
     const db = await getDbConnection();
 
@@ -32,12 +33,29 @@ export async function POST(request) {
     );
 
     if (rows.length === 0) {
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_FAILED',
+        category: 'AUTH',
+        status: 'FAILURE',
+        identifier,
+        details: { reason: 'Account not found with this identifier.', deviceId: deviceId || null }
+      });
       return NextResponse.json({ success: false, message: '⚠️ Account not found or incorrect password.' }, { status: 401 });
     }
 
     const emp = rows[0];
     const statusLower = (emp.status || 'Active').toLowerCase().trim();
     if (statusLower === 'inactive') {
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_BLOCKED',
+        category: 'ACCESS_CONTROL',
+        status: 'BLOCKED',
+        user: emp,
+        identifier,
+        details: { reason: 'Account is inactive. Contact Administrator or HR.', status: emp.status }
+      });
       return NextResponse.json({
         success: false,
         isInactive: true,
@@ -48,6 +66,15 @@ export async function POST(request) {
       }, { status: 403 });
     }
     if (statusLower === 'paused') {
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_BLOCKED',
+        category: 'ACCESS_CONTROL',
+        status: 'BLOCKED',
+        user: emp,
+        identifier,
+        details: { reason: 'Account paused due to suspicious activity.', status: emp.status }
+      });
       return NextResponse.json({
         success: false,
         isInactive: true,
@@ -58,6 +85,15 @@ export async function POST(request) {
       }, { status: 403 });
     }
     if (statusLower === 'disabled' || statusLower === 'suspended') {
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_BLOCKED',
+        category: 'ACCESS_CONTROL',
+        status: 'BLOCKED',
+        user: emp,
+        identifier,
+        details: { reason: `Account is ${statusLower}. Contact Admin/IT Support.`, status: emp.status }
+      });
       return NextResponse.json({
         success: false,
         isInactive: true,
@@ -93,6 +129,46 @@ export async function POST(request) {
     }
 
     if (!passwordMatch) {
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_FAILED',
+        category: 'AUTH',
+        status: 'FAILURE',
+        user: emp,
+        identifier,
+        details: { reason: 'Incorrect password provided.', deviceId: deviceId || null }
+      });
+      return NextResponse.json({ success: false, message: '⚠️ Account not found or incorrect password.' }, { status: 401 });
+    }
+      // 1. Try with configured pepper
+      passwordMatch = await bcrypt.compare(password + pepper, storedPassword);
+      // 2. Try without pepper (in case hashed directly)
+      if (!passwordMatch) {
+        passwordMatch = await bcrypt.compare(password, storedPassword);
+      }
+      // 3. Try with default fallback pepper
+      if (!passwordMatch && pepper !== 'devicedesk_secure_pepper_key_2026') {
+        passwordMatch = await bcrypt.compare(password + 'devicedesk_secure_pepper_key_2026', storedPassword);
+      }
+      // 4. Try with securelevel fallback pepper
+      if (!passwordMatch && pepper !== 'securelevel') {
+        passwordMatch = await bcrypt.compare(password + 'securelevel', storedPassword);
+      }
+    } else {
+      // Legacy plain-text fallback
+      passwordMatch = storedPassword === password;
+    }
+
+    if (!passwordMatch) {
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_FAILED',
+        category: 'AUTH',
+        status: 'FAILURE',
+        user: emp,
+        identifier,
+        details: { reason: 'Incorrect password provided.', deviceId: deviceId || null }
+      });
       return NextResponse.json({ success: false, message: '⚠️ Account not found or incorrect password.' }, { status: 401 });
     }
 
@@ -140,6 +216,15 @@ export async function POST(request) {
     const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
 
     if (isHRUser || isDnsManager) {
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_OTP_TRIGGERED',
+        category: 'AUTH',
+        status: 'SUCCESS',
+        user: emp,
+        identifier,
+        details: { reason: 'HR/DNS 2FA OTP verification required before granting session access.' }
+      });
       return NextResponse.json({
         success: true,
         requiresOtp: true,
@@ -157,6 +242,21 @@ export async function POST(request) {
         }
       } catch (cdErr) {}
     }
+
+    await logSecurityEvent({
+      request,
+      action: 'LOGIN_SUCCESS',
+      category: 'AUTH',
+      status: 'SUCCESS',
+      user: emp,
+      identifier,
+      details: {
+        role: emp.role,
+        department: emp.department,
+        deviceId: deviceId || 'web',
+        deviceModel: deviceModel || null
+      }
+    });
 
     return NextResponse.json({
       success: true,

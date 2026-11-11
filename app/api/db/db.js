@@ -348,6 +348,35 @@ async function initializeDatabase(db) {
   `);
 
   await db.execute(`
+    CREATE TABLE IF NOT EXISTS security_audit_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id VARCHAR(100) NULL,
+      identifier VARCHAR(150) NULL,
+      user_name VARCHAR(150) NULL,
+      user_role VARCHAR(50) NULL,
+      action VARCHAR(100) NOT NULL,
+      category VARCHAR(50) NOT NULL DEFAULT 'SECURITY',
+      status VARCHAR(50) NOT NULL DEFAULT 'INFO',
+      ip_address VARCHAR(100) NULL,
+      country VARCHAR(50) NULL,
+      browser VARCHAR(100) NULL,
+      os VARCHAR(100) NULL,
+      device VARCHAR(100) NULL,
+      user_agent TEXT NULL,
+      path VARCHAR(255) NULL,
+      method VARCHAR(10) NULL,
+      details TEXT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_action (action),
+      INDEX idx_category (category),
+      INDEX idx_status (status),
+      INDEX idx_ip (ip_address),
+      INDEX idx_user_id (user_id),
+      INDEX idx_created_at (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS chat_messages (
       id VARCHAR(100) PRIMARY KEY,
       senderId VARCHAR(50) NOT NULL,

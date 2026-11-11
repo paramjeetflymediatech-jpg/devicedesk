@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
+import { logSecurityEvent } from '../../utils/securityLogger.js';
 
 export async function POST(request) {
   try {
@@ -7,6 +8,14 @@ export async function POST(request) {
     console.log('[Verify OTP] Incoming payload:', { userId, otp });
 
     if (!userId || !otp) {
+      await logSecurityEvent({
+        request,
+        action: 'OTP_VERIFY_FAILED',
+        category: 'AUTH',
+        status: 'FAILURE',
+        identifier: userId || 'Unknown',
+        details: { reason: 'User ID or OTP missing in request.' }
+      });
       return NextResponse.json({ success: false, message: 'User ID and OTP are required.' }, { status: 400 });
     }
 
@@ -21,18 +30,42 @@ export async function POST(request) {
     console.log('[Verify OTP] DB result:', otpRows);
 
     if (otpRows.length === 0) {
+      await logSecurityEvent({
+        request,
+        action: 'OTP_VERIFY_FAILED',
+        category: 'AUTH',
+        status: 'FAILURE',
+        identifier: userId,
+        details: { reason: 'Invalid OTP code provided.' }
+      });
       return NextResponse.json({ success: false, message: 'Invalid OTP. Please check the code and try again.' }, { status: 400 });
     }
 
     const otpRecord = otpRows[0];
     
     if (otpRecord.used === 1 || otpRecord.used === true) {
+      await logSecurityEvent({
+        request,
+        action: 'OTP_VERIFY_FAILED',
+        category: 'AUTH',
+        status: 'WARNING',
+        identifier: userId,
+        details: { reason: 'OTP code has already been used or invalidated by newer attempt.' }
+      });
       return NextResponse.json({ success: false, message: 'This OTP has already been invalidated by a newer login attempt! Please check sent_emails.log for the newest code.' }, { status: 400 });
     }
 
     const now = new Date().toISOString();
 
     if (now > otpRecord.expiresAt) {
+      await logSecurityEvent({
+        request,
+        action: 'OTP_VERIFY_FAILED',
+        category: 'AUTH',
+        status: 'FAILURE',
+        identifier: userId,
+        details: { reason: 'OTP has expired.' }
+      });
       return NextResponse.json({ success: false, message: 'OTP has expired. Please resend.' }, { status: 400 });
     }
 
@@ -49,6 +82,15 @@ export async function POST(request) {
     const emp = empRows[0];
     const statusLower = (emp.status || 'Active').toLowerCase().trim();
     if (statusLower === 'inactive') {
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_BLOCKED',
+        category: 'ACCESS_CONTROL',
+        status: 'BLOCKED',
+        user: emp,
+        identifier: emp.email || emp.id,
+        details: { reason: 'Account inactive during 2FA OTP verification.' }
+      });
       return NextResponse.json({
         success: false,
         isInactive: true,
@@ -59,6 +101,15 @@ export async function POST(request) {
       }, { status: 403 });
     }
     if (statusLower === 'paused') {
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_BLOCKED',
+        category: 'ACCESS_CONTROL',
+        status: 'BLOCKED',
+        user: emp,
+        identifier: emp.email || emp.id,
+        details: { reason: 'Account paused during 2FA OTP verification.' }
+      });
       return NextResponse.json({
         success: false,
         isInactive: true,
@@ -74,6 +125,16 @@ export async function POST(request) {
     const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
 
     const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader' || isHRUser;
+
+    await logSecurityEvent({
+      request,
+      action: 'LOGIN_SUCCESS_2FA',
+      category: 'AUTH',
+      status: 'SUCCESS',
+      user: emp,
+      identifier: emp.email || emp.id,
+      details: { reason: '2FA OTP verification succeeded. Session authorized.' }
+    });
 
     return NextResponse.json({
       success: true,

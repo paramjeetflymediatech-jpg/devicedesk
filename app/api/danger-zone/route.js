@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection, getPool } from '../db/db.js';
+import { checkAuth } from '../utils/storageManager.js';
+import { logSecurityEvent } from '../utils/securityLogger.js';
 
 // POST /api/danger-zone  { target: 'systems' | 'employees' | 'tickets' | 'history' | 'all' }
 export async function POST(request) {
@@ -35,6 +37,20 @@ export async function POST(request) {
     if (target === 'history' || target === 'all') {
       const [r] = await db.execute('DELETE FROM assignment_history');
       deleted.history = r.affectedRows;
+    }
+
+    try {
+      const adminUser = await checkAuth(request);
+      await logSecurityEvent({
+        request,
+        action: 'ADMIN_DANGER_ZONE_PURGE',
+        category: 'DANGER_ZONE',
+        status: 'CRITICAL',
+        user: adminUser,
+        details: { target, deletedSummary: deleted, warning: 'Permanent database purge executed' }
+      });
+    } catch (auditErr) {
+      console.warn('Audit log error on danger zone:', auditErr);
     }
 
     return NextResponse.json({ success: true, deleted });

@@ -3,6 +3,7 @@ import { getDbConnection } from '../db/db.js';
 import bcrypt from 'bcryptjs';
 import { checkAuth } from '../utils/storageManager.js';
 import { isMarketingAuthorized } from '../utils/marketingAuth.js';
+import { logSecurityEvent } from '../utils/securityLogger.js';
 
 export async function GET(request) {
   try {
@@ -99,6 +100,26 @@ export async function POST(request) {
       `INSERT INTO assignment_history (id, employeeId, systemId, systemNumber, action, timestamp, assignedBy) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [logId, empId, null, null, 'Employee Added', new Date().toISOString(), 'Admin']
     ).catch(err => console.error('Failed to log employee creation:', err));
+
+    try {
+      const adminUser = await checkAuth(request);
+      await logSecurityEvent({
+        request,
+        action: empRole.toLowerCase() === 'client' ? 'ADMIN_CREATE_CLIENT' : 'ADMIN_CREATE_EMPLOYEE',
+        category: 'ADMIN_PANEL',
+        status: 'SUCCESS',
+        user: adminUser,
+        details: {
+          targetId: empId,
+          targetName: name.trim(),
+          targetEmail: empEmail,
+          role: empRole,
+          department: empDept
+        }
+      });
+    } catch (auditErr) {
+      console.warn('Security audit log error on add employee:', auditErr);
+    }
 
     // If it's a client, insert into client_details
     if (empRole.toLowerCase() === 'client') {

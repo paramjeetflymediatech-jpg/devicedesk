@@ -341,7 +341,7 @@ export default function AdminLayout({ children }) {
     {
       title: "Security & Auditing",
       items: [
-        { name: "System Logs", path: "/admin/audit-logs", icon: <FiFileText />, adminOnly: true },
+        { name: "Security & Audit Logs", path: "/admin/audit-logs", icon: <FiShield />, adminOnly: true },
         { name: "Activity & Screenshots", path: "/admin/screenshots", icon: <FiActivity /> }
       ]
     },

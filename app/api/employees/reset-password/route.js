@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
 import bcrypt from 'bcryptjs';
+import { checkAuth } from '../../utils/storageManager.js';
+import { logSecurityEvent } from '../../utils/securityLogger.js';
 
 export async function POST(req) {
   try {
@@ -16,13 +18,33 @@ export async function POST(req) {
     const db = await getDbConnection();
     
     // Check if user exists
-    const [users] = await db.execute('SELECT id FROM employees WHERE id = ?', [id]);
+    const [users] = await db.execute('SELECT id, name, email, role FROM employees WHERE id = ?', [id]);
     if (users.length === 0) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
     // Update password
     await db.execute('UPDATE employees SET password = ? WHERE id = ?', [hashedPassword, id]);
+
+    try {
+      const adminUser = await checkAuth(req);
+      await logSecurityEvent({
+        request: req,
+        action: 'ADMIN_FORCE_PASSWORD_RESET',
+        category: 'ADMIN_PANEL',
+        status: 'WARNING',
+        user: adminUser,
+        details: {
+          targetUserId: id,
+          targetName: users[0].name,
+          targetEmail: users[0].email,
+          targetRole: users[0].role,
+          note: 'Password forcibly changed by administrator.'
+        }
+      });
+    } catch (auditErr) {
+      console.warn('Audit log error on force reset:', auditErr);
+    }
 
     return NextResponse.json({ success: true, message: 'Password reset successfully' });
   } catch (err) {

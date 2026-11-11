@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
 import { sendNotification } from '../../utils/notificationsHelper.js';
 import { generateAICaption } from '../../utils/generateCaption.js';
+import { checkAuth } from '../../utils/storageManager.js';
+import { logSecurityEvent } from '../../utils/securityLogger.js';
 
 export async function GET(request) {
   try {
@@ -323,6 +325,23 @@ export async function PUT(request) {
         console.warn('Rejection notification error:', nErr);
       }
 
+      try {
+        const adminUser = await checkAuth(request);
+        await logSecurityEvent({
+          request,
+          action: 'ADMIN_REJECT_CLIENT_REQUEST',
+          category: 'ADMIN_PANEL',
+          status: 'WARNING',
+          user: adminUser,
+          details: {
+            requestId: id,
+            reason: rejection_notes
+          }
+        });
+      } catch (auditErr) {
+        console.warn('Audit log error on reject request:', auditErr);
+      }
+
       return NextResponse.json({ success: true, message: 'Request rejected successfully.' });
     }
 
@@ -630,6 +649,24 @@ export async function DELETE(request) {
       setTimeout(() => socket.disconnect(), 1000);
     } catch (sockErr) {
       console.warn('Socket emit error on delete service request:', sockErr);
+    }
+
+    try {
+      const adminUser = await checkAuth(request);
+      await logSecurityEvent({
+        request,
+        action: 'ADMIN_DELETE_CLIENT_REQUEST',
+        category: 'ADMIN_PANEL',
+        status: 'WARNING',
+        user: adminUser,
+        details: {
+          requestId: id,
+          clientId: targetClientId,
+          serviceType: targetServiceType
+        }
+      });
+    } catch (auditErr) {
+      console.warn('Audit log error on delete request:', auditErr);
     }
 
     return NextResponse.json({ 

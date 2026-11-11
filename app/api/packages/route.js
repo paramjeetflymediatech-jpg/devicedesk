@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
+import { checkAuth } from '../utils/storageManager.js';
+import { logSecurityEvent } from '../utils/securityLogger.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,6 +71,20 @@ export async function POST(request) {
       `INSERT INTO packages (id, name, description, price, billing_cycle, features) VALUES (?, ?, ?, ?, ?, ?)`,
       [id, name, description || '', price, billing_cycle || 'Monthly', featuresStr || '[]']
     );
+
+    try {
+      const adminUser = await checkAuth(request);
+      await logSecurityEvent({
+        request,
+        action: 'ADMIN_CREATE_PACKAGE',
+        category: 'ADMIN_PANEL',
+        status: 'SUCCESS',
+        user: adminUser,
+        details: { packageId: id, name, price, billing_cycle }
+      });
+    } catch (auditErr) {
+      console.warn('Audit log error on create package:', auditErr);
+    }
 
     return NextResponse.json({ success: true, message: 'Package created successfully', id });
   } catch (error) {

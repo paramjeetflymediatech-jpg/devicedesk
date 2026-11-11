@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
 import { checkAuth } from '../../utils/storageManager.js';
 import { isMarketingAuthorized } from '../../utils/marketingAuth.js';
+import { logSecurityEvent } from '../../utils/securityLogger.js';
 
 export async function GET(request, { params }) {
   try {
@@ -145,6 +146,24 @@ export async function PUT(request, { params }) {
       [logId, id, 'User Details Updated', new Date().toISOString(), 'Admin']
     ).catch(err => console.error('Failed to log employee update:', err));
 
+    try {
+      const adminUser = await checkAuth(request);
+      const isStatusChange = status !== undefined;
+      await logSecurityEvent({
+        request,
+        action: isStatusChange ? 'ADMIN_STATUS_CHANGE' : 'ADMIN_UPDATE_USER',
+        category: 'ADMIN_PANEL',
+        status: status === 'Paused' || status === 'Disabled' ? 'WARNING' : 'SUCCESS',
+        user: adminUser,
+        details: {
+          targetId: id,
+          updatedFields: { name, email, role, department, status, ticketLimit, biometric_id }
+        }
+      });
+    } catch (auditErr) {
+      console.warn('Security audit log error on update employee:', auditErr);
+    }
+
     return NextResponse.json({ success: true, message: 'User updated successfully' });
   } catch (err) {
     console.error('Update Employee API Error:', err);
@@ -210,6 +229,26 @@ export async function DELETE(request, { params }) {
       `INSERT INTO assignment_history (id, employeeId, action, timestamp, assignedBy) VALUES (?, ?, ?, ?, ?)`,
       [logId, id, `User Deleted: ${existing[0].name} (${existing[0].role || 'Employee'})`, new Date().toISOString(), 'Admin']
     ).catch(err => console.error('Failed to log employee deletion:', err));
+
+    try {
+      const adminUser = await checkAuth(request);
+      await logSecurityEvent({
+        request,
+        action: 'ADMIN_DELETE_USER',
+        category: 'ADMIN_PANEL',
+        status: 'WARNING',
+        user: adminUser,
+        details: {
+          deletedUserId: id,
+          deletedName: existing[0].name,
+          deletedEmail: existing[0].email,
+          deletedRole: existing[0].role,
+          deletedDepartment: existing[0].department
+        }
+      });
+    } catch (auditErr) {
+      console.warn('Security audit log error on delete employee:', auditErr);
+    }
 
     return NextResponse.json({ success: true, message: 'Employee deleted successfully' });
   } catch (err) {

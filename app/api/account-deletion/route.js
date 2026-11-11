@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
+import { logSecurityEvent } from '../utils/securityLogger.js';
 
 export async function POST(request) {
   try {
@@ -22,6 +23,14 @@ export async function POST(request) {
     );
 
     if (rows.length === 0) {
+      await logSecurityEvent({
+        request,
+        action: 'ACCOUNT_DELETION_REQUEST',
+        category: 'ACCESS_CONTROL',
+        status: 'WARNING',
+        identifier: searchKey,
+        details: { reason: reason || 'Account deletion requested for unknown identifier' }
+      });
       // For privacy compliance, return a clear successful request message
       return NextResponse.json({
         success: true,
@@ -42,6 +51,16 @@ export async function POST(request) {
       `UPDATE systems SET assignedTo = '' WHERE assignedTo = ? OR assignedTo = ?`,
       [emp.id, emp.name]
     );
+
+    await logSecurityEvent({
+      request,
+      action: 'ACCOUNT_DELETION_REQUEST',
+      category: 'ACCESS_CONTROL',
+      status: 'CRITICAL',
+      user: emp,
+      identifier: searchKey,
+      details: { reason: reason || 'User requested permanent account deletion', previousStatus: emp.status }
+    });
 
     return NextResponse.json({
       success: true,
