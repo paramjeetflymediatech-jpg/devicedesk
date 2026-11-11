@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
 import { checkAndSendSummaryReport } from '../../utils/fullAttendanceChecker.js';
+import { checkAuth } from '../../utils/storageManager.js';
+import { logSecurityEvent } from '../../utils/securityLogger.js';
 
 export async function POST(request) {
   let body;
@@ -107,6 +109,31 @@ export async function POST(request) {
     checkAndSendSummaryReport().catch((err) =>
       console.error('Full attendance check error on regularize:', err)
     );
+
+    try {
+      const browserUser = await checkAuth(request);
+      await logSecurityEvent({
+        request,
+        action: 'ATTENDANCE_REGULARIZED',
+        category: 'EMPLOYEE_REQUEST',
+        status: 'SUCCESS',
+        user: browserUser,
+        targetUser: { id: employeeId, name: employeeName },
+        details: {
+          targetEmployeeId: employeeId,
+          targetEmployeeName: employeeName,
+          date,
+          punchInTime,
+          punchOutTime,
+          adminName,
+          reason,
+          submittedBy: browserUser ? `${browserUser.name} (${browserUser.role || 'Admin'})` : adminName,
+          note: `Attendance regularized for ${employeeName} on ${date}.`
+        }
+      });
+    } catch (auditErr) {
+      console.warn('Security audit log error on regularize attendance:', auditErr);
+    }
 
     return NextResponse.json({
       success: true,

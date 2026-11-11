@@ -354,6 +354,8 @@ async function initializeDatabase(db) {
       identifier VARCHAR(150) NULL,
       user_name VARCHAR(150) NULL,
       user_role VARCHAR(50) NULL,
+      target_user_id VARCHAR(100) NULL,
+      target_user_name VARCHAR(150) NULL,
       action VARCHAR(100) NOT NULL,
       category VARCHAR(50) NOT NULL DEFAULT 'SECURITY',
       status VARCHAR(50) NOT NULL DEFAULT 'INFO',
@@ -372,9 +374,20 @@ async function initializeDatabase(db) {
       INDEX idx_status (status),
       INDEX idx_ip (ip_address),
       INDEX idx_user_id (user_id),
+      INDEX idx_target_user_id (target_user_id),
       INDEX idx_created_at (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  try {
+    await db.query(`ALTER TABLE security_audit_logs ADD COLUMN target_user_id VARCHAR(100) NULL`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE security_audit_logs ADD COLUMN target_user_name VARCHAR(150) NULL`);
+  } catch (e) {}
+  try {
+    await db.query(`ALTER TABLE security_audit_logs ADD INDEX idx_target_user_id (target_user_id)`);
+  } catch (e) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS chat_messages (

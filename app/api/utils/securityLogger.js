@@ -1,4 +1,5 @@
 import { getDbConnection, getPool } from '../db/db.js';
+import { checkAuth } from './storageManager.js';
 
 /**
  * Extracts client IP address with support for Cloudflare, reverse proxies, and local loopbacks.
@@ -138,7 +139,7 @@ export function extractSecurityContext(request) {
 let tableEnsured = false;
 
 /**
- * Ensures the security_audit_logs table exists in the database.
+ * Ensures the security_audit_logs table exists in the database with target user columns.
  */
 export async function ensureSecurityLogsTable(db) {
   if (tableEnsured) return;
@@ -150,6 +151,8 @@ export async function ensureSecurityLogsTable(db) {
         identifier VARCHAR(150) NULL,
         user_name VARCHAR(150) NULL,
         user_role VARCHAR(50) NULL,
+        target_user_id VARCHAR(100) NULL,
+        target_user_name VARCHAR(150) NULL,
         action VARCHAR(100) NOT NULL,
         category VARCHAR(50) NOT NULL DEFAULT 'SECURITY',
         status VARCHAR(50) NOT NULL DEFAULT 'INFO',
@@ -168,9 +171,22 @@ export async function ensureSecurityLogsTable(db) {
         INDEX idx_status (status),
         INDEX idx_ip (ip_address),
         INDEX idx_user_id (user_id),
+        INDEX idx_target_user_id (target_user_id),
         INDEX idx_created_at (created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+
+    // Dynamically add columns if table already existed prior to target user tracking
+    try {
+      await db.query(`ALTER TABLE security_audit_logs ADD COLUMN target_user_id VARCHAR(100) NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE security_audit_logs ADD COLUMN target_user_name VARCHAR(150) NULL`);
+    } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE security_audit_logs ADD INDEX idx_target_user_id (target_user_id)`);
+    } catch (e) {}
+
     tableEnsured = true;
   } catch (err) {
     console.error('Failed to ensure security_audit_logs table:', err.message);
@@ -182,10 +198,11 @@ export async function ensureSecurityLogsTable(db) {
  * 
  * @param {Object} params
  * @param {Request} [params.request] - Incoming HTTP request (NextRequest / Request)
- * @param {string} params.action - Action name (e.g. 'LOGIN_SUCCESS', 'LOGIN_FAILED', 'FORGOT_PASSWORD_REQUEST', 'ADMIN_CREATE_USER')
- * @param {string} [params.category='SECURITY'] - 'AUTH' | 'PASSWORD_RESET' | 'ADMIN_PANEL' | 'ACCESS_CONTROL' | 'DANGER_ZONE'
+ * @param {string} params.action - Action name (e.g. 'LEAVE_REQUEST_SUBMITTED', 'LOGIN_SUCCESS', 'ATTENDANCE_REGULARIZED')
+ * @param {string} [params.category='SECURITY'] - 'AUTH' | 'PASSWORD_RESET' | 'ADMIN_PANEL' | 'EMPLOYEE_REQUEST' | 'ACCESS_CONTROL' | 'DANGER_ZONE'
  * @param {string} [params.status='INFO'] - 'SUCCESS' | 'FAILURE' | 'WARNING' | 'BLOCKED' | 'CRITICAL'
- * @param {Object} [params.user] - Authenticated or matched user object ({ id, name, email, role })
+ * @param {Object} [params.user] - The logged-in browser profile user ({ id, name, email, role })
+ * @param {Object} [params.targetUser] - The employee for whom the request was submitted ({ id, name, email })
  * @param {string} [params.identifier] - Input identifier (email, username, ID)
  * @param {Object|string} [params.details] - Arbitrary additional metadata or reasons
  * @param {string} [params.ip] - IP address override if request not available
@@ -196,6 +213,7 @@ export async function logSecurityEvent({
   category = 'SECURITY',
   status = 'INFO',
   user = null,
+  targetUser = null,
   identifier = null,
   details = null,
   ip = null
@@ -204,21 +222,52 @@ export async function logSecurityEvent({
     const ctx = extractSecurityContext(request);
     const clientIp = ip || ctx.ip;
 
-    const userId = user?.id || null;
-    const userName = user?.name || null;
-    const userRole = user?.role || user?.dbRole || null;
-    const resolvedIdentifier = identifier || user?.email || user?.name || user?.id || null;
+    // If user is not explicitly passed, attempt to resolve from browser request cookies / headers
+    let resolvedUser = user;
+    if (!resolvedUser && request) {
+      try {
+        resolvedUser = await checkAuth(request);
+      } catch (authErr) {}
+    }
+
+    const userId = resolvedUser?.id || null;
+    const userName = resolvedUser?.name || null;
+    const userRole = resolvedUser?.role || resolvedUser?.dbRole || null;
+    const resolvedIdentifier = identifier || resolvedUser?.email || resolvedUser?.name || resolvedUser?.id || null;
+
+    const targetUserId = targetUser?.id || targetUser?.employeeId || null;
+    const targetUserName = targetUser?.name || targetUser?.employeeName || null;
+
+    // Detect if this is a proxy submission (someone submitting on behalf of another employee)
+    let isProxySubmission = false;
+    if (userId && targetUserId && String(userId).trim().toLowerCase() !== String(targetUserId).trim().toLowerCase()) {
+      isProxySubmission = true;
+    }
+
+    let payloadDetails = details;
+    if (typeof payloadDetails === 'object' && payloadDetails !== null) {
+      payloadDetails = {
+        ...payloadDetails,
+        browserUser: resolvedUser ? { id: resolvedUser.id, name: resolvedUser.name, role: resolvedUser.role, email: resolvedUser.email } : 'Anonymous Browser',
+        targetEmployee: targetUserId ? { id: targetUserId, name: targetUserName } : null,
+        isProxySubmission,
+        clientBrowser: ctx.browser,
+        clientOS: ctx.os,
+        clientDevice: ctx.device,
+        clientIp
+      };
+    }
 
     let serializedDetails = null;
-    if (details) {
-      if (typeof details === 'object') {
+    if (payloadDetails) {
+      if (typeof payloadDetails === 'object') {
         try {
-          serializedDetails = JSON.stringify(details);
+          serializedDetails = JSON.stringify(payloadDetails);
         } catch (e) {
-          serializedDetails = String(details);
+          serializedDetails = String(payloadDetails);
         }
       } else {
-        serializedDetails = String(details);
+        serializedDetails = String(payloadDetails);
       }
     }
 
@@ -227,13 +276,15 @@ export async function logSecurityEvent({
 
     await db.execute(
       `INSERT INTO security_audit_logs 
-        (user_id, identifier, user_name, user_role, action, category, status, ip_address, country, browser, os, device, user_agent, path, method, details)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (user_id, identifier, user_name, user_role, target_user_id, target_user_name, action, category, status, ip_address, country, browser, os, device, user_agent, path, method, details)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
         resolvedIdentifier,
         userName,
         userRole,
+        targetUserId,
+        targetUserName,
         action,
         category,
         status,
@@ -251,11 +302,10 @@ export async function logSecurityEvent({
 
     // Also output a structured security notice in server logs
     console.log(
-      `[SECURITY AUDIT] [${status}] [${category}] ${action} | IP: ${clientIp} (${ctx.browser} on ${ctx.os}) | User: ${userName || resolvedIdentifier || 'Anonymous'}`
+      `[SECURITY AUDIT] [${status}] [${category}] ${action} | Submitter: ${userName || resolvedIdentifier || 'Anonymous'} | Target: ${targetUserName || 'Self/None'} | IP: ${clientIp} (${ctx.browser} on ${ctx.os})`
     );
   } catch (err) {
     // Non-blocking: Logging failure should never crash the main application request
     console.error('[SECURITY AUDIT ERROR] Failed to record security event:', err);
   }
 }
-

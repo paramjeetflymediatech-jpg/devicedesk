@@ -241,6 +241,34 @@ export async function POST(request) {
           '/admin/client-requests'
         );
       }
+
+      // Record Security Audit with browser user & target client
+      try {
+        const browserUser = await checkAuth(request);
+        const isProxy = browserUser && browserUser.id !== clientId;
+        await logSecurityEvent({
+          request,
+          action: 'CLIENT_SERVICE_REQUEST_SUBMITTED',
+          category: 'EMPLOYEE_REQUEST',
+          status: 'SUCCESS',
+          user: browserUser,
+          targetUser: { id: clientId, name: clientName },
+          details: {
+            requestId: id,
+            service_type,
+            requirements: requirements.slice(0, 300),
+            submittedByBrowserUser: browserUser ? `${browserUser.name} (${browserUser.role || 'User'})` : 'Client Session',
+            targetClient: `${clientName} (${clientId})`,
+            isProxySubmission: isProxy,
+            note: isProxy
+              ? `Service request submitted by ${browserUser?.name} (${browserUser?.id}) on behalf of client ${clientName} (${clientId}).`
+              : `Service request self-submitted by ${clientName}.`
+          }
+        });
+      } catch (auditErr) {
+        console.warn('Audit log error on client service request:', auditErr);
+      }
+
     } catch (notifyErr) {
       console.error('Failed to notify admins of new client request:', notifyErr);
     }

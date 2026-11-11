@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
 import { sendMailNotification } from '../../utils/mailHelper.js';
+import { checkAuth } from '../../utils/storageManager.js';
+import { logSecurityEvent } from '../../utils/securityLogger.js';
 
 function calcWorkingDays(from, to) {
   let count = 0;
@@ -63,6 +65,35 @@ export async function POST(request) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)`,
       [id, employeeId, employeeName, leaveType, fromDate, toDate, totalDays, reason.trim(), appliedAt]
     );
+
+    try {
+      const browserUser = await checkAuth(request);
+      const isProxy = browserUser && browserUser.id !== employeeId;
+      await logSecurityEvent({
+        request,
+        action: 'LEAVE_REQUEST_SUBMITTED',
+        category: 'EMPLOYEE_REQUEST',
+        status: isProxy ? 'WARNING' : 'SUCCESS',
+        user: browserUser,
+        targetUser: { id: employeeId, name: employeeName },
+        details: {
+          leaveRequestId: id,
+          leaveType,
+          fromDate,
+          toDate,
+          totalDays,
+          reason: reason.trim(),
+          submittedBy: browserUser ? `${browserUser.name} (${browserUser.role || 'User'})` : 'Anonymous Browser',
+          targetEmployee: `${employeeName} (${employeeId})`,
+          isProxySubmission: isProxy,
+          note: isProxy
+            ? `⚠️ Submitted on behalf of another employee: Browser session belongs to ${browserUser?.name} (${browserUser?.id}), but leave was submitted for ${employeeName} (${employeeId}).`
+            : `Self-submitted leave application by ${employeeName}.`
+        }
+      });
+    } catch (auditErr) {
+      console.warn('Security audit log error on leave apply:', auditErr);
+    }
 
     // Send email notification to HR and Superadmin
     let recipientEmails = [];

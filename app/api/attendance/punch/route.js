@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
+import { checkAuth } from '../../utils/storageManager.js';
+import { logSecurityEvent } from '../../utils/securityLogger.js';
 
 // In-memory concurrency locks per employee ID to block double-clicks & duplicate browser tab hits
 const activeLocks = new Set();
@@ -248,6 +250,31 @@ export async function POST(request) {
 
       await connection.commit();
 
+      try {
+        const browserUser = await checkAuth(request);
+        const isProxy = browserUser && browserUser.id !== employeeId;
+        await logSecurityEvent({
+          request,
+          action: 'ATTENDANCE_PUNCH_IN',
+          category: 'EMPLOYEE_REQUEST',
+          status: isProxy ? 'WARNING' : 'SUCCESS',
+          user: browserUser,
+          targetUser: { id: employeeId, name: employeeName },
+          details: {
+            recordId,
+            status,
+            latitude,
+            longitude,
+            submittedBy: browserUser ? `${browserUser.name} (${browserUser.role || 'User'})` : 'Browser Session',
+            targetEmployee: `${employeeName} (${employeeId})`,
+            isProxySubmission: isProxy,
+            note: isProxy ? `⚠️ Proxy Punch: Punch in submitted by ${browserUser?.name} (${browserUser?.id}) for ${employeeName} (${employeeId}).` : 'Self punch in.'
+          }
+        });
+      } catch (auditErr) {
+        console.warn('Audit log error on punch in:', auditErr);
+      }
+
       return NextResponse.json({
         success: true,
         message: `Punched in successfully as ${status}!`,
@@ -412,6 +439,31 @@ export async function POST(request) {
       );
 
       await connection.commit();
+
+      try {
+        const browserUser = await checkAuth(request);
+        const isProxy = browserUser && browserUser.id !== employeeId;
+        await logSecurityEvent({
+          request,
+          action: 'ATTENDANCE_PUNCH_OUT',
+          category: 'EMPLOYEE_REQUEST',
+          status: isProxy ? 'WARNING' : 'SUCCESS',
+          user: browserUser,
+          targetUser: { id: employeeId, name: employeeName },
+          details: {
+            recordId: activeRecord.id,
+            status: finalStatus,
+            totalWorkMins,
+            netWorkMins,
+            submittedBy: browserUser ? `${browserUser.name} (${browserUser.role || 'User'})` : 'Browser Session',
+            targetEmployee: `${employeeName} (${employeeId})`,
+            isProxySubmission: isProxy,
+            note: isProxy ? `⚠️ Proxy Punch Out: Punch out submitted by ${browserUser?.name} (${browserUser?.id}) for ${employeeName} (${employeeId}).` : 'Self punch out.'
+          }
+        });
+      } catch (auditErr) {
+        console.warn('Audit log error on punch out:', auditErr);
+      }
 
       const hours = (netWorkMins / 60).toFixed(1);
       return NextResponse.json({

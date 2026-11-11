@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getDbConnection } from '../db/db.js';
 import { sendNotification } from '../utils/notificationsHelper.js';
 import { generateAICaption } from '../utils/generateCaption.js';
+import { checkAuth } from '../utils/storageManager.js';
+import { logSecurityEvent } from '../utils/securityLogger.js';
 
 function extractFirstImage(val) {
   if (!val) return null;
@@ -121,6 +123,29 @@ export async function POST(request) {
         `You have been assigned a new task "${taskTitle}" by ${assignedByNameStr}.`,
         '/employee-dashboard/tasks'
       );
+    }
+
+    try {
+      const browserUser = await checkAuth(request);
+      await logSecurityEvent({
+        request,
+        action: 'TASK_ASSIGNED_TO_EMPLOYEE',
+        category: 'EMPLOYEE_REQUEST',
+        status: 'SUCCESS',
+        user: browserUser,
+        targetUser: { id: assignedTo, name: assignedToName },
+        details: {
+          taskId,
+          taskTitle,
+          project_id,
+          assignedTo: `${assignedToName || 'Employee'} (${assignedTo})`,
+          assignedBy: assignedByName || 'Admin',
+          submittedByBrowserUser: browserUser ? `${browserUser.name} (${browserUser.role || 'User'})` : (assignedByName || 'System'),
+          note: `Task "${taskTitle}" assigned to ${assignedToName || assignedTo}.`
+        }
+      });
+    } catch (auditErr) {
+      console.warn('Audit log error on assign task:', auditErr);
     }
 
     return NextResponse.json({

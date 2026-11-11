@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
 import { sendMailNotification } from '../../utils/mailHelper.js';
+import { logSecurityEvent } from '../../utils/securityLogger.js';
 
 export async function POST(request) {
   try {
@@ -39,6 +40,32 @@ export async function POST(request) {
        WHERE id = ?`,
       [action, reviewerName, reviewedAt, action === 'Rejected' ? rejectionReason.trim() : null, leaveId]
     );
+
+    // Audit log: track reviewer action and target employee
+    try {
+      await logSecurityEvent({
+        request,
+        action: `LEAVE_${action.toUpperCase()}`,
+        category: 'EMPLOYEE_REQUEST',
+        status: 'SUCCESS',
+        targetUser: {
+          id: leaveReq.employeeId,
+          name: leaveReq.employeeName
+        },
+        details: {
+          leaveId,
+          action,
+          reviewerName,
+          leaveType: leaveReq.leaveType,
+          fromDate: leaveReq.fromDate,
+          toDate: leaveReq.toDate,
+          totalDays: leaveReq.totalDays,
+          rejectionReason: action === 'Rejected' ? rejectionReason : null
+        }
+      });
+    } catch (logErr) {
+      console.error('Failed to log leave review security event:', logErr);
+    }
 
     // Fetch employee email address to send decision notification
     try {

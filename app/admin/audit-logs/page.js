@@ -34,6 +34,7 @@ export default function AdminAuditLogsPage() {
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [selectedTimeframe, setSelectedTimeframe] = useState("all");
   const [selectedIpFilter, setSelectedIpFilter] = useState("");
+  const [proxyOnly, setProxyOnly] = useState(false);
   const [securityPage, setSecurityPage] = useState(1);
   const [securityLimit, setSecurityLimit] = useState(25);
   const [securityPagination, setSecurityPagination] = useState({ total: 0, totalPages: 1 });
@@ -65,6 +66,7 @@ export default function AdminAuditLogsPage() {
       if (selectedTimeframe && selectedTimeframe !== "all") params.set("timeframe", selectedTimeframe);
       if (selectedIpFilter) params.set("ip", selectedIpFilter);
       if (securitySearch) params.set("search", securitySearch);
+      if (proxyOnly) params.set("proxyOnly", "true");
 
       const res = await fetch(`/api/admin/security-logs?${params.toString()}`);
       const data = await res.json();
@@ -78,7 +80,7 @@ export default function AdminAuditLogsPage() {
     } finally {
       setLoadingSecurity(false);
     }
-  }, [securityPage, securityLimit, selectedCategory, selectedStatus, selectedTimeframe, selectedIpFilter, securitySearch]);
+  }, [securityPage, securityLimit, selectedCategory, selectedStatus, selectedTimeframe, selectedIpFilter, securitySearch, proxyOnly]);
 
   // Fetch Submissions Logs
   const fetchSubmissionLogs = useCallback(async () => {
@@ -170,6 +172,13 @@ export default function AdminAuditLogsPage() {
       return (
         <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
           RESET
+        </span>
+      );
+    }
+    if (c === "EMPLOYEE_REQUEST") {
+      return (
+        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+          EMP REQUEST
         </span>
       );
     }
@@ -416,6 +425,7 @@ export default function AdminAuditLogsPage() {
                   <option value="ALL">All Categories</option>
                   <option value="AUTH">Authentication (Logins & 2FA)</option>
                   <option value="PASSWORD_RESET">Password Resets</option>
+                  <option value="EMPLOYEE_REQUEST">Employee Requests (Leaves, Punches, Tasks, Reports)</option>
                   <option value="ADMIN_PANEL">Admin Panel Actions</option>
                   <option value="ACCESS_CONTROL">Access Control & Blocks</option>
                   <option value="DANGER_ZONE">Danger Zone Purges</option>
@@ -452,6 +462,24 @@ export default function AdminAuditLogsPage() {
                   <option value="30d">Last 30 Days</option>
                 </select>
 
+                {/* Proxy Only Filter Toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProxyOnly(!proxyOnly);
+                    setSecurityPage(1);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    proxyOnly
+                      ? "bg-amber-500 text-white border-amber-600 shadow-sm"
+                      : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  }`}
+                  title="Filter requests submitted by one user on behalf of another employee"
+                >
+                  <FiAlertTriangle size={13} className={proxyOnly ? "text-white" : "text-amber-500"} />
+                  <span>Proxy Only</span>
+                </button>
+
                 {/* Clear Active IP filter */}
                 {selectedIpFilter && (
                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
@@ -479,7 +507,7 @@ export default function AdminAuditLogsPage() {
                   <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     <th className="py-3.5 px-4">Timestamp</th>
                     <th className="py-3.5 px-4">Action & Category</th>
-                    <th className="py-3.5 px-4">User / Identifier</th>
+                    <th className="py-3.5 px-4 min-w-[220px]">Browser Submitter vs Target</th>
                     <th className="py-3.5 px-4">Network & IP</th>
                     <th className="py-3.5 px-4">Browser & Device</th>
                     <th className="py-3.5 px-4">Status</th>
@@ -497,11 +525,18 @@ export default function AdminAuditLogsPage() {
                   ) : securityLogs.length > 0 ? (
                     securityLogs.map((log) => {
                       const isFailure = log.status === "FAILURE" || log.status === "BLOCKED";
+                      const isProxy = Boolean(
+                        log.target_user_id &&
+                        log.user_id &&
+                        String(log.target_user_id) !== String(log.user_id)
+                      );
+                      const hasTarget = Boolean(log.target_user_name || log.target_user_id);
+
                       return (
                         <tr
                           key={log.id}
                           className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${
-                            isFailure ? "bg-rose-50/20 dark:bg-rose-950/10" : ""
+                            isProxy ? "bg-amber-50/30 dark:bg-amber-950/15" : isFailure ? "bg-rose-50/20 dark:bg-rose-950/10" : ""
                           }`}
                         >
                           {/* Timestamp */}
@@ -524,13 +559,51 @@ export default function AdminAuditLogsPage() {
                             </div>
                           </td>
 
-                          {/* User / Identifier */}
+                          {/* Browser Submitter vs Target */}
                           <td className="py-3.5 px-4">
-                            <div className="font-semibold text-slate-800 dark:text-slate-200">
-                              {log.user_name || log.identifier || "—"}
-                            </div>
-                            <div className="text-[11px] text-slate-400 dark:text-slate-500">
-                              {log.user_role ? log.user_role : log.identifier && log.user_name ? log.identifier : "Unauthenticated"}
+                            <div className="space-y-1">
+                              {/* Submitter (Logged-in browser user) */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">By:</span>
+                                <span className="font-bold text-slate-900 dark:text-white text-xs">
+                                  {log.user_name || log.identifier || "Anonymous"}
+                                </span>
+                                {log.user_role && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border border-slate-200 dark:border-slate-700">
+                                    {log.user_role}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Target Employee */}
+                              {hasTarget && (
+                                <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">For:</span>
+                                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                    {log.target_user_name || log.target_user_id}
+                                  </span>
+                                  {log.target_user_id && log.target_user_name && (
+                                    <span className="text-[10px] font-mono text-slate-400">
+                                      ({log.target_user_id})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Proxy vs Direct Badge */}
+                              {isProxy ? (
+                                <div className="pt-0.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300 dark:border-amber-700/80">
+                                    <FiAlertTriangle size={10} /> Proxy / On Behalf
+                                  </span>
+                                </div>
+                              ) : hasTarget ? (
+                                <div className="pt-0.5">
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                    <FiCheckCircle size={10} /> Direct (Self)
+                                  </span>
+                                </div>
+                              ) : null}
                             </div>
                           </td>
 
@@ -759,6 +832,69 @@ export default function AdminAuditLogsPage() {
             {/* Modal Body */}
             <div className="p-5 sm:p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               
+              {/* Identity & Proxy Forensics Card */}
+              <div className={`p-4 rounded-2xl border ${
+                activeDetailLog.target_user_id && activeDetailLog.user_id && String(activeDetailLog.target_user_id) !== String(activeDetailLog.user_id)
+                  ? "bg-amber-50/90 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800"
+                  : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700"
+              }`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-cyan-100 dark:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300">
+                      <FiUser size={15} />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                      Browser Profile & Target Employee Audit
+                    </span>
+                  </div>
+                  {activeDetailLog.target_user_id && activeDetailLog.user_id && String(activeDetailLog.target_user_id) !== String(activeDetailLog.user_id) ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-amber-200 text-amber-950 dark:bg-amber-900/80 dark:text-amber-200 border border-amber-400 dark:border-amber-600 shadow-xs">
+                      <FiAlertTriangle size={13} className="text-amber-700 dark:text-amber-300" />
+                      PROXY SUBMISSION (On Behalf of Employee)
+                    </span>
+                  ) : (activeDetailLog.target_user_name || activeDetailLog.target_user_id) ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      <FiCheckCircle size={13} /> Direct Self-Submission
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Browser Submitter Profile */}
+                  <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                      Browser Profile User (Submitter)
+                    </span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white mt-1 block">
+                      {activeDetailLog.user_name || activeDetailLog.identifier || "Anonymous / Unauthenticated"}
+                    </span>
+                    <div className="text-slate-600 dark:text-slate-400 mt-1 space-y-0.5">
+                      <div>User ID: <span className="font-mono font-semibold text-slate-900 dark:text-slate-200">{activeDetailLog.user_id || "N/A"}</span></div>
+                      <div>Role: <span className="font-semibold text-slate-900 dark:text-slate-200">{activeDetailLog.user_role || "No active role"}</span></div>
+                      <div className="text-[11px] text-cyan-600 dark:text-cyan-400 font-medium mt-1">
+                        DeviceDesk account authenticated in this browser
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Target Employee */}
+                  <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                      Target Employee / Subject
+                    </span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-white mt-1 block">
+                      {activeDetailLog.target_user_name || activeDetailLog.target_user_id || activeDetailLog.user_name || "Self (Same user)"}
+                    </span>
+                    <div className="text-slate-600 dark:text-slate-400 mt-1 space-y-0.5">
+                      <div>Target ID: <span className="font-mono font-semibold text-slate-900 dark:text-slate-200">{activeDetailLog.target_user_id || activeDetailLog.user_id || "N/A"}</span></div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        Employee for whom the action/request was initiated
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Top Details Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 
@@ -788,13 +924,13 @@ export default function AdminAuditLogsPage() {
                 {/* User / Identifier */}
                 <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-700/60">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Target / Actor
+                    Session Identifier
                   </span>
                   <span className="text-sm font-bold text-slate-900 dark:text-white mt-1 block">
-                    {activeDetailLog.user_name || activeDetailLog.identifier || "Anonymous / Unauthenticated"}
+                    {activeDetailLog.identifier || activeDetailLog.user_name || "Anonymous / Unauthenticated"}
                   </span>
                   <span className="text-xs text-slate-500 mt-0.5 block">
-                    {activeDetailLog.user_role ? `Role: ${activeDetailLog.user_role}` : "No active session"}
+                    {activeDetailLog.user_role ? `Active Role: ${activeDetailLog.user_role}` : "No active session"}
                   </span>
                 </div>
 
