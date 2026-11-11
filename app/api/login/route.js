@@ -215,19 +215,32 @@ export async function POST(request) {
 
     const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader';
 
-    // HR / DNS Manager OTP Check
+    // Superadmin / HR / DNS Manager 2FA OTP Check
     const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
     const deptStr = `${emp.department || ''}`.toLowerCase().trim();
-    const isAdminUser =
-      dbRoleStr === 'admin' ||
+    const empEmailLower = `${emp.email || ''}`.toLowerCase().trim();
+    const empNameLower = `${emp.name || ''}`.toLowerCase().trim();
+
+    const isSuperAdmin =
       dbRoleStr === 'superadmin' ||
+      dbRoleStr === 'super admin' ||
+      dbRoleStr === 'admin' ||
       dbRoleStr === 'management' ||
-      emp.email === 'admin@yopmail.com' ||
-      emp.email === 'pravi@yopmail.com';
-    const isHRUser = !isAdminUser && dbRoleStr !== 'candidate' && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+      dbRoleStr === 'executive' ||
+      dbRoleStr.includes('superadmin') ||
+      empEmailLower === 'admin@yopmail.com' ||
+      empEmailLower === 'pravi@yopmail.com' ||
+      empEmailLower === 'admin@devicedesk.com' ||
+      empEmailLower.startsWith('superadmin@') ||
+      empNameLower === 'superadmin' ||
+      empNameLower === 'super admin' ||
+      empNameLower === 'admin';
+
+    const isHRUser = !isSuperAdmin && dbRoleStr !== 'candidate' && (dbRoleStr === 'hr' || dbRoleStr === 'management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
     const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
 
-    if (isHRUser || isDnsManager) {
+    if (isSuperAdmin || isHRUser || isDnsManager) {
+      const authRole = isSuperAdmin ? 'Superadmin' : isDnsManager ? 'DNS Manager' : 'HR';
       await logSecurityEvent({
         request,
         action: 'LOGIN_OTP_TRIGGERED',
@@ -236,12 +249,12 @@ export async function POST(request) {
         user: emp,
         identifier,
         browserProfile,
-        details: { reason: 'HR/DNS 2FA OTP verification required before granting session access.' }
+        details: { reason: `${authRole} 2FA OTP verification required before granting session access.` }
       });
       return NextResponse.json({
         success: true,
         requiresOtp: true,
-        email: emp.email,
+        email: emp.email || 'admin@devicedesk.com',
         userId: emp.id
       });
     }

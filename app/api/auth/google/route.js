@@ -153,7 +153,51 @@ export async function POST(request) {
       console.warn('Failed to update Google profile on employee record:', updateErr);
     }
 
+    const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
+    const deptStr = `${emp.department || ''}`.toLowerCase().trim();
+    const empEmailLower = `${emp.email || targetEmail || ''}`.toLowerCase().trim();
+    const empNameLower = `${emp.name || targetName || ''}`.toLowerCase().trim();
+
+    const isSuperAdmin =
+      dbRoleStr === 'superadmin' ||
+      dbRoleStr === 'super admin' ||
+      dbRoleStr === 'admin' ||
+      dbRoleStr === 'management' ||
+      dbRoleStr === 'executive' ||
+      dbRoleStr.includes('superadmin') ||
+      empEmailLower === 'admin@yopmail.com' ||
+      empEmailLower === 'pravi@yopmail.com' ||
+      empEmailLower === 'admin@devicedesk.com' ||
+      empEmailLower.startsWith('superadmin@') ||
+      empNameLower === 'superadmin' ||
+      empNameLower === 'super admin' ||
+      empNameLower === 'admin';
+
+    const isHRUser = !isSuperAdmin && dbRoleStr !== 'candidate' && (dbRoleStr === 'hr' || dbRoleStr === 'management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
+    const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
+
+    if (isSuperAdmin || isHRUser || isDnsManager) {
+      const authRole = isSuperAdmin ? 'Superadmin' : isDnsManager ? 'DNS Manager' : 'HR';
+      await logSecurityEvent({
+        request,
+        action: 'LOGIN_OTP_TRIGGERED',
+        category: 'AUTH',
+        status: 'SUCCESS',
+        user: emp,
+        identifier: targetEmail,
+        browserProfile,
+        details: { reason: `${authRole} 2FA OTP verification required after Google authentication.` }
+      });
+      return NextResponse.json({
+        success: true,
+        requiresOtp: true,
+        email: emp.email || targetEmail,
+        userId: emp.id
+      });
+    }
+
     const isDeskRole =
+      isSuperAdmin ||
       emp.role === 'Admin' ||
       emp.role === 'Management' ||
       emp.role === 'IT Engineer' ||

@@ -122,9 +122,49 @@ export async function POST(request) {
 
     const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
     const deptStr = `${emp.department || ''}`.toLowerCase().trim();
-    const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
+    const empEmailLower = `${emp.email || ''}`.toLowerCase().trim();
+    const empNameLower = `${emp.name || ''}`.toLowerCase().trim();
 
-    const isDeskRole = emp.role === 'Admin' || emp.role === 'Management' || emp.role === 'IT Engineer' || emp.role === 'IT Support' || emp.role === 'Team Leader' || isHRUser;
+    const isSuperAdmin =
+      dbRoleStr === 'superadmin' ||
+      dbRoleStr === 'super admin' ||
+      dbRoleStr === 'admin' ||
+      dbRoleStr === 'management' ||
+      dbRoleStr === 'executive' ||
+      dbRoleStr.includes('superadmin') ||
+      empEmailLower === 'admin@yopmail.com' ||
+      empEmailLower === 'pravi@yopmail.com' ||
+      empEmailLower === 'admin@devicedesk.com' ||
+      empEmailLower.startsWith('superadmin@') ||
+      empNameLower === 'superadmin' ||
+      empNameLower === 'super admin' ||
+      empNameLower === 'admin';
+
+    const isHRUser = dbRoleStr === 'hr' || dbRoleStr.includes('hr') || deptStr.includes('hr');
+    const isIT =
+      dbRoleStr.includes('it') ||
+      deptStr.includes('it') ||
+      dbRoleStr === 'it engineer' ||
+      dbRoleStr === 'it support';
+
+    const isDeskRole =
+      isSuperAdmin ||
+      isHRUser ||
+      isIT ||
+      dbRoleStr === 'team leader' ||
+      dbRoleStr === 'tl' ||
+      emp.role === 'Admin' ||
+      emp.role === 'Management';
+
+    let companyName = null;
+    if (dbRoleStr === 'client') {
+      try {
+        const [cdRows] = await db.execute('SELECT company_name FROM client_details WHERE client_id = ? LIMIT 1', [emp.id]);
+        if (cdRows.length > 0 && cdRows[0].company_name) {
+          companyName = cdRows[0].company_name;
+        }
+      } catch (cdErr) {}
+    }
 
     // Primary verified identity is the authenticating employee's own email and name
     const effectiveGoogleEmail = (emp.email && emp.email.includes('@'))
@@ -183,9 +223,10 @@ export async function POST(request) {
       user: {
         id:          emp.id,
         name:        emp.name,
-        email:       emp.email,
+        company_name: companyName,
+        email:       emp.email || (isSuperAdmin ? 'admin@devicedesk.com' : ''),
         role:        isDeskRole ? 'admin' : 'employee',
-        dbRole:      emp.role,
+        dbRole:      emp.role || (isSuperAdmin ? 'Admin' : 'Employee'),
         department:  emp.department,
         ticketLimit: emp.ticketLimit,
         status:      emp.status || 'Active'

@@ -13,11 +13,23 @@ export async function POST(request) {
     const db = await getDbConnection();
 
     // Verify user exists
-    const [empRows] = await db.execute(`SELECT id, name, role, department, status FROM employees WHERE id = ? AND email = ? LIMIT 1`, [userId, email]);
-    if (empRows.length === 0) {
+    const [empRows] = await db.execute(
+      `SELECT id, name, email, role, department, status FROM employees WHERE id = ? AND (LOWER(email) = LOWER(?) OR email IS NULL OR email = '') LIMIT 1`,
+      [userId, email]
+    );
+    let emp = empRows.length > 0 ? empRows[0] : null;
+    if (!emp) {
+      const [fallbackRows] = await db.execute(
+        `SELECT id, name, email, role, department, status FROM employees WHERE id = ? LIMIT 1`,
+        [userId]
+      );
+      if (fallbackRows.length > 0) {
+        emp = fallbackRows[0];
+      }
+    }
+    if (!emp) {
       return NextResponse.json({ success: false, message: 'User not found.' }, { status: 404 });
     }
-    const emp = empRows[0];
     const statusLower = (emp.status || 'Active').toLowerCase().trim();
     if (statusLower === 'inactive') {
       return NextResponse.json({
@@ -42,7 +54,26 @@ export async function POST(request) {
     
     const dbRoleStr = `${emp.role || ''}`.toLowerCase().trim();
     const deptStr = `${emp.department || ''}`.toLowerCase().trim();
+    const empEmailLower = `${emp.email || email || ''}`.toLowerCase().trim();
+    const empNameLower = `${emp.name || ''}`.toLowerCase().trim();
+
+    const isSuperAdmin =
+      dbRoleStr === 'superadmin' ||
+      dbRoleStr === 'super admin' ||
+      dbRoleStr === 'admin' ||
+      dbRoleStr === 'management' ||
+      dbRoleStr === 'executive' ||
+      dbRoleStr.includes('superadmin') ||
+      empEmailLower === 'admin@yopmail.com' ||
+      empEmailLower === 'pravi@yopmail.com' ||
+      empEmailLower === 'admin@devicedesk.com' ||
+      empEmailLower.startsWith('superadmin@') ||
+      empNameLower === 'superadmin' ||
+      empNameLower === 'super admin' ||
+      empNameLower === 'admin';
+
     const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
+    const effectiveEmail = emp.email || email || 'admin@devicedesk.com';
 
     // Invalidate old OTPs
     await db.execute(`UPDATE login_otps SET used = 1 WHERE employeeId = ? AND used = 0`, [userId]);
@@ -54,8 +85,12 @@ export async function POST(request) {
 
     await db.execute(
       `INSERT INTO login_otps (id, employeeId, email, otp, createdAt, expiresAt, used) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [otpId, userId, email, otpCode, new Date().toISOString(), expiresAt, 0]
+      [otpId, userId, effectiveEmail, otpCode, new Date().toISOString(), expiresAt, 0]
     );
+
+    const portalName = isSuperAdmin ? 'Superadmin Portal' : isDnsManager ? 'DNS Manager Portal' : 'HR Portal';
+    const headerBg = isSuperAdmin ? '#0f172a' : '#06b6d4';
+    const headerTitle = isSuperAdmin ? 'DeviceDesk Superadmin Security' : 'DeviceDesk Security';
 
     const emailContent = `
       <!DOCTYPE html>
@@ -65,7 +100,7 @@ export async function POST(request) {
         <style>
           body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 40px 20px; }
           .container { max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eaedf1; }
-          .header { background-color: #06b6d4; padding: 25px 20px; text-align: center; }
+          .header { background-color: ${headerBg}; padding: 25px 20px; text-align: center; }
           .header h2 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
           .content { padding: 35px 30px; color: #444444; line-height: 1.6; }
           .greeting { font-size: 18px; font-weight: 600; color: #1f2937; margin-bottom: 20px; }
@@ -79,12 +114,12 @@ export async function POST(request) {
       <body>
         <div class="container">
           <div class="header">
-            <h2>DeviceDesk Security</h2>
+            <h2>${headerTitle}</h2>
           </div>
           <div class="content">
             <div class="greeting">Hello ${emp.name},</div>
             <div class="instructions">
-              You recently requested to sign in to the HR Portal. Please use the following One-Time Password to complete your secure login:
+              You recently requested to sign in to the ${portalName}. Please use the following One-Time Password to complete your secure login:
             </div>
             
             <div class="otp-container">
@@ -108,14 +143,18 @@ export async function POST(request) {
     `;
 
     // Send Email in background (fire-and-forget) to prevent blocking the UI
-    const recipients = isDnsManager ? [email, 'admin@devicedesk.com'] : email;
-    const subjectTitle = isDnsManager ? 'DeviceDesk DNS Manager Login Verification' : 'DeviceDesk HR Login Verification';
+    const recipients = isDnsManager ? [effectiveEmail, 'admin@devicedesk.com'] : effectiveEmail;
+    const subjectTitle = isSuperAdmin
+      ? 'DeviceDesk Superadmin Login Verification'
+      : isDnsManager
+      ? 'DeviceDesk DNS Manager Login Verification'
+      : 'DeviceDesk HR Login Verification';
     
     sendMailNotification({
       to: recipients,
       subject: subjectTitle,
       text: `Your OTP is: ${otpCode}`,
-      html: emailContent.replace('HR Portal', isDnsManager ? 'DNS Manager Portal' : 'HR Portal')
+      html: emailContent
     }).catch(err => {
       console.error('Background OTP email failed:', err);
     });

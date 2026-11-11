@@ -121,7 +121,12 @@ export default function LoginPage() {
             body: JSON.stringify({ credential, googleProfile: profile, browserProfile: currentProf })
           });
           const data = await res.json();
-          if (data.success) {
+          if (data.success && data.requiresOtp) {
+            setRequiresOtp(true);
+            setOtpUserId(data.userId);
+            setOtpEmail(data.email);
+            requestOtp(data.userId, data.email);
+          } else if (data.success) {
             login(data.user);
             redirectUser(data.user);
           } else if (data.unlinked) {
@@ -428,10 +433,10 @@ export default function LoginPage() {
             <Logo height="48px" />
           </div>
           <h2 style={{ fontSize: "1.75rem", fontWeight: "700", marginBottom: "0.25rem" }}>
-            DeviceDesk
+            {requiresOtp ? "Two-Factor Verification" : "DeviceDesk"}
           </h2>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-            Sign in with your credentials to access your portal
+            {requiresOtp ? "Enter the 6-digit security code sent to your email" : "Sign in with your credentials to access your portal"}
           </p>
         </div>
 
