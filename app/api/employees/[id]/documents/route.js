@@ -2,21 +2,45 @@ import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../../db/db.js';
 import { checkAuth, uploadFile, isSafeExtension } from '../../../utils/storageManager.js';
 
+async function findTargetEmployee(db, cleanId) {
+  if (!cleanId) return null;
+
+  // 1. Exact ID match (Primary Key)
+  const [rowsById] = await db.query('SELECT * FROM employees WHERE id = ? LIMIT 1', [cleanId]);
+  if (rowsById.length > 0) return rowsById[0];
+
+  // 2. Exact email match
+  const [rowsByEmail] = await db.query('SELECT * FROM employees WHERE email = ? LIMIT 1', [cleanId]);
+  if (rowsByEmail.length > 0) return rowsByEmail[0];
+
+  // 3. If cleanId is a slug (e.g. "name-emp_12345"), extract suffix after last hyphen
+  if (cleanId.includes('-')) {
+    const parts = cleanId.split('-');
+    const potentialId = parts[parts.length - 1];
+    if (potentialId) {
+      const [rowsBySuffix] = await db.query('SELECT * FROM employees WHERE id = ? LIMIT 1', [potentialId]);
+      if (rowsBySuffix.length > 0) return rowsBySuffix[0];
+    }
+  }
+
+  return null;
+}
+
 export async function GET(request, { params }) {
   try {
     const rawId = (await params)?.id;
     const cleanId = decodeURIComponent(String(rawId || '').trim());
     const db = await getDbConnection();
 
-    const [rows] = await db.query('SELECT id, name, documents FROM employees WHERE id = ? OR id = ? LIMIT 1', [cleanId, Number(cleanId) || 0]);
-    if (rows.length === 0) {
+    const employee = await findTargetEmployee(db, cleanId);
+    if (!employee) {
       return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
     }
 
     let docs = [];
-    if (rows[0].documents) {
+    if (employee.documents) {
       try {
-        docs = typeof rows[0].documents === 'string' ? JSON.parse(rows[0].documents) : rows[0].documents;
+        docs = typeof employee.documents === 'string' ? JSON.parse(employee.documents) : employee.documents;
       } catch (e) {
         docs = [];
       }
@@ -39,12 +63,11 @@ export async function POST(request, { params }) {
     const user = await checkAuth(request);
     const db = await getDbConnection();
 
-    const [rows] = await db.query('SELECT * FROM employees WHERE id = ? OR id = ? LIMIT 1', [cleanId, Number(cleanId) || 0]);
-    if (rows.length === 0) {
+    const employee = await findTargetEmployee(db, cleanId);
+    if (!employee) {
       return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
     }
 
-    const employee = rows[0];
     const targetEmployeeId = employee.id;
     let existingDocs = [];
     if (employee.documents) {
@@ -208,12 +231,11 @@ export async function DELETE(request, { params }) {
     }
 
     const db = await getDbConnection();
-    const [rows] = await db.query('SELECT * FROM employees WHERE id = ? OR id = ? LIMIT 1', [cleanId, Number(cleanId) || 0]);
-    if (rows.length === 0) {
+    const employee = await findTargetEmployee(db, cleanId);
+    if (!employee) {
       return NextResponse.json({ success: false, error: 'Employee not found' }, { status: 404 });
     }
 
-    const employee = rows[0];
     const targetEmployeeId = employee.id;
     let existingDocs = [];
     if (employee.documents) {
@@ -228,8 +250,25 @@ export async function DELETE(request, { params }) {
     const updatedDocs = existingDocs.filter(d => String(d.id) !== String(docId));
     const docsJson = JSON.stringify(updatedDocs);
 
+    const hasRemainingResume = updatedDocs.some(d => {
+      const t = (d.type || '').toLowerCase();
+      return t.includes('resume') || t.includes('cv');
+    });
+    const hasRemainingIdProof = updatedDocs.some(d => {
+      const t = (d.type || '').toLowerCase();
+      return t.includes('id proof') || t.includes('government') || t.includes('aadhaar') || t.includes('passport');
+    });
+
+    let extraSet = '';
+    if (!hasRemainingResume) {
+      extraSet += ', resume_url = NULL';
+    }
+    if (!hasRemainingIdProof) {
+      extraSet += ', id_proof_url = NULL';
+    }
+
     await db.execute(
-      'UPDATE employees SET documents = ? WHERE id = ?',
+      `UPDATE employees SET documents = ? ${extraSet} WHERE id = ?`,
       [docsJson, targetEmployeeId]
     );
 

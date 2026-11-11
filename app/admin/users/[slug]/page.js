@@ -89,13 +89,17 @@ export default function UserSlugDetailPage() {
   const fetchDocs = async (empId) => {
     try {
       setLoadingDocs(true);
+      setDocuments([]);
       const res = await fetch(`/api/employees/${empId}/documents`);
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setDocuments(data.data);
+      } else {
+        setDocuments([]);
       }
     } catch (err) {
       console.error("Error loading employee documents:", err);
+      setDocuments([]);
     } finally {
       setLoadingDocs(false);
     }
@@ -124,14 +128,43 @@ export default function UserSlugDetailPage() {
 
         // Load documents
         fetchDocs(emp.id);
+      } else {
+        setDocuments([]);
       }
     } catch (err) {
       console.error("Error loading user details:", err);
+      setDocuments([]);
     } finally {
       setLoadingDocs(false);
       setLoading(false);
     }
   }, [slug]);
+
+  useEffect(() => {
+    const handleSync = () => {
+      if (!slug) return;
+      const allEmployees = getEmployees();
+      const emp = findEmployeeBySlug(allEmployees, slug);
+      if (emp && !employee) {
+        setEmployee(emp);
+        const allSystems = getSystems();
+        const allTickets = getTickets();
+        const allTasks = getTasks();
+        const allLogs = getAssignmentHistory();
+
+        setAssignedSystems(allSystems.filter(s => String(s.assignedTo) === String(emp.id)));
+        const empTickets = allTickets.filter(t => String(t.employeeId) === String(emp.id) || String(t.raisedBy) === String(emp.id));
+        empTickets.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        setUserTickets(empTickets);
+        setUserTasks(allTasks.filter(t => String(t.assignedTo) === String(emp.id)));
+        setUserLogs(allLogs.filter(h => String(h.employeeId) === String(emp.id)));
+        fetchDocs(emp.id);
+      }
+    };
+
+    window.addEventListener('devicedesk_db_synced', handleSync);
+    return () => window.removeEventListener('devicedesk_db_synced', handleSync);
+  }, [slug, employee]);
 
   const copyToClipboard = (text, fieldName) => {
     if (!text) return;
