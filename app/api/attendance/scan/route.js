@@ -13,8 +13,13 @@ function formatLocalDate(d) {
 export async function POST(request) {
   // 1. Office IP Verification (if configured)
   const clientIp = getClientIp(request);
-  const officeIpsEnv = process.env.KIOSK_OFFICE_IPS || process.env.OFFICE_IPS || '';
-  if (officeIpsEnv.trim() && !isAllowedOfficeIp(clientIp)) {
+  const officeIpsEnv = process.env.KIOSK_OFFICE_IPS !== undefined
+    ? process.env.KIOSK_OFFICE_IPS
+    : (process.env.OFFICE_IPS || '');
+  const trimmed = officeIpsEnv.trim().toLowerCase();
+  const hasIpConfig = Boolean(trimmed && trimmed !== '*' && trimmed !== 'any' && trimmed !== 'all' && trimmed !== 'none');
+
+  if (hasIpConfig && !isAllowedOfficeIp(clientIp)) {
     return NextResponse.json({
       success: false,
       errorType: 'IP_RESTRICTED',

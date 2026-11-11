@@ -122,7 +122,7 @@ export default function ForgotPasswordPage() {
             <input
               type="text"
               className="form-control"
-              placeholder="e.g. superadmin or user@devicedesk.com"
+              placeholder="Please enter your email"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               required
@@ -162,7 +162,7 @@ export default function ForgotPasswordPage() {
             >
               <div style={{ fontWeight: "600", marginBottom: "0.5rem" }}>✓ {success}</div>
               
-              {resetUrl && (
+              {/* {resetUrl && (
                 <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(16, 185, 129, 0.3)" }}>
                   <button
                     type="button"
@@ -196,7 +196,7 @@ export default function ForgotPasswordPage() {
                     {copied ? "✓ Reset link copied to clipboard!" : "📋 Copy direct reset link"}
                   </button>
                 </div>
-              )}
+              )} */}
             </div>
           )}
 
