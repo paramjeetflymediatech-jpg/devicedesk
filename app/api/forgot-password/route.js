@@ -138,23 +138,26 @@ export async function POST(request) {
       console.error('Failed to record in sent_emails table:', dbErr.message);
     }
 
-    // 8. Log to sent_emails.log
+    // 8. Log to sent_emails.log (Security: Do not leak secret resetUrl in log file)
     try {
       const logFilePath = path.join(process.cwd(), 'sent_emails.log');
-      const logEntry = `[${new Date().toISOString()}] To: ${targetEmail} | ResetLink: ${resetUrl} | EtherealURL: ${testMessageUrl || 'N/A'}\n${'-'.repeat(50)}\n`;
+      const logEntry = `[${new Date().toISOString()}] To: ${targetEmail} | Action: Password Reset Email | Status: ${emailSent ? 'Delivered' : 'Failed'}\n${'-'.repeat(50)}\n`;
       await fs.appendFile(logFilePath, logEntry, 'utf8');
     } catch (logErr) {
       console.error('Failed to log email:', logErr);
     }
 
+    if (!emailSent) {
+      return NextResponse.json({
+        success: false,
+        message: 'Unable to deliver the password reset email at this moment. Please verify your email configuration or contact administration.'
+      }, { status: 500 });
+    }
+
+    // Security: NEVER return resetUrl, token, or previewUrl in the HTTP response
     return NextResponse.json({
       success: true,
-      message: emailSent
-        ? `A password reset link has been sent to ${targetEmail}. Please check your inbox.`
-        : `A password reset link has been generated for ${targetEmail}.`,
-      emailSent,
-      resetUrl,
-      previewUrl: testMessageUrl
+      message: `A password reset link has been sent to your registered email (${targetEmail}). Please check your inbox and spam folder.`
     });
 
   } catch (err) {

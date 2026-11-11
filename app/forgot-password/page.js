@@ -8,18 +8,12 @@ export default function ForgotPasswordPage() {
   const [identifier, setIdentifier] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [resetUrl, setResetUrl] = useState("");
-  const [previewUrl, setPreviewUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
-    setResetUrl("");
-    setPreviewUrl("");
-    setCopied(false);
 
     const target = identifier.trim();
     if (!target) {
@@ -38,13 +32,7 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        setSuccess(data.message || "A password reset link has been generated.");
-        if (data.resetUrl) {
-          setResetUrl(data.resetUrl);
-        }
-        if (data.previewUrl) {
-          setPreviewUrl(data.previewUrl);
-        }
+        setSuccess(data.message || "A password reset link has been sent to your email.");
         setIdentifier("");
       } else {
         setError(data.message || data.error || "No account found with this email or username.");
@@ -53,14 +41,6 @@ export default function ForgotPasswordPage() {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const copyToClipboard = () => {
-    if (resetUrl) {
-      navigator.clipboard.writeText(resetUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
     }
   };
 
@@ -160,43 +140,11 @@ export default function ForgotPasswordPage() {
                 lineHeight: "1.5"
               }}
             >
-              <div style={{ fontWeight: "600", marginBottom: "0.5rem" }}>✓ {success}</div>
-              
-              {/* {resetUrl && (
-                <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid rgba(16, 185, 129, 0.3)" }}>
-                  <button
-                    type="button"
-                    onClick={() => router.push(resetUrl.replace(/^https?:\/\/[^/]+/, ''))}
-                    className="btn-primary"
-                    style={{
-                      width: "100%",
-                      padding: "10px",
-                      borderRadius: "8px",
-                      fontSize: "0.9rem",
-                      fontWeight: "600",
-                      marginBottom: "8px"
-                    }}
-                  >
-                    🔑 Click Here to Reset Password Now →
-                  </button>
-                  <button
-                    type="button"
-                    onClick={copyToClipboard}
-                    style={{
-                      width: "100%",
-                      padding: "6px",
-                      background: "none",
-                      border: "none",
-                      color: "var(--text-secondary)",
-                      fontSize: "0.8rem",
-                      cursor: "pointer",
-                      textAlign: "center"
-                    }}
-                  >
-                    {copied ? "✓ Reset link copied to clipboard!" : "📋 Copy direct reset link"}
-                  </button>
-                </div>
-              )} */}
+              <div style={{ fontWeight: "600", marginBottom: "0.25rem" }}>✓ Email Dispatched</div>
+              <div>{success}</div>
+              <div style={{ marginTop: "0.5rem", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                The link is valid for 1 hour. If you do not see the email, please check your spam or junk folder.
+              </div>
             </div>
           )}
 
