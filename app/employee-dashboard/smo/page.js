@@ -5,9 +5,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FiShare2, FiPlus, FiSearch, FiRefreshCw, FiImage, 
   FiClock, FiCheckCircle, FiLayers, FiCalendar, FiExternalLink,
-  FiUser, FiSend, FiX, FiCheck
+  FiUser, FiSend, FiX, FiCheck, FiTrash2
 } from 'react-icons/fi';
 import { FaFacebook, FaInstagram } from 'react-icons/fa';
+import Swal from 'sweetalert2';
 import { useAuth } from '../../auth/AuthContext';
 import CreateSmoPostModal from '@/app/components/modals/CreateSmoPostModal';
 import Pagination from '@/app/components/Pagination';
@@ -43,6 +44,52 @@ export default function SmoTeamStudioPage() {
   useEffect(() => {
     fetchPosts();
   }, []);
+
+  const handleDeletePost = async (post) => {
+    if (!post?.id) return;
+
+    const confirm = await Swal.fire({
+      title: 'Delete SMO Post?',
+      html: `
+        <div style="text-align: left; font-size: 0.9rem;">
+          <p>Are you sure you want to delete post <strong>#${post.id}</strong>?</p>
+          <p style="color: #ef4444; margin-top: 6px;">⚠️ This will remove the post graphic and copy from the studio. This action cannot be undone.</p>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, delete post'
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      const viewerRole = user?.role || user?.dbRole || 'SMO Specialist';
+      const res = await fetch(`/api/client-services/smo?id=${encodeURIComponent(post.id)}&viewerRole=${encodeURIComponent(viewerRole)}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        if (previewPost?.id === post.id) setPreviewPost(null);
+        setPosts(prev => prev.filter(p => p.id !== post.id));
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'Post deleted successfully!',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      } else {
+        Swal.fire('Delete Failed', data.error || 'Failed to delete post', 'error');
+      }
+    } catch (err) {
+      Swal.fire('Error', err.message, 'error');
+    }
+  };
 
   const metrics = useMemo(() => {
     return {
@@ -312,13 +359,24 @@ export default function SmoTeamStudioPage() {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setPreviewPost(post)}
-                      className="px-3 py-1 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs font-bold transition-all"
-                    >
-                      Preview Post
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePost(post)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
+                        title="Delete SMO Post"
+                      >
+                        <FiTrash2 size={13} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPreviewPost(post)}
+                        className="px-3 py-1 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Preview Post
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -381,10 +439,18 @@ export default function SmoTeamStudioPage() {
                 </div>
               )}
             </div>
-            <div className="p-3 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-800 text-right">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <button
+                type="button"
+                onClick={() => handleDeletePost(previewPost)}
+                className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <FiTrash2 size={13} /> Delete Post
+              </button>
+
               <button
                 onClick={() => setPreviewPost(null)}
-                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300"
+                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 cursor-pointer"
               >
                 Close
               </button>

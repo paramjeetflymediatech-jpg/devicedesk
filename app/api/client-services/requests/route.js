@@ -565,12 +565,16 @@ export async function DELETE(request) {
       return NextResponse.json({ success: false, error: 'Missing request id' }, { status: 400 });
     }
 
-    // Role check: only Admin/Management can delete client requests
+    // Role check: Admin, Team Leader, or staff can delete client requests
     const normalizedRole = (viewerRole || '').trim().toLowerCase();
-    const isAdmin = !viewerRole || ['admin', 'management'].includes(normalizedRole);
+    const isAuthorized = !viewerRole || [
+      'admin', 'management', 'superadmin',
+      'team leader', 'tl', 'leader', 'team lead',
+      'smo', 'specialist', 'designer', 'employee', 'staff'
+    ].some(r => normalizedRole.includes(r)) || !normalizedRole.includes('client');
 
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: 'Unauthorized: Only admins can delete client requests' }, { status: 403 });
+    if (!isAuthorized) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: You do not have permission to delete client requests' }, { status: 403 });
     }
 
     const db = await getDbConnection();

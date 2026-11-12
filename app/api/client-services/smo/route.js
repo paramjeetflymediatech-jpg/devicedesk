@@ -883,10 +883,14 @@ export async function DELETE(req) {
     }
 
     const normalizedRole = (viewerRole || '').trim().toLowerCase();
-    const isAdmin = !viewerRole || ['admin', 'management', 'superadmin'].includes(normalizedRole);
+    const isAuthorized = !viewerRole || [
+      'admin', 'management', 'superadmin',
+      'team leader', 'tl', 'leader', 'team lead',
+      'smo', 'specialist', 'designer', 'employee', 'staff', 'team member'
+    ].some(r => normalizedRole.includes(r)) || !normalizedRole.includes('client');
 
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: 'Unauthorized: Only admins can delete requests' }, { status: 403 });
+    if (!isAuthorized) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: You do not have permission to delete requests' }, { status: 403 });
     }
 
     const db = await getDbConnection();

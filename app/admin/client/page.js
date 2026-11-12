@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FiUsers, FiArrowLeft, FiEdit2, FiTrash2, FiPlus, FiDownload, FiSearch, FiKey, FiCheck, FiX, FiLayout, FiDollarSign, FiBox, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiUsers, FiArrowLeft, FiEdit2, FiTrash2, FiPlus, FiDownload, FiSearch, FiKey, FiCheck, FiX, FiLayout, FiDollarSign, FiBox, FiEye, FiEyeOff, FiMoreVertical } from 'react-icons/fi';
 import Pagination from '../../components/Pagination.js';
 import Swal from 'sweetalert2';
 import dynamic from 'next/dynamic';
@@ -24,6 +24,13 @@ export default function ClientManagementPage() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showViewPackagesModal, setShowViewPackagesModal] = useState(false);
+  const [openActionMenuId, setOpenActionMenuId] = useState(null);
+
+  useEffect(() => {
+    const handleOutsideClick = () => setOpenActionMenuId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
   
   const [viewingClientPackages, setViewingClientPackages] = useState([]);
   const [viewingClientName, setViewingClientName] = useState('');
@@ -401,7 +408,7 @@ export default function ClientManagementPage() {
                   <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No clients found.</td>
                 </tr>
               ) : (
-                paginatedClients.map((client) => (
+                paginatedClients.map((client, index) => (
                   <tr key={client.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                     <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                       {client.createdAt || client.created_at ? new Date(client.createdAt || client.created_at).toLocaleDateString() : 'N/A'}
@@ -418,49 +425,211 @@ export default function ClientManagementPage() {
                       </span>
                     </td>
                     <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                        <button 
-                          onClick={() => { setResetForm({ id: client.id, name: client.name, newPassword: '' }); setShowResetModal(true); }}
-                          style={{ padding: '6px', background: 'rgba(255, 193, 7, 0.1)', color: '#ffc107', border: '1px solid rgba(255, 193, 7, 0.3)', borderRadius: '6px', cursor: 'pointer' }}
-                          title="Reset Password"
-                        >
-                          <FiKey />
-                        </button>
-                        <button 
-                          onClick={() => openPricingModal(client)}
-                          style={{ padding: '6px', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '6px', cursor: 'pointer' }}
-                          title="Custom Package Pricing"
-                        >
-                          <FiDollarSign />
-                        </button>
-                        <button 
-                          onClick={() => handleViewPackages(client)}
-                          style={{ padding: '6px', background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.3)', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="View Active Packages"
-                        >
-                          <FiBox />
-                        </button>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', position: 'relative' }}>
+                        {/* Primary Action: Manage Services Portal */}
                         <Link 
                           href={`/admin/client/${client.id}`}
-                          style={{ padding: '6px', background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="Manage Services"
+                          style={{ 
+                            padding: '6px 12px', 
+                            background: 'rgba(99, 102, 241, 0.1)', 
+                            color: '#6366f1', 
+                            border: '1px solid rgba(99, 102, 241, 0.25)', 
+                            borderRadius: '8px', 
+                            fontSize: '0.8rem', 
+                            fontWeight: 600, 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '6px', 
+                            textDecoration: 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Manage Client Services & Reports"
                         >
-                          <FiLayout />
+                          <FiLayout size={13} /> Manage
                         </Link>
+
+                        {/* Secondary Action: Edit Profile */}
                         <button 
                           onClick={() => handleEditClick(client)}
-                          style={{ padding: '6px', background: 'rgba(6, 182, 212, 0.1)', color: '#06b6d4', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '6px', cursor: 'pointer' }}
-                          title="Edit Client"
+                          style={{ 
+                            padding: '6px 10px', 
+                            background: 'rgba(6, 182, 212, 0.1)', 
+                            color: '#06b6d4', 
+                            border: '1px solid rgba(6, 182, 212, 0.25)', 
+                            borderRadius: '8px', 
+                            fontSize: '0.8rem', 
+                            fontWeight: 600, 
+                            cursor: 'pointer', 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '5px',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Edit Client Info"
                         >
-                          <FiEdit2 />
+                          <FiEdit2 size={13} /> Edit
                         </button>
-                        <button 
-                          onClick={() => handleDeleteClient(client.id)}
-                          style={{ padding: '6px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', cursor: 'pointer' }}
-                          title="Delete"
-                        >
-                          <FiTrash2 />
-                        </button>
+
+                        {/* More Actions Dropdown Trigger */}
+                        <div style={{ position: 'relative' }}>
+                          <button 
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenActionMenuId(openActionMenuId === client.id ? null : client.id);
+                            }}
+                            style={{ 
+                              padding: '6px 8px', 
+                              background: openActionMenuId === client.id ? 'rgba(100, 116, 139, 0.2)' : 'rgba(100, 116, 139, 0.08)', 
+                              color: 'var(--text-primary)', 
+                              border: '1px solid var(--glass-border)', 
+                              borderRadius: '8px', 
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title="More Actions"
+                          >
+                            <FiMoreVertical size={15} />
+                          </button>
+
+                          {/* Dropdown Menu */}
+                          {openActionMenuId === client.id && (
+                            <div 
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                position: 'absolute',
+                                right: 0,
+                                top: index >= paginatedClients.length - 2 && paginatedClients.length > 2 ? 'auto' : 'calc(100% + 6px)',
+                                bottom: index >= paginatedClients.length - 2 && paginatedClients.length > 2 ? 'calc(100% + 6px)' : 'auto',
+                                minWidth: '190px',
+                                background: '#1e293b',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                borderRadius: '12px',
+                                padding: '6px',
+                                boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+                                zIndex: 100,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '3px',
+                                textAlign: 'left'
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setResetForm({ id: client.id, name: client.name, newPassword: '' });
+                                  setShowResetModal(true);
+                                  setOpenActionMenuId(null);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 12px',
+                                  borderRadius: '6px',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#f59e0b',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 500,
+                                  cursor: 'pointer',
+                                  width: '100%',
+                                  textAlign: 'left'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.15)'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              >
+                                <FiKey size={14} /> Reset Password
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  openPricingModal(client);
+                                  setOpenActionMenuId(null);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 12px',
+                                  borderRadius: '6px',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#10b981',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 500,
+                                  cursor: 'pointer',
+                                  width: '100%',
+                                  textAlign: 'left'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              >
+                                <FiDollarSign size={14} /> Custom Pricing
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleViewPackages(client);
+                                  setOpenActionMenuId(null);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 12px',
+                                  borderRadius: '6px',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#0ea5e9',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 500,
+                                  cursor: 'pointer',
+                                  width: '100%',
+                                  textAlign: 'left'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              >
+                                <FiBox size={14} /> Active Packages
+                              </button>
+
+                              <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '4px 0' }} />
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleDeleteClient(client.id);
+                                  setOpenActionMenuId(null);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 12px',
+                                  borderRadius: '6px',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#f43f5e',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 500,
+                                  cursor: 'pointer',
+                                  width: '100%',
+                                  textAlign: 'left'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(244, 63, 94, 0.15)'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              >
+                                <FiTrash2 size={14} /> Delete Client
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>

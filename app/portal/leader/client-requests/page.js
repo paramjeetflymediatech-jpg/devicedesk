@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 import { useState, useEffect } from 'react';
-import { FiCheckSquare, FiSearch, FiX, FiEye, FiImage, FiRefreshCw, FiSend, FiEdit3, FiExternalLink, FiZap, FiPlus } from 'react-icons/fi';
+import { FiCheckSquare, FiSearch, FiX, FiEye, FiImage, FiRefreshCw, FiSend, FiEdit3, FiExternalLink, FiZap, FiPlus, FiTrash2 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import Pagination from '../../../components/Pagination';
 import { useAuth } from '../../../auth/AuthContext';
@@ -49,6 +49,7 @@ export default function ClientRequestsPage() {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isDelivering, setIsDelivering] = useState(false);
   const [showCreateSmoModal, setShowCreateSmoModal] = useState(false);
+  const [statusTab, setStatusTab] = useState('active'); // 'active' | 'completed' | 'all'
 
   const { user } = useAuth();
 
@@ -92,13 +93,69 @@ export default function ClientRequestsPage() {
     fetchData();
   }, [user]);
 
+  const handleDeleteRequest = async (req) => {
+    if (!req?.id) return;
+
+    const confirm = await Swal.fire({
+      title: 'Delete Request?',
+      html: `
+        <div style="text-align: left; font-size: 0.9rem;">
+          <p>Are you sure you want to delete request <strong>#${req.id}</strong> (${req.service})?</p>
+          <p style="color: #ef4444; margin-top: 6px;">⚠️ This will permanently remove the request and linked tasks. This action cannot be undone.</p>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, delete request'
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      const viewerRole = user?.role || 'Team Leader';
+      const res = await fetch(`/api/client-services/requests?id=${encodeURIComponent(req.id)}&viewerRole=${encodeURIComponent(viewerRole)}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setClientRequests(prev => prev.filter(r => r.id !== req.id));
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'Request deleted successfully!',
+          showConfirmButton: false,
+          timer: 3000
+        });
+      } else {
+        Swal.fire('Delete Failed', data.error || 'Failed to delete request', 'error');
+      }
+    } catch (err) {
+      Swal.fire('Error', err.message, 'error');
+    }
+  };
+
+  const activeCount = clientRequests.filter(r => r.status !== 'Completed' && r.status !== 'Delivered').length;
+  const completedCount = clientRequests.filter(r => r.status === 'Completed' || r.status === 'Delivered').length;
+
   const filteredRequests = clientRequests.filter(req => {
+    // Hide Completed / Delivered posts if viewing 'active' tab
+    if (statusTab === 'active' && (req.status === 'Completed' || req.status === 'Delivered')) {
+      return false;
+    }
+    if (statusTab === 'completed' && req.status !== 'Completed' && req.status !== 'Delivered') {
+      return false;
+    }
+
     const q = search.toLowerCase();
     const c = String(req.client || "").toLowerCase();
     const s = String(req.service || "").toLowerCase();
     const d = String(req.details || "").toLowerCase();
     const st = String(req.status || "").toLowerCase();
-    return c.includes(q) || s.includes(q) || d.includes(q) || st.includes(q);
+    return !q || c.includes(q) || s.includes(q) || d.includes(q) || st.includes(q);
   });
 
   const totalPages = Math.ceil(filteredRequests.length / pageSize) || 1;
@@ -448,8 +505,44 @@ export default function ClientRequestsPage() {
               className="pl-8 pr-3 py-1.5 text-xs rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 w-48 text-slate-800"
             />
           </div>
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
+            <button
+              type="button"
+              onClick={() => { setStatusTab('active'); setCurrentPage(1); }}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                statusTab === 'active'
+                  ? 'bg-white text-blue-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Active ({activeCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStatusTab('completed'); setCurrentPage(1); }}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                statusTab === 'completed'
+                  ? 'bg-white text-purple-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Delivered ({completedCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => { setStatusTab('all'); setCurrentPage(1); }}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                statusTab === 'all'
+                  ? 'bg-white text-slate-800 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All ({clientRequests.length})
+            </button>
+          </div>
+
           <div className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200">
-            {filteredRequests.length} Total Requests
+            {filteredRequests.length} Showing
           </div>
         </div>
       </div>
@@ -495,6 +588,13 @@ export default function ClientRequestsPage() {
                     <div className="flex justify-end items-center gap-2">
                       <button onClick={() => handleView(req)} className="text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 p-2 rounded-md transition-colors" title="View Details">
                         <FiEye size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteRequest(req)} 
+                        className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-2 rounded-md transition-colors" 
+                        title="Delete Request"
+                      >
+                        <FiTrash2 size={16} />
                       </button>
                       {req.status === 'For TL Review' ? (
                         <button 
