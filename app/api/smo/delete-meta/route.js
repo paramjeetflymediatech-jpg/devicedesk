@@ -89,6 +89,24 @@ export async function POST(req) {
       } catch (e) {
         console.warn('Error resolving page access token for deletion:', e.message);
       }
+
+      // Also query direct page fields to fetch Page Access Token if not already resolved
+      if (post.fb_page_id) {
+        try {
+          const pageRes = await fetch(
+            `https://graph.facebook.com/v19.0/${post.fb_page_id}?fields=access_token,instagram_business_account&access_token=${effectiveFbToken}`
+          );
+          if (pageRes.ok) {
+            const pageData = await pageRes.json();
+            if (pageData.access_token && pageData.access_token.length > 20) {
+              effectiveFbToken = pageData.access_token;
+              effectiveIgToken = pageData.access_token;
+            }
+          }
+        } catch (e) {
+          console.warn('Error querying page access_token directly:', e.message);
+        }
+      }
     }
 
     // 3. Delete from Facebook Page
@@ -103,7 +121,26 @@ export async function POST(req) {
         results.facebook.success = false;
         results.facebook.message = 'Cannot delete from Facebook: Meta Page Access Token is not configured.';
       } else {
-        const candidates = [fbPost.post_id, fbPost.id].filter(Boolean);
+        // Build candidate IDs:
+        // When uploading photos to a page, deleting the timeline feed post (PAGE_ID_PHOTO_ID) is the primary way
+        const candidates = [];
+        if (fbPost.post_id && String(fbPost.post_id).includes('_')) {
+          candidates.push(String(fbPost.post_id));
+        }
+        if (post.fb_page_id && fbPost.id) {
+          const rawId = String(fbPost.id);
+          const fullPagePostId = `${post.fb_page_id}_${rawId}`;
+          if (!candidates.includes(fullPagePostId)) {
+            candidates.push(fullPagePostId);
+          }
+        }
+        if (fbPost.post_id && !candidates.includes(String(fbPost.post_id))) {
+          candidates.push(String(fbPost.post_id));
+        }
+        if (fbPost.id && !candidates.includes(String(fbPost.id))) {
+          candidates.push(String(fbPost.id));
+        }
+
         let deleted = false;
         let lastErr = '';
 
@@ -119,7 +156,7 @@ export async function POST(req) {
             } else {
               const errMsg = delData.error?.message || '';
               // If already removed on Facebook manually
-              if (errMsg.includes('does not exist') || errMsg.includes('nonexisting') || errMsg.includes('Unsupported delete')) {
+              if (errMsg.includes('does not exist') || errMsg.includes('nonexisting') || errMsg.includes('Unsupported delete request') || errMsg.includes('Unknown path')) {
                 deleted = true;
                 break;
               }

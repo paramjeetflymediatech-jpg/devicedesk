@@ -664,20 +664,28 @@ export default function AdminClientWorkReportsPage() {
         if (detailReq?.id === target.id) setShowDetailsModal(false);
 
         let metaDetails = '';
+        let anyMetaSuccess = false;
+        let anyMetaAttempted = false;
         if (data.results) {
           const fb = data.results.facebook;
           const ig = data.results.instagram;
           if (fb?.attempted) {
+            anyMetaAttempted = true;
+            if (fb.success) anyMetaSuccess = true;
             metaDetails += `<p style="margin-top: 6px;">📘 <strong>Facebook Page:</strong> ${fb.success ? '<span style="color:#10b981;">' + fb.message + '</span>' : '<span style="color:#ef4444;">' + fb.message + '</span>'}</p>`;
           }
           if (ig?.attempted) {
+            anyMetaAttempted = true;
+            if (ig.success) anyMetaSuccess = true;
             metaDetails += `<p style="margin-top: 6px;">📸 <strong>Instagram Business:</strong> ${ig.success ? '<span style="color:#10b981;">' + ig.message + '</span>' : '<span style="color:#f59e0b;">' + ig.message + '</span>'}</p>`;
           }
         }
 
+        const isOk = !anyMetaAttempted || anyMetaSuccess;
+
         Swal.fire({
-          icon: 'success',
-          title: 'Removed from Meta!',
+          icon: isOk ? 'success' : 'warning',
+          title: isOk ? 'Removed from Meta!' : 'Meta Permission Needed',
           html: `
             <div style="text-align: left; font-size: 0.9rem;">
               <p>${data.message || 'Post was deleted from Meta and returned to Ready for Approval.'}</p>
@@ -768,20 +776,30 @@ export default function AdminClientWorkReportsPage() {
         if (detailReq?.id === req.id) setShowDetailsModal(false);
 
         let metaDetails = '';
+        let anyMetaSuccess = false;
+        let anyMetaAttempted = false;
         if (deleteFromMetaToo && data.results) {
           const fb = data.results.facebook;
           const ig = data.results.instagram;
           if (fb?.attempted) {
+            anyMetaAttempted = true;
+            if (fb.success) anyMetaSuccess = true;
             metaDetails += `<p style="margin-top: 6px;">📘 <strong>Facebook:</strong> ${fb.success ? '<span style="color:#10b981;">' + fb.message + '</span>' : '<span style="color:#ef4444;">' + fb.message + '</span>'}</p>`;
           }
           if (ig?.attempted) {
+            anyMetaAttempted = true;
+            if (ig.success) anyMetaSuccess = true;
             metaDetails += `<p style="margin-top: 6px;">📸 <strong>Instagram:</strong> ${ig.success ? '<span style="color:#10b981;">' + ig.message + '</span>' : '<span style="color:#f59e0b;">' + ig.message + '</span>'}</p>`;
           }
         }
 
+        const isFullySuccessful = !deleteFromMetaToo || !anyMetaAttempted || anyMetaSuccess;
+
         Swal.fire({
-          icon: 'success',
-          title: deleteFromMetaToo ? 'Deleted from Meta & System!' : 'Request permanently deleted!',
+          icon: isFullySuccessful ? 'success' : 'warning',
+          title: deleteFromMetaToo 
+            ? (anyMetaSuccess ? 'Deleted from Meta & System!' : 'Deleted from System (Meta Permission Needed)') 
+            : 'Request permanently deleted!',
           html: metaDetails || data.message || 'Request successfully removed.',
         });
       } else {
