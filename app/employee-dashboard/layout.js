@@ -23,7 +23,8 @@ import {
   FiShield,
   FiCalendar,
   FiTrash2,
-  FiActivity
+  FiActivity,
+  FiShare2
 } from "react-icons/fi";
 
 export default function EmployeeLayout({ children }) {
@@ -130,6 +131,16 @@ export default function EmployeeLayout({ children }) {
   const isTeamLeader = dbRoleStr === 'team leader';
   const isHRUser = dbRoleStr === 'hr' || dbRoleStr === 'management' || dbRoleStr.includes('hr') || deptStr.includes('hr');
   const isDnsManager = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
+  const isSmoMember =
+    deptStr.includes('smo') ||
+    deptStr.includes('social') ||
+    deptStr.includes('graphic') ||
+    deptStr.includes('design') ||
+    dbRoleStr.includes('smo') ||
+    dbRoleStr.includes('social media') ||
+    dbRoleStr.includes('designer') ||
+    isTeamLeader ||
+    isAdminUser;
 
   // Auth & Inactive account access check
   useEffect(() => {
@@ -224,6 +235,7 @@ export default function EmployeeLayout({ children }) {
   const allNavItems = [
     { name: "Overview", path: "/employee-dashboard", icon: <FiGrid /> },
     { name: "Attendance", path: "/employee-dashboard/attendance", icon: <FiClock /> },
+    ...(isSmoMember ? [{ name: "SMO Studio", path: "/employee-dashboard/smo", icon: <FiShare2 /> }] : []),
     { name: "File Complaint", path: "/employee-dashboard/complaint", icon: <FiAlertCircle /> },
     { name: "My Records", path: "/employee-dashboard/records", icon: <FiClipboard /> },
     { name: "Task Board", path: "/employee-dashboard/tasks", icon: <FiCheckSquare /> },

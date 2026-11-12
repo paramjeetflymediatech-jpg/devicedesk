@@ -1,10 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 import { useState, useEffect } from 'react';
-import { FiCheckSquare, FiSearch, FiX, FiEye, FiImage, FiRefreshCw, FiSend, FiEdit3, FiExternalLink, FiZap } from 'react-icons/fi';
+import { FiCheckSquare, FiSearch, FiX, FiEye, FiImage, FiRefreshCw, FiSend, FiEdit3, FiExternalLink, FiZap, FiPlus } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import Pagination from '../../../components/Pagination';
 import { useAuth } from '../../../auth/AuthContext';
+import CreateSmoPostModal from '../../../components/modals/CreateSmoPostModal';
 
 function extractFirstImg(val) {
   if (!val) return null;
@@ -47,45 +48,47 @@ export default function ClientRequestsPage() {
   const [reviewHashtags, setReviewHashtags] = useState("");
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isDelivering, setIsDelivering] = useState(false);
+  const [showCreateSmoModal, setShowCreateSmoModal] = useState(false);
 
   const { user } = useAuth();
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        const resReq = await fetch('/api/client-services/requests');
-        const dataReq = await resReq.json();
-        if (dataReq.success) {
-          const mappedReqs = (dataReq.data || []).map(req => ({
-            id: req.id,
-            client: req.client_name || req.clientId || 'Unknown Client',
-            assigned_tl_id: req.assigned_tl_id,
-            service: req.service_type,
-            details: req.requirements,
-            date: new Date(req.created_at).toLocaleDateString(),
-            status: req.status || 'Pending Assignment',
-            attachment: req.attachment,
-            drive_url: req.drive_url,
-            revision_notes: req.revision_notes || null,
-            caption: req.caption || '',
-            hashtags: req.hashtags || '',
-            deliverable_files: req.deliverable_files || null,
-            deliverable_note: req.deliverable_note || null,
-            delivered_at: req.delivered_at || null,
-            specialist_name: req.specialist_name || null
-          }));
-          const isAdmin = ['admin', 'superadmin'].includes((user?.role || '').toLowerCase());
-          setClientRequests(
-            !user ? [] : isAdmin ? mappedReqs : mappedReqs.filter(r => String(r.assigned_tl_id) === String(user.id))
-          );
-        }
-      } catch (err) {
-        console.error("Failed to fetch requests:", err);
-      } finally {
-        setLoading(false);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const resReq = await fetch('/api/client-services/requests');
+      const dataReq = await resReq.json();
+      if (dataReq.success) {
+        const mappedReqs = (dataReq.data || []).map(req => ({
+          id: req.id,
+          client: req.client_name || req.clientId || 'Unknown Client',
+          assigned_tl_id: req.assigned_tl_id,
+          service: req.service_type,
+          details: req.requirements,
+          date: new Date(req.created_at).toLocaleDateString(),
+          status: req.status || 'Pending Assignment',
+          attachment: req.attachment,
+          drive_url: req.drive_url,
+          revision_notes: req.revision_notes || null,
+          caption: req.caption || '',
+          hashtags: req.hashtags || '',
+          deliverable_files: req.deliverable_files || null,
+          deliverable_note: req.deliverable_note || null,
+          delivered_at: req.delivered_at || null,
+          specialist_name: req.specialist_name || null
+        }));
+        const isAdmin = ['admin', 'superadmin'].includes((user?.role || '').toLowerCase());
+        setClientRequests(
+          !user ? [] : isAdmin ? mappedReqs : mappedReqs.filter(r => String(r.assigned_tl_id) === String(user.id))
+        );
       }
+    } catch (err) {
+      console.error("Failed to fetch requests:", err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [user]);
 
@@ -420,10 +423,18 @@ export default function ClientRequestsPage() {
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col">
       <div className="px-6 py-5 border-b border-slate-200 flex justify-between items-center bg-white rounded-t-lg flex-wrap gap-4">
         <div>
-          <h3 className="font-semibold text-slate-900">Incoming Bookings</h3>
-          <p className="text-sm text-slate-500 mt-1">Review and assign new client service requests to your team.</p>
+          <h3 className="font-semibold text-slate-900">Incoming Bookings & Client Requests</h3>
+          <p className="text-sm text-slate-500 mt-1">Review and assign new client service requests, or create SMO social posts directly.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowCreateSmoModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white shadow-sm transition-all cursor-pointer"
+          >
+            <FiPlus size={14} />
+            <span>Create SMO Post</span>
+          </button>
           <div className="relative">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
             <input
@@ -770,6 +781,14 @@ export default function ClientRequestsPage() {
           </div>
         </div>
       )}
+
+      {/* Direct Create SMO Post Modal for Team Leader */}
+      <CreateSmoPostModal
+        isOpen={showCreateSmoModal}
+        onClose={() => setShowCreateSmoModal(false)}
+        onSuccess={() => fetchData()}
+        currentUser={user}
+      />
     </div>
   );
 }

@@ -685,51 +685,191 @@ export async function PUT(req) {
 export async function POST(req) {
   try {
     const data = await req.json();
-    const { clientId, requirements, platforms } = data;
+    const { 
+      clientId, 
+      requirements, 
+      platforms,
+      banner_url,
+      caption,
+      hashtags,
+      status,
+      scheduled_at,
+      publishNow,
+      simulate,
+      creator_id,
+      creator_name,
+      creator_role,
+      assigned_tl_id
+    } = data;
     
-    if (!clientId || !requirements) {
-      return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
+    if (!clientId) {
+      return NextResponse.json({ success: false, error: 'Client ID is required.' }, { status: 400 });
     }
 
     const db = await getDbConnection();
 
-    // Verify client has an active SMO package before allowing SMO creation
-    const [pkgs] = await db.query(`
-      SELECT p.name 
-      FROM client_package_overrides cpo 
-      JOIN packages p ON (cpo.package_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci) 
-      WHERE cpo.client_id = ? AND cpo.status = 'Active'
-    `, [clientId]);
+    // Ensure columns exist in client_smo_requests
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN banner_url TEXT DEFAULT NULL`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN caption TEXT DEFAULT NULL`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN hashtags TEXT DEFAULT NULL`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN platforms VARCHAR(255) DEFAULT '["facebook", "instagram"]'`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN scheduled_at DATETIME DEFAULT NULL`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN published_at DATETIME DEFAULT NULL`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN social_post_ids TEXT DEFAULT NULL`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN designer_id VARCHAR(50) DEFAULT NULL`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN designer_name VARCHAR(100) DEFAULT NULL`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN revision_notes TEXT DEFAULT NULL`); } catch (err) {}
+    try { await db.execute(`ALTER TABLE client_smo_requests ADD COLUMN assigned_tl_id VARCHAR(50) DEFAULT NULL`); } catch (err) {}
 
-    const hasSmo = (pkgs || []).some(
-      p => (p.name || '').toLowerCase().includes('smo') || (p.name || '').toLowerCase().includes('social')
-    );
+    const normalizedRole = (creator_role || '').toLowerCase().trim();
+    const isStaff = ['admin', 'superadmin', 'management', 'team leader', 'tl', 'leader', 'smo'].some(r => normalizedRole.includes(r)) || 
+                    (creator_role && !['client'].includes(normalizedRole));
 
-    if (!hasSmo) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Active SMO package required. Please subscribe to an SMO package to use SMO services.' 
-      }, { status: 403 });
+    // If client themselves is creating, check for active SMO package
+    if (!isStaff) {
+      const [pkgs] = await db.query(`
+        SELECT p.name 
+        FROM client_package_overrides cpo 
+        JOIN packages p ON (cpo.package_id COLLATE utf8mb4_unicode_ci = p.id COLLATE utf8mb4_unicode_ci) 
+        WHERE cpo.client_id = ? AND cpo.status = 'Active'
+      `, [clientId]);
+
+      const hasSmo = (pkgs || []).some(
+        p => (p.name || '').toLowerCase().includes('smo') || (p.name || '').toLowerCase().includes('social')
+      );
+
+      if (!hasSmo) {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Active SMO package required. Please subscribe to an SMO package to use SMO services.' 
+        }, { status: 403 });
+      }
     }
 
     const id = 'smo_' + crypto.randomBytes(8).toString('hex');
+    const finalRequirements = (requirements && requirements.trim()) ? requirements.trim() : (caption ? caption.slice(0, 100) : 'SMO Social Post');
 
-    // Trigger any due scheduled posts in background
-    publishDuePosts().catch(() => {});
+    let finalStatus = status || (banner_url ? 'Ready for Approval' : 'Pending Design');
+    let finalScheduledAt = null;
+
+    if (scheduled_at) {
+      let parsedDate = new Date(typeof scheduled_at === 'string' && scheduled_at.includes('T') ? scheduled_at : scheduled_at.replace(' ', 'T'));
+      if (!isNaN(parsedDate.getTime())) {
+        const pad = n => String(n).padStart(2, '0');
+        finalScheduledAt = `${parsedDate.getFullYear()}-${pad(parsedDate.getMonth() + 1)}-${pad(parsedDate.getDate())} ${pad(parsedDate.getHours())}:${pad(parsedDate.getMinutes())}:${pad(parsedDate.getSeconds())}`;
+        finalStatus = 'Scheduled';
+      }
+    }
+
+    const platformsJson = platforms ? (typeof platforms === 'string' ? platforms : JSON.stringify(platforms)) : '["facebook", "instagram"]';
+    const designerName = creator_name || (isStaff ? 'SMO Specialist' : 'Design Team');
+
     await db.execute(
-      'INSERT INTO client_smo_requests (id, client_id, requirements, status, platforms) VALUES (?, ?, ?, ?, ?)',
+      `INSERT INTO client_smo_requests (
+        id, client_id, requirements, banner_url, caption, hashtags, 
+        status, platforms, scheduled_at, designer_id, designer_name, assigned_tl_id, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
-        id, 
-        clientId, 
-        requirements, 
-        'Pending Design', 
-        platforms ? (typeof platforms === 'string' ? platforms : JSON.stringify(platforms)) : '["facebook", "instagram"]'
+        id,
+        clientId,
+        finalRequirements,
+        banner_url || null,
+        caption || null,
+        hashtags || '#Flymedia #SocialMedia #Trending',
+        finalStatus,
+        platformsJson,
+        finalScheduledAt,
+        creator_id || null,
+        designerName,
+        assigned_tl_id || null
       ]
     );
 
+    // If immediate publish requested
+    let publishResult = null;
+    if (publishNow && banner_url) {
+      try {
+        const [cdRows] = await db.execute(
+          `SELECT meta_access_token, fb_page_id, ig_business_id FROM client_details WHERE client_id = ?`,
+          [clientId]
+        );
+        const creds = cdRows?.[0];
+
+        if (simulate || !creds?.meta_access_token) {
+          const parsedPlatforms = typeof platforms === 'string' ? JSON.parse(platforms) : (platforms || ['facebook', 'instagram']);
+          const mockResults = {
+            facebook: parsedPlatforms.includes('facebook') ? {
+              id: 'mock_fb_' + Date.now(),
+              status: 'simulated_success',
+              permalink_url: 'https://facebook.com'
+            } : null,
+            instagram: parsedPlatforms.includes('instagram') ? {
+              id: 'mock_ig_' + Date.now(),
+              status: 'simulated_success',
+              permalink: 'https://instagram.com'
+            } : null
+          };
+
+          await db.execute(`
+            UPDATE client_smo_requests 
+            SET status = 'Published', 
+                published_at = NOW(), 
+                social_post_ids = ?
+            WHERE id = ?
+          `, [JSON.stringify(mockResults), id]);
+
+          finalStatus = 'Published';
+          publishResult = { simulated: true, results: mockResults };
+        }
+      } catch (pubErr) {
+        console.warn('Publish error during post creation:', pubErr);
+      }
+    }
+
+    // Send in-app and web push notifications
+    try {
+      if (isStaff) {
+        // Staff created post for client -> notify client
+        await sendNotification(
+          clientId,
+          'New SMO Post Ready for Approval',
+          'A new social media post has been created and is ready for your review!',
+          '/portal/client/smo'
+        );
+      } else {
+        // Client created post -> notify admins
+        const [adminRows] = await db.query(`SELECT id FROM employees WHERE LOWER(role) IN ('admin', 'superadmin') LIMIT 5`);
+        for (const adm of (adminRows || [])) {
+          await sendNotification(
+            adm.id,
+            'New Client SMO Post',
+            `Client created a new SMO post (#${id.slice(0, 8)})`,
+            '/admin/client-work-reports'
+          );
+        }
+      }
+    } catch (notifErr) {
+      console.warn('Notification error on SMO post creation:', notifErr.message);
+    }
+
+    // Trigger any due scheduled posts in background
+    publishDuePosts().catch(() => {});
+
     return NextResponse.json({ 
       success: true, 
-      data: { id, clientId, requirements, status: 'Pending Design' } 
+      data: { 
+        id, 
+        clientId, 
+        requirements: finalRequirements, 
+        banner_url,
+        caption,
+        hashtags,
+        platforms: platformsJson,
+        status: finalStatus,
+        scheduled_at: finalScheduledAt,
+        publishResult
+      } 
     });
   } catch (error) {
     console.error('POST SMO Request Error:', error);

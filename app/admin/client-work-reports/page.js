@@ -7,13 +7,15 @@ import {
   FiTrendingUp, FiSend, FiEye, FiTrash2, FiShare2, FiRefreshCw, 
   FiDownload, FiSearch, FiFilter, FiSave, FiX, FiCheck, FiImage, 
   FiRepeat, FiCalendar, FiUser, FiBriefcase, FiMessageCircle, 
-  FiHeart, FiBookmark, FiExternalLink, FiLayers, FiShield
+  FiHeart, FiBookmark, FiExternalLink, FiLayers, FiShield, FiPlus
 } from 'react-icons/fi';
 import { FaFacebook, FaInstagram } from 'react-icons/fa';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
 import Swal from 'sweetalert2';
 import Pagination from '@/app/components/Pagination.js';
 import GoogleDriveBadge from '@/app/components/GoogleDriveBadge.js';
+import { useAuth } from '@/app/auth/AuthContext';
+import CreateSmoPostModal from '@/app/components/modals/CreateSmoPostModal';
 
 function parseAttachments(val) {
   if (!val) return [];
@@ -70,10 +72,13 @@ function formatScheduledDate(val) {
 }
 
 export default function AdminClientWorkReportsPage() {
+  const { user } = useAuth();
+
   // Data States
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Search & Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -777,6 +782,15 @@ export default function AdminClientWorkReportsPage() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white shadow-md shadow-pink-500/20 transition-all cursor-pointer"
+          >
+            <FiPlus size={15} />
+            <span>Create SMO Post</span>
+          </button>
+
           <button
             type="button"
             onClick={handleManualRefresh}
@@ -1927,6 +1941,16 @@ export default function AdminClientWorkReportsPage() {
           </div>
         </div>
       )}
+
+      {/* ======================================================== */}
+      {/* 6. CREATE SMO POST MODAL (SUPERADMIN)                    */}
+      {/* ======================================================== */}
+      <CreateSmoPostModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => fetchData()}
+        currentUser={user || { id: 'admin', name: 'Superadmin', role: 'superadmin' }}
+      />
 
     </div>
   );

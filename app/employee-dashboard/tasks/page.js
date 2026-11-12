@@ -19,6 +19,7 @@ import {
 } from "../../store";
 import { FiCalendar, FiBarChart2, FiPlus, FiPlay, FiPause, FiCheckCircle, FiEye, FiEdit2, FiTrash2, FiPaperclip, FiSearch, FiFilter, FiMonitor, FiList, FiAlertCircle, FiCheckSquare, FiUser, FiDownload } from "react-icons/fi";
 import Pagination from "../../components/Pagination";
+import CreateSmoPostModal from "@/app/components/modals/CreateSmoPostModal";
 
 export default function TaskBoardPage() {
   const { user } = useAuth();
@@ -49,6 +50,22 @@ export default function TaskBoardPage() {
   const [editTaskDesc, setEditTaskDesc] = useState("");
   const [editTaskStatus, setEditTaskStatus] = useState("Pending");
   const [showEditTaskModal, setShowEditTaskModal] = useState(false);
+
+  // SMO Post Modal State
+  const deptStr = `${user?.department || ''}`.toLowerCase().trim();
+  const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
+  const isSmoMember =
+    deptStr.includes('smo') ||
+    deptStr.includes('social') ||
+    deptStr.includes('graphic') ||
+    deptStr.includes('design') ||
+    dbRoleStr.includes('smo') ||
+    dbRoleStr.includes('social media') ||
+    dbRoleStr.includes('designer') ||
+    dbRoleStr === 'team leader' ||
+    dbRoleStr === 'admin' ||
+    dbRoleStr === 'superadmin';
+  const [showSmoModal, setShowSmoModal] = useState(false);
 
   // View Task Details States
   const [selectedTaskDetails, setSelectedTaskDetails] = useState(null);
@@ -470,6 +487,28 @@ export default function TaskBoardPage() {
             >
               <FiBarChart2 style={{ fontSize: "1rem" }} /> My Performance Report
             </button>
+            {isSmoMember && (
+              <button
+                type="button"
+                onClick={() => setShowSmoModal(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "0.85rem",
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  background: "linear-gradient(135deg, #ec4899, #f43f5e)",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  boxShadow: "0 4px 12px rgba(236, 72, 153, 0.25)"
+                }}
+              >
+                <FiPlus style={{ fontSize: "1rem" }} /> Create SMO Post
+              </button>
+            )}
             <button
               className="btn-primary"
               onClick={() => setShowSelfTaskModal(true)}
@@ -1596,6 +1635,14 @@ export default function TaskBoardPage() {
           </div>
         </div>
       )}
+
+      {/* SMO Post Creator Modal for Team Members */}
+      <CreateSmoPostModal
+        isOpen={showSmoModal}
+        onClose={() => setShowSmoModal(false)}
+        onSuccess={() => refreshData()}
+        currentUser={user}
+      />
     </div>
   );
 }

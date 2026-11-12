@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { FiArrowLeft, FiSearch, FiFileText, FiImage, FiDollarSign, FiPlus, FiSave } from 'react-icons/fi';
+import CreateSmoPostModal from '@/app/components/modals/CreateSmoPostModal';
 
 export default function ClientServicesAdmin() {
   const params = useParams();
@@ -17,6 +18,7 @@ export default function ClientServicesAdmin() {
   const [smoRequests, setSmoRequests] = useState([]);
   const [adsData, setAdsData] = useState([]);
   const [serviceRequests, setServiceRequests] = useState([]);
+  const [showCreateSmoModal, setShowCreateSmoModal] = useState(false);
 
   // Form states
   const [seoForm, setSeoForm] = useState({ month: '', year: new Date().getFullYear().toString(), file_url: '' });
@@ -221,16 +223,42 @@ export default function ClientServicesAdmin() {
           {/* SMO TAB */}
           {activeTab === 'smo' && (
             <div>
-              <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Graphic Requirements (SMO)</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Social Media Posts & Graphics (SMO)</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateSmoModal(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', background: 'linear-gradient(135deg, #ec4899, #f43f5e)', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', boxShadow: '0 4px 12px rgba(236, 72, 153, 0.25)' }}
+                >
+                  <FiPlus /> Create SMO Post for Client
+                </button>
+              </div>
               {smoRequests.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No requests submitted yet.</p> : (
                 <div style={{ display: 'grid', gap: '1rem' }}>
                   {smoRequests.map(r => (
-                    <div key={r.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '1.5rem', borderRadius: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Submitted: {new Date(r.created_at).toLocaleString()}</span>
-                        <span className={`status-tag ${r.status === 'Pending' ? 'open' : 'resolved'}`}>{r.status}</span>
+                    <div key={r.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', padding: '1.5rem', borderRadius: '12px', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                      {r.banner_url && (
+                        <div style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#000' }}>
+                          <img src={r.banner_url} alt="Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: '240px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Submitted: {new Date(r.created_at).toLocaleString()}</span>
+                          <span className={`status-tag ${r.status === 'Published' || r.status === 'Completed' ? 'resolved' : 'open'}`}>{r.status}</span>
+                        </div>
+                        <p style={{ margin: '0 0 8px', whiteSpace: 'pre-wrap', lineHeight: '1.5', fontWeight: 600 }}>{r.requirements}</p>
+                        {r.caption && (
+                          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                            {r.caption}
+                          </div>
+                        )}
+                        {r.hashtags && (
+                          <div style={{ fontSize: '0.8rem', color: '#ec4899', fontWeight: 500 }}>
+                            {r.hashtags}
+                          </div>
+                        )}
                       </div>
-                      <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{r.requirements}</p>
                     </div>
                   ))}
                 </div>
@@ -331,6 +359,15 @@ export default function ClientServicesAdmin() {
           
         </div>
       </div>
+
+      <CreateSmoPostModal
+        isOpen={showCreateSmoModal}
+        onClose={() => setShowCreateSmoModal(false)}
+        onSuccess={() => fetchSMO()}
+        initialClientId={id}
+        lockClient={true}
+        currentUser={{ id: 'admin', name: 'Superadmin', role: 'superadmin' }}
+      />
     </div>
   );
 }

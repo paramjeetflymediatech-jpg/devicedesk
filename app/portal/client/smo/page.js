@@ -7,12 +7,13 @@ import {
   FiEdit3, FiUser, FiCheckCircle, FiClock, FiAlertCircle, 
   FiSettings, FiShare2, FiThumbsUp, FiMessageCircle, FiHeart, 
   FiBookmark, FiRefreshCw, FiExternalLink, FiUploadCloud, FiZap, FiCalendar, FiSave, FiLock,
-  FiRepeat
+  FiRepeat, FiPlus
 } from 'react-icons/fi';
 import { FaFacebook, FaInstagram } from 'react-icons/fa';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
 import Swal from 'sweetalert2';
 import { useClientProfile } from '../useClientProfile';
+import CreateSmoPostModal from '@/app/components/modals/CreateSmoPostModal';
 
 function formatScheduledDate(val) {
   if (!val) return 'Pending';
@@ -75,6 +76,7 @@ export default function SMOPage() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
   // Designer Upload State
@@ -973,10 +975,18 @@ export default function SMOPage() {
                   Submit design briefs, let designers attach finished creatives, preview mock posts exactly as they appear on Facebook & Instagram, and publish with a single click.
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <button 
+                  type="button"
+                  onClick={() => setShowCreateModal(true)} 
+                  className="px-5 py-2.5 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-bold rounded-xl shadow-lg text-sm transition-transform active:scale-95 flex items-center gap-2 whitespace-nowrap cursor-pointer"
+                >
+                  <FiPlus size={16} /> Create SMO Post Directly
+                </button>
+                <button 
+                  type="button"
                   onClick={() => setShowSettingsModal(true)} 
-                  className="px-4 py-2.5 bg-white text-pink-700 hover:bg-pink-50 font-bold rounded-xl shadow text-sm transition-transform active:scale-95 whitespace-nowrap"
+                  className="px-4 py-2.5 bg-white text-pink-700 hover:bg-pink-50 font-bold rounded-xl shadow text-sm transition-transform active:scale-95 whitespace-nowrap cursor-pointer"
                 >
                   Configure Social Pages
                 </button>
@@ -986,12 +996,23 @@ export default function SMOPage() {
 
           {/* Request New Graphic Form */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
-              <FiEdit3 className="text-pink-600" /> Request New Graphic / Banner
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Describe the graphic requirement, including promotional offer, target audience, preferred brand colors, and platforms.
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
+                  <FiEdit3 className="text-pink-600" /> Request New Graphic or Create Post
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Need a custom creative designed? Describe your requirement below, or create the social post directly.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2 bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+              >
+                <FiPlus size={14} /> Create Post Directly (Upload Banner & AI Copy)
+              </button>
+            </div>
             <form onSubmit={handleSMOSubmit}>
               <textarea 
                 className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all resize-none mb-3 min-h-[110px] text-sm text-gray-800 bg-gray-50/50 focus:bg-white"
@@ -2054,6 +2075,16 @@ export default function SMOPage() {
           </div>
         </div>
       )}
+
+      {/* Direct SMO Post Creator Modal for Client */}
+      <CreateSmoPostModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => fetchSMO()}
+        currentUser={{ id: myClientId, name: userName || clientName || 'Client', role: 'client' }}
+        initialClientId={myClientId}
+        lockClient={true}
+      />
     </div>
   );
 }
