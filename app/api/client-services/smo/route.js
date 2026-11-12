@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db';
 import { publishDuePosts } from '../../utils/smoScheduler';
+import { executeSmoPublish } from '../../smo/publish/route';
 import { generateAICaption } from '../../utils/generateCaption';
 import { sendNotification } from '../../utils/notificationsHelper';
 import crypto from 'crypto';
@@ -790,40 +791,34 @@ export async function POST(req) {
     let publishResult = null;
     if (publishNow && banner_url) {
       try {
-        const [cdRows] = await db.execute(
-          `SELECT meta_access_token, fb_page_id, ig_business_id FROM client_details WHERE client_id = ?`,
-          [clientId]
-        );
-        const creds = cdRows?.[0];
+        let parsedPlatforms = ['facebook', 'instagram'];
+        if (platforms) {
+          try {
+            parsedPlatforms = typeof platforms === 'string' ? JSON.parse(platforms) : platforms;
+          } catch (e) {
+            parsedPlatforms = ['facebook', 'instagram'];
+          }
+        }
 
-        if (simulate || !creds?.meta_access_token) {
-          const parsedPlatforms = typeof platforms === 'string' ? JSON.parse(platforms) : (platforms || ['facebook', 'instagram']);
-          const mockResults = {
-            facebook: parsedPlatforms.includes('facebook') ? {
-              id: 'mock_fb_' + Date.now(),
-              status: 'simulated_success',
-              permalink_url: 'https://facebook.com'
-            } : null,
-            instagram: parsedPlatforms.includes('instagram') ? {
-              id: 'mock_ig_' + Date.now(),
-              status: 'simulated_success',
-              permalink: 'https://instagram.com'
-            } : null
-          };
+        publishResult = await executeSmoPublish({
+          requestId: id,
+          simulate: Boolean(simulate),
+          platforms: parsedPlatforms
+        });
 
-          await db.execute(`
-            UPDATE client_smo_requests 
-            SET status = 'Published', 
-                published_at = NOW(), 
-                social_post_ids = ?
-            WHERE id = ?
-          `, [JSON.stringify(mockResults), id]);
-
+        if (publishResult && publishResult.success) {
           finalStatus = 'Published';
-          publishResult = { simulated: true, results: mockResults };
+        } else {
+          // If live publish failed (e.g. invalid token/permissions), revert status from 'Published'
+          // to 'Ready for Approval' so it can be fixed and republished
+          finalStatus = 'Ready for Approval';
+          await db.execute(`UPDATE client_smo_requests SET status = 'Ready for Approval' WHERE id = ?`, [id]);
         }
       } catch (pubErr) {
         console.warn('Publish error during post creation:', pubErr);
+        publishResult = { success: false, error: pubErr.message };
+        finalStatus = 'Ready for Approval';
+        await db.execute(`UPDATE client_smo_requests SET status = 'Ready for Approval' WHERE id = ?`, [id]).catch(() => {});
       }
     }
 

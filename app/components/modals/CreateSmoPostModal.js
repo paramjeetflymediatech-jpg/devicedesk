@@ -229,6 +229,15 @@ export default function CreateSmoPostModal({
       }
     }
 
+    if (actionType === 'publish' && !bannerUrl) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Banner Graphic Required',
+        text: 'Meta requires an image to publish a post. Please upload or link a banner graphic first, or choose "Ready for Approval" to design it later.'
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -261,19 +270,57 @@ export default function CreateSmoPostModal({
       const data = await res.json();
 
       if (data.success) {
-        let msg = 'The SMO post has been created and delivered to the client for approval!';
-        if (actionType === 'schedule') {
-          msg = `The SMO post has been scheduled for publication on ${new Date(scheduledDateTime).toLocaleString()}!`;
-        } else if (actionType === 'publish') {
-          msg = 'The SMO post has been created and published live!';
+        if (actionType === 'publish') {
+          const pubRes = data.data?.publishResult;
+          if (pubRes?.success) {
+            let details = '';
+            if (pubRes.results?.facebook?.success) {
+              details += '<p style="margin-top:4px;">📘 <strong>Facebook Page:</strong> Posted live successfully!</p>';
+            }
+            if (pubRes.results?.instagram?.success) {
+              details += '<p style="margin-top:4px;">📸 <strong>Instagram Business:</strong> Posted live successfully!</p>';
+            }
+            Swal.fire({
+              icon: 'success',
+              title: '🎉 SMO Post Published Live to Meta!',
+              html: `
+                <div style="text-align: left; font-size: 0.9rem;">
+                  <p>Your post was published live to the client's Meta social feeds!</p>
+                  ${details}
+                </div>
+              `,
+              confirmButtonColor: '#ec4899'
+            });
+          } else {
+            const errDetail = pubRes?.error || 'Live publication to Meta could not be completed.';
+            Swal.fire({
+              icon: 'warning',
+              title: 'Saved, but Meta Publish Issue',
+              html: `
+                <div style="text-align: left; font-size: 0.9rem;">
+                  <p>The post was created in your system, but publishing to Facebook/Instagram failed:</p>
+                  <p style="margin-top: 8px; color: #ef4444; font-weight: 600;">${errDetail}</p>
+                  <p style="margin-top: 8px; color: #64748b; font-size: 0.8rem;">The post has been placed in "Ready for Approval" so you can fix credentials and publish it whenever you wish.</p>
+                </div>
+              `,
+              confirmButtonColor: '#ec4899'
+            });
+          }
+        } else if (actionType === 'schedule') {
+          Swal.fire({
+            icon: 'success',
+            title: '🎉 SMO Post Scheduled!',
+            text: `The SMO post has been scheduled for publication on ${new Date(scheduledDateTime).toLocaleString()}!`,
+            confirmButtonColor: '#ec4899'
+          });
+        } else {
+          Swal.fire({
+            icon: 'success',
+            title: '🎉 SMO Post Created!',
+            text: 'The SMO post has been created and delivered to the client for approval!',
+            confirmButtonColor: '#ec4899'
+          });
         }
-
-        Swal.fire({
-          icon: 'success',
-          title: '🎉 SMO Post Created!',
-          text: msg,
-          confirmButtonColor: '#ec4899'
-        });
 
         // Reset fields
         setRequirements('');

@@ -98,6 +98,7 @@ export default function AdminClientWorkReportsPage() {
   const [editHashtags, setEditHashtags] = useState('');
   const [targetPlatforms, setTargetPlatforms] = useState(['facebook', 'instagram']);
   const [publishing, setPublishing] = useState(false);
+  const [unpublishing, setUnpublishing] = useState(false);
   const [savingCopy, setSavingCopy] = useState(false);
   const [regeneratingAI, setRegeneratingAI] = useState(false);
 
@@ -623,42 +624,165 @@ export default function AdminClientWorkReportsPage() {
     }
   };
 
-  // Permanent Delete Request Handler
-  const handleDeleteRequest = async (req) => {
+  // Delete / Unpublish live post from Meta (Facebook & Instagram)
+  const handleUnpublishFromMeta = async (req) => {
+    const target = req || selectedReq;
+    if (!target) return;
+
     const confirm = await Swal.fire({
-      title: 'Delete Client Request?',
+      title: 'Unpublish & Delete from Meta?',
       html: `
-        <div style="text-align: left; font-size: 0.9rem;">
-          <p>Are you sure you want to permanently delete request <strong>#${req.id}</strong>?</p>
-          <p style="color: #ef4444; margin-top: 6px;">⚠️ This will delete the service request, deliverable proofs, and associated tasks across the entire system. This action cannot be undone.</p>
+        <div style="text-align: left; font-size: 0.9rem; line-height: 1.5;">
+          <p>Are you sure you want to permanently delete this live post from <strong>Facebook Page</strong> and <strong>Instagram Business</strong>?</p>
+          <p style="margin-top: 8px; color: #64748b; font-size: 0.85rem;">
+            ⚠️ Meta Graph API will be instructed to remove the published media from the client's feed. The request in your system will revert to <strong>Ready for Approval</strong> so you can edit and republish anytime.
+          </p>
         </div>
       `,
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#ef4444',
+      confirmButtonColor: '#e11d48',
       cancelButtonColor: '#64748b',
-      confirmButtonText: 'Yes, permanently delete'
+      confirmButtonText: 'Yes, Delete from Meta',
+      cancelButtonText: 'Cancel'
     });
 
     if (!confirm.isConfirmed) return;
 
     try {
-      const res = await fetch(`/api/client-services/smo?id=${encodeURIComponent(req.id)}&viewerRole=Admin`, {
-        method: 'DELETE'
+      setUnpublishing(true);
+      const res = await fetch('/api/smo/delete-meta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: target.id, alsoDeleteRecord: false })
       });
       const data = await res.json();
 
       if (data.success) {
         fetchData();
+        if (selectedReq?.id === target.id) setShowPostModal(false);
+        if (detailReq?.id === target.id) setShowDetailsModal(false);
+
+        let metaDetails = '';
+        if (data.results) {
+          const fb = data.results.facebook;
+          const ig = data.results.instagram;
+          if (fb?.attempted) {
+            metaDetails += `<p style="margin-top: 6px;">📘 <strong>Facebook Page:</strong> ${fb.success ? '<span style="color:#10b981;">' + fb.message + '</span>' : '<span style="color:#ef4444;">' + fb.message + '</span>'}</p>`;
+          }
+          if (ig?.attempted) {
+            metaDetails += `<p style="margin-top: 6px;">📸 <strong>Instagram Business:</strong> ${ig.success ? '<span style="color:#10b981;">' + ig.message + '</span>' : '<span style="color:#f59e0b;">' + ig.message + '</span>'}</p>`;
+          }
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Removed from Meta!',
+          html: `
+            <div style="text-align: left; font-size: 0.9rem;">
+              <p>${data.message || 'Post was deleted from Meta and returned to Ready for Approval.'}</p>
+              ${metaDetails}
+            </div>
+          `
+        });
+      } else {
+        Swal.fire('Unpublish Failed', data.error || 'Failed to delete post from Meta.', 'error');
+      }
+    } catch (err) {
+      Swal.fire('Error', err.message, 'error');
+    } finally {
+      setUnpublishing(false);
+    }
+  };
+
+  // Permanent Delete Request Handler (with optional Meta deletion for published posts)
+  const handleDeleteRequest = async (req) => {
+    const isPublishedOnMeta = (req.status === 'Published') || Boolean(req.social_post_ids);
+
+    let deleteFromMetaToo = false;
+
+    if (isPublishedOnMeta) {
+      const result = await Swal.fire({
+        title: 'Delete Published Post?',
+        html: `
+          <div style="text-align: left; font-size: 0.9rem; line-height: 1.5;">
+            <p>Request <strong>#${req.id}</strong> has been published to <strong>Meta (Facebook / Instagram)</strong>.</p>
+            <div style="margin-top: 12px; padding: 12px; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; color: #9f1239;">
+              <strong>⚠️ Meta Deletion Option:</strong>
+              <p style="margin-top: 4px; font-size: 0.85rem;">Do you also want to permanently delete the live post from the client's Facebook Page & Instagram account?</p>
+            </div>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonColor: '#e11d48',
+        denyButtonColor: '#64748b',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: '🔥 Delete from Meta & System',
+        denyButtonText: '🗑️ Delete from System Only',
+        cancelButtonText: 'Cancel'
+      });
+
+      if (result.isDismissed) return;
+      deleteFromMetaToo = result.isConfirmed;
+    } else {
+      const confirm = await Swal.fire({
+        title: 'Delete Client Request?',
+        html: `
+          <div style="text-align: left; font-size: 0.9rem;">
+            <p>Are you sure you want to permanently delete request <strong>#${req.id}</strong>?</p>
+            <p style="color: #ef4444; margin-top: 6px;">⚠️ This will delete the service request, deliverable proofs, and associated tasks across the entire system. This action cannot be undone.</p>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Yes, permanently delete',
+        cancelButtonText: 'Cancel'
+      });
+
+      if (!confirm.isConfirmed) return;
+    }
+
+    try {
+      let data;
+      if (deleteFromMetaToo) {
+        const res = await fetch('/api/smo/delete-meta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestId: req.id, alsoDeleteRecord: true })
+        });
+        data = await res.json();
+      } else {
+        const res = await fetch(`/api/client-services/smo?id=${encodeURIComponent(req.id)}&viewerRole=Admin`, {
+          method: 'DELETE'
+        });
+        data = await res.json();
+      }
+
+      if (data.success) {
+        fetchData();
         if (selectedReq?.id === req.id) setShowPostModal(false);
         if (detailReq?.id === req.id) setShowDetailsModal(false);
+
+        let metaDetails = '';
+        if (deleteFromMetaToo && data.results) {
+          const fb = data.results.facebook;
+          const ig = data.results.instagram;
+          if (fb?.attempted) {
+            metaDetails += `<p style="margin-top: 6px;">📘 <strong>Facebook:</strong> ${fb.success ? '<span style="color:#10b981;">' + fb.message + '</span>' : '<span style="color:#ef4444;">' + fb.message + '</span>'}</p>`;
+          }
+          if (ig?.attempted) {
+            metaDetails += `<p style="margin-top: 6px;">📸 <strong>Instagram:</strong> ${ig.success ? '<span style="color:#10b981;">' + ig.message + '</span>' : '<span style="color:#f59e0b;">' + ig.message + '</span>'}</p>`;
+          }
+        }
+
         Swal.fire({
-          toast: true,
-          position: 'top-end',
           icon: 'success',
-          title: 'Request permanently deleted!',
-          showConfirmButton: false,
-          timer: 3000
+          title: deleteFromMetaToo ? 'Deleted from Meta & System!' : 'Request permanently deleted!',
+          html: metaDetails || data.message || 'Request successfully removed.',
         });
       } else {
         Swal.fire('Delete Failed', data.error || 'Failed to delete request', 'error');
@@ -1221,6 +1345,20 @@ export default function AdminClientWorkReportsPage() {
                             </button>
                           )}
 
+                          {/* Quick Unpublish from Meta button (for published posts) */}
+                          {req.status === 'Published' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUnpublishFromMeta(req)}
+                              disabled={unpublishing}
+                              className="px-2.5 py-1.5 rounded-xl font-bold text-xs text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/50 transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Delete live post from Facebook & Instagram (revert to Ready for Approval)"
+                            >
+                              <FiTrash2 size={12} />
+                              <span className="hidden sm:inline">Unpublish</span>
+                            </button>
+                          )}
+
                           {/* Reject Request Button */}
                           {req.status !== 'Rejected' && (
                             <button
@@ -1634,10 +1772,32 @@ export default function AdminClientWorkReportsPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                {selectedReq.status === 'Published' && (
+                  <button
+                    type="button"
+                    onClick={() => handleUnpublishFromMeta(selectedReq)}
+                    disabled={unpublishing || publishing}
+                    className="px-3.5 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/50 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    title="Delete live post from Facebook & Instagram, and return status to Ready for Approval"
+                  >
+                    {unpublishing ? (
+                      <>
+                        <FiRefreshCw className="animate-spin" size={13} />
+                        <span>Deleting from Meta...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FiTrash2 size={13} />
+                        <span>Delete from Meta</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => handlePublish(true)}
-                  disabled={publishing}
+                  disabled={publishing || unpublishing}
                   className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl transition-all cursor-pointer"
                   title="Simulate posting in test mode without calling Meta API"
                 >
@@ -1647,7 +1807,7 @@ export default function AdminClientWorkReportsPage() {
                 <button
                   type="button"
                   onClick={() => handlePublish(false)}
-                  disabled={publishing}
+                  disabled={publishing || unpublishing}
                   className="px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 shadow-md shadow-pink-500/20 rounded-xl transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                   title="Publish live to Facebook and/or Instagram via Meta API"
                 >
@@ -1898,13 +2058,26 @@ export default function AdminClientWorkReportsPage() {
             </div>
 
             <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex justify-between items-center">
-              <button
-                type="button"
-                onClick={() => handleDeleteRequest(detailReq)}
-                className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
-              >
-                <FiTrash2 size={13} /> Delete Request
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRequest(detailReq)}
+                  className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                >
+                  <FiTrash2 size={13} /> Delete Request
+                </button>
+                {detailReq.status === 'Published' && (
+                  <button
+                    type="button"
+                    onClick={() => handleUnpublishFromMeta(detailReq)}
+                    disabled={unpublishing}
+                    className="text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 flex items-center gap-1 cursor-pointer"
+                    title="Delete live post from Facebook & Instagram"
+                  >
+                    <FiTrash2 size={12} /> Delete from Meta
+                  </button>
+                )}
+              </div>
 
               <button
                 type="button"
