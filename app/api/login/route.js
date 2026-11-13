@@ -3,6 +3,7 @@ import { getDbConnection } from '../db/db.js';
 import bcrypt from 'bcryptjs';
 import { sendMailNotification } from '../utils/mailHelper.js';
 import { logSecurityEvent } from '../utils/securityLogger.js';
+import { createSessionToken } from '../../utils/authTokens.js';
 
 export async function POST(request) {
   try {
@@ -290,20 +291,43 @@ export async function POST(request) {
       }
     });
 
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: emp.id,
-        name: emp.name,
-        company_name: companyName,
-        email: emp.email,
-        role: isDeskRole ? 'admin' : 'employee',
-        dbRole: emp.role,
-        department: emp.department,
-        ticketLimit: emp.ticketLimit,
-        status: emp.status || 'Active'
-      }
+    const { token, expiresAt } = await createSessionToken({
+      userId: emp.id,
+      email: emp.email,
+      name: emp.name,
+      role: isDeskRole ? 'admin' : 'employee',
+      dbRole: emp.role,
+      department: emp.department
     });
+
+    const userPayload = {
+      id: emp.id,
+      name: emp.name,
+      company_name: companyName,
+      email: emp.email,
+      role: isDeskRole ? 'admin' : 'employee',
+      dbRole: emp.role,
+      department: emp.department,
+      ticketLimit: emp.ticketLimit,
+      status: emp.status || 'Active',
+      token,
+      expiresAt
+    };
+
+    const response = NextResponse.json({
+      success: true,
+      token,
+      expiresAt,
+      user: userPayload
+    });
+
+    const maxAge = 86400; // 24 hours
+    response.cookies.set('devicedesk_token', token, { path: '/', maxAge, sameSite: 'lax' });
+    response.cookies.set('devicedesk_token_exp', String(expiresAt), { path: '/', maxAge, sameSite: 'lax' });
+    response.cookies.set('devicedesk_user_role', emp.role || 'employee', { path: '/', maxAge, sameSite: 'lax' });
+    response.cookies.set('devicedesk_auth_user', JSON.stringify(userPayload), { path: '/', maxAge, sameSite: 'lax' });
+
+    return response;
   } catch (err) {
     console.error('Login API Error:', err);
     return NextResponse.json({ success: false, message: 'Server error. Please try again.' }, { status: 500 });

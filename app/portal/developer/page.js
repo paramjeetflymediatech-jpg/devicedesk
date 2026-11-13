@@ -29,7 +29,7 @@ export default function DeveloperPortalsDirectory() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <Link
-              href="/"
+              href="/developer/dashboard"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -40,7 +40,7 @@ export default function DeveloperPortalsDirectory() {
                 marginBottom: "8px"
               }}
             >
-              <FiArrowLeft /> Back to Workspace
+              <FiArrowLeft /> Back to Dev Console
             </Link>
             <h1 style={{ fontSize: "1.85rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>
               <FiTerminal style={{ color: "var(--accent-purple, #a855f7)" }} /> Developer & Engineering Consoles

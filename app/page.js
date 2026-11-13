@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./auth/AuthContext";
+import { isSuperAdminUser, isITSupportUser, isDnsManagerUser, getAuthorizedDashboard } from "./utils/authTokens.js";
 import {
   getSystems,
   getEmployees,
@@ -68,78 +69,33 @@ import AuxiliaryModals from "./components/modals/AuxiliaryModals.js";
 import { FiGrid, FiServer, FiUsers, FiTag, FiBriefcase, FiFileText, FiCheckSquare, FiClock, FiMessageSquare, FiUser, FiAlertTriangle, FiLogOut, FiEye, FiEyeOff, FiShield, FiLock, FiUnlock, FiCalendar, FiCheck, FiX, FiFolder, FiGlobe, FiTrendingUp, FiActivity, FiChevronDown, FiChevronRight, FiUserPlus, FiList } from "react-icons/fi";
 
 export default function Home() {
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const router = useRouter();
-
-  // Guard for Admin Role
-  useEffect(() => {
-    if (!user) {
-      router.push("/login");
-    } else {
-      const dbRoleLower = (user.dbRole || "").toLowerCase();
-      const roleLower = (user.role || "").toLowerCase();
-      const deptLower = (user.department || "").toLowerCase();
-      const emailLower = (user.email || "").toLowerCase();
-
-      const isRootAdmin = 
-        dbRoleLower === 'admin' ||
-        dbRoleLower === 'management' ||
-        dbRoleLower === 'executive' ||
-        dbRoleLower === 'superadmin' ||
-        roleLower === 'admin' ||
-        emailLower === 'admin@yopmail.com' ||
-        emailLower === 'pravi@yopmail.com' ||
-        emailLower === 'admin@devicedesk.com';
-
-      const isITSupport =
-        deptLower === 'it' ||
-        deptLower === 'it support' ||
-        deptLower === 'it_support' ||
-        deptLower === 'it department' ||
-        deptLower === 'information technology' ||
-        deptLower.startsWith('it ') ||
-        deptLower.endsWith(' it') ||
-        deptLower.includes(' it ') ||
-        deptLower.includes('it support') ||
-        dbRoleLower === 'it' ||
-        dbRoleLower === 'it support' ||
-        dbRoleLower === 'it_support' ||
-        dbRoleLower === 'it engineer' ||
-        dbRoleLower === 'it_engineer' ||
-        dbRoleLower.startsWith('it ') ||
-        dbRoleLower.endsWith(' it') ||
-        dbRoleLower.includes(' it ') ||
-        dbRoleLower.includes('it support') ||
-        roleLower === 'it' ||
-        roleLower === 'it engineer' ||
-        roleLower === 'it support' ||
-        roleLower.startsWith('it ') ||
-        roleLower.endsWith(' it') ||
-        roleLower.includes(' it ') ||
-        roleLower.includes('it support');
-      const isDNS = dbRoleLower === 'dns manager' || deptLower === 'dns manager';
-
-      if (!isRootAdmin && !isITSupport && !isDNS) {
-        if (dbRoleLower === 'tl' || dbRoleLower === 'team lead' || dbRoleLower === 'team leader' || dbRoleLower === 'team_lead' || roleLower === 'team leader' || roleLower === 'tl') {
-          router.push("/portal/leader");
-        } else if (dbRoleLower === 'client' || roleLower === 'client') {
-          router.push("/portal/client");
-        } else if (dbRoleLower === 'marketing' || roleLower === 'marketing') {
-          router.push("/portal/marketing");
-        } else if (dbRoleLower === 'candidate' || roleLower === 'candidate') {
-          router.push("/candidate-dashboard");
-        } else {
-          router.push("/employee-dashboard");
-        }
-      }
-    }
-  }, [user, router]);
 
   // Navigation & Role States
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  const isRootAdmin = isMounted && isSuperAdminUser(user);
+  const isITSupport = isMounted && !isRootAdmin && isITSupportUser(user);
+  const isDnsManager = isMounted && isDnsManagerUser(user);
+
+  // Guard for Admin Role
+  useEffect(() => {
+    if (!isMounted || loading) return;
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    if (!isRootAdmin && !isITSupport && !isDnsManager) {
+      const dest = getAuthorizedDashboard(user);
+      router.replace(dest);
+    }
+  }, [user, isMounted, loading, isRootAdmin, isITSupport, isDnsManager, router]);
 
   const [currentView, setCurrentView] = useState("dashboard");
   const [openMenu, setOpenMenu] = useState("Core Workspace");
@@ -195,54 +151,10 @@ export default function Home() {
     }
   }, []);
 
-  const userRole = user?.role || "admin";
+  const userRole = user?.dbRole || user?.role || "employee";
   const dbRoleLower = (user?.dbRole || "").toLowerCase();
   const roleLower = (user?.role || "").toLowerCase();
   const deptLower = (user?.department || "").toLowerCase();
-
-  // Root Admin / Executive Management has full unrestricted access
-  const isRootAdmin = isMounted && (
-    dbRoleLower === 'admin' ||
-    dbRoleLower === 'management' ||
-    dbRoleLower === 'executive' ||
-    dbRoleLower === 'superadmin' ||
-    user?.email === 'admin@yopmail.com' ||
-    user?.email === 'pravi@yopmail.com'
-  );
-
-  // IT person (IT Support / IT Engineer / IT Dept) is restricted to IT Desk sections
-  const isITSupport = isMounted && !isRootAdmin && (
-    deptLower === 'it' ||
-    deptLower === 'it support' ||
-    deptLower === 'it_support' ||
-    deptLower === 'it department' ||
-    deptLower === 'information technology' ||
-    deptLower.startsWith('it ') ||
-    deptLower.endsWith(' it') ||
-    deptLower.includes(' it ') ||
-    deptLower.includes('it support') ||
-    dbRoleLower === 'it' ||
-    dbRoleLower === 'it support' ||
-    dbRoleLower === 'it_support' ||
-    dbRoleLower === 'it engineer' ||
-    dbRoleLower === 'it_engineer' ||
-    dbRoleLower.startsWith('it ') ||
-    dbRoleLower.endsWith(' it') ||
-    dbRoleLower.includes(' it ') ||
-    dbRoleLower.includes('it support') ||
-    roleLower === 'it' ||
-    roleLower === 'it engineer' ||
-    roleLower === 'it support' ||
-    roleLower.startsWith('it ') ||
-    roleLower.endsWith(' it') ||
-    roleLower.includes(' it ') ||
-    roleLower.includes('it support')
-  );
-
-  const isDnsManager = isMounted && (
-    dbRoleLower === 'dns manager' ||
-    deptLower === 'dns manager'
-  );
 
   // Auto-redirect IT Support / DNS Manager away from restricted admin views
   useEffect(() => {
@@ -2386,6 +2298,52 @@ export default function Home() {
   const currentPerfEmployees = performanceEmployees.slice(indexOfFirstPerf, indexOfLastPerf);
   const totalPerfPages = Math.ceil(performanceEmployees.length / perfPerPage);
 
+  if (!isMounted || loading || !user) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-primary, #0f172a)',
+        color: '#94a3b8'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '24px', height: '24px', border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#06b6d4', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <span>Verifying authentication...</span>
+        </div>
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (!isRootAdmin && !isITSupport && !isDnsManager) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-primary, #0f172a)',
+        color: '#94a3b8'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '24px', height: '24px', border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#06b6d4', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <span>Redirecting to authorized portal...</span>
+        </div>
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div onClick={handleBodyClick} style={{ display: "contents" }}>
       
@@ -2422,7 +2380,7 @@ export default function Home() {
                 </li>
               </>
             )}
-            {!isITSupport && ['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin', 'team leader'].includes((userRole || '').toLowerCase()) && (
+            {!isITSupport && isRootAdmin && (
               <>
                 {/* 1. Core Workspace */}
                 <div style={{ marginBottom: "12px" }}>

@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import { join, basename } from 'path';
 import { cookies } from 'next/headers';
 import { getDbConnection } from '../db/db.js';
+import { verifySessionToken } from '../../utils/authTokens.js';
 
 // Whitelist of allowed extensions for security
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'xlsx', 'xls', 'csv', 'docx', 'doc', 'txt', 'mp4', 'webm', 'ogg', 'mov', 'm4v', 'avi', 'mkv', 'mp3', 'wav', 'm4a', 'aac', 'caf', '3gp', 'amr', 'psd', 'zip', 'rar'];
@@ -90,6 +91,17 @@ export async function checkAuth(req) {
           ? decodeURIComponent(rawCookieValue) 
           : rawCookieValue;
         const parsed = typeof decoded === 'object' ? decoded : JSON.parse(decoded);
+        if (parsed?.expiresAt && Date.now() > Number(parsed.expiresAt)) {
+          console.log('checkAuth failed: Session token has expired.');
+          return null;
+        }
+        if (parsed?.token) {
+          const tokenCheck = await verifySessionToken(parsed.token);
+          if (tokenCheck.expired) {
+            console.log('checkAuth failed: JWT token has expired.');
+            return null;
+          }
+        }
         userId = parsed?.id || null;
       }
     } catch (e) {

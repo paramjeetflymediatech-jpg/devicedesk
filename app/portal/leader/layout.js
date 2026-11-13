@@ -9,7 +9,7 @@ import NotificationBadge from '../../components/NotificationBadge.js';
 
 export default function LeaderLayout({ children }) {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname() || '';
   const [mounted, setMounted] = useState(false);
@@ -46,7 +46,7 @@ export default function LeaderLayout({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || loading) return;
 
     // 1. Strict Authentication Guard - redirect if no user session
     if (!user) {
@@ -170,7 +170,7 @@ export default function LeaderLayout({ children }) {
     </div>
   );
 
-  if (!mounted || !user || isInactive || !isAuthorized) {
+  if (!mounted || loading || !user || isInactive || !isAuthorized) {
     return null;
   }
 

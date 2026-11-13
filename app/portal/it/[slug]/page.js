@@ -82,7 +82,7 @@ export default function ITSlugPortal() {
           </div>
 
           <div style={{ display: "flex", gap: "10px" }}>
-            <Link href="/" className="btn-secondary" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <Link href="/?tab=systems" className="btn-secondary" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}>
               <FiMonitor /> System Tracking
             </Link>
           </div>

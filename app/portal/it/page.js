@@ -34,7 +34,7 @@ export default function ITPortalsDirectory() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <Link
-              href="/"
+              href="/?tab=dashboard"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -45,7 +45,7 @@ export default function ITPortalsDirectory() {
                 marginBottom: "8px"
               }}
             >
-              <FiArrowLeft /> Back to Workspace
+              <FiArrowLeft /> Back to IT Desk
             </Link>
             <h1 style={{ fontSize: "1.85rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>
               <FiCpu style={{ color: "#38bdf8" }} /> IT Support & Hardware Infrastructure

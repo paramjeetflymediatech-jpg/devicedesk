@@ -164,7 +164,7 @@ export default function ClientSlugPortal() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
         <h2>Client Not Found</h2>
-        <Link href="/" className="btn-primary mt-4 inline-block">Return Home</Link>
+        <Link href="/portal/client" className="btn-primary mt-4 inline-block">Return to Client Portal</Link>
       </div>
     </div>
   );

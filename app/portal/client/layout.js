@@ -28,9 +28,20 @@ export default function ClientPortalLayout({ children }) {
         
         try {
           const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
-          if (user && user.id) clientId = user.id;
-          if (user && user.role === 'client') isClientRole = true;
-        } catch (e) {}
+          if (!user || !user.id) {
+            router.replace('/login');
+            return;
+          }
+          if (user.expiresAt && Date.now() > Number(user.expiresAt)) {
+            router.replace('/login?expired=1');
+            return;
+          }
+          clientId = user.id;
+          if (user.role === 'client' || user.dbRole === 'Client' || user.dbRole === 'client') isClientRole = true;
+        } catch (e) {
+          router.replace('/login');
+          return;
+        }
 
         // Only enforce this check for actual clients
         if (clientId && isClientRole) {

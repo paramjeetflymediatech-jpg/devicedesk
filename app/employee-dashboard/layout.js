@@ -30,7 +30,7 @@ import {
 export default function EmployeeLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -144,14 +144,14 @@ export default function EmployeeLayout({ children }) {
 
   // Auth & Inactive account access check
   useEffect(() => {
-    if (mounted) {
+    if (mounted && !loading) {
       if (!user) {
-        router.push("/login");
+        router.replace("/login");
       } else if (isInactive) {
         router.replace("/inactive-account");
       }
     }
-  }, [user, mounted, router, isInactive]);
+  }, [user, mounted, loading, router, isInactive]);
 
   // Live database check to ensure inactive employees are immediately redirected
   useEffect(() => {
@@ -252,6 +252,14 @@ export default function EmployeeLayout({ children }) {
   const navItems = isDnsManager
     ? allNavItems.filter((item) => item.name !== "Attendance")
     : allNavItems;
+
+  if (!mounted || loading || !user) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary, #0f172a)', color: '#94a3b8' }}>
+        <span>Loading portal...</span>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "contents" }}>

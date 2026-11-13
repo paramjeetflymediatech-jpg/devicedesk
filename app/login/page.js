@@ -8,6 +8,7 @@ import ThemeToggle from "../components/ThemeToggle.js";
 import Logo from "../components/Logo.js";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { getBrowserProfileData, saveGoogleProfile, initGoogleOneTap } from "../utils/browserProfile.js";
+import { getAuthorizedDashboard } from "../utils/authTokens.js";
 
 const isITDeptOrRole = (dbRoleLower, deptLower) => {
   const isDept =
@@ -66,41 +67,24 @@ export default function LoginPage() {
   const isSubmitting = useRef(false);
 
   const redirectUser = (usr) => {
-    const dbRoleLower = (usr?.dbRole || '').toLowerCase();
-    const emailLower = (usr?.email || '').toLowerCase();
-    const deptLower = (usr?.department || '').toLowerCase();
-
-    const isRootAdmin = 
-      dbRoleLower === 'admin' ||
-      dbRoleLower === 'management' ||
-      dbRoleLower === 'executive' ||
-      dbRoleLower === 'superadmin' ||
-      emailLower === 'admin@yopmail.com' ||
-      emailLower === 'pravi@yopmail.com' ||
-      emailLower === 'admin@devicedesk.com';
-
-    const isIT = isITDeptOrRole(dbRoleLower, deptLower);
-
-    if (emailLower === 'developer@devicedesk.com') {
-      router.push('/developer/dashboard');
-    } else if (dbRoleLower === 'client') {
-      router.push('/portal/client');
-    } else if (dbRoleLower === 'candidate') {
-      router.push('/candidate-dashboard');
-    } else if (dbRoleLower === 'marketing') {
-      router.push('/portal/marketing');
-    } else if (dbRoleLower === 'tl' || dbRoleLower === 'team lead' || dbRoleLower === 'team leader' || dbRoleLower === 'team_lead') {
-      router.push('/portal/leader');
-    } else if (isRootAdmin) {
-      router.push('/');
-    } else if (isIT) {
-      router.push('/?tab=dashboard');
-    } else {
-      router.push('/employee-dashboard');
-    }
+    const dest = getAuthorizedDashboard(usr);
+    router.push(dest);
   };
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("expired")) {
+        Swal.fire({
+          icon: "warning",
+          title: "Session Expired",
+          text: "Your login session has expired. Please log in again to continue.",
+          confirmButtonColor: "#0284c7"
+        });
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
     getBrowserProfileData().then((prof) => {
       setBrowserProfile(prof);
       // Note: We do not pre-fill googleAccount from localStorage on the login form

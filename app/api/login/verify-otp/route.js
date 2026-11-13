@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
 import { logSecurityEvent } from '../../utils/securityLogger.js';
+import { createSessionToken } from '../../../utils/authTokens.js';
 
 export async function POST(request) {
   try {
@@ -218,20 +219,43 @@ export async function POST(request) {
       details: { reason: '2FA OTP verification succeeded. Session authorized.' }
     });
 
-    return NextResponse.json({
-      success: true,
-      user: {
-        id:          emp.id,
-        name:        emp.name,
-        company_name: companyName,
-        email:       emp.email || (isSuperAdmin ? 'admin@devicedesk.com' : ''),
-        role:        isDeskRole ? 'admin' : 'employee',
-        dbRole:      emp.role || (isSuperAdmin ? 'Admin' : 'Employee'),
-        department:  emp.department,
-        ticketLimit: emp.ticketLimit,
-        status:      emp.status || 'Active'
-      }
+    const { token, expiresAt } = await createSessionToken({
+      userId: emp.id,
+      email: emp.email || (isSuperAdmin ? 'admin@devicedesk.com' : ''),
+      name: emp.name,
+      role: isDeskRole ? 'admin' : 'employee',
+      dbRole: emp.role || (isSuperAdmin ? 'Admin' : 'Employee'),
+      department: emp.department
     });
+
+    const userPayload = {
+      id:          emp.id,
+      name:        emp.name,
+      company_name: companyName,
+      email:       emp.email || (isSuperAdmin ? 'admin@devicedesk.com' : ''),
+      role:        isDeskRole ? 'admin' : 'employee',
+      dbRole:      emp.role || (isSuperAdmin ? 'Admin' : 'Employee'),
+      department:  emp.department,
+      ticketLimit: emp.ticketLimit,
+      status:      emp.status || 'Active',
+      token,
+      expiresAt
+    };
+
+    const response = NextResponse.json({
+      success: true,
+      token,
+      expiresAt,
+      user: userPayload
+    });
+
+    const maxAge = 86400; // 24 hours
+    response.cookies.set('devicedesk_token', token, { path: '/', maxAge, sameSite: 'lax' });
+    response.cookies.set('devicedesk_token_exp', String(expiresAt), { path: '/', maxAge, sameSite: 'lax' });
+    response.cookies.set('devicedesk_user_role', userPayload.dbRole, { path: '/', maxAge, sameSite: 'lax' });
+    response.cookies.set('devicedesk_auth_user', JSON.stringify(userPayload), { path: '/', maxAge, sameSite: 'lax' });
+
+    return response;
   } catch (err) {
     console.error('Verify OTP API Error:', err);
     return NextResponse.json({ success: false, message: 'Server error. Please try again.' }, { status: 500 });

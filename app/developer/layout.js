@@ -6,7 +6,9 @@ import { useState } from "react";
 import { FiActivity, FiLogOut, FiCode, FiWifi, FiWifiOff, FiGrid, FiMenu, FiX, FiEye, FiTrash2, FiHelpCircle } from "react-icons/fi";
 import { FaWindows, FaApple, FaLinux } from "react-icons/fa";
 import { useAuth } from "../auth/AuthContext";
+import { isSuperAdminUser, getAuthorizedDashboard } from "../utils/authTokens.js";
 import { DeveloperProvider, useDeveloper } from "./DeveloperContext";
+import { useEffect, useState } from "react";
 import ThemeToggle from "../components/ThemeToggle";
 
 function SidebarContent() {
@@ -121,6 +123,37 @@ function SidebarContent() {
 }
 
 export default function DeveloperLayout({ children }) {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || loading) return;
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    const emailLower = (user?.email || '').toLowerCase();
+    const dbRoleLower = (user?.dbRole || user?.role || '').toLowerCase();
+    const isDev = emailLower === 'developer@devicedesk.com' || dbRoleLower === 'developer';
+    const isAdmin = isSuperAdminUser(user);
+    if (!isDev && !isAdmin) {
+      router.replace(getAuthorizedDashboard(user));
+    }
+  }, [mounted, loading, user, router]);
+
+  if (!mounted || loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-primary)", color: "var(--text-secondary)" }}>
+        <span>Loading Dev Console...</span>
+      </div>
+    );
+  }
+
   return (
     <DeveloperProvider>
       <div className="flex flex-col md:flex-row min-h-screen w-full" style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}>

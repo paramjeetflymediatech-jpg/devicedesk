@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../auth/AuthContext";
+import { isSuperAdminUser, isITSupportUser, isDnsManagerUser, getAuthorizedDashboard } from "../utils/authTokens.js";
 import { getEmployees, getTickets } from "../store";
 import ThemeToggle from "../components/ThemeToggle.js";
 import Logo from "../components/Logo.js";
@@ -39,7 +40,7 @@ import {
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -83,61 +84,30 @@ export default function AdminLayout({ children }) {
 
   // Auth check & Route protection
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || loading) return;
 
     if (!user) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
     const empDetails = employees.find((e) => e.id === user?.id) || user || {};
-    const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
+    const dbRoleStr = `${user?.dbRole || ''}`.toLowerCase().trim();
     const deptStr = `${user?.department || empDetails?.department || ''}`.toLowerCase().trim();
 
-    const isAdmin =
-      dbRoleStr === 'admin' ||
-      dbRoleStr === 'superadmin' ||
-      dbRoleStr === 'management' ||
-      dbRoleStr === 'executive' ||
-      user?.email === 'admin@yopmail.com' ||
-      user?.email === 'pravi@yopmail.com' ||
-      user?.email === 'admin@devicedesk.com';
+    const isAdmin = isSuperAdminUser(user);
 
     // Admins have full access to all /admin/* routes
     if (isAdmin) return;
 
-    const isIT =
-      dbRoleStr === 'it support' ||
-      dbRoleStr === 'it_support' ||
-      dbRoleStr === 'it engineer' ||
-      dbRoleStr === 'it_engineer' ||
-      dbRoleStr === 'it' ||
-      deptStr === 'it' ||
-      deptStr === 'it support' ||
-      deptStr === 'it_support' ||
-      deptStr === 'information technology' ||
-      deptStr === 'it department' ||
-      deptStr.startsWith('it ') ||
-      deptStr.endsWith(' it') ||
-      deptStr.includes(' it ') ||
-      deptStr.includes('it support');
-
+    const isIT = isITSupportUser(user);
     const isHR = dbRoleStr === 'hr' || dbRoleStr.includes('hr') || deptStr.includes('hr');
-    const isDNS = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
+    const isDNS = isDnsManagerUser(user);
 
     // Disallow regular users/employees from /admin altogether
     if (!isIT && !isHR && !isDNS) {
-      if (dbRoleStr === 'candidate') {
-        router.replace('/candidate-dashboard');
-      } else if (dbRoleStr === 'client') {
-        router.replace('/portal/client');
-      } else if (dbRoleStr === 'marketing') {
-        router.replace('/portal/marketing');
-      } else if (dbRoleStr.includes('leader') || dbRoleStr.includes('tl')) {
-        router.replace('/portal/leader');
-      } else {
-        router.replace('/employee-dashboard');
-      }
+      const dest = getAuthorizedDashboard(user);
+      router.replace(dest);
       return;
     }
 
@@ -199,29 +169,16 @@ export default function AdminLayout({ children }) {
     return () => window.removeEventListener("click", handleBodyClick);
   }, []);
 
-  if (!mounted || !user) {
+  if (!mounted || loading || !user) {
     return null;
   }
 
   const empDetails = employees.find((e) => e.id === user?.id) || user || {};
-  const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
+  const dbRoleStr = `${user?.dbRole || ''}`.toLowerCase().trim();
   const deptStr = `${user?.department || empDetails?.department || ''}`.toLowerCase().trim();
 
-  const isAdminUser =
-    dbRoleStr === 'admin' ||
-    dbRoleStr === 'superadmin' ||
-    dbRoleStr === 'management' ||
-    user?.email === 'admin@yopmail.com' ||
-    user?.email === 'pravi@yopmail.com';
-
-  const isITSupport =
-    !isAdminUser &&
-    (dbRoleStr === 'it support' ||
-      dbRoleStr === 'it_support' ||
-      dbRoleStr === 'it engineer' ||
-      dbRoleStr === 'it_engineer' ||
-      dbRoleStr === 'it' ||
-      deptStr === 'it' ||
+  const isAdminUser = isSuperAdminUser(user);
+  const isITSupport = !isAdminUser && isITSupportUser(user);
       deptStr === 'it support' ||
       deptStr === 'it_support' ||
       deptStr === 'information technology' ||

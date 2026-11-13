@@ -10,6 +10,7 @@ import {
   FiCompass,
   FiRefreshCw,
 } from "react-icons/fi";
+import { getAuthorizedDashboard } from "./utils/authTokens.js";
 
 export default function NotFound() {
   const [homePath, setHomePath] = useState("/login");
@@ -21,11 +22,10 @@ export default function NotFound() {
       const stored = localStorage.getItem("devicedesk_auth_user");
       if (stored) {
         const user = JSON.parse(stored);
-        const role = (user?.role || "").toLowerCase();
-        if (role === "employee") {
-          setHomePath("/employee-dashboard");
+        if (user?.expiresAt && Date.now() > Number(user.expiresAt)) {
+          setHomePath("/login?expired=1");
         } else {
-          setHomePath("/");
+          setHomePath(getAuthorizedDashboard(user));
         }
       }
     } catch {

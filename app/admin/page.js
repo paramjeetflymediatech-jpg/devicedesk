@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../auth/AuthContext';
+import { isSuperAdminUser, isITSupportUser, isDnsManagerUser, getAuthorizedDashboard } from '../utils/authTokens.js';
 
 export default function AdminPageRedirect() {
   const router = useRouter();
@@ -16,68 +17,34 @@ export default function AdminPageRedirect() {
       return;
     }
 
-    const dbRoleStr = `${user?.dbRole || user?.role || ''}`.toLowerCase().trim();
-    const deptStr = `${user?.department || ''}`.toLowerCase().trim();
-    const emailLower = `${user?.email || ''}`.toLowerCase().trim();
-
-    const isAdmin =
-      dbRoleStr === 'admin' ||
-      dbRoleStr === 'superadmin' ||
-      dbRoleStr === 'management' ||
-      dbRoleStr === 'executive' ||
-      emailLower === 'admin@yopmail.com' ||
-      emailLower === 'pravi@yopmail.com' ||
-      emailLower === 'admin@devicedesk.com';
-
+    const isAdmin = isSuperAdminUser(user);
     if (isAdmin) {
       router.replace('/');
       return;
     }
 
-    const isIT =
-      dbRoleStr === 'it support' ||
-      dbRoleStr === 'it_support' ||
-      dbRoleStr === 'it engineer' ||
-      dbRoleStr === 'it_engineer' ||
-      dbRoleStr === 'it' ||
-      deptStr === 'it' ||
-      deptStr === 'it support' ||
-      deptStr === 'it_support' ||
-      deptStr === 'information technology' ||
-      deptStr === 'it department' ||
-      deptStr.startsWith('it ') ||
-      deptStr.endsWith(' it') ||
-      deptStr.includes(' it ') ||
-      deptStr.includes('it support');
-
+    const isIT = isITSupportUser(user);
     if (isIT) {
       router.replace('/admin/tickets');
       return;
     }
 
-    const isDNS = dbRoleStr === 'dns manager' || deptStr === 'dns manager';
+    const isDNS = isDnsManagerUser(user);
     if (isDNS) {
       router.replace('/admin/domains');
       return;
     }
 
+    const dbRoleStr = `${user?.dbRole || ''}`.toLowerCase().trim();
+    const deptStr = `${user?.department || ''}`.toLowerCase().trim();
     const isHR = dbRoleStr === 'hr' || dbRoleStr.includes('hr') || deptStr.includes('hr');
     if (isHR) {
       router.replace('/admin/recruitment');
       return;
     }
 
-    if (dbRoleStr === 'candidate') {
-      router.replace('/candidate-dashboard');
-    } else if (dbRoleStr === 'client') {
-      router.replace('/portal/client');
-    } else if (dbRoleStr === 'marketing') {
-      router.replace('/portal/marketing');
-    } else if (dbRoleStr.includes('leader') || dbRoleStr.includes('tl')) {
-      router.replace('/portal/leader');
-    } else {
-      router.replace('/employee-dashboard');
-    }
+    const dest = getAuthorizedDashboard(user);
+    router.replace(dest);
   }, [user, loading, router]);
 
   return (
