@@ -149,27 +149,46 @@ export async function POST(request) {
   const isPrivateSubnet = clientIp.startsWith('192.168.') || clientIp.startsWith('10.') || clientIp.startsWith('172.');
   const isOfficeIp = officeIps.some(allowed => allowed === '*' || allowed.toLowerCase() === 'any' || allowed === clientIp || (allowed.endsWith('*') && clientIp.startsWith(allowed.slice(0, -1)))) || isPrivateSubnet;
 
-  // Location validation for punch in
-  if (action === 'PUNCH_IN') {
-    if (!isOfficeIp) {
-      if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
-        return NextResponse.json({ success: false, message: 'Location access is required to punch in. Please enable GPS/Location settings or connect to the office WiFi.' }, { status: 400 });
+  // Location validation for punch in & punch out (strict 100 meters area of company)
+  if (action === 'PUNCH_IN' || action === 'PUNCH_OUT') {
+    const isPunchOut = action === 'PUNCH_OUT';
+    const actionLabel = isPunchOut ? 'Punch-out' : 'Punch-in';
+
+    const hasCoordinates =
+      latitude !== undefined &&
+      longitude !== undefined &&
+      latitude !== null &&
+      longitude !== null &&
+      String(latitude).trim() !== '' &&
+      String(longitude).trim() !== '' &&
+      !isNaN(parseFloat(latitude)) &&
+      !isNaN(parseFloat(longitude));
+
+    if (hasCoordinates) {
+      const distance = getHaversineDistance(
+        parseFloat(latitude),
+        parseFloat(longitude),
+        OFFICE_LAT,
+        OFFICE_LNG
+      );
+
+      if (distance > OFFICE_RADIUS) {
+        const metersAway = Math.round(distance);
+        return NextResponse.json({
+          success: false,
+          errorType: 'GEOFENCE_RESTRICTED',
+          distance: metersAway,
+          allowedRadius: OFFICE_RADIUS,
+          message: `${actionLabel} rejected. You can only ${isPunchOut ? 'punch out' : 'punch in'} within 100 meters of the company area. You are currently ${metersAway} meters away.`
+        }, { status: 400 });
       }
-
-      if (action === 'PUNCH_IN') {
-        const distance = getHaversineDistance(
-          parseFloat(latitude),
-          parseFloat(longitude),
-          OFFICE_LAT,
-          OFFICE_LNG
-        );
-
-        if (distance > OFFICE_RADIUS) {
-          return NextResponse.json({
-            success: false,
-            message: `Punch-in rejected. You must be within the office area (100 meters) or connected to the office network. You are currently ${Math.round(distance)} meters away. (Your IP: ${clientIp})`
-          }, { status: 400 });
-        }
+    } else {
+      if (!isOfficeIp) {
+        return NextResponse.json({
+          success: false,
+          errorType: 'LOCATION_REQUIRED',
+          message: `Location access is required to ${isPunchOut ? 'punch out' : 'punch in'}. Please enable GPS/Location access on your device or connect to the office network to verify you are within 100 meters of the office.`
+        }, { status: 400 });
       }
     }
   }

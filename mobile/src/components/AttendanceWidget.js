@@ -20,6 +20,25 @@ import {
 import { sweetAlert } from '../utils/sweetAlert';
 import { useTheme } from '../utils/ThemeContext';
 
+// Office Geolocation Settings (Flymedia Technology Ludhiana, Punjab, India)
+const OFFICE_LAT = 30.8795221;
+const OFFICE_LNG = 75.820214;
+const OFFICE_RADIUS_METERS = 100; // 100 meters area of company
+
+function getHaversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Radius of Earth in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // meters
+}
+
 export default function AttendanceWidget({ user, onStatusChange }) {
   const { isDark, themeColors } = useTheme();
   const [statusData, setStatusData] = useState(null);
@@ -208,11 +227,26 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     let lat = null;
     let lng = null;
 
-    if (action === 'PUNCH_IN') {
+    if (action === 'PUNCH_IN' || action === 'PUNCH_OUT') {
       try {
         const coords = await getCurrentLocation();
         lat = coords.latitude;
         lng = coords.longitude;
+
+        if (lat !== null && lng !== null) {
+          const distance = getHaversineDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
+          if (distance > OFFICE_RADIUS_METERS) {
+            setSubmitting(false);
+            const metersAway = Math.round(distance);
+            const isPunchOut = action === 'PUNCH_OUT';
+            sweetAlert({
+              title: 'Outside Company Area',
+              text: `${isPunchOut ? 'Punch-out' : 'Punch-in'} rejected. You can only ${isPunchOut ? 'punch out' : 'punch in'} within ${OFFICE_RADIUS_METERS} meters of the company area. You are currently ${metersAway} meters away.`,
+              type: 'error',
+            });
+            return;
+          }
+        }
       } catch (locErr) {
         setSubmitting(false);
         sweetAlert({
@@ -266,7 +300,7 @@ export default function AttendanceWidget({ user, onStatusChange }) {
   const handlePunchAction = async (action, extraData = {}) => {
     if (submitting) return;
 
-    if (action === 'PUNCH_IN') {
+    if (action === 'PUNCH_IN' || action === 'PUNCH_OUT') {
       if (Platform.OS === 'android') {
         const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
         if (!hasPermission) {

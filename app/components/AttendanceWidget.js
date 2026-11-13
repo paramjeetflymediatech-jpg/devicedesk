@@ -4,6 +4,25 @@ import { createPortal } from "react-dom";
 import Swal from "sweetalert2";
 import { FiClock, FiCoffee, FiLogIn, FiPlayCircle, FiStopCircle, FiPlay, FiX, FiAlertCircle } from "react-icons/fi";
 
+// Office Geolocation Settings (Flymedia Technology Ludhiana, Punjab, India)
+const OFFICE_LAT = parseFloat(process.env.NEXT_PUBLIC_OFFICE_LAT || "30.8795221");
+const OFFICE_LNG = parseFloat(process.env.NEXT_PUBLIC_OFFICE_LNG || "75.820214");
+const OFFICE_RADIUS_METERS = parseFloat(process.env.NEXT_PUBLIC_OFFICE_RADIUS_METERS || "100");
+
+function getHaversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Radius of Earth in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // meters
+}
+
 export default function AttendanceWidget({ user, onStatusChange }) {
   const dbRoleStr = (user?.dbRole || '').toLowerCase().trim();
   const deptStr = (user?.department || '').toLowerCase().trim();
@@ -162,6 +181,30 @@ export default function AttendanceWidget({ user, onStatusChange }) {
       try {
         locationData = await getCoordinates();
         Swal.close();
+
+        if (locationData.latitude !== undefined && locationData.longitude !== undefined) {
+          const distance = getHaversineDistance(
+            locationData.latitude,
+            locationData.longitude,
+            OFFICE_LAT,
+            OFFICE_LNG
+          );
+
+          if (distance > OFFICE_RADIUS_METERS) {
+            const metersAway = Math.round(distance);
+            const isPunchOut = action === "PUNCH_OUT";
+            Swal.fire({
+              icon: "error",
+              title: "Outside Company Area",
+              text: `${isPunchOut ? "Punch-out" : "Punch-in"} rejected. You can only ${isPunchOut ? "punch out" : "punch in"} within ${OFFICE_RADIUS_METERS} meters of the company area. You are currently ${metersAway} meters away.`,
+              background: "#161b22",
+              color: "#f0f6fc",
+              confirmButtonColor: "#3b82f6"
+            });
+            setSubmitting(false);
+            return;
+          }
+        }
       } catch (err) {
         Swal.fire({
           icon: "error",
