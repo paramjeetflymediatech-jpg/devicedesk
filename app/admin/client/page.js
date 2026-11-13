@@ -24,13 +24,39 @@ export default function ClientManagementPage() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [showViewPackagesModal, setShowViewPackagesModal] = useState(false);
-  const [openActionMenuId, setOpenActionMenuId] = useState(null);
+  const [activeActionMenu, setActiveActionMenu] = useState(null); // { client, top, left, openUpward }
 
   useEffect(() => {
-    const handleOutsideClick = () => setOpenActionMenuId(null);
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
+    const handleClose = () => setActiveActionMenu(null);
+    window.addEventListener('click', handleClose);
+    window.addEventListener('scroll', handleClose, true);
+    window.addEventListener('resize', handleClose);
+    return () => {
+      window.removeEventListener('click', handleClose);
+      window.removeEventListener('scroll', handleClose, true);
+      window.removeEventListener('resize', handleClose);
+    };
   }, []);
+
+  const toggleActionMenu = (e, client) => {
+    e.stopPropagation();
+    if (activeActionMenu?.client?.id === client.id) {
+      setActiveActionMenu(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuHeight = 220;
+    const menuWidth = 210;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < menuHeight && rect.top > menuHeight;
+
+    setActiveActionMenu({
+      client,
+      top: openUpward ? rect.top - menuHeight - 6 : rect.bottom + 6,
+      left: Math.max(12, rect.right - menuWidth),
+      openUpward
+    });
+  };
   
   const [viewingClientPackages, setViewingClientPackages] = useState([]);
   const [viewingClientName, setViewingClientName] = useState('');
@@ -387,7 +413,7 @@ export default function ClientManagementPage() {
         </div>
 
         {/* Table Container */}
-        <div className="table-wrapper" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '16px', overflow: 'hidden' }}>
+        <div className="table-wrapper" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', borderRadius: '16px', overflowX: 'auto', minHeight: '140px' }}>
           <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(128,128,128,0.05)', textAlign: 'left' }}>
@@ -425,17 +451,17 @@ export default function ClientManagementPage() {
                       </span>
                     </td>
                     <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
                         {/* Primary Action: Manage Services Portal */}
                         <Link 
                           href={`/admin/client/${client.id}`}
                           style={{ 
-                            padding: '6px 12px', 
+                            padding: '7px 14px', 
                             background: 'rgba(99, 102, 241, 0.1)', 
-                            color: '#6366f1', 
-                            border: '1px solid rgba(99, 102, 241, 0.25)', 
+                            color: '#4f46e5', 
+                            border: '1px solid rgba(99, 102, 241, 0.3)', 
                             borderRadius: '8px', 
-                            fontSize: '0.8rem', 
+                            fontSize: '0.82rem', 
                             fontWeight: 600, 
                             display: 'inline-flex', 
                             alignItems: 'center', 
@@ -443,21 +469,29 @@ export default function ClientManagementPage() {
                             textDecoration: 'none',
                             transition: 'all 0.15s ease'
                           }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(99, 102, 241, 0.2)';
+                            e.currentTarget.style.borderColor = '#6366f1';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                          }}
                           title="Manage Client Services & Reports"
                         >
-                          <FiLayout size={13} /> Manage
+                          <FiLayout size={14} /> Manage
                         </Link>
 
                         {/* Secondary Action: Edit Profile */}
                         <button 
                           onClick={() => handleEditClick(client)}
                           style={{ 
-                            padding: '6px 10px', 
+                            padding: '7px 12px', 
                             background: 'rgba(6, 182, 212, 0.1)', 
-                            color: '#06b6d4', 
-                            border: '1px solid rgba(6, 182, 212, 0.25)', 
+                            color: '#0891b2', 
+                            border: '1px solid rgba(6, 182, 212, 0.3)', 
                             borderRadius: '8px', 
-                            fontSize: '0.8rem', 
+                            fontSize: '0.82rem', 
                             fontWeight: 600, 
                             cursor: 'pointer', 
                             display: 'inline-flex', 
@@ -465,171 +499,47 @@ export default function ClientManagementPage() {
                             gap: '5px',
                             transition: 'all 0.15s ease'
                           }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(6, 182, 212, 0.2)';
+                            e.currentTarget.style.borderColor = '#06b6d4';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(6, 182, 212, 0.1)';
+                            e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.3)';
+                          }}
                           title="Edit Client Info"
                         >
                           <FiEdit2 size={13} /> Edit
                         </button>
 
-                        {/* More Actions Dropdown Trigger */}
-                        <div style={{ position: 'relative' }}>
-                          <button 
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenActionMenuId(openActionMenuId === client.id ? null : client.id);
-                            }}
-                            style={{ 
-                              padding: '6px 8px', 
-                              background: openActionMenuId === client.id ? 'rgba(100, 116, 139, 0.2)' : 'rgba(100, 116, 139, 0.08)', 
-                              color: 'var(--text-primary)', 
-                              border: '1px solid var(--glass-border)', 
-                              borderRadius: '8px', 
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.15s ease'
-                            }}
-                            title="More Actions"
-                          >
-                            <FiMoreVertical size={15} />
-                          </button>
-
-                          {/* Dropdown Menu */}
-                          {openActionMenuId === client.id && (
-                            <div 
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                position: 'absolute',
-                                right: 0,
-                                top: index >= paginatedClients.length - 2 && paginatedClients.length > 2 ? 'auto' : 'calc(100% + 6px)',
-                                bottom: index >= paginatedClients.length - 2 && paginatedClients.length > 2 ? 'calc(100% + 6px)' : 'auto',
-                                minWidth: '190px',
-                                background: '#1e293b',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                borderRadius: '12px',
-                                padding: '6px',
-                                boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
-                                zIndex: 100,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '3px',
-                                textAlign: 'left'
-                              }}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setResetForm({ id: client.id, name: client.name, newPassword: '' });
-                                  setShowResetModal(true);
-                                  setOpenActionMenuId(null);
-                                }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  padding: '8px 12px',
-                                  borderRadius: '6px',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: '#f59e0b',
-                                  fontSize: '0.82rem',
-                                  fontWeight: 500,
-                                  cursor: 'pointer',
-                                  width: '100%',
-                                  textAlign: 'left'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.15)'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                              >
-                                <FiKey size={14} /> Reset Password
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  openPricingModal(client);
-                                  setOpenActionMenuId(null);
-                                }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  padding: '8px 12px',
-                                  borderRadius: '6px',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: '#10b981',
-                                  fontSize: '0.82rem',
-                                  fontWeight: 500,
-                                  cursor: 'pointer',
-                                  width: '100%',
-                                  textAlign: 'left'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                              >
-                                <FiDollarSign size={14} /> Custom Pricing
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleViewPackages(client);
-                                  setOpenActionMenuId(null);
-                                }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  padding: '8px 12px',
-                                  borderRadius: '6px',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: '#0ea5e9',
-                                  fontSize: '0.82rem',
-                                  fontWeight: 500,
-                                  cursor: 'pointer',
-                                  width: '100%',
-                                  textAlign: 'left'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.15)'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                              >
-                                <FiBox size={14} /> Active Packages
-                              </button>
-
-                              <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '4px 0' }} />
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleDeleteClient(client.id);
-                                  setOpenActionMenuId(null);
-                                }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  padding: '8px 12px',
-                                  borderRadius: '6px',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: '#f43f5e',
-                                  fontSize: '0.82rem',
-                                  fontWeight: 500,
-                                  cursor: 'pointer',
-                                  width: '100%',
-                                  textAlign: 'left'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(244, 63, 94, 0.15)'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                              >
-                                <FiTrash2 size={14} /> Delete Client
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        {/* More Actions Trigger Button */}
+                        <button 
+                          type="button"
+                          onClick={(e) => toggleActionMenu(e, client)}
+                          style={{ 
+                            padding: '7px 10px', 
+                            background: activeActionMenu?.client?.id === client.id ? 'rgba(100, 116, 139, 0.2)' : 'rgba(100, 116, 139, 0.08)', 
+                            color: 'var(--text-primary)', 
+                            border: `1px solid ${activeActionMenu?.client?.id === client.id ? '#64748b' : 'var(--glass-border)'}`, 
+                            borderRadius: '8px', 
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(100, 116, 139, 0.18)';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (activeActionMenu?.client?.id !== client.id) {
+                              e.currentTarget.style.background = 'rgba(100, 116, 139, 0.08)';
+                            }
+                          }}
+                          title="More Client Options (Pricing, Packages, Password, Delete)"
+                        >
+                          <FiMoreVertical size={16} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -638,6 +548,153 @@ export default function ClientManagementPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Global Floating Action Menu - Fixed Position (Immune to Table Overflow / Clipping) */}
+        {activeActionMenu && (
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: `${activeActionMenu.top}px`,
+              left: `${activeActionMenu.left}px`,
+              minWidth: '210px',
+              background: 'var(--bg-card, #ffffff)',
+              color: 'var(--text-primary, #0f172a)',
+              border: '1px solid var(--glass-border, #cbd5e1)',
+              borderRadius: '12px',
+              padding: '6px',
+              boxShadow: '0 12px 30px -4px rgba(0, 0, 0, 0.18), 0 4px 12px -2px rgba(0, 0, 0, 0.08)',
+              zIndex: 99999,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '3px',
+              textAlign: 'left'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                const c = activeActionMenu.client;
+                setActiveActionMenu(null);
+                setResetForm({ id: c.id, name: c.name, newPassword: '' });
+                setShowResetModal(true);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-primary, #0f172a)',
+                fontSize: '0.84rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.12)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <FiKey size={15} style={{ color: '#d97706' }} />
+              <span>Reset Password</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const c = activeActionMenu.client;
+                setActiveActionMenu(null);
+                openPricingModal(c);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-primary, #0f172a)',
+                fontSize: '0.84rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.12)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <FiDollarSign size={15} style={{ color: '#059669' }} />
+              <span>Custom Pricing</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const c = activeActionMenu.client;
+                setActiveActionMenu(null);
+                handleViewPackages(c);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-primary, #0f172a)',
+                fontSize: '0.84rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(14, 165, 233, 0.12)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <FiBox size={15} style={{ color: '#0284c7' }} />
+              <span>Active Packages</span>
+            </button>
+
+            <div style={{ height: '1px', background: 'var(--glass-border, #e2e8f0)', margin: '4px 0' }} />
+
+            <button
+              type="button"
+              onClick={() => {
+                const id = activeActionMenu.client.id;
+                setActiveActionMenu(null);
+                handleDeleteClient(id);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: 'transparent',
+                border: 'none',
+                color: '#e11d48',
+                fontSize: '0.84rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(225, 29, 72, 0.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <FiTrash2 size={15} style={{ color: '#e11d48' }} />
+              <span>Delete Client</span>
+            </button>
+          </div>
+        )}
 
         {/* Pagination */}
         <Pagination
