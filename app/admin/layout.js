@@ -179,14 +179,6 @@ export default function AdminLayout({ children }) {
 
   const isAdminUser = isSuperAdminUser(user);
   const isITSupport = !isAdminUser && isITSupportUser(user);
-      deptStr === 'it support' ||
-      deptStr === 'it_support' ||
-      deptStr === 'information technology' ||
-      deptStr === 'it department' ||
-      deptStr.startsWith('it ') ||
-      deptStr.endsWith(' it') ||
-      deptStr.includes(' it ') ||
-      deptStr.includes('it support'));
 
   const isHRUser = !isAdminUser && (dbRoleStr === 'hr' || dbRoleStr === 'Management' || dbRoleStr.includes('hr') || deptStr.includes('hr'));
 

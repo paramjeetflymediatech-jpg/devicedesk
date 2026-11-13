@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiActivity, FiLogOut, FiCode, FiWifi, FiWifiOff, FiGrid, FiMenu, FiX, FiEye, FiTrash2, FiHelpCircle } from "react-icons/fi";
 import { FaWindows, FaApple, FaLinux } from "react-icons/fa";
 import { useAuth } from "../auth/AuthContext";
 import { isSuperAdminUser, getAuthorizedDashboard } from "../utils/authTokens.js";
 import { DeveloperProvider, useDeveloper } from "./DeveloperContext";
-import { useEffect, useState } from "react";
 import ThemeToggle from "../components/ThemeToggle";
 
 function SidebarContent() {
