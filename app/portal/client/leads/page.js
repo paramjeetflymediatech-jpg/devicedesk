@@ -996,7 +996,6 @@ export default function ClientCrmLeadsPage() {
                       <th className="px-5 py-3.5">Assigned To</th>
                       <th className="px-5 py-3.5">Priority</th>
                       <th className="px-5 py-3.5">Status</th>
-                      <th className="px-5 py-3.5">Date Received</th>
                       <th className="px-5 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -1097,11 +1096,6 @@ export default function ClientCrmLeadsPage() {
                               <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}></span>
                               {lead.status || 'New'}
                             </span>
-                          </td>
-
-                          {/* Date */}
-                          <td className="px-5 py-4 text-xs text-gray-500 whitespace-nowrap">
-                            {formatDate(lead.created_at)}
                           </td>
 
                           {/* Actions (Three Dots Menu) */}
