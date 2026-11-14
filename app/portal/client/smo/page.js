@@ -13,6 +13,7 @@ import { FaFacebook, FaInstagram } from 'react-icons/fa';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
 import Swal from 'sweetalert2';
 import { useClientProfile } from '../useClientProfile';
+import { handleClientSignOut } from '../clientLogout';
 import CreateSmoPostModal from '@/app/components/modals/CreateSmoPostModal';
 
 function formatScheduledDate(val) {
@@ -49,7 +50,7 @@ export default function SMOPage() {
         if (u && u.id) return u.id;
       } catch (e) {}
     }
-    return 'emp_1789113315702';
+    return '';
   });
   const [userName, setUserName] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -822,7 +823,7 @@ export default function SMOPage() {
       </nav>
       
       <div className="p-4 border-t border-gray-100">
-        <button onClick={() => { localStorage.removeItem('devicedesk_auth_user'); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={handleClientSignOut} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
         </button>
       </div>

@@ -138,6 +138,23 @@ export async function middleware(request) {
     pathname === '/forgot-password' ||
     pathname === '/reset-password'
   ) {
+    // If the request explicitly requests logout, expired session, or client auth_user cookie was cleared
+    const isExplicitLogout = request.nextUrl.searchParams.get('logout') === '1' || 
+                             request.nextUrl.searchParams.get('logout') === 'true' ||
+                             request.nextUrl.searchParams.get('expired') === '1' ||
+                             !rawAuthUser;
+    if (isExplicitLogout) {
+      const response = NextResponse.next();
+      response.cookies.delete('devicedesk_token');
+      response.cookies.delete('devicedesk_token_exp');
+      response.cookies.delete('devicedesk_auth_user');
+      response.cookies.delete('devicedesk_user_role');
+      response.cookies.delete('devicedesk_browser_profile');
+      response.cookies.delete('devicedesk_google_profile');
+      response.cookies.delete('devicedesk_client_has_smo');
+      return response;
+    }
+
     const dest = getAuthorizedDashboard(user);
     return NextResponse.redirect(new URL(dest, request.url));
   }

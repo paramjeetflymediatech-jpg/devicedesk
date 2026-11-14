@@ -6,6 +6,7 @@ import { uploadFilesWithProgress } from '@/app/utils/uploadHelper';
 import { containsPhoneNumber, PHONE_POLICY_WARNING } from '@/app/utils/contactFilter';
 import GoogleDriveBadge from '@/app/components/GoogleDriveBadge.js';
 import { useClientProfile } from '../useClientProfile';
+import { handleClientSignOut } from '../clientLogout';
 
 export default function ClientNotesPage() {
   const { name: clientName, company_name: companyName, initials } = useClientProfile();
@@ -37,7 +38,7 @@ export default function ClientNotesPage() {
   const isAudioUrl = (url) => typeof url === 'string' && /\.(mp3|wav|ogg|m4a)($|\?)/i.test(url);
 
   useEffect(() => {
-    let clientId = 'emp_1789113315702'; // Fallback
+    let clientId = '';
     if (typeof window !== 'undefined') {
       const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
       if (user && user.id) clientId = user.id;
@@ -294,7 +295,7 @@ export default function ClientNotesPage() {
       </nav>
 
       <div className="p-4 border-t border-gray-100">
-        <button onClick={() => { localStorage.removeItem('devicedesk_auth_user'); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={handleClientSignOut} className="w-full text-center p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
         </button>
       </div>

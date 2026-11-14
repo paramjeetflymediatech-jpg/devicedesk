@@ -4,6 +4,7 @@ import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, Fi
 import Link from 'next/link';
 import { useClientSmoAccess } from '../useClientSmoAccess';
 import { useClientProfile } from '../useClientProfile';
+import { handleClientSignOut } from '../clientLogout';
 
 export default function DashboardPage() {
   const { name: clientName, company_name: companyName, initials } = useClientProfile();
@@ -20,7 +21,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const getClientId = () => {
-    let clientId = 'emp_1789113315702'; // Fallback
+    let clientId = '';
     if (typeof window !== 'undefined') {
       try {
         const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
@@ -34,6 +35,10 @@ export default function DashboardPage() {
     let isMounted = true;
     const loadAll = async () => {
       const myClientId = getClientId();
+      if (!myClientId) {
+        if (isMounted) setLoading(false);
+        return;
+      }
       try {
         const [projRes, seoRes, adsRes, reqRes, clientRes] = await Promise.all([
           fetch("/api/projects").catch(() => null),
@@ -135,7 +140,7 @@ export default function DashboardPage() {
       </nav>
       
       <div className="p-4 border-t border-gray-100">
-        <button onClick={() => { localStorage.removeItem('devicedesk_auth_user'); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={handleClientSignOut} className="w-full text-center p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
         </button>
       </div>

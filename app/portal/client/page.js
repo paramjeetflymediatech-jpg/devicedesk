@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { FiLayout, FiMessageSquare, FiFileText, FiClock, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3, FiUser, FiActivity } from 'react-icons/fi';
 import Link from 'next/link';
 import { useClientProfile } from './useClientProfile';
+import { handleClientSignOut } from './clientLogout';
 
 export default function ClientDashboard() {
   const { name: clientName, company_name: companyName, initials } = useClientProfile();
@@ -20,7 +21,7 @@ export default function ClientDashboard() {
   const totalPages = Math.ceil(requests.length / itemsPerPage);
   
   const getClientId = () => {
-    let clientId = 'emp_1789113315702'; // Fallback
+    let clientId = '';
     if (typeof window !== 'undefined') {
       const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
       if (user && user.id) clientId = user.id;
@@ -33,6 +34,7 @@ export default function ClientDashboard() {
     const fetchRequests = async () => {
       try {
         const clientId = getClientId();
+        if (!clientId) return;
         const res = await fetch(`/api/client-services/requests?clientId=${clientId}`);
         const data = await res.json();
         if (data.success && isMounted) {
@@ -47,6 +49,7 @@ export default function ClientDashboard() {
     const fetchActivePackages = async () => {
       try {
         const clientId = getClientId();
+        if (!clientId) return;
         const res = await fetch(`/api/client-services/my-packages?clientId=${clientId}`);
         const data = await res.json();
         if (data.success && isMounted) {
@@ -72,6 +75,7 @@ export default function ClientDashboard() {
     setDeletedNotices(prev => prev.filter(n => n.id !== noticeId));
     try {
       const clientId = getClientId();
+      if (!clientId) return;
       await fetch(`/api/client-services/requests?dismissNoticeId=${encodeURIComponent(noticeId)}&clientId=${encodeURIComponent(clientId)}`, {
         method: 'DELETE'
       });
@@ -139,7 +143,7 @@ export default function ClientDashboard() {
       </nav>
       
       <div className="p-4 border-t border-gray-100">
-        <button onClick={() => { localStorage.removeItem('devicedesk_auth_user'); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={handleClientSignOut} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
         </button>
       </div>

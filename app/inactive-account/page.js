@@ -200,15 +200,23 @@ function InactiveAccountContent() {
     setTimeout(() => setCopied(""), 2000);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
+
     if (logout) {
       logout();
     } else {
       localStorage.removeItem("devicedesk_auth_user");
+      localStorage.removeItem("devicedesk_google_profile");
       sessionStorage.clear();
-      document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
-      document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
-      router.push("/login");
+      const expired = "; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
+      document.cookie = `devicedesk_token=${expired}`;
+      document.cookie = `devicedesk_token_exp=${expired}`;
+      document.cookie = `devicedesk_user_role=${expired}`;
+      document.cookie = `devicedesk_auth_user=${expired}`;
+      window.location.href = "/login?logout=1";
     }
   };
 

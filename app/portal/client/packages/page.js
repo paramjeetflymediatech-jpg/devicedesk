@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { FiCheck, FiUser, FiCalendar, FiClock, FiActivity } from 'react-icons/fi';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3 } from 'react-icons/fi';
 import { useClientProfile } from '../useClientProfile';
+import { handleClientSignOut } from '../clientLogout';
 
 export default function PackagesPage() {
   const { name: clientName, company_name: companyName, initials } = useClientProfile();
@@ -23,7 +24,7 @@ export default function PackagesPage() {
   useEffect(() => { fetchPackages(); }, []);
 
   const getClientId = () => {
-    let clientId = 'EMP-UNKNOWN';
+    let clientId = '';
     if (typeof window !== 'undefined') {
       const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
       if (user && user.id) clientId = user.id;
@@ -36,17 +37,20 @@ export default function PackagesPage() {
       const clientId = getClientId();
       
       // Fetch available packages
-      const res = await fetch(`/api/packages?client_id=${clientId}`);
+      const url = clientId ? `/api/packages?client_id=${clientId}` : '/api/packages';
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
         setPackages(data.packages || []);
       }
 
       // Fetch active subscriptions
-      const myRes = await fetch(`/api/client-services/my-packages?clientId=${clientId}`);
-      const myData = await myRes.json();
-      if (myData.success) {
-        setActivePackages(myData.data || []);
+      if (clientId) {
+        const myRes = await fetch(`/api/client-services/my-packages?clientId=${clientId}`);
+        const myData = await myRes.json();
+        if (myData.success) {
+          setActivePackages(myData.data || []);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -134,7 +138,7 @@ export default function PackagesPage() {
       </nav>
 
       <div className="p-4 border-t border-gray-100">
-        <button onClick={() => { localStorage.removeItem('devicedesk_auth_user'); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={handleClientSignOut} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
         </button>
       </div>

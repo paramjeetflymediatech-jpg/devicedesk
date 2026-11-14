@@ -8,6 +8,7 @@ import { getEmployees } from "../../../store.js";
 import { findEmployeeBySlug, getEmployeeSlug } from "../../../utils/slugUtils.js";
 import { FiLayout, FiMessageSquare, FiFileText, FiClock, FiMenu, FiX, FiImage, FiDollarSign, FiDownload, FiSend, FiBox, FiCreditCard } from "react-icons/fi";
 import ProjectChat from "../../../components/ProjectChat.js";
+import { handleClientSignOut } from "../clientLogout";
 
 export default function ClientSlugPortal() {
   const params = useParams();
@@ -205,7 +206,7 @@ export default function ClientSlugPortal() {
       </nav>
       
       <div className="p-4 border-t border-gray-100">
-        <button onClick={() => { localStorage.clear(); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="block w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={handleClientSignOut} className="block w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
         </button>
       </div>

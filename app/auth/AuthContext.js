@@ -56,6 +56,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback((isExpired = false) => {
     setUser(null);
     if (typeof window !== "undefined") {
+      fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
       localStorage.removeItem('devicedesk_auth_user');
       localStorage.removeItem('devicedesk_google_profile');
       sessionStorage.clear();
@@ -69,7 +70,7 @@ export function AuthProvider({ children }) {
       document.cookie = `devicedesk_browser_profile=${expiredCookie}`;
 
       // Perform clean full-page navigation to login page
-      const targetUrl = isExpired ? "/login?expired=1" : "/login";
+      const targetUrl = isExpired ? "/login?expired=1" : "/login?logout=1";
       window.location.href = targetUrl;
     }
   }, []);

@@ -5,13 +5,14 @@ import { io } from 'socket.io-client';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiEdit3, FiDownload, FiUser, FiExternalLink, FiAlertCircle } from 'react-icons/fi';
 import Link from 'next/link';
 import { useClientProfile } from '../useClientProfile';
+import { handleClientSignOut } from '../clientLogout';
 
 export default function BookServicePage() {
   const { name: clientName, company_name: companyName, initials } = useClientProfile();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const getClientId = () => {
-    let clientId = 'emp_1789113315702'; // Fallback
+    let clientId = '';
     if (typeof window !== 'undefined') {
       try {
         const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
@@ -53,6 +54,7 @@ export default function BookServicePage() {
   const fetchRequests = useCallback(async () => {
     try {
       const clientId = getClientId();
+      if (!clientId) return;
       const res = await fetch(`/api/client-services/requests?clientId=${clientId}`);
       const data = await res.json();
       if (data.success) {
@@ -412,7 +414,7 @@ export default function BookServicePage() {
       </nav>
       
       <div className="p-4 border-t border-gray-100">
-        <button onClick={() => { localStorage.removeItem('devicedesk_auth_user'); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={handleClientSignOut} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
         </button>
       </div>

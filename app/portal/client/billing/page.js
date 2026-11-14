@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiDownload, FiSend, FiEdit3 , FiUser} from 'react-icons/fi';
 import { useClientSmoAccess } from '../useClientSmoAccess';
 import { useClientProfile } from '../useClientProfile';
+import { handleClientSignOut } from '../clientLogout';
 
 export default function BillingPage() {
   const { name: clientName, company_name: companyName, initials } = useClientProfile();
@@ -18,7 +19,7 @@ export default function BillingPage() {
   const [loadingInvoices, setLoadingInvoices] = useState(true);
 
   const getClientId = () => {
-    let clientId = 'EMP-UNKNOWN';
+    let clientId = '';
     if (typeof window !== 'undefined') {
       const user = JSON.parse(localStorage.getItem('devicedesk_auth_user') || '{}');
       if (user && user.id) clientId = user.id;
@@ -30,6 +31,10 @@ export default function BillingPage() {
     const fetchInvoices = async () => {
       try {
         const clientId = getClientId();
+        if (!clientId) {
+          setLoadingInvoices(false);
+          return;
+        }
         const res = await fetch(`/api/invoices?client_id=${clientId}`);
         const data = await res.json();
         if (data.success) {
@@ -104,7 +109,7 @@ export default function BillingPage() {
             </nav>
       
       <div className="p-4 border-t border-gray-100">
-        <button onClick={() => { localStorage.removeItem('devicedesk_auth_user'); sessionStorage.clear(); document.cookie = "devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; document.cookie = "devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax"; window.location.href = '/login'; }} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button onClick={handleClientSignOut} className="w-full text-center p-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           Sign Out
         </button>
       </div>

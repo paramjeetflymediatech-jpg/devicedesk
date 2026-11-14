@@ -119,7 +119,11 @@ export default function MarketingDashboard() {
     }
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
+
     if (logout) {
       logout();
     } else {
@@ -127,9 +131,12 @@ export default function MarketingDashboard() {
         localStorage.removeItem('devicedesk_auth_user');
         localStorage.removeItem('devicedesk_employee_view');
         localStorage.removeItem('devicedesk_unread_chat_count');
-        document.cookie = 'devicedesk_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0';
-        document.cookie = 'devicedesk_auth_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0';
-        window.location.href = '/login';
+        const expired = "; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; SameSite=Lax";
+        document.cookie = `devicedesk_token=${expired}`;
+        document.cookie = `devicedesk_token_exp=${expired}`;
+        document.cookie = `devicedesk_user_role=${expired}`;
+        document.cookie = `devicedesk_auth_user=${expired}`;
+        window.location.href = '/login?logout=1';
       }
     }
   };
