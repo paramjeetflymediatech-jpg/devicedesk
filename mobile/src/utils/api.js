@@ -1138,6 +1138,104 @@ export async function fetchClientAdsApi(clientId) {
   }
 }
 
+export async function fetchClientCrmLeadsApi(clientId, params = {}) {
+  let url = `${currentApiUrl}/api/client-services/crm-leads?clientId=${encodeURIComponent(clientId)}`;
+  if (params.status && params.status !== 'All') {
+    url += `&status=${encodeURIComponent(params.status)}`;
+  }
+  if (params.search) {
+    url += `&search=${encodeURIComponent(params.search)}`;
+  }
+  if (params.limit) {
+    url += `&limit=${encodeURIComponent(params.limit)}`;
+  }
+  if (params.page) {
+    url += `&page=${encodeURIComponent(params.page)}`;
+  }
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Fetch client CRM leads failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function updateClientCrmLeadApi(data) {
+  const url = `${currentApiUrl}/api/client-services/crm-leads`;
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Update client CRM lead failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function configureClientCrmApi(clientId, apiKey) {
+  const url = `${currentApiUrl}/api/client-services/crm-leads`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: 'configure', clientId, apiKey })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Configure client CRM failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function createClientTestLeadApi(clientId) {
+  const url = `${currentApiUrl}/api/client-services/crm-leads`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: 'test_lead', clientId })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Create test lead failed at ${url}:`, err);
+    throw err;
+  }
+}
+
+export async function addClientLeadNoteApi(leadId, note) {
+  const url = `${currentApiUrl}/api/client-services/crm-leads`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: 'add_note', leadId, note })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error(`Add lead note failed at ${url}:`, err);
+    throw err;
+  }
+}
+
 export async function fetchClientInvoicesApi(clientId) {
   const url = `${currentApiUrl}/api/invoices?client_id=${encodeURIComponent(clientId)}`;
   try {

@@ -2,7 +2,7 @@
 import Swal from 'sweetalert2';
 import { useState, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiEdit3, FiDownload, FiUser, FiExternalLink, FiAlertCircle } from 'react-icons/fi';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiSend, FiEdit3, FiDownload, FiUser, FiExternalLink, FiAlertCircle, FiUsers } from 'react-icons/fi';
 import Link from 'next/link';
 import { useClientProfile } from '../useClientProfile';
 import { handleClientSignOut } from '../clientLogout';
@@ -382,6 +382,9 @@ export default function BookServicePage() {
         </button>
         <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
+        </button>
+        <button onClick={() => window.location.href = '/portal/client/leads'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiUsers size={20} /><span>CRM Leads</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiMessageSquare size={20} /><span>Project Notes</span>

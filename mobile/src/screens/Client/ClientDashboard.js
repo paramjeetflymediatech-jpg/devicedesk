@@ -38,6 +38,8 @@ import {
   publishSmoNowApi,
   generateAiCaptionApi,
   fetchClientAdsApi,
+  fetchClientCrmLeadsApi,
+  updateClientCrmLeadApi,
   fetchClientInvoicesApi,
   fetchClientNotesApi,
   createClientNoteApi,
@@ -74,6 +76,25 @@ export default function ClientDashboard({ user, onLogout }) {
   const [invoices, setInvoices] = useState([]);
   const [notes, setNotes] = useState([]);
   const [clientDetails, setClientDetails] = useState(null);
+
+  // CRM Leads States
+  const [crmLeads, setCrmLeads] = useState([]);
+  const [crmMembers, setCrmMembers] = useState([]);
+  const [crmStats, setCrmStats] = useState({ total: 0, new: 0, contacted: 0, qualified: 0, converted: 0, lost: 0 });
+  const [crmCompany, setCrmCompany] = useState(null);
+  const [crmHasLinked, setCrmHasLinked] = useState(true);
+  const [loadingCrmLeads, setLoadingCrmLeads] = useState(false);
+  const [crmStatusFilter, setCrmStatusFilter] = useState('All');
+  const [crmSearchQuery, setCrmSearchQuery] = useState('');
+  const [selectedCrmLead, setSelectedCrmLead] = useState(null);
+  const [showLeadDetailsModal, setShowLeadDetailsModal] = useState(false);
+  const [updatingLeadStatus, setUpdatingLeadStatus] = useState(false);
+  const [leadNoteInput, setLeadNoteInput] = useState('');
+  const [isEditingLead, setIsEditingLead] = useState(false);
+  const [editLeadName, setEditLeadName] = useState('');
+  const [editLeadEmail, setEditLeadEmail] = useState('');
+  const [editLeadPhone, setEditLeadPhone] = useState('');
+  const [editLeadPriority, setEditLeadPriority] = useState('Medium');
 
   // Package Card Expanders
   const [expandedPkgs, setExpandedPkgs] = useState({});
@@ -209,6 +230,7 @@ export default function ClientDashboard({ user, onLogout }) {
         fetchClientInvoicesApi(clientId).catch(() => ({ invoices: [] })),
         fetchClientNotesApi(clientId).catch(() => ({ notes: [] })),
         fetchClientDetailsApi(clientId).catch(() => ({ data: null })),
+        fetchClientCrmLeadsApi(clientId).catch(() => ({ leads: [], stats: {}, hasCrm: false })),
       ]);
 
       if (myPkgsRes && myPkgsRes.success) {
@@ -235,6 +257,13 @@ export default function ClientDashboard({ user, onLogout }) {
       }
       if (notesRes && notesRes.success) {
         setNotes(notesRes.notes || notesRes.data || []);
+      }
+      if (crmRes && crmRes.success) {
+        setCrmLeads(crmRes.leads || crmRes.data || []);
+        if (crmRes.stats) setCrmStats(crmRes.stats);
+        if (crmRes.company) setCrmCompany(crmRes.company);
+        if (crmRes.members) setCrmMembers(crmRes.members);
+        setCrmHasLinked(crmRes.hasCrm !== false);
       }
       if (detailsRes && detailsRes.success && detailsRes.data) {
         setClientDetails(detailsRes.data);
@@ -1072,6 +1101,182 @@ export default function ClientDashboard({ user, onLogout }) {
     return { bg: '#3b82f622', text: '#3b82f6', border: '#3b82f6' };
   };
 
+  const fetchCrmLeads = useCallback(async (status = crmStatusFilter, search = crmSearchQuery) => {
+    if (!clientId) return;
+    try {
+      setLoadingCrmLeads(true);
+      const res = await fetchClientCrmLeadsApi(clientId, { status, search });
+      if (res && res.success) {
+        setCrmLeads(res.leads || res.data || []);
+        if (res.stats) setCrmStats(res.stats);
+        if (res.company) setCrmCompany(res.company);
+        if (res.members) setCrmMembers(res.members);
+        setCrmHasLinked(res.hasCrm !== false);
+      }
+    } catch (err) {
+      console.error('Failed to load CRM leads:', err);
+    } finally {
+      setLoadingCrmLeads(false);
+    }
+  }, [clientId, crmStatusFilter, crmSearchQuery]);
+
+  const handleAssignLeadMember = async (leadId, memberId) => {
+    try {
+      setUpdatingLeadStatus(true);
+      const res = await updateClientCrmLeadApi({
+        clientId,
+        leadId,
+        assigned_to: memberId === 'unassigned' || !memberId ? null : Number(memberId)
+      });
+      if (res && res.success) {
+        const assignedUser = crmMembers.find(m => m.id === Number(memberId)) || null;
+        if (selectedCrmLead && selectedCrmLead.id === leadId) {
+          setSelectedCrmLead(prev => ({
+            ...prev,
+            assigned_to: memberId === 'unassigned' || !memberId ? null : Number(memberId),
+            assigned_user_name: assignedUser ? assignedUser.name : null,
+            AssignedUser: assignedUser
+          }));
+        }
+        fetchCrmLeads(crmStatusFilter, crmSearchQuery);
+        sweetAlert({
+          title: 'Assigned',
+          text: assignedUser ? `Lead assigned to ${assignedUser.name}` : 'Lead unassigned',
+          type: 'success'
+        });
+      } else {
+        sweetAlert({ title: 'Error', text: res?.error || 'Failed to assign lead', type: 'error' });
+      }
+    } catch (err) {
+      sweetAlert({ title: 'Error', text: 'Network error assigning lead', type: 'error' });
+    } finally {
+      setUpdatingLeadStatus(false);
+    }
+  };
+
+  const handleSaveLeadDetails = async () => {
+    if (!selectedCrmLead) return;
+    try {
+      setUpdatingLeadStatus(true);
+      const res = await updateClientCrmLeadApi({
+        clientId,
+        leadId: selectedCrmLead.id,
+        first_name: editLeadName.trim().split(' ')[0] || '',
+        last_name: editLeadName.trim().split(' ').slice(1).join(' ') || '',
+        name: editLeadName.trim(),
+        email: editLeadEmail.trim(),
+        phone: editLeadPhone.trim(),
+        priority: editLeadPriority
+      });
+      if (res && res.success) {
+        setSelectedCrmLead(prev => ({
+          ...prev,
+          full_name: editLeadName.trim(),
+          first_name: editLeadName.trim().split(' ')[0],
+          last_name: editLeadName.trim().split(' ').slice(1).join(' '),
+          email: editLeadEmail.trim(),
+          phone: editLeadPhone.trim(),
+          priority: editLeadPriority
+        }));
+        setIsEditingLead(false);
+        fetchCrmLeads(crmStatusFilter, crmSearchQuery);
+        sweetAlert({ title: 'Lead Updated', text: 'Lead details have been saved.', type: 'success' });
+      } else {
+        sweetAlert({ title: 'Error', text: res?.error || 'Failed to update lead', type: 'error' });
+      }
+    } catch (err) {
+      sweetAlert({ title: 'Error', text: 'Network error saving lead edits', type: 'error' });
+    } finally {
+      setUpdatingLeadStatus(false);
+    }
+  };
+
+  const handleUpdateLeadStatus = async (leadId, newStatus) => {
+    try {
+      setUpdatingLeadStatus(true);
+      const res = await updateClientCrmLeadApi({
+        clientId,
+        leadId,
+        status: newStatus,
+        note: leadNoteInput.trim() || undefined
+      });
+      if (res && res.success) {
+        sweetAlert({
+          title: 'Status Updated',
+          text: `Lead status updated to ${newStatus}`,
+          type: 'success'
+        });
+        setLeadNoteInput('');
+        if (selectedCrmLead && selectedCrmLead.id === leadId) {
+          setSelectedCrmLead(prev => ({ ...prev, status: newStatus }));
+        }
+        fetchCrmLeads(crmStatusFilter, crmSearchQuery);
+      } else {
+        sweetAlert({
+          title: 'Error',
+          text: res?.error || 'Failed to update lead status',
+          type: 'error'
+        });
+      }
+    } catch (err) {
+      sweetAlert({
+        title: 'Error',
+        text: 'An error occurred while updating lead status',
+        type: 'error'
+      });
+    } finally {
+      setUpdatingLeadStatus(false);
+    }
+  };
+
+  const handleCallLead = (phone) => {
+    if (!phone) {
+      sweetAlert({ title: 'Notice', text: 'No phone number available for this lead', type: 'info' });
+      return;
+    }
+    const clean = phone.replace(/[^0-9+]/g, '');
+    Linking.openURL(`tel:${clean}`).catch(() => {
+      sweetAlert({ title: 'Error', text: 'Unable to open phone dialer', type: 'error' });
+    });
+  };
+
+  const handleWhatsAppLead = (phone, leadName) => {
+    if (!phone) {
+      sweetAlert({ title: 'Notice', text: 'No phone number available for this lead', type: 'info' });
+      return;
+    }
+    let clean = phone.replace(/[^0-9]/g, '');
+    if (clean.length === 10) clean = '91' + clean;
+    const msg = encodeURIComponent(`Hello ${leadName || ''}, thank you for your inquiry with ${clientDetails?.company_name || 'Fly Media Technology'}. How can we assist you today?`);
+    Linking.openURL(`https://wa.me/${clean}?text=${msg}`).catch(() => {
+      sweetAlert({ title: 'Error', text: 'Unable to launch WhatsApp', type: 'error' });
+    });
+  };
+
+  const getLeadStatusBadge = (status) => {
+    const s = (status || 'New').toLowerCase();
+    switch (s) {
+      case 'new':
+        return { bg: isDark ? 'rgba(59, 130, 246, 0.2)' : '#dbeafe', text: '#2563eb', border: '#93c5fd' };
+      case 'contacted':
+        return { bg: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7', text: '#d97706', border: '#fde68a' };
+      case 'qualified':
+        return { bg: isDark ? 'rgba(139, 92, 246, 0.2)' : '#ede9fe', text: '#7c3aed', border: '#ddd6fe' };
+      case 'in progress':
+      case 'in_progress':
+        return { bg: isDark ? 'rgba(99, 102, 241, 0.2)' : '#e0e7ff', text: '#4f46e5', border: '#c7d2fe' };
+      case 'converted':
+      case 'won':
+        return { bg: isDark ? 'rgba(16, 185, 129, 0.2)' : '#d1fae5', text: '#059669', border: '#a7f3d0' };
+      case 'lost':
+      case 'closed lost':
+      case 'junk':
+        return { bg: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2', text: '#dc2626', border: '#fca5a5' };
+      default:
+        return { bg: isDark ? 'rgba(100, 116, 139, 0.2)' : '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+    }
+  };
+
   // Metrics for Overview
   const totalAdBudget = adsCampaigns.reduce((acc, ad) => acc + parseFloat(ad.total_budget || 0), 0);
   const totalAdSpent = adsCampaigns.reduce((acc, ad) => acc + parseFloat(ad.spent_amount || 0), 0);
@@ -1080,6 +1285,7 @@ export default function ClientDashboard({ user, onLogout }) {
 
   const navMenuItems = [
     { id: 'overview', label: 'Dashboard Overview', icon: 'grid' },
+    { id: 'leads', label: 'CRM Leads', icon: 'users' },
     { id: 'packages', label: 'Subscription Packages', icon: 'box' },
     { id: 'requests', label: 'Book & Track Services', icon: 'tasks' },
     { id: 'seo', label: 'SEO Reports', icon: 'file' },
@@ -1302,6 +1508,16 @@ export default function ClientDashboard({ user, onLogout }) {
                     <Text style={styles.tileTitle}>Invoices & Billing</Text>
                     <Text style={styles.tileSub}>{invoices.length} Statements</Text>
                   </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.marketingTile}
+                    onPress={() => setActiveTab('leads')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 24 }}>👥</Text>
+                    <Text style={styles.tileTitle}>CRM Leads</Text>
+                    <Text style={styles.tileSub}>{crmStats.total || crmLeads.length} Inquiries</Text>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Recent Submissions */}
@@ -1346,6 +1562,342 @@ export default function ClientDashboard({ user, onLogout }) {
                     })
                   )}
                 </View>
+
+                {/* Recent CRM Leads Preview */}
+                <View style={{ marginTop: 16 }}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.sectionHeading}>👥 Recent CRM Leads</Text>
+                    <TouchableOpacity onPress={() => setActiveTab('leads')}>
+                      <Text style={styles.seeAllLink}>View All ({crmStats.total || crmLeads.length}) &rarr;</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {crmLeads.length === 0 ? (
+                    <View style={styles.emptyCard}>
+                      <Text style={{ fontSize: 28, marginBottom: 4 }}>👥</Text>
+                      <Text style={styles.emptyTitle}>No CRM Leads Yet</Text>
+                      <Text style={styles.emptySub}>Website inquiries and ad form submissions will appear here.</Text>
+                    </View>
+                  ) : (
+                    crmLeads.slice(0, 3).map((lead) => {
+                      const badge = getLeadStatusBadge(lead.status);
+                      const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'New Lead';
+                      return (
+                        <TouchableOpacity
+                          key={lead.id}
+                          style={styles.itemCard}
+                          onPress={() => {
+                            setSelectedCrmLead(lead);
+                            setShowLeadDetailsModal(true);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.itemCardHeader}>
+                            <View style={{ flex: 1, paddingRight: 8 }}>
+                              <Text style={styles.itemCardTitle}>{fullName}</Text>
+                              {lead.subject ? (
+                                <Text style={styles.itemCardSub} numberOfLines={1}>{lead.subject}</Text>
+                              ) : null}
+                            </View>
+                            <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+                              <Text style={[styles.badgeText, { color: badge.text }]}>{lead.status || 'New'}</Text>
+                            </View>
+                          </View>
+                          {lead.message ? (
+                            <Text style={styles.itemDesc} numberOfLines={2}>{lead.message}</Text>
+                          ) : null}
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                            <Text style={styles.itemFooterDate}>
+                              📅 {new Date(lead.created_at || Date.now()).toLocaleDateString()}
+                            </Text>
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                              {lead.phone ? (
+                                <TouchableOpacity
+                                  style={styles.quickActionIconBtn}
+                                  onPress={() => handleCallLead(lead.phone)}
+                                >
+                                  <AppIcon name="phone" size={13} color="#2563eb" />
+                                </TouchableOpacity>
+                              ) : null}
+                              {lead.phone ? (
+                                <TouchableOpacity
+                                  style={[styles.quickActionIconBtn, { borderColor: '#10b981' }]}
+                                  onPress={() => handleWhatsAppLead(lead.phone, fullName)}
+                                >
+                                  <Text style={{ fontSize: 12 }}>💬</Text>
+                                </TouchableOpacity>
+                              ) : null}
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* ======================================================== */}
+            {/* 1.5. TAB: CRM LEADS & INQUIRIES                          */}
+            {/* ======================================================== */}
+            {activeTab === 'leads' && (
+              <View>
+                {/* Header & Tenant Info */}
+                <View style={styles.crmHeaderCard}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={styles.crmHeaderTitle}>👥 CRM Leads & Inquiries</Text>
+                      <Text style={styles.crmHeaderSub}>
+                        {crmCompany?.name ? `Connected to ${crmCompany.name} CRM` : 'Live customer inquiries from website forms & ads'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.crmRefreshBtn}
+                      onPress={() => fetchCrmLeads(crmStatusFilter, crmSearchQuery)}
+                      disabled={loadingCrmLeads}
+                    >
+                      {loadingCrmLeads ? (
+                        <ActivityIndicator size="small" color="#2563eb" />
+                      ) : (
+                        <AppIcon name="refresh" size={16} color="#2563eb" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Summary Metric Strip */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 14 }}>
+                    <View style={styles.crmStatPillsRow}>
+                      <View style={[styles.crmStatPill, { backgroundColor: '#2563eb18', borderColor: '#2563eb44' }]}>
+                        <Text style={[styles.crmStatPillNum, { color: '#2563eb' }]}>{crmStats.total || 0}</Text>
+                        <Text style={styles.crmStatPillLabel}>Total</Text>
+                      </View>
+                      <View style={[styles.crmStatPill, { backgroundColor: '#3b82f618', borderColor: '#3b82f644' }]}>
+                        <Text style={[styles.crmStatPillNum, { color: '#3b82f6' }]}>{crmStats.new || 0}</Text>
+                        <Text style={styles.crmStatPillLabel}>New</Text>
+                      </View>
+                      <View style={[styles.crmStatPill, { backgroundColor: '#f59e0b18', borderColor: '#f59e0b44' }]}>
+                        <Text style={[styles.crmStatPillNum, { color: '#f59e0b' }]}>{crmStats.contacted || 0}</Text>
+                        <Text style={styles.crmStatPillLabel}>Contacted</Text>
+                      </View>
+                      <View style={[styles.crmStatPill, { backgroundColor: '#8b5cf618', borderColor: '#8b5cf644' }]}>
+                        <Text style={[styles.crmStatPillNum, { color: '#8b5cf6' }]}>{crmStats.qualified || 0}</Text>
+                        <Text style={styles.crmStatPillLabel}>Qualified</Text>
+                      </View>
+                      <View style={[styles.crmStatPill, { backgroundColor: '#10b98118', borderColor: '#10b98144' }]}>
+                        <Text style={[styles.crmStatPillNum, { color: '#10b981' }]}>{crmStats.converted || 0}</Text>
+                        <Text style={styles.crmStatPillLabel}>Won</Text>
+                      </View>
+                      <View style={[styles.crmStatPill, { backgroundColor: '#ef444418', borderColor: '#ef444444' }]}>
+                        <Text style={[styles.crmStatPillNum, { color: '#ef4444' }]}>{crmStats.lost || 0}</Text>
+                        <Text style={styles.crmStatPillLabel}>Lost</Text>
+                      </View>
+                    </View>
+                  </ScrollView>
+                </View>
+
+                {/* Search Bar */}
+                <View style={styles.crmSearchBar}>
+                  <AppIcon name="search" size={16} color={themeColors.textSecondary} />
+                  <TextInput
+                    style={styles.crmSearchInput}
+                    placeholder="Search leads by name, email, phone..."
+                    placeholderTextColor={themeColors.textSecondary}
+                    value={crmSearchQuery}
+                    onChangeText={(text) => {
+                      setCrmSearchQuery(text);
+                      fetchCrmLeads(crmStatusFilter, text);
+                    }}
+                    returnKeyType="search"
+                  />
+                  {crmSearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => {
+                      setCrmSearchQuery('');
+                      fetchCrmLeads(crmStatusFilter, '');
+                    }}>
+                      <AppIcon name="x" size={16} color={themeColors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Status Filter Chips */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {['All', 'New', 'Contacted', 'Qualified', 'Converted', 'Lost'].map((st) => {
+                      const isActive = crmStatusFilter.toLowerCase() === st.toLowerCase();
+                      return (
+                        <TouchableOpacity
+                          key={st}
+                          style={[
+                            styles.crmFilterChip,
+                            isActive && styles.crmFilterChipActive
+                          ]}
+                          onPress={() => {
+                            setCrmStatusFilter(st);
+                            fetchCrmLeads(st, crmSearchQuery);
+                          }}
+                        >
+                          <Text style={[
+                            styles.crmFilterChipText,
+                            isActive && styles.crmFilterChipTextActive
+                          ]}>
+                            {st}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+
+                {/* Leads List */}
+                {loadingCrmLeads && crmLeads.length === 0 ? (
+                  <View style={styles.centerContainer}>
+                    <ActivityIndicator size="large" color="#2563eb" />
+                    <Text style={styles.loadingText}>Fetching CRM leads...</Text>
+                  </View>
+                ) : crmLeads.length === 0 ? (
+                  <View style={styles.emptyCard}>
+                    <Text style={{ fontSize: 36, marginBottom: 8 }}>👥</Text>
+                    <Text style={styles.emptyTitle}>
+                      {crmSearchQuery ? 'No matching leads found' : 'No CRM Leads Recorded Yet'}
+                    </Text>
+                    <Text style={styles.emptySub}>
+                      {crmSearchQuery
+                        ? 'Try modifying your search or filter keywords.'
+                        : 'Customer inquiries submitted through your website forms, landing pages, and ads will appear here automatically.'}
+                    </Text>
+                  </View>
+                ) : (
+                  crmLeads.map((lead) => {
+                    const badge = getLeadStatusBadge(lead.status);
+                    const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'New Lead';
+                    return (
+                      <View key={lead.id} style={styles.leadCard}>
+                        {/* Card Top */}
+                        <View style={styles.leadCardTop}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                            <View style={styles.leadAvatarCircle}>
+                              <Text style={styles.leadAvatarText}>
+                                {fullName.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.leadName} numberOfLines={1}>{fullName}</Text>
+                              <Text style={styles.leadDate}>
+                                📅 {new Date(lead.created_at || Date.now()).toLocaleString()}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+                            <Text style={[styles.badgeText, { color: badge.text }]}>
+                              {lead.status || 'New'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Subject & Message */}
+                        {lead.subject ? (
+                          <Text style={styles.leadSubject} numberOfLines={1}>
+                            📌 {lead.subject}
+                          </Text>
+                        ) : null}
+                        {lead.message ? (
+                          <Text style={styles.leadMessage} numberOfLines={3}>
+                            {lead.message}
+                          </Text>
+                        ) : null}
+
+                        {/* Badges strip: Source, Priority, Score */}
+                        <View style={styles.leadMetaRow}>
+                          {lead.source ? (
+                            <View style={styles.metaChip}>
+                              <Text style={styles.metaChipText}>🌐 {lead.source}</Text>
+                            </View>
+                          ) : null}
+                          {lead.priority ? (
+                            <View style={styles.metaChip}>
+                              <Text style={styles.metaChipText}>⚡ {lead.priority}</Text>
+                            </View>
+                          ) : null}
+                          {lead.lead_score ? (
+                            <View style={styles.metaChip}>
+                              <Text style={styles.metaChipText}>🎯 Score: {lead.lead_score}</Text>
+                            </View>
+                          ) : null}
+                          {lead.assigned_user_name ? (
+                            <View style={[styles.metaChip, { backgroundColor: '#fdf2f8', borderColor: '#fbcfe8' }]}>
+                              <Text style={[styles.metaChipText, { color: '#db2777', fontWeight: '700' }]}>👤 {lead.assigned_user_name}</Text>
+                            </View>
+                          ) : (
+                            <View style={[styles.metaChip, { backgroundColor: '#f3f4f6' }]}>
+                              <Text style={[styles.metaChipText, { color: '#6b7280' }]}>👤 Unassigned</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        {/* Contact details */}
+                        <View style={styles.leadContactsBox}>
+                          {lead.email ? (
+                            <TouchableOpacity
+                              style={styles.leadContactItem}
+                              onPress={() => Linking.openURL(`mailto:${lead.email}`)}
+                            >
+                              <AppIcon name="mail" size={13} color="#2563eb" />
+                              <Text style={styles.leadContactText} numberOfLines={1}>{lead.email}</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                          {lead.phone ? (
+                            <TouchableOpacity
+                              style={styles.leadContactItem}
+                              onPress={() => handleCallLead(lead.phone)}
+                            >
+                              <AppIcon name="phone" size={13} color="#10b981" />
+                              <Text style={styles.leadContactText} numberOfLines={1}>{lead.phone}</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+
+                        {/* Action buttons */}
+                        <View style={styles.leadActionRow}>
+                          {lead.phone ? (
+                            <TouchableOpacity
+                              style={[styles.leadActionBtn, styles.leadCallBtn]}
+                              onPress={() => handleCallLead(lead.phone)}
+                            >
+                              <AppIcon name="phone" size={14} color="#ffffff" />
+                              <Text style={styles.leadCallBtnText}>Call</Text>
+                            </TouchableOpacity>
+                          ) : null}
+
+                          {lead.phone ? (
+                            <TouchableOpacity
+                              style={[styles.leadActionBtn, styles.leadWhatsAppBtn]}
+                              onPress={() => handleWhatsAppLead(lead.phone, fullName)}
+                            >
+                              <Text style={{ fontSize: 13 }}>💬</Text>
+                              <Text style={styles.leadWhatsAppBtnText}>WhatsApp</Text>
+                            </TouchableOpacity>
+                          ) : null}
+
+                          <TouchableOpacity
+                            style={[styles.leadActionBtn, styles.leadDetailsBtn]}
+                            onPress={() => {
+                              setSelectedCrmLead(lead);
+                              setIsEditingLead(false);
+                              setEditLeadName(lead.full_name || `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || '');
+                              setEditLeadEmail(lead.email || '');
+                              setEditLeadPhone(lead.phone || '');
+                              setEditLeadPriority(lead.priority || 'Medium');
+                              setShowLeadDetailsModal(true);
+                            }}
+                          >
+                            <AppIcon name="file" size={13} color="#2563eb" />
+                            <Text style={styles.leadDetailsBtnText}>View & Edit</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
               </View>
             )}
 
@@ -4082,6 +4634,245 @@ export default function ClientDashboard({ user, onLogout }) {
           </View>
         </View>
       </Modal>
+
+      {/* ======================================================== */}
+      {/* MODAL: CRM LEAD DETAILS & STATUS UPDATE                   */}
+      {/* ======================================================== */}
+      <Modal
+        visible={showLeadDetailsModal && !!selectedCrmLead}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLeadDetailsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.modalTitle}>
+                  {selectedCrmLead ? `${selectedCrmLead.first_name || ''} ${selectedCrmLead.last_name || ''}`.trim() || 'Lead Details' : 'Lead Details'}
+                </Text>
+                <Text style={styles.itemCardSub}>
+                  Received: {selectedCrmLead ? new Date(selectedCrmLead.created_at || Date.now()).toLocaleString() : ''}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowLeadDetailsModal(false)}>
+                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginVertical: 8 }}>
+              {/* Quick Status Pill */}
+              {selectedCrmLead && (() => {
+                const badge = getLeadStatusBadge(selectedCrmLead.status);
+                return (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                    <Text style={[styles.inputLabel, { marginBottom: 0, marginRight: 8 }]}>Current Status:</Text>
+                    <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+                      <Text style={[styles.badgeText, { color: badge.text }]}>
+                        {selectedCrmLead.status || 'New'}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })()}
+
+              {/* Subject */}
+              {selectedCrmLead?.subject ? (
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={styles.inputLabel}>Subject / Inquiry Topic</Text>
+                  <Text style={[styles.itemCardTitle, { fontSize: 14 }]}>{selectedCrmLead.subject}</Text>
+                </View>
+              ) : null}
+
+              {/* Message */}
+              {selectedCrmLead?.message ? (
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.inputLabel}>Customer Message</Text>
+                  <View style={[styles.input, { padding: 12, minHeight: 70 }]}>
+                    <Text style={{ color: themeColors.textPrimary, fontSize: 13, lineHeight: 19 }}>
+                      {selectedCrmLead.message}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Assign to Member */}
+              <Text style={styles.inputLabel}>Assigned Team Member</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                <TouchableOpacity
+                  disabled={updatingLeadStatus}
+                  style={[
+                    styles.serviceChip,
+                    !selectedCrmLead?.assigned_to && styles.serviceChipActive,
+                    { paddingHorizontal: 10, paddingVertical: 6 }
+                  ]}
+                  onPress={() => handleAssignLeadMember(selectedCrmLead.id, 'unassigned')}
+                >
+                  <Text style={[styles.serviceChipText, !selectedCrmLead?.assigned_to && styles.serviceChipTextActive, { fontSize: 11 }]}>
+                    — Unassigned —
+                  </Text>
+                </TouchableOpacity>
+                {crmMembers.map(m => {
+                  const isAssigned = Number(selectedCrmLead?.assigned_to) === m.id;
+                  return (
+                    <TouchableOpacity
+                      key={m.id}
+                      disabled={updatingLeadStatus}
+                      style={[
+                        styles.serviceChip,
+                        isAssigned && styles.serviceChipActive,
+                        { paddingHorizontal: 10, paddingVertical: 6 }
+                      ]}
+                      onPress={() => handleAssignLeadMember(selectedCrmLead.id, m.id)}
+                    >
+                      <Text style={[styles.serviceChipText, isAssigned && styles.serviceChipTextActive, { fontSize: 11 }]}>
+                        {isAssigned ? `✓ ${m.name}` : m.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Contact Info & Edit Card */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text style={styles.inputLabel}>Contact Details</Text>
+                <TouchableOpacity onPress={() => setIsEditingLead(!isEditingLead)}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#db2777' }}>
+                    {isEditingLead ? 'Cancel Edit' : '✏️ Edit Lead'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {isEditingLead ? (
+                <View style={[styles.itemCard, { padding: 12, marginBottom: 14, backgroundColor: '#fdf2f8' }]}>
+                  <Text style={[styles.inputLabel, { fontSize: 11 }]}>Full Name</Text>
+                  <TextInput
+                    style={[styles.input, { height: 40, marginBottom: 8 }]}
+                    value={editLeadName}
+                    onChangeText={setEditLeadName}
+                    placeholder="Customer Name"
+                  />
+                  <Text style={[styles.inputLabel, { fontSize: 11 }]}>Email Address</Text>
+                  <TextInput
+                    style={[styles.input, { height: 40, marginBottom: 8 }]}
+                    value={editLeadEmail}
+                    onChangeText={setEditLeadEmail}
+                    keyboardType="email-address"
+                    placeholder="Email Address"
+                  />
+                  <Text style={[styles.inputLabel, { fontSize: 11 }]}>Phone Number</Text>
+                  <TextInput
+                    style={[styles.input, { height: 40, marginBottom: 10 }]}
+                    value={editLeadPhone}
+                    onChangeText={setEditLeadPhone}
+                    keyboardType="phone-pad"
+                    placeholder="Phone Number"
+                  />
+                  <TouchableOpacity
+                    disabled={updatingLeadStatus}
+                    style={[styles.buttonPrimary, { backgroundColor: '#db2777', paddingVertical: 9 }]}
+                    onPress={handleSaveLeadDetails}
+                  >
+                    <Text style={styles.buttonPrimaryText}>
+                      {updatingLeadStatus ? 'Saving...' : 'Save Lead Edits'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={[styles.itemCard, { padding: 12, marginBottom: 14 }]}>
+                  {selectedCrmLead?.email ? (
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 }}
+                      onPress={() => Linking.openURL(`mailto:${selectedCrmLead.email}`)}
+                    >
+                      <AppIcon name="mail" size={14} color="#2563eb" />
+                      <Text style={{ color: '#2563eb', fontWeight: '600', fontSize: 13 }}>{selectedCrmLead.email}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {selectedCrmLead?.phone ? (
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}
+                      onPress={() => handleCallLead(selectedCrmLead.phone)}
+                    >
+                      <AppIcon name="phone" size={14} color="#10b981" />
+                      <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 13 }}>{selectedCrmLead.phone}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              )}
+
+              {/* Update Lead Status */}
+              <Text style={styles.inputLabel}>Update Status</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {['New', 'Contacted', 'Qualified', 'Converted', 'Lost'].map((st) => {
+                  const isCurrent = (selectedCrmLead?.status || '').toLowerCase() === st.toLowerCase();
+                  return (
+                    <TouchableOpacity
+                      key={st}
+                      disabled={updatingLeadStatus}
+                      style={[
+                        styles.serviceChip,
+                        isCurrent && styles.serviceChipActive,
+                        { paddingHorizontal: 12, paddingVertical: 7 }
+                      ]}
+                      onPress={() => handleUpdateLeadStatus(selectedCrmLead.id, st)}
+                    >
+                      <Text style={[
+                        styles.serviceChipText,
+                        isCurrent && styles.serviceChipTextActive,
+                        { fontSize: 12 }
+                      ]}>
+                        {isCurrent ? `✓ ${st}` : st}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Optional Internal Note */}
+              <Text style={styles.inputLabel}>Add Internal Note / Follow-up (Optional)</Text>
+              <TextInput
+                style={[styles.input, { minHeight: 60, paddingVertical: 8, textAlignVertical: 'top' }]}
+                placeholder="Log call outcome, quotation sent, next meeting date..."
+                placeholderTextColor={themeColors.textSecondary}
+                multiline
+                numberOfLines={3}
+                value={leadNoteInput}
+                onChangeText={setLeadNoteInput}
+              />
+
+              {/* Action Buttons in Modal */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                {selectedCrmLead?.phone ? (
+                  <TouchableOpacity
+                    style={[styles.leadActionBtn, styles.leadCallBtn, { flex: 1, paddingVertical: 10 }]}
+                    onPress={() => handleCallLead(selectedCrmLead.phone)}
+                  >
+                    <AppIcon name="phone" size={16} color="#ffffff" />
+                    <Text style={[styles.leadCallBtnText, { fontSize: 13 }]}>Call Now</Text>
+                  </TouchableOpacity>
+                ) : null}
+                {selectedCrmLead?.phone ? (
+                  <TouchableOpacity
+                    style={[styles.leadActionBtn, styles.leadWhatsAppBtn, { flex: 1, paddingVertical: 10 }]}
+                    onPress={() => handleWhatsAppLead(selectedCrmLead.phone, `${selectedCrmLead.first_name || ''} ${selectedCrmLead.last_name || ''}`.trim())}
+                  >
+                    <Text style={{ fontSize: 14 }}>💬</Text>
+                    <Text style={[styles.leadWhatsAppBtnText, { fontSize: 13 }]}>WhatsApp</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.serviceChip, { alignSelf: 'center', marginTop: 8, paddingHorizontal: 20 }]}
+              onPress={() => setShowLeadDetailsModal(false)}
+            >
+              <Text style={styles.serviceChipText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -4908,5 +5699,234 @@ const getStyles = (colors, isDark) =>
     dismissNoticeBtn: {
       padding: 4,
       borderRadius: 6,
+    },
+    // CRM Leads Section Styles
+    quickActionIconBtn: {
+      width: 28,
+      height: 28,
+      borderRadius: 7,
+      borderWidth: 1,
+      borderColor: colors.border || (isDark ? '#334155' : '#cbd5e1'),
+      backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    crmHeaderCard: {
+      backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      marginBottom: 12,
+    },
+    crmHeaderTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+    },
+    crmHeaderSub: {
+      fontSize: 11.5,
+      color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
+      marginTop: 2,
+    },
+    crmRefreshBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 9,
+      backgroundColor: isDark ? '#334155' : '#eff6ff',
+      borderWidth: 1,
+      borderColor: isDark ? '#475569' : '#bfdbfe',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    crmStatPillsRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    crmStatPill: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 10,
+      borderWidth: 1,
+      alignItems: 'center',
+      minWidth: 64,
+    },
+    crmStatPillNum: {
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    crmStatPillLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
+      marginTop: 1,
+      textTransform: 'uppercase',
+    },
+    crmSearchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      marginBottom: 10,
+      gap: 8,
+    },
+    crmSearchInput: {
+      flex: 1,
+      fontSize: 13,
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+      paddingVertical: 6,
+    },
+    crmFilterChip: {
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 20,
+      backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
+      borderWidth: 1,
+      borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+    },
+    crmFilterChipActive: {
+      backgroundColor: '#2563eb',
+      borderColor: '#2563eb',
+    },
+    crmFilterChipText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
+    },
+    crmFilterChipTextActive: {
+      color: '#ffffff',
+    },
+    leadCard: {
+      backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      marginBottom: 12,
+    },
+    leadCardTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    leadAvatarCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: '#2563eb1f',
+      borderWidth: 1,
+      borderColor: '#2563eb44',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    leadAvatarText: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: '#2563eb',
+    },
+    leadName: {
+      fontSize: 14.5,
+      fontWeight: '800',
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+    },
+    leadDate: {
+      fontSize: 10.5,
+      color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
+      marginTop: 1,
+    },
+    leadSubject: {
+      fontSize: 12.5,
+      fontWeight: '700',
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+      marginBottom: 4,
+    },
+    leadMessage: {
+      fontSize: 12,
+      color: colors.textSecondary || (isDark ? '#94a3b8' : '#64748b'),
+      lineHeight: 17,
+      marginBottom: 8,
+    },
+    leadMetaRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginBottom: 10,
+    },
+    metaChip: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+      backgroundColor: isDark ? '#334155' : '#f1f5f9',
+    },
+    metaChipText: {
+      fontSize: 10.5,
+      fontWeight: '600',
+      color: colors.textSecondary || (isDark ? '#cbd5e1' : '#475569'),
+    },
+    leadContactsBox: {
+      backgroundColor: isDark ? 'rgba(15, 23, 42, 0.4)' : '#f8fafc',
+      borderRadius: 8,
+      padding: 8,
+      marginBottom: 10,
+      gap: 4,
+    },
+    leadContactItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    leadContactText: {
+      fontSize: 11.5,
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+      fontWeight: '600',
+    },
+    leadActionRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 2,
+    },
+    leadActionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+    },
+    leadCallBtn: {
+      backgroundColor: '#2563eb',
+      flex: 1,
+    },
+    leadCallBtnText: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    leadWhatsAppBtn: {
+      backgroundColor: '#10b981',
+      flex: 1,
+    },
+    leadWhatsAppBtnText: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    leadDetailsBtn: {
+      backgroundColor: isDark ? '#334155' : '#eff6ff',
+      borderWidth: 1,
+      borderColor: isDark ? '#475569' : '#bfdbfe',
+      paddingHorizontal: 14,
+    },
+    leadDetailsBtnText: {
+      color: '#2563eb',
+      fontSize: 12,
+      fontWeight: '800',
     },
   });

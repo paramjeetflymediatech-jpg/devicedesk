@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiDollarSign, FiEdit3, FiArrowRight, FiClock, FiTrendingUp, FiUser, FiImage } from 'react-icons/fi';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiDollarSign, FiEdit3, FiArrowRight, FiClock, FiTrendingUp, FiUser, FiImage, FiUsers } from 'react-icons/fi';
 import Link from 'next/link';
 import { useClientSmoAccess } from '../useClientSmoAccess';
 import { useClientProfile } from '../useClientProfile';
@@ -17,6 +17,8 @@ export default function DashboardPage() {
   const [adsData, setAdsData] = useState([]);
   const [requests, setRequests] = useState([]);
   const [deletedNotices, setDeletedNotices] = useState([]);
+  const [crmLeads, setCrmLeads] = useState([]);
+  const [crmStats, setCrmStats] = useState({ total: 0, new: 0 });
   const [, setClientDetails] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -40,12 +42,13 @@ export default function DashboardPage() {
         return;
       }
       try {
-        const [projRes, seoRes, adsRes, reqRes, clientRes] = await Promise.all([
+        const [projRes, seoRes, adsRes, reqRes, clientRes, crmRes] = await Promise.all([
           fetch("/api/projects").catch(() => null),
           fetch(`/api/client-services/seo?clientId=${myClientId}`).catch(() => null),
           fetch(`/api/client-services/ads?clientId=${myClientId}`).catch(() => null),
           fetch(`/api/client-services/requests?clientId=${myClientId}`).catch(() => null),
-          fetch(`/api/client-details?clientId=${myClientId}`).catch(() => null)
+          fetch(`/api/client-details?clientId=${myClientId}`).catch(() => null),
+          fetch(`/api/client-services/crm-leads?clientId=${myClientId}&limit=4`).catch(() => null)
         ]);
 
         if (projRes && isMounted) { const d = await projRes.json(); if(d.success) setProjects(d.data || []); }
@@ -62,6 +65,13 @@ export default function DashboardPage() {
           const d = await clientRes.json(); 
           if(d.success && d.data) {
             setClientDetails(d.data);
+          }
+        }
+        if (crmRes && isMounted) {
+          const d = await crmRes.json();
+          if (d.success) {
+            setCrmLeads(d.leads || []);
+            setCrmStats(d.stats || { total: 0, new: 0 });
           }
         }
       } catch (err) {
@@ -108,6 +118,9 @@ export default function DashboardPage() {
         </button>
         <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
+        </button>
+        <button onClick={() => window.location.href = '/portal/client/leads'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiUsers size={20} /><span>CRM Leads</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiMessageSquare size={20} /><span>Project Notes</span>
@@ -282,6 +295,26 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                <div 
+                  onClick={() => window.location.href = '/portal/client/leads'}
+                  className="bg-white rounded-xl p-6 border border-gray-200 hover:border-pink-300 shadow-sm flex items-center gap-4 cursor-pointer transition-all hover:shadow-md group"
+                >
+                  <div className="w-12 h-12 bg-pink-50 group-hover:bg-pink-100 text-pink-600 rounded-lg flex items-center justify-center text-xl shrink-0 transition-colors">
+                    <FiUsers />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium mb-0.5">CRM Leads</p>
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="text-2xl font-bold text-gray-900">{crmStats.total || 0}</h3>
+                      {crmStats.new > 0 && (
+                        <span className="text-xs font-semibold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">
+                          {crmStats.new} new
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm flex items-center gap-4">
                   <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center text-xl shrink-0"><FiDollarSign /></div>
                   <div>
@@ -417,6 +450,70 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+              </div>
+
+              {/* Recent CRM Leads Section */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-8">
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm">
+                      <FiUsers />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-800">Recent CRM Leads</h3>
+                      <p className="text-xs text-gray-400">Latest customer inquiries from website and campaigns</p>
+                    </div>
+                  </div>
+                  <Link href="/portal/client/leads" className="text-pink-600 hover:text-pink-800 text-sm font-semibold flex items-center">
+                    View All Leads ({crmStats.total || 0}) <FiArrowRight className="ml-1" />
+                  </Link>
+                </div>
+                <div className="p-0">
+                  {crmLeads.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-8 text-gray-400">
+                      <p className="text-sm font-medium">No CRM leads recorded yet.</p>
+                      <Link href="/portal/client/leads" className="text-xs text-pink-600 font-semibold mt-1">Open CRM Leads Portal →</Link>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {crmLeads.map(lead => (
+                        <div key={lead.id} className="p-4 md:p-5 hover:bg-gray-50/60 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-pink-100 text-pink-700 font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                              {(lead.first_name || 'L').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-gray-900 text-sm truncate">
+                                  {lead.full_name?.trim() || `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Anonymous'}
+                                </h4>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                  {lead.status || 'New'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-600 truncate mt-0.5 font-medium">{lead.subject || 'Website Inquiry'}</p>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                                {lead.phone && <a href={`tel:${lead.phone}`} className="hover:text-pink-600 font-medium">{lead.phone}</a>}
+                                {lead.email && <span>• {lead.email}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0">
+                            <span className="text-xs text-gray-400">
+                              {new Date(lead.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                            <Link 
+                              href="/portal/client/leads"
+                              className="px-3 py-1.5 bg-gray-100 hover:bg-pink-50 hover:text-pink-700 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
+                            >
+                              Details →
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           )}

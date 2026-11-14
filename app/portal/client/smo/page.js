@@ -7,7 +7,7 @@ import {
   FiEdit3, FiUser, FiCheckCircle, FiClock, FiAlertCircle, 
   FiSettings, FiShare2, FiThumbsUp, FiMessageCircle, FiHeart, 
   FiBookmark, FiRefreshCw, FiExternalLink, FiUploadCloud, FiZap, FiCalendar, FiSave, FiLock,
-  FiRepeat, FiPlus
+  FiRepeat, FiPlus, FiUsers
 } from 'react-icons/fi';
 import { FaFacebook, FaInstagram } from 'react-icons/fa';
 import { FaWandMagicSparkles } from 'react-icons/fa6';
@@ -791,6 +791,9 @@ export default function SMOPage() {
         </button>
         <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
+        </button>
+        <button onClick={() => window.location.href = '/portal/client/leads'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiUsers size={20} /><span>CRM Leads</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiMessageSquare size={20} /><span>Project Notes</span>

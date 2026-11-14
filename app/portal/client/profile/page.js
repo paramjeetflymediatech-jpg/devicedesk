@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiUser, FiMapPin, FiPhone, FiLink, FiSave, FiAlertCircle } from 'react-icons/fi';
+import { FiLayout, FiMessageSquare, FiMenu, FiX, FiBox, FiCreditCard, FiGrid, FiFileText, FiImage, FiDollarSign, FiEdit3, FiUser, FiMapPin, FiPhone, FiLink, FiSave, FiAlertCircle, FiUsers } from 'react-icons/fi';
 import Link from 'next/link';
 import { useClientSmoAccess } from '../useClientSmoAccess';
 import { useClientProfile } from '../useClientProfile';
@@ -100,6 +100,9 @@ export default function ProfilePage() {
         </button>
         <button onClick={() => window.location.href = '/portal/client'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiLayout size={20} /><span>Project Overview</span>
+        </button>
+        <button onClick={() => window.location.href = '/portal/client/leads'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+          <FiUsers size={20} /><span>CRM Leads</span>
         </button>
         <button onClick={() => window.location.href = '/portal/client/notes'} className="flex items-center space-x-3 p-3 rounded-lg font-medium transition-all text-gray-600 hover:bg-gray-50 hover:text-gray-900">
           <FiMessageSquare size={20} /><span>Project Notes</span>
