@@ -46,6 +46,25 @@ export default function ClientCrmLeadsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedPhone, setCopiedPhone] = useState(null);
 
+  // View Mode: 'table' | 'calendar'
+  const [viewMode, setViewMode] = useState('table');
+
+  // Calendar States
+  const [calendarDate, setCalendarDate] = useState(() => new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  });
+  const [calendarFilter, setCalendarFilter] = useState('all'); // 'all' | 'today' | 'overdue' | 'upcoming'
+
+  // Schedule Follow-up Modal State
+  const [schedulingLead, setSchedulingLead] = useState(null);
+  const [scheduleFollowUpDate, setScheduleFollowUpDate] = useState('');
+  const [scheduleFollowUpNote, setScheduleFollowUpNote] = useState('');
+  const [savingFollowUp, setSavingFollowUp] = useState(false);
+  const [quickFollowUpStatus, setQuickFollowUpStatus] = useState('');
+
   const handleDatePresetChange = (preset) => {
     setDatePreset(preset);
     setCurrentPage(1);
@@ -173,7 +192,8 @@ export default function ClientCrmLeadsPage() {
     status: 'New',
     priority: 'Medium',
     leadScore: 50,
-    assignedTo: ''
+    assignedTo: '',
+    followUpDate: ''
   });
 
   // Configuration & Webhook Modal State
@@ -245,10 +265,11 @@ export default function ClientCrmLeadsPage() {
     else setLoading(true);
 
     try {
+      const queryLimit = viewMode === 'calendar' ? '250' : String(limit);
       const params = new URLSearchParams({
         clientId,
-        page: String(currentPage),
-        limit: String(limit),
+        page: viewMode === 'calendar' ? '1' : String(currentPage),
+        limit: queryLimit,
         status: statusFilter,
         priority: priorityFilter,
         search: searchQuery
@@ -283,7 +304,7 @@ export default function ClientCrmLeadsPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [currentPage, limit, statusFilter, priorityFilter, memberFilter, searchQuery, startDate, endDate]);
+  }, [currentPage, limit, statusFilter, priorityFilter, memberFilter, searchQuery, startDate, endDate, viewMode]);
 
   useEffect(() => {
     fetchLeads();
@@ -392,6 +413,14 @@ export default function ClientCrmLeadsPage() {
   const openEditModal = (lead, e) => {
     if (e) e.stopPropagation();
     setEditingLead(lead);
+    let fDate = '';
+    if (lead.follow_up_date) {
+      try {
+        const d = new Date(lead.follow_up_date);
+        const pad = n => String(n).padStart(2, '0');
+        fDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } catch (err) {}
+    }
     setEditForm({
       firstName: lead.first_name || '',
       lastName: lead.last_name || '',
@@ -402,7 +431,8 @@ export default function ClientCrmLeadsPage() {
       status: lead.status || 'New',
       priority: lead.priority || 'Medium',
       leadScore: lead.lead_score || 50,
-      assignedTo: lead.assigned_to ? String(lead.assigned_to) : ''
+      assignedTo: lead.assigned_to ? String(lead.assigned_to) : '',
+      followUpDate: fDate
     });
   };
 
@@ -428,7 +458,8 @@ export default function ClientCrmLeadsPage() {
           status: editForm.status,
           priority: editForm.priority,
           lead_score: Number(editForm.leadScore) || 0,
-          assigned_to: editForm.assignedTo ? Number(editForm.assignedTo) : null
+          assigned_to: editForm.assignedTo ? Number(editForm.assignedTo) : null,
+          follow_up_date: editForm.followUpDate ? editForm.followUpDate.replace('T', ' ') : null
         })
       });
       const data = await res.json();
@@ -449,6 +480,311 @@ export default function ClientCrmLeadsPage() {
     } finally {
       setSavingEdit(false);
     }
+  };
+
+  // Follow-up Helper Functions & Handlers
+  const getFollowUpInfo = (dateStr, leadStatus) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    const now = new Date();
+    const isDone = ['converted', 'lost'].includes((leadStatus || '').toLowerCase());
+    if (isDone) {
+      return {
+        type: 'done',
+        label: 'Followed Up',
+        sub: d.toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        date: d,
+        color: 'bg-gray-100 text-gray-600 border-gray-200'
+      };
+    }
+
+    const pad = n => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const targetStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (targetStr === todayStr) {
+      return {
+        type: 'today',
+        label: `Today ${timeStr}`,
+        sub: 'Action Required',
+        date: d,
+        color: 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-200'
+      };
+    } else if (d.getTime() < now.getTime()) {
+      const diffDays = Math.max(1, Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)));
+      return {
+        type: 'overdue',
+        label: `Overdue (${diffDays}d ago)`,
+        sub: d.toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        date: d,
+        color: 'bg-rose-50 text-rose-800 border-rose-300 ring-1 ring-rose-200'
+      };
+    } else {
+      return {
+        type: 'upcoming',
+        label: `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${timeStr}`,
+        sub: 'Scheduled',
+        date: d,
+        color: 'bg-blue-50 text-blue-800 border-blue-200'
+      };
+    }
+  };
+
+  const followUpMetrics = {
+    today: leads.filter(l => getFollowUpInfo(l.follow_up_date, l.status)?.type === 'today'),
+    overdue: leads.filter(l => getFollowUpInfo(l.follow_up_date, l.status)?.type === 'overdue'),
+    upcoming: leads.filter(l => getFollowUpInfo(l.follow_up_date, l.status)?.type === 'upcoming'),
+    scheduled: leads.filter(l => !!l.follow_up_date && !['converted', 'lost'].includes((l.status || '').toLowerCase()))
+  };
+
+  const handlePrevMonth = () => {
+    setCalendarDate(prev => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() - 1);
+      return d;
+    });
+  };
+
+  const handleNextMonth = () => {
+    setCalendarDate(prev => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() + 1);
+      return d;
+    });
+  };
+
+  const handleJumpToToday = () => {
+    const now = new Date();
+    setCalendarDate(now);
+    const pad = n => String(n).padStart(2, '0');
+    setSelectedCalendarDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+    setCalendarFilter('all');
+  };
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const currentYear = calendarDate.getFullYear();
+  const currentMonthIndex = calendarDate.getMonth();
+  const currentMonthName = monthNames[currentMonthIndex];
+
+  // Group all leads by follow_up_date 'YYYY-MM-DD'
+  const leadsByFollowUpDate = {};
+  leads.forEach(l => {
+    if (!l.follow_up_date) return;
+    try {
+      const d = new Date(l.follow_up_date);
+      if (isNaN(d.getTime())) return;
+      const pad = n => String(n).padStart(2, '0');
+      const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      if (!leadsByFollowUpDate[key]) leadsByFollowUpDate[key] = [];
+      leadsByFollowUpDate[key].push(l);
+    } catch (e) {}
+  });
+
+  const todayStr = (() => {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  })();
+
+  const calendarDays = (() => {
+    const year = currentYear;
+    const month = currentMonthIndex;
+    const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun
+    const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevMonthDays = new Date(year, month, 0).getDate();
+
+    const days = [];
+    const pad = n => String(n).padStart(2, '0');
+
+    // Prev month padding
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const dayNum = prevMonthDays - i;
+      const prevDate = new Date(year, month - 1, dayNum);
+      const dateStr = `${prevDate.getFullYear()}-${pad(prevDate.getMonth() + 1)}-${pad(dayNum)}`;
+      days.push({
+        dayNum,
+        dateStr,
+        isCurrentMonth: false,
+        leads: leadsByFollowUpDate[dateStr] || []
+      });
+    }
+
+    // Current month days
+    for (let dayNum = 1; dayNum <= totalDaysInMonth; dayNum++) {
+      const dateStr = `${year}-${pad(month + 1)}-${pad(dayNum)}`;
+      days.push({
+        dayNum,
+        dateStr,
+        isCurrentMonth: true,
+        leads: leadsByFollowUpDate[dateStr] || []
+      });
+    }
+
+    // Next month padding
+    const remaining = (7 - (days.length % 7)) % 7;
+    for (let dayNum = 1; dayNum <= remaining; dayNum++) {
+      const nextDate = new Date(year, month + 1, dayNum);
+      const dateStr = `${nextDate.getFullYear()}-${pad(nextDate.getMonth() + 1)}-${pad(dayNum)}`;
+      days.push({
+        dayNum,
+        dateStr,
+        isCurrentMonth: false,
+        leads: leadsByFollowUpDate[dateStr] || []
+      });
+    }
+
+    return days;
+  })();
+
+  const agendaLeads = (() => {
+    if (calendarFilter === 'today') {
+      return followUpMetrics.today;
+    }
+    if (calendarFilter === 'overdue') {
+      return followUpMetrics.overdue;
+    }
+    if (calendarFilter === 'upcoming') {
+      return followUpMetrics.upcoming;
+    }
+    if (selectedCalendarDate) {
+      return leadsByFollowUpDate[selectedCalendarDate] || [];
+    }
+    return followUpMetrics.today;
+  })();
+
+  const openScheduleModal = (lead, defaultDateStr = null) => {
+    setSchedulingLead(lead);
+    setQuickFollowUpStatus(lead.status || 'Contacted');
+    setScheduleFollowUpNote('');
+    if (lead.follow_up_date) {
+      try {
+        const d = new Date(lead.follow_up_date);
+        const pad = n => String(n).padStart(2, '0');
+        const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        setScheduleFollowUpDate(iso);
+      } catch (e) {
+        setScheduleFollowUpDate('');
+      }
+    } else if (defaultDateStr) {
+      setScheduleFollowUpDate(`${defaultDateStr}T10:00`);
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      d.setHours(10, 0, 0, 0);
+      const pad = n => String(n).padStart(2, '0');
+      setScheduleFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00`);
+    }
+  };
+
+  const handleSaveFollowUp = async (e) => {
+    e.preventDefault();
+    if (!schedulingLead) return;
+    const clientId = getClientId();
+    if (!clientId) return;
+
+    if (!scheduleFollowUpDate) {
+      Swal.fire('Date Required', 'Please choose a follow-up date and time.', 'warning');
+      return;
+    }
+
+    try {
+      setSavingFollowUp(true);
+      const formattedDate = scheduleFollowUpDate.replace('T', ' ');
+
+      const res = await fetch('/api/client-services/crm-leads', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          leadId: schedulingLead.id,
+          follow_up_date: formattedDate,
+          status: quickFollowUpStatus || schedulingLead.status,
+          note: scheduleFollowUpNote.trim() 
+            ? `[Follow-up Set for ${new Date(scheduleFollowUpDate).toLocaleString()}]: ${scheduleFollowUpNote.trim()}`
+            : `Follow-up scheduled for ${new Date(scheduleFollowUpDate).toLocaleString()}`
+        })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: '📅 Follow-up Scheduled!',
+          text: `Scheduled for ${new Date(scheduleFollowUpDate).toLocaleString()}`,
+          showConfirmButton: false,
+          timer: 2500
+        });
+        setSchedulingLead(null);
+        fetchLeads(true);
+      } else {
+        throw new Error(data.error || 'Failed to save follow-up date');
+      }
+    } catch (err) {
+      Swal.fire('Error', err.message || 'Failed to schedule follow-up', 'error');
+    } finally {
+      setSavingFollowUp(false);
+    }
+  };
+
+  const handleClearFollowUp = async () => {
+    if (!schedulingLead) return;
+    const clientId = getClientId();
+    if (!clientId) return;
+
+    try {
+      setSavingFollowUp(true);
+      const res = await fetch('/api/client-services/crm-leads', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          leadId: schedulingLead.id,
+          follow_up_date: null,
+          note: `Follow-up schedule cleared.`
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'Follow-up Cleared',
+          showConfirmButton: false,
+          timer: 2000
+        });
+        setSchedulingLead(null);
+        fetchLeads(true);
+      }
+    } catch (e) {
+      Swal.fire('Error', 'Failed to clear follow-up', 'error');
+    } finally {
+      setSavingFollowUp(false);
+    }
+  };
+
+  const handleQuickPreset = (hoursAhead, targetHour = null, daysAhead = 0) => {
+    const d = new Date();
+    if (daysAhead > 0) {
+      d.setDate(d.getDate() + daysAhead);
+      d.setHours(targetHour !== null ? targetHour : 10, 0, 0, 0);
+    } else if (targetHour !== null) {
+      d.setDate(d.getDate() + 1);
+      d.setHours(targetHour, 0, 0, 0);
+    } else {
+      d.setTime(d.getTime() + hoursAhead * 60 * 60 * 1000);
+    }
+    const pad = n => String(n).padStart(2, '0');
+    const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    setScheduleFollowUpDate(iso);
   };
 
   const handleSaveApiKey = async (e) => {
@@ -798,6 +1134,50 @@ export default function ClientCrmLeadsPage() {
             </div>
 
             <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+              {/* View Switcher: Table vs Calendar */}
+              <div className="flex items-center p-1 bg-gray-100 rounded-xl border border-gray-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('table')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    viewMode === 'table'
+                      ? 'bg-white text-gray-900 shadow-2xs'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  <FiLayout size={14} />
+                  <span>List View</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewMode('calendar')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    viewMode === 'calendar'
+                      ? 'bg-white text-pink-700 shadow-2xs'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  <FiCalendar size={14} className={followUpMetrics.today.length > 0 ? 'text-pink-600' : ''} />
+                  <span>Follow-up Calendar</span>
+                  {followUpMetrics.today.length > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-pink-500 animate-ping"></span>
+                  )}
+                </button>
+              </div>
+
+              {viewMode === 'calendar' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (leads.length > 0) openScheduleModal(leads[0], selectedCalendarDate);
+                  }}
+                  className="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0 shadow-xs flex items-center gap-1 cursor-pointer"
+                >
+                  <FiCalendar size={13} />
+                  <span>+ Schedule</span>
+                </button>
+              )}
               <select
                 value={statusFilter}
                 onChange={(e) => {
@@ -985,6 +1365,448 @@ export default function ClientCrmLeadsPage() {
                 </button>
               )}
             </div>
+          ) : viewMode === 'calendar' ? (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Follow-up Metrics Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div 
+                  onClick={() => {
+                    setCalendarFilter(calendarFilter === 'today' ? 'all' : 'today');
+                    setSelectedCalendarDate(todayStr);
+                  }}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer bg-white ${
+                    calendarFilter === 'today'
+                      ? 'border-emerald-500 shadow-md ring-2 ring-emerald-100'
+                      : 'border-gray-200 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Today's Follow-ups</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                  </div>
+                  <p className="text-2xl font-black text-emerald-700 mt-1">{followUpMetrics.today.length}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Scheduled for today</p>
+                </div>
+
+                <div 
+                  onClick={() => {
+                    setCalendarFilter(calendarFilter === 'overdue' ? 'all' : 'overdue');
+                  }}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer bg-white ${
+                    calendarFilter === 'overdue'
+                      ? 'border-rose-500 shadow-md ring-2 ring-rose-100'
+                      : 'border-gray-200 hover:border-rose-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-rose-600 uppercase tracking-wider">Overdue Leads</span>
+                    <FiAlertCircle size={15} className="text-rose-500" />
+                  </div>
+                  <p className="text-2xl font-black text-rose-700 mt-1">{followUpMetrics.overdue.length}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Missed follow-up dates</p>
+                </div>
+
+                <div 
+                  onClick={() => {
+                    setCalendarFilter(calendarFilter === 'upcoming' ? 'all' : 'upcoming');
+                  }}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer bg-white ${
+                    calendarFilter === 'upcoming'
+                      ? 'border-blue-500 shadow-md ring-2 ring-blue-100'
+                      : 'border-gray-200 hover:border-blue-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">Upcoming</span>
+                    <FiClock size={15} className="text-blue-500" />
+                  </div>
+                  <p className="text-2xl font-black text-blue-700 mt-1">{followUpMetrics.upcoming.length}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Scheduled for future dates</p>
+                </div>
+
+                <div 
+                  onClick={() => setCalendarFilter('all')}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer bg-white ${
+                    calendarFilter === 'all'
+                      ? 'border-pink-500 shadow-md ring-2 ring-pink-100'
+                      : 'border-gray-200 hover:border-pink-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-pink-600 uppercase tracking-wider">Total Active</span>
+                    <FiCalendar size={15} className="text-pink-500" />
+                  </div>
+                  <p className="text-2xl font-black text-pink-700 mt-1">{followUpMetrics.scheduled.length}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Active follow-up dates</p>
+                </div>
+              </div>
+
+              {/* Monthly Interactive Calendar Card */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                {/* Calendar Header Controls */}
+                <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-gray-50/70 to-white">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center bg-white border border-gray-200 rounded-xl shadow-2xs overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={handlePrevMonth}
+                        className="p-2 hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer"
+                        title="Previous Month"
+                      >
+                        <FiChevronLeft size={16} />
+                      </button>
+                      <span className="px-3 py-1 font-black text-gray-900 text-sm sm:text-base min-w-[140px] text-center">
+                        {currentMonthName} {currentYear}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleNextMonth}
+                        className="p-2 hover:bg-gray-100 text-gray-600 transition-colors cursor-pointer"
+                        title="Next Month"
+                      >
+                        <FiChevronRight size={16} />
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleJumpToToday}
+                      className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 border border-pink-200 text-pink-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      Today
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setCalendarFilter('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        calendarFilter === 'all' ? 'bg-pink-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      All Dates
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCalendarFilter('today');
+                        setSelectedCalendarDate(todayStr);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        calendarFilter === 'today' ? 'bg-emerald-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Today ({followUpMetrics.today.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCalendarFilter('overdue')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        calendarFilter === 'overdue' ? 'bg-rose-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Overdue ({followUpMetrics.overdue.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCalendarFilter('upcoming')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        calendarFilter === 'upcoming' ? 'bg-blue-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Upcoming ({followUpMetrics.upcoming.length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* Weekday Names Header */}
+                <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50/80 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5">
+                  <div>Sun</div>
+                  <div>Mon</div>
+                  <div>Tue</div>
+                  <div>Wed</div>
+                  <div>Thu</div>
+                  <div>Fri</div>
+                  <div>Sat</div>
+                </div>
+
+                {/* Calendar Grid Cells */}
+                <div className="grid grid-cols-7 divide-x divide-y divide-gray-100">
+                  {calendarDays.map((cell, idx) => {
+                    const isToday = cell.dateStr === todayStr;
+                    const isSelected = cell.dateStr === selectedCalendarDate;
+                    const cellLeads = cell.leads;
+                    const hasOverdue = cellLeads.some(l => getFollowUpInfo(l.follow_up_date, l.status)?.type === 'overdue');
+                    const hasToday = cellLeads.some(l => getFollowUpInfo(l.follow_up_date, l.status)?.type === 'today');
+
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          setSelectedCalendarDate(cell.dateStr);
+                          setCalendarFilter('all');
+                        }}
+                        className={`min-h-[95px] sm:min-h-[120px] p-1.5 sm:p-2 transition-all cursor-pointer relative flex flex-col justify-between ${
+                          !cell.isCurrentMonth
+                            ? 'bg-gray-50/50 text-gray-400'
+                            : isSelected
+                            ? 'bg-pink-50/40 ring-2 ring-pink-500 ring-inset'
+                            : isToday
+                            ? 'bg-emerald-50/30'
+                            : 'bg-white hover:bg-gray-50/70'
+                        }`}
+                      >
+                        {/* Day Number Row */}
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`text-xs font-bold inline-flex items-center justify-center w-6 h-6 rounded-full ${
+                              isToday
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : isSelected
+                                ? 'bg-pink-600 text-white'
+                                : cell.isCurrentMonth
+                                ? 'text-gray-800'
+                                : 'text-gray-400'
+                            }`}
+                          >
+                            {cell.dayNum}
+                          </span>
+
+                          {cellLeads.length > 0 && (
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                hasOverdue
+                                  ? 'bg-rose-100 text-rose-700'
+                                  : hasToday
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}
+                            >
+                              {cellLeads.length}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Mini Lead Pills */}
+                        <div className="space-y-1 my-1 overflow-hidden">
+                          {cellLeads.slice(0, 2).map((l) => {
+                            const fInfo = getFollowUpInfo(l.follow_up_date, l.status);
+                            const custName = l.full_name || `${l.first_name || ''} ${l.last_name || ''}`.trim() || 'Lead';
+                            return (
+                              <div
+                                key={l.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openScheduleModal(l);
+                                }}
+                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded truncate flex items-center gap-1 border transition-all hover:scale-102 ${
+                                  fInfo?.type === 'overdue'
+                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                    : fInfo?.type === 'today'
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    : 'bg-blue-50 text-blue-800 border-blue-200'
+                                }`}
+                                title={`${custName} - ${l.status || 'New'} (Click to reschedule)`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                    fInfo?.type === 'overdue'
+                                      ? 'bg-rose-500'
+                                      : fInfo?.type === 'today'
+                                      ? 'bg-emerald-500 animate-ping'
+                                      : 'bg-blue-500'
+                                  }`}
+                                ></span>
+                                <span className="truncate">{custName}</span>
+                              </div>
+                            );
+                          })}
+
+                          {cellLeads.length > 2 && (
+                            <p className="text-[10px] font-bold text-gray-500 px-1">
+                              +{cellLeads.length - 2} more
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Bottom Subtle Indicator */}
+                        <div className="h-1"></div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Day Agenda & Follow-up Actions Section */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-gray-100">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
+                      <FiCalendar className="text-pink-600" size={18} />
+                      <span>
+                        Follow-ups for{' '}
+                        {calendarFilter !== 'all'
+                          ? calendarFilter.toUpperCase() + ' LEADS'
+                          : new Date(selectedCalendarDate + 'T00:00:00').toLocaleDateString([], {
+                              weekday: 'long',
+                              month: 'long',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {agendaLeads.length} customer follow-up{agendaLeads.length === 1 ? '' : 's'} scheduled
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (leads.length > 0) {
+                        openScheduleModal(leads[0], selectedCalendarDate);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs self-start sm:self-auto cursor-pointer"
+                  >
+                    <FiCalendar size={14} />
+                    <span>+ Schedule Follow-up</span>
+                  </button>
+                </div>
+
+                {agendaLeads.length === 0 ? (
+                  <div className="py-12 px-4 text-center border-2 border-dashed border-gray-200 rounded-xl space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-pink-50 text-pink-600 flex items-center justify-center mx-auto text-xl">
+                      📅
+                    </div>
+                    <h4 className="font-bold text-gray-800 text-sm">No Follow-ups on this Date</h4>
+                    <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                      You don't have any customer follow-ups scheduled for this day. Click "+ Schedule Follow-up" to plan a call or task.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {agendaLeads.map((lead) => {
+                      const fInfo = getFollowUpInfo(lead.follow_up_date, lead.status);
+                      const statusStyle = getStatusBadge(lead.status);
+                      const custName = lead.full_name || `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Lead';
+
+                      return (
+                        <div
+                          key={lead.id}
+                          className="bg-gray-50/60 rounded-xl p-4 border border-gray-200 hover:border-pink-200 hover:bg-white hover:shadow-sm transition-all space-y-3"
+                        >
+                          {/* Top Row: Name, Status & Follow-up Time */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-sm">
+                                {custName.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <Link
+                                  href={`/portal/client/leads/${lead.id}`}
+                                  className="font-bold text-gray-900 hover:text-pink-600 text-sm leading-tight transition-colors"
+                                >
+                                  {custName}
+                                </Link>
+                                <p className="text-[11px] text-gray-500 truncate max-w-[180px]">
+                                  {lead.subject || 'Website Inquiry'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="text-right flex flex-col items-end gap-1">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusStyle.bg}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}></span>
+                                {lead.status || 'New'}
+                              </span>
+
+                              {fInfo && (
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${fInfo.color}`}>
+                                  {fInfo.type === 'today' ? <FiClock size={10} /> : <FiCalendar size={10} />}
+                                  <span>{fInfo.label}</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Lead Message snippet */}
+                          {lead.message && (
+                            <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed bg-white p-2.5 rounded-lg border border-gray-100">
+                              "{lead.message}"
+                            </p>
+                          )}
+
+                          {/* Assigned Staff */}
+                          <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
+                            <span>
+                              👤 Assigned:{' '}
+                              <strong className="text-gray-800">
+                                {lead.assigned_user_name || 'Unassigned'}
+                              </strong>
+                            </span>
+                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase ${getPriorityBadge(lead.priority)}`}>
+                              {lead.priority || 'Medium'}
+                            </span>
+                          </div>
+
+                          {/* Quick Action Buttons: Call, WhatsApp, Email, Reschedule */}
+                          <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-200">
+                            {lead.phone ? (
+                              <a
+                                href={`tel:${lead.phone}`}
+                                className="py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                                title={`Call ${lead.phone}`}
+                              >
+                                <FiPhone size={13} />
+                                <span>Call</span>
+                              </a>
+                            ) : (
+                              <div className="py-1.5 px-2 bg-gray-100 text-gray-400 text-xs font-medium rounded-lg text-center">No Phone</div>
+                            )}
+
+                            {lead.phone ? (
+                              <a
+                                href={`https://wa.me/${lead.phone.replace(/[^0-9+]/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="py-1.5 px-2 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                                title="Chat on WhatsApp"
+                              >
+                                <FiMessageSquare size={13} />
+                                <span>WhatsApp</span>
+                              </a>
+                            ) : (
+                              <div className="py-1.5 px-2 bg-gray-100 text-gray-400 text-xs font-medium rounded-lg text-center">No WA</div>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => openScheduleModal(lead)}
+                              className="py-1.5 px-2 bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                              title="Reschedule Follow-up"
+                            >
+                              <FiCalendar size={13} />
+                              <span>Reschedule</span>
+                            </button>
+
+                            <Link
+                              href={`/portal/client/leads/${lead.id}`}
+                              className="py-1.5 px-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 text-center"
+                              title="View Full Lead Details"
+                            >
+                              <FiEye size={13} />
+                              <span>View</span>
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
@@ -996,6 +1818,7 @@ export default function ClientCrmLeadsPage() {
                       <th className="px-5 py-3.5">Assigned To</th>
                       <th className="px-5 py-3.5">Priority</th>
                       <th className="px-5 py-3.5">Status</th>
+                      <th className="px-5 py-3.5">Next Follow-up</th>
                       <th className="px-5 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -1096,6 +1919,43 @@ export default function ClientCrmLeadsPage() {
                               <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`}></span>
                               {lead.status || 'New'}
                             </span>
+                          </td>
+
+                          {/* Next Follow-up */}
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            {(() => {
+                              const fInfo = getFollowUpInfo(lead.follow_up_date, lead.status);
+                              if (!fInfo) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => openScheduleModal(lead)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-gray-400 hover:text-pink-600 hover:bg-pink-50 border border-dashed border-gray-200 transition-colors cursor-pointer"
+                                    title="Schedule a follow-up date"
+                                  >
+                                    <FiCalendar size={12} />
+                                    <span>+ Schedule</span>
+                                  </button>
+                                );
+                              }
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => openScheduleModal(lead)}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all hover:scale-105 cursor-pointer ${fInfo.color}`}
+                                  title="Click to reschedule follow-up"
+                                >
+                                  {fInfo.type === 'today' ? (
+                                    <FiClock size={12} className="animate-spin text-emerald-600" />
+                                  ) : fInfo.type === 'overdue' ? (
+                                    <FiAlertCircle size={12} className="text-rose-600" />
+                                  ) : (
+                                    <FiCalendar size={12} className="text-blue-600" />
+                                  )}
+                                  <span>{fInfo.label}</span>
+                                </button>
+                              );
+                            })()}
                           </td>
 
                           {/* Actions (Three Dots Menu) */}
@@ -1271,6 +2131,19 @@ export default function ClientCrmLeadsPage() {
               <FiFileText size={15} className="text-purple-600 flex-shrink-0" />
               <span>Quick Preview</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const leadToSched = activeActionMenu.lead;
+                setActiveActionMenu(null);
+                openScheduleModal(leadToSched);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-gray-700 hover:text-pink-700 hover:bg-pink-50 rounded-xl transition-colors text-left cursor-pointer"
+            >
+              <FiCalendar size={15} className="text-pink-600 flex-shrink-0" />
+              <span>Schedule Follow-up</span>
+            </button>
           </div>
 
           {/* Direct Communication Actions: Call & WhatsApp & Email */}
@@ -1434,6 +2307,33 @@ export default function ClientCrmLeadsPage() {
                 </div>
               </div>
 
+              {/* Follow-up Schedule Info */}
+              <div className="bg-pink-50/50 p-3.5 rounded-xl border border-pink-100 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-pink-700 uppercase tracking-wider block">Next Follow-up</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <FiCalendar size={13} className="text-pink-600" />
+                    <span className="text-xs font-bold text-gray-900">
+                      {selectedLead.follow_up_date 
+                        ? new Date(selectedLead.follow_up_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+                        : 'Not Scheduled'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const leadToSched = selectedLead;
+                    setSelectedLead(null);
+                    openScheduleModal(leadToSched);
+                  }}
+                  className="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-xs font-bold transition-colors shadow-xs flex items-center gap-1 cursor-pointer"
+                >
+                  <FiCalendar size={12} />
+                  <span>{selectedLead.follow_up_date ? 'Reschedule' : 'Set Follow-up'}</span>
+                </button>
+              </div>
+
               {/* Status Update Box */}
               <div className="border-t border-gray-100 pt-4 space-y-3">
                 <label className="text-xs font-bold text-gray-700 block">Update Lead Status</label>
@@ -1583,6 +2483,28 @@ export default function ClientCrmLeadsPage() {
               </div>
 
               <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">📅 Next Follow-up Date & Time</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="datetime-local"
+                    value={editForm.followUpDate || ''}
+                    onChange={(e) => setEditForm({ ...editForm, followUpDate: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white font-medium"
+                  />
+                  {editForm.followUpDate && (
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, followUpDate: '' })}
+                      className="px-2.5 py-2 text-xs text-gray-500 hover:text-rose-600 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold transition-colors"
+                      title="Clear Follow-up Date"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1">Inquiry Subject</label>
                 <input
                   type="text"
@@ -1907,431 +2829,185 @@ export default function ClientCrmLeadsPage() {
         </div>
       )}
 
-      {/* Edit Lead Modal */}
-      {editingLead && (
+      {/* Schedule / Reschedule Follow-up Modal */}
+      {schedulingLead && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
-              <div className="flex items-center gap-2">
-                <FiEdit3 className="text-pink-600" size={18} />
-                <h3 className="font-bold text-gray-900 text-base">Edit Lead #{editingLead.id}</h3>
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-pink-50/50 via-white to-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold shadow-xs">
+                  <FiCalendar size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base leading-tight">
+                    Schedule Follow-up
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Lead #{schedulingLead.id} • {schedulingLead.full_name || `${schedulingLead.first_name || ''} ${schedulingLead.last_name || ''}`.trim() || 'Inquiry'}
+                  </p>
+                </div>
               </div>
-              <button onClick={() => setEditingLead(null)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setSchedulingLead(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              >
                 <FiX size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} className="p-6 overflow-y-auto space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">First Name</label>
-                  <input
-                    type="text"
-                    value={editForm.firstName}
-                    onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
-                  />
+            {/* Form Content */}
+            <form onSubmit={handleSaveFollowUp} className="p-6 overflow-y-auto space-y-4">
+              {/* Lead Summary Pill */}
+              <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200/80 flex items-center justify-between">
+                <div className="min-w-0 pr-2">
+                  <div className="font-bold text-gray-900 text-xs truncate">
+                    {schedulingLead.full_name || `${schedulingLead.first_name || ''} ${schedulingLead.last_name || ''}`.trim()}
+                  </div>
+                  <div className="text-[11px] text-gray-500 truncate flex items-center gap-2 mt-0.5">
+                    {schedulingLead.phone && <span>📞 {schedulingLead.phone}</span>}
+                    {schedulingLead.email && <span>✉️ {schedulingLead.email}</span>}
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Last Name</label>
-                  <input
-                    type="text"
-                    value={editForm.lastName}
-                    onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
-                  />
-                </div>
+                {schedulingLead.follow_up_date && (
+                  <span className="text-[11px] font-semibold bg-pink-100 text-pink-800 px-2 py-0.5 rounded-full shrink-0">
+                    Current: {new Date(schedulingLead.follow_up_date).toLocaleDateString()}
+                  </span>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Phone</label>
-                  <input
-                    type="text"
-                    value={editForm.phone}
-                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Status</label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white font-semibold"
-                  >
-                    <option value="New">New</option>
-                    <option value="Contacted">Contacted</option>
-                    <option value="Qualified">Qualified</option>
-                    <option value="Converted">Converted</option>
-                    <option value="Lost">Lost</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Priority</label>
-                  <select
-                    value={editForm.priority}
-                    onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white font-semibold"
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Urgent">Urgent</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">Assign To Member</label>
-                  <select
-                    value={editForm.assignedTo}
-                    onChange={(e) => setEditForm({ ...editForm, assignedTo: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white font-semibold"
-                  >
-                    <option value="">— Unassigned —</option>
-                    {members.map(m => (
-                      <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
+              {/* Quick Presets */}
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Inquiry Subject</label>
+                <label className="text-xs font-bold text-gray-700 block mb-1.5">⚡ Quick Time Presets</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset(2)}
+                    className="py-1.5 px-2 bg-gray-50 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-all text-center cursor-pointer"
+                  >
+                    +2 Hours
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset(0, 10, 0)}
+                    className="py-1.5 px-2 bg-gray-50 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-all text-center cursor-pointer"
+                  >
+                    Tomorrow 10 AM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset(0, 16, 0)}
+                    className="py-1.5 px-2 bg-gray-50 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-all text-center cursor-pointer"
+                  >
+                    Tomorrow 4 PM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset(0, 11, 2)}
+                    className="py-1.5 px-2 bg-gray-50 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-all text-center cursor-pointer"
+                  >
+                    In 2 Days (11 AM)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset(0, 10, 7)}
+                    className="py-1.5 px-2 bg-gray-50 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-all text-center cursor-pointer col-span-2 sm:col-span-1"
+                  >
+                    In 1 Week
+                  </button>
+                </div>
+              </div>
+
+              {/* Exact Date & Time Picker */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  📅 Follow-up Date & Time <span className="text-rose-500">*</span>
+                </label>
                 <input
-                  type="text"
-                  value={editForm.subject}
-                  onChange={(e) => setEditForm({ ...editForm, subject: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+                  type="datetime-local"
+                  required
+                  value={scheduleFollowUpDate}
+                  onChange={(e) => setScheduleFollowUpDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
                 />
               </div>
 
+              {/* Status Update Option */}
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">Inquiry Message</label>
+                <label className="text-xs font-bold text-gray-700 block mb-1">Lead Status</label>
+                <select
+                  value={quickFollowUpStatus}
+                  onChange={(e) => setQuickFollowUpStatus(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+                  <option value="New">New</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Converted">Converted</option>
+                  <option value="Lost">Lost</option>
+                </select>
+              </div>
+
+              {/* Follow-up Note */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  📝 Follow-up Goal / Agenda Note <span className="text-gray-400 font-normal">(Optional)</span>
+                </label>
                 <textarea
-                  rows={4}
-                  value={editForm.message}
-                  onChange={(e) => setEditForm({ ...editForm, message: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white resize-none"
+                  rows={3}
+                  placeholder="e.g. Call client back to discuss pricing and send brochure via WhatsApp..."
+                  value={scheduleFollowUpNote}
+                  onChange={(e) => setScheduleFollowUpNote(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white resize-none"
                 />
               </div>
 
-              <div className="pt-3 border-t flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingLead(null)}
-                  className="px-4 py-2 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingEdit}
-                  className="px-5 py-2 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs"
-                >
-                  {savingEdit ? 'Saving...' : 'Save Changes'}
-                </button>
+              {/* Actions */}
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                <div>
+                  {schedulingLead.follow_up_date && (
+                    <button
+                      type="button"
+                      onClick={handleClearFollowUp}
+                      disabled={savingFollowUp}
+                      className="px-3 py-2 text-rose-600 hover:bg-rose-50 border border-rose-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      Clear Schedule
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSchedulingLead(null)}
+                    className="px-4 py-2 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingFollowUp}
+                    className="px-5 py-2 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {savingFollowUp ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FiCheckCircle size={14} />
+                        <span>Save Follow-up</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* CRM Integration & Webhook Setup Modal */}
-      {showConfigModal && (
-        <div className="fixed inset-0 bg-gray-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-gray-100 overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 via-white to-pink-50/30">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold shadow-xs">
-                  <FiSettings size={20} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 leading-tight">CRM Lead Sync & Webhook Configuration</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Capture inquiries from WordPress, Elementor, and ad campaigns directly into DeviceDesk.</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setShowConfigModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
-              >
-                <FiX size={20} />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-6">
-              {/* Tenant Status & Credentials Box */}
-              <div className="bg-gray-50 rounded-2xl p-5 border border-gray-200/80 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Connected CRM Tenant:</span>
-                    <span className="text-sm font-black text-gray-900">
-                      {crmCompany?.name || companyName || 'Not Linked'}
-                    </span>
-                    {crmCompany?.id && (
-                      <span className="text-[11px] font-mono font-semibold bg-gray-200 text-gray-700 px-2 py-0.5 rounded">
-                        ID: #{crmCompany.id}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                      Sync Active
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleGenerateTestLead}
-                      disabled={generatingTestLead || !hasCrm}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
-                    >
-                      {generatingTestLead ? (
-                        <>
-                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Sending...</span>
-                        </>
-                      ) : (
-                        <>
-                          <FiZap size={13} />
-                          <span>Send Test Lead</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* API Key */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                      <FiKey size={14} className="text-pink-600" />
-                      <span>CRM Company API Key</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKeyPlain(!showApiKeyPlain)}
-                      className="text-[11px] font-semibold text-pink-600 hover:text-pink-700"
-                    >
-                      {showApiKeyPlain ? 'Hide' : 'Reveal'}
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type={showApiKeyPlain ? 'text' : 'password'}
-                      readOnly
-                      value={crmCompany?.apiKey || 'No key generated yet'}
-                      className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleCopyText(crmCompany?.apiKey, 'key')}
-                      className="inline-flex items-center gap-1 px-3.5 py-2 bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors shrink-0"
-                    >
-                      {copiedKey ? <FiCheck className="text-emerald-600" size={14} /> : <FiCopy size={14} />}
-                      <span>{copiedKey ? 'Copied!' : 'Copy Key'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Webhook Ingestion URL */}
-                <div>
-                  <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5 mb-1">
-                    <FiLink size={14} className="text-blue-600" />
-                    <span>CRM Lead Ingestion Webhook URL (Official API)</span>
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}`}
-                      className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleCopyText(`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}`, 'webhook')}
-                      className="inline-flex items-center gap-1 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0 shadow-xs"
-                    >
-                      {copiedWebhook ? <FiCheck size={14} /> : <FiCopy size={14} />}
-                      <span>{copiedWebhook ? 'Copied!' : 'Copy URL'}</span>
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-gray-500 mt-1">
-                    Endpoint: <code className="font-mono font-bold text-pink-600">https://demo.socialflymediatech.com/api/leads/create</code> • Method: <span className="font-bold font-mono text-pink-600">POST</span> • Format: <span className="font-bold font-mono text-pink-600">JSON</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Integration Guides by Platform */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                    <FiCode className="text-pink-600" size={16} />
-                    <span>Step-by-Step Integration Guides</span>
-                  </h4>
-                  <span className="text-xs text-gray-400">Choose your form setup</span>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
-                  {[
-                    { id: 'elementor', label: '🎨 Elementor Forms (WordPress)' },
-                    { id: 'cf7', label: '📝 Contact Form 7' },
-                    { id: 'wpforms', label: '📋 WPForms / Gravity' },
-                    { id: 'curl', label: '⚡ cURL / Zapier / Meta' }
-                  ].map(tab => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setActiveGuideTab(tab.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${activeGuideTab === tab.id ? 'bg-pink-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Tab 1: Elementor */}
-                {activeGuideTab === 'elementor' && (
-                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-700 space-y-2.5">
-                    <p className="font-bold text-gray-900">How to connect an Elementor Pro Form in 3 easy steps:</p>
-                    <ol className="list-decimal list-inside space-y-1.5 pl-1 leading-relaxed">
-                      <li>Open your WordPress page in the <strong>Elementor Editor</strong> and select your Contact Form.</li>
-                      <li>In the left panel under <strong>Actions After Submit</strong>, add <strong>Webhook</strong>.</li>
-                      <li>
-                        Under the new <strong>Webhook</strong> section that appears, paste your Webhook URL:
-                        <code className="block my-1.5 p-2 bg-gray-900 text-pink-400 font-mono rounded-lg break-all select-all">
-                          {`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}`}
-                        </code>
-                      </li>
-                      <li>Make sure your form field names or Shortcode IDs are named: <code className="font-mono bg-gray-200 px-1 rounded">name</code>, <code className="font-mono bg-gray-200 px-1 rounded">email</code>, <code className="font-mono bg-gray-200 px-1 rounded">phone</code>, and <code className="font-mono bg-gray-200 px-1 rounded">message</code>.</li>
-                      <li>Click <strong>Update / Publish</strong>. Your form submissions will now instantly appear in your CRM Leads portal!</li>
-                    </ol>
-                  </div>
-                )}
-
-                {/* Tab 2: Contact Form 7 */}
-                {activeGuideTab === 'cf7' && (
-                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-700 space-y-2.5">
-                    <p className="font-bold text-gray-900">Paste this code snippet at the bottom of your theme's <code className="font-mono bg-gray-200 px-1.5 py-0.5 rounded">functions.php</code> file:</p>
-                    <pre className="p-3 bg-gray-900 text-emerald-400 font-mono rounded-xl text-[11px] overflow-x-auto leading-relaxed select-all">
-{`add_action('wpcf7_mail_sent', function($contact_form) {
-    $submission = WPCF7_Submission::get_instance();
-    if (!$submission) return;
-    $data = $submission->get_posted_data();
-
-    $payload = [
-        'name'    => sanitize_text_field($data['your-name'] ?? ''),
-        'email'   => sanitize_email($data['your-email'] ?? ''),
-        'phone'   => sanitize_text_field($data['your-phone'] ?? ''),
-        'subject' => sanitize_text_field($data['your-subject'] ?? 'Website Inquiry'),
-        'message' => sanitize_textarea_field($data['your-message'] ?? ''),
-        'source'  => 'Contact Form 7'
-    ];
-
-    wp_remote_post('https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}', [
-        'headers' => ['Content-Type' => 'application/json'],
-        'body'    => json_encode($payload),
-        'timeout' => 15
-    ]);
-});`}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Tab 3: WPForms / Gravity */}
-                {activeGuideTab === 'wpforms' && (
-                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-700 space-y-2.5">
-                    <p className="font-bold text-gray-900">Configuring WPForms or Gravity Forms Webhook Add-on:</p>
-                    <ol className="list-decimal list-inside space-y-1.5 pl-1 leading-relaxed">
-                      <li>Ensure the <strong>Webhooks Add-on</strong> is active in your WordPress form plugin.</li>
-                      <li>Navigate to <strong>Form Settings &gt; Webhooks &gt; Add New</strong>.</li>
-                      <li>Set <strong>Request URL</strong> to your Webhook URL:
-                        <code className="block my-1.5 p-2 bg-gray-900 text-pink-400 font-mono rounded-lg break-all select-all">
-                          {`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}`}
-                        </code>
-                      </li>
-                      <li>Set <strong>Request Method</strong> to <strong>POST</strong> and <strong>Request Format</strong> to <strong>JSON</strong>.</li>
-                      <li>Map your form fields to: <code className="font-mono bg-gray-200 px-1 rounded">name</code>, <code className="font-mono bg-gray-200 px-1 rounded">email</code>, <code className="font-mono bg-gray-200 px-1 rounded">phone</code>, <code className="font-mono bg-gray-200 px-1 rounded">subject</code>, and <code className="font-mono bg-gray-200 px-1 rounded">message</code>.</li>
-                    </ol>
-                  </div>
-                )}
-
-                {/* Tab 4: cURL / Zapier / Meta */}
-                {activeGuideTab === 'curl' && (
-                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-700 space-y-2.5">
-                    <p className="font-bold text-gray-900">Direct HTTP Request Specification:</p>
-                    <pre className="p-3 bg-gray-900 text-pink-300 font-mono rounded-xl text-[11px] overflow-x-auto leading-relaxed select-all">
-{`curl -X POST "https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "name": "Alex Johnson",
-    "email": "alex.johnson@example.com",
-    "phone": "+91 9876543210",
-    "subject": "Quote Request",
-    "message": "Interested in digital marketing packages.",
-    "source": "Google Ads Landing Page"
-  }'`}
-                    </pre>
-                  </div>
-                )}
-              </div>
-
-              {/* Change / Reconnect API Key */}
-              <div className="pt-4 border-t border-gray-200">
-                <details className="group">
-                  <summary className="cursor-pointer text-xs font-bold text-pink-600 hover:text-pink-700 flex items-center justify-between list-none">
-                    <span className="flex items-center gap-1.5">
-                      <FiKey size={14} /> Connect a Different CRM SaaS Company API Key
-                    </span>
-                    <span className="text-[11px] font-normal text-gray-400 group-open:rotate-180 transition-transform">▼</span>
-                  </summary>
-                  <form onSubmit={handleSaveApiKey} className="mt-3 flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      placeholder="Enter new CRM API Key..."
-                      value={apiKeyInput}
-                      onChange={(e) => setApiKeyInput(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
-                    />
-                    <button
-                      type="submit"
-                      disabled={savingConfig || !apiKeyInput.trim()}
-                      className="px-4 py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors shrink-0 shadow-xs"
-                    >
-                      {savingConfig ? 'Updating...' : 'Save & Link'}
-                    </button>
-                  </form>
-                </details>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowConfigModal(false)}
-                className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
-              >
-                Close Settings
-              </button>
-            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
-

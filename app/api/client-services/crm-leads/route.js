@@ -116,7 +116,7 @@ export async function GET(request) {
     const startDate = searchParams.get('startDate') || searchParams.get('from');
     const endDate = searchParams.get('endDate') || searchParams.get('to');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '50', 10)));
+    const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') || '50', 10)));
 
     if (!clientId) {
       return NextResponse.json({ success: false, error: 'clientId is required' }, { status: 400 });
@@ -663,6 +663,7 @@ export async function PUT(request) {
       if (remotePayload.subject !== undefined) { updates.push('subject = ?'); params.push(remotePayload.subject); }
       if (remotePayload.priority !== undefined) { updates.push('priority = ?'); params.push(remotePayload.priority); }
       if (remotePayload.lead_score !== undefined) { updates.push('lead_score = ?'); params.push(remotePayload.lead_score); }
+      if (remotePayload.follow_up_date !== undefined) { updates.push('follow_up_date = ?'); params.push(remotePayload.follow_up_date); }
 
       if (updates.length > 0) {
         updates.push('updated_at = NOW()');

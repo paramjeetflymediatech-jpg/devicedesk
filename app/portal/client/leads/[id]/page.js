@@ -47,8 +47,16 @@ export default function ViewLeadDetailPage({ params }) {
     status: 'New',
     priority: 'Medium',
     leadScore: 50,
-    assignedTo: ''
+    assignedTo: '',
+    followUpDate: ''
   });
+
+  // Follow-up Schedule States
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleFollowUpDate, setScheduleFollowUpDate] = useState('');
+  const [scheduleFollowUpNote, setScheduleFollowUpNote] = useState('');
+  const [quickFollowUpStatus, setQuickFollowUpStatus] = useState('Contacted');
+  const [savingFollowUp, setSavingFollowUp] = useState(false);
 
   // Quick Assign Dropdown / State
   const [showAssignDropdown, setShowAssignDropdown] = useState(false);
@@ -102,6 +110,15 @@ export default function ViewLeadDetailPage({ params }) {
         if (data.company) setCompany(data.company);
 
         // Pre-fill edit form
+        let initialFollowUpIso = '';
+        if (data.lead.follow_up_date) {
+          try {
+            const d = new Date(data.lead.follow_up_date);
+            const pad = n => String(n).padStart(2, '0');
+            initialFollowUpIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          } catch (e) {}
+        }
+
         setEditForm({
           firstName: data.lead.first_name || '',
           lastName: data.lead.last_name || '',
@@ -112,7 +129,8 @@ export default function ViewLeadDetailPage({ params }) {
           status: data.lead.status || 'New',
           priority: data.lead.priority || 'Medium',
           leadScore: data.lead.lead_score || 50,
-          assignedTo: data.lead.assigned_to ? String(data.lead.assigned_to) : ''
+          assignedTo: data.lead.assigned_to ? String(data.lead.assigned_to) : '',
+          followUpDate: initialFollowUpIso
         });
       } else {
         Swal.fire({
@@ -242,7 +260,8 @@ export default function ViewLeadDetailPage({ params }) {
           status: editForm.status,
           priority: editForm.priority,
           lead_score: Number(editForm.leadScore) || 0,
-          assigned_to: editForm.assignedTo ? Number(editForm.assignedTo) : null
+          assigned_to: editForm.assignedTo ? Number(editForm.assignedTo) : null,
+          follow_up_date: editForm.followUpDate ? editForm.followUpDate.replace('T', ' ') : null
         })
       });
       const data = await res.json();
@@ -264,6 +283,176 @@ export default function ViewLeadDetailPage({ params }) {
     } finally {
       setSavingEdit(false);
     }
+  };
+
+  const getFollowUpInfo = (followUpDate, status) => {
+    if (!followUpDate) return null;
+    const isCompleted = ['converted', 'lost'].includes((status || '').toLowerCase());
+    if (isCompleted) {
+      return {
+        type: 'completed',
+        label: 'Resolved',
+        sub: new Date(followUpDate).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        color: 'bg-gray-100 text-gray-500 border-gray-200'
+      };
+    }
+    const d = new Date(followUpDate);
+    if (isNaN(d.getTime())) return null;
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (isToday) {
+      return {
+        type: 'today',
+        label: `Today at ${timeStr}`,
+        sub: 'Action Required Today',
+        date: d,
+        color: 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-200'
+      };
+    } else if (d.getTime() < now.getTime()) {
+      const diffDays = Math.max(1, Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)));
+      return {
+        type: 'overdue',
+        label: `Overdue (${diffDays}d ago)`,
+        sub: d.toLocaleDateString([], { month: 'short', day: 'numeric' }),
+        date: d,
+        color: 'bg-rose-50 text-rose-800 border-rose-300 ring-1 ring-rose-200'
+      };
+    } else {
+      return {
+        type: 'upcoming',
+        label: `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${timeStr}`,
+        sub: 'Scheduled',
+        date: d,
+        color: 'bg-blue-50 text-blue-800 border-blue-200'
+      };
+    }
+  };
+
+  const openScheduleModal = () => {
+    setQuickFollowUpStatus(lead?.status || 'Contacted');
+    setScheduleFollowUpNote('');
+    if (lead?.follow_up_date) {
+      try {
+        const d = new Date(lead.follow_up_date);
+        const pad = n => String(n).padStart(2, '0');
+        setScheduleFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+      } catch (e) {
+        setScheduleFollowUpDate('');
+      }
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      d.setHours(10, 0, 0, 0);
+      const pad = n => String(n).padStart(2, '0');
+      setScheduleFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00`);
+    }
+    setShowScheduleModal(true);
+  };
+
+  const handleSaveFollowUp = async (e) => {
+    e.preventDefault();
+    if (!lead) return;
+    const clientId = getClientId();
+    if (!clientId) return;
+
+    if (!scheduleFollowUpDate) {
+      Swal.fire('Date Required', 'Please choose a follow-up date and time.', 'warning');
+      return;
+    }
+
+    try {
+      setSavingFollowUp(true);
+      const formattedDate = scheduleFollowUpDate.replace('T', ' ');
+
+      const res = await fetch('/api/client-services/crm-leads', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          leadId: lead.id,
+          follow_up_date: formattedDate,
+          status: quickFollowUpStatus || lead.status,
+          note: scheduleFollowUpNote.trim() 
+            ? `[Follow-up Set for ${new Date(scheduleFollowUpDate).toLocaleString()}]: ${scheduleFollowUpNote.trim()}`
+            : `Follow-up scheduled for ${new Date(scheduleFollowUpDate).toLocaleString()}`
+        })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: '📅 Follow-up Scheduled!',
+          text: `Scheduled for ${new Date(scheduleFollowUpDate).toLocaleString()}`,
+          showConfirmButton: false,
+          timer: 2500
+        });
+        setShowScheduleModal(false);
+        fetchLeadDetails(true);
+      } else {
+        throw new Error(data.error || 'Failed to save follow-up date');
+      }
+    } catch (err) {
+      Swal.fire('Error', err.message || 'Failed to schedule follow-up', 'error');
+    } finally {
+      setSavingFollowUp(false);
+    }
+  };
+
+  const handleClearFollowUp = async () => {
+    if (!lead) return;
+    const clientId = getClientId();
+    if (!clientId) return;
+
+    try {
+      setSavingFollowUp(true);
+      const res = await fetch('/api/client-services/crm-leads', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          leadId: lead.id,
+          follow_up_date: null,
+          note: 'Follow-up schedule cleared.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'Follow-up Cleared',
+          showConfirmButton: false,
+          timer: 2000
+        });
+        setShowScheduleModal(false);
+        fetchLeadDetails(true);
+      }
+    } catch (e) {
+      Swal.fire('Error', 'Failed to clear follow-up', 'error');
+    } finally {
+      setSavingFollowUp(false);
+    }
+  };
+
+  const handleQuickPreset = (hoursAhead, targetHour = null, daysAhead = 0) => {
+    const d = new Date();
+    if (daysAhead > 0) {
+      d.setDate(d.getDate() + daysAhead);
+      d.setHours(targetHour !== null ? targetHour : 10, 0, 0, 0);
+    } else if (targetHour !== null) {
+      d.setDate(d.getDate() + 1);
+      d.setHours(targetHour, 0, 0, 0);
+    } else {
+      d.setTime(d.getTime() + hoursAhead * 60 * 60 * 1000);
+    }
+    const pad = n => String(n).padStart(2, '0');
+    setScheduleFollowUpDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
   };
 
   // Handle Add Internal Note
@@ -688,6 +877,104 @@ export default function ViewLeadDetailPage({ params }) {
                 </div>
               </div>
 
+              {/* Follow-up Schedule Card */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <FiCalendar className="text-pink-600" size={15} />
+                    <span>Follow-up Schedule</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={openScheduleModal}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs font-bold rounded-lg border border-pink-200 transition-colors cursor-pointer"
+                  >
+                    <FiCalendar size={12} />
+                    <span>{lead.follow_up_date ? 'Reschedule' : '+ Schedule'}</span>
+                  </button>
+                </div>
+
+                {(() => {
+                  const fInfo = getFollowUpInfo(lead.follow_up_date, lead.status);
+                  if (!fInfo) {
+                    return (
+                      <div className="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-center space-y-2">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-500 mx-auto flex items-center justify-center">
+                          <FiClock size={16} />
+                        </div>
+                        <p className="text-xs font-semibold text-gray-600">No follow-up scheduled yet</p>
+                        <p className="text-[11px] text-gray-400">Plan a reminder to call or message this lead.</p>
+                        <button
+                          type="button"
+                          onClick={openScheduleModal}
+                          className="mt-1 px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <FiCalendar size={13} />
+                          <span>Schedule Now</span>
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-3">
+                      <div className={`p-3.5 rounded-xl border flex items-center justify-between ${fInfo.color}`}>
+                        <div className="flex items-center gap-2.5">
+                          {fInfo.type === 'today' ? (
+                            <FiClock size={18} className="animate-spin text-emerald-600 flex-shrink-0" />
+                          ) : fInfo.type === 'overdue' ? (
+                            <FiAlertCircle size={18} className="text-rose-600 flex-shrink-0" />
+                          ) : (
+                            <FiCalendar size={18} className="text-blue-600 flex-shrink-0" />
+                          )}
+                          <div>
+                            <span className="text-xs font-black block leading-tight">{fInfo.label}</span>
+                            <span className="text-[10px] font-semibold opacity-80 block mt-0.5">{fInfo.sub}</span>
+                          </div>
+                        </div>
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/80 border border-current">
+                          {fInfo.type}
+                        </span>
+                      </div>
+
+                      {/* Quick Presets for fast rescheduling */}
+                      <div className="grid grid-cols-3 gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleQuickPreset(2);
+                            setTimeout(() => setShowScheduleModal(true), 50);
+                          }}
+                          className="py-1 px-2 text-[10px] font-semibold bg-gray-50 hover:bg-pink-50 hover:text-pink-700 rounded-lg border border-gray-200 transition-colors text-center cursor-pointer"
+                        >
+                          +2 Hours
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleQuickPreset(0, 10, 0);
+                            setTimeout(() => setShowScheduleModal(true), 50);
+                          }}
+                          className="py-1 px-2 text-[10px] font-semibold bg-gray-50 hover:bg-pink-50 hover:text-pink-700 rounded-lg border border-gray-200 transition-colors text-center cursor-pointer"
+                        >
+                          Tmrw 10 AM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleQuickPreset(0, 11, 2);
+                            setTimeout(() => setShowScheduleModal(true), 50);
+                          }}
+                          className="py-1 px-2 text-[10px] font-semibold bg-gray-50 hover:bg-pink-50 hover:text-pink-700 rounded-lg border border-gray-200 transition-colors text-center cursor-pointer"
+                        >
+                          In 2 Days
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
               {/* Assigned Member Card */}
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
@@ -940,6 +1227,28 @@ export default function ViewLeadDetailPage({ params }) {
               </div>
 
               <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">📅 Next Follow-up Date & Time</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="datetime-local"
+                    value={editForm.followUpDate || ''}
+                    onChange={(e) => setEditForm({ ...editForm, followUpDate: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white font-medium"
+                  />
+                  {editForm.followUpDate && (
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, followUpDate: '' })}
+                      className="px-2.5 py-2 text-xs text-gray-500 hover:text-rose-600 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold transition-colors"
+                      title="Clear Follow-up Date"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1">Inquiry Subject</label>
                 <input
                   type="text"
@@ -974,6 +1283,167 @@ export default function ViewLeadDetailPage({ params }) {
                 >
                   {savingEdit ? 'Saving...' : 'Save Changes'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Schedule / Reschedule Follow-up Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-pink-50/50 via-white to-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold shadow-xs">
+                  <FiCalendar size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base leading-tight">
+                    Schedule Follow-up
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Lead #{lead?.id} • {fullName || 'Inquiry'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowScheduleModal(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <form onSubmit={handleSaveFollowUp} className="p-6 overflow-y-auto space-y-4">
+              {/* Quick Presets */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1.5">⚡ Quick Time Presets</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset(2)}
+                    className="py-1.5 px-2 bg-gray-50 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-all text-center cursor-pointer"
+                  >
+                    +2 Hours
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset(0, 10, 0)}
+                    className="py-1.5 px-2 bg-gray-50 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-all text-center cursor-pointer"
+                  >
+                    Tomorrow 10 AM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset(0, 16, 0)}
+                    className="py-1.5 px-2 bg-gray-50 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-all text-center cursor-pointer"
+                  >
+                    Tomorrow 4 PM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset(0, 11, 2)}
+                    className="py-1.5 px-2 bg-gray-50 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-all text-center cursor-pointer"
+                  >
+                    In 2 Days (11 AM)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset(0, 10, 7)}
+                    className="py-1.5 px-2 bg-gray-50 hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-all text-center cursor-pointer col-span-2 sm:col-span-1"
+                  >
+                    In 1 Week
+                  </button>
+                </div>
+              </div>
+
+              {/* Exact Date & Time Picker */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  📅 Follow-up Date & Time <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={scheduleFollowUpDate}
+                  onChange={(e) => setScheduleFollowUpDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white"
+                />
+              </div>
+
+              {/* Status Update Option */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">Lead Status</label>
+                <select
+                  value={quickFollowUpStatus}
+                  onChange={(e) => setQuickFollowUpStatus(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+                  <option value="New">New</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Converted">Converted</option>
+                  <option value="Lost">Lost</option>
+                </select>
+              </div>
+
+              {/* Follow-up Note */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">
+                  📝 Follow-up Goal / Agenda Note <span className="text-gray-400 font-normal">(Optional)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="e.g. Call client back to discuss pricing and send brochure via WhatsApp..."
+                  value={scheduleFollowUpNote}
+                  onChange={(e) => setScheduleFollowUpNote(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                <div>
+                  {lead?.follow_up_date && (
+                    <button
+                      type="button"
+                      onClick={handleClearFollowUp}
+                      disabled={savingFollowUp}
+                      className="px-3 py-2 text-rose-600 hover:bg-rose-50 border border-rose-200 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      Clear Schedule
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowScheduleModal(false)}
+                    className="px-4 py-2 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingFollowUp}
+                    className="px-5 py-2 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {savingFollowUp ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FiCheckCircle size={14} />
+                        <span>Save Follow-up</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

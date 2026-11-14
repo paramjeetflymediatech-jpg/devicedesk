@@ -113,6 +113,17 @@ export default function ClientDashboard({ user, onLogout }) {
   const [showSmoModal, setShowSmoModal] = useState(false);
   const [smoRequirements, setSmoRequirements] = useState('');
   const [smoPlatforms, setSmoPlatforms] = useState(['facebook', 'instagram']);
+  const [smoBannerUrl, setSmoBannerUrl] = useState('');
+  const [smoBannerFile, setSmoBannerFile] = useState(null);
+  const [smoImageMode, setSmoImageMode] = useState('gallery'); // 'gallery' | 'url'
+  const [smoCaption, setSmoCaption] = useState('');
+  const [smoHashtags, setSmoHashtags] = useState('#Flymedia #DigitalMarketing #Trending');
+  const [smoActionType, setSmoActionType] = useState('approval'); // 'approval' | 'schedule' | 'publish'
+  const [smoScheduledDateTime, setSmoScheduledDateTime] = useState('');
+  const [smoModalActiveTab, setSmoModalActiveTab] = useState('compose'); // 'compose' | 'preview'
+  const [smoModalPreviewPlatform, setSmoModalPreviewPlatform] = useState('facebook'); // 'facebook' | 'instagram'
+  const [uploadingSmoBanner, setUploadingSmoBanner] = useState(false);
+  const [generatingSmoAi, setGeneratingSmoAi] = useState(false);
   const [submittingSmo, setSubmittingSmo] = useState(false);
 
   // SMO Advanced States (Review, Revision, Schedule, Publish, Credentials, Mockup)
@@ -220,6 +231,7 @@ export default function ClientDashboard({ user, onLogout }) {
         invsRes,
         notesRes,
         detailsRes,
+        crmRes,
       ] = await Promise.all([
         fetchClientPackagesApi(clientId).catch(() => ({ data: [] })),
         fetchPackagesApi(clientId).catch(() => ({ packages: [] })),
@@ -498,32 +510,211 @@ export default function ClientDashboard({ user, onLogout }) {
     }
   };
 
-  // 2. Submit SMO Graphic Request
-  const handleCreateSmoRequest = async () => {
-    if (!smoRequirements.trim()) {
-      sweetAlert({ title: 'Missing Details', text: 'Please describe the graphic/post required.', type: 'warning' });
-      return;
-    }
-    setSubmittingSmo(true);
+  // Pick Banner Image for SMO Post
+  const handlePickSmoBanner = async () => {
     try {
-      const res = await createClientSmoRequestApi({
-        clientId: clientId,
-        client_id: clientId,
-        requirements: smoRequirements.trim(),
-        platforms: smoPlatforms,
+      const res = await pickFilesOrPhotos({
+        allowMultiSelection: false,
+        includeCamera: true,
       });
-      if (res && res.success) {
-        sweetAlert({ title: 'Creative Request Sent! 🎨', text: 'Our design team has received your creative request.', type: 'success' });
-        setShowSmoModal(false);
-        setSmoRequirements('');
-        fetchClientSmoGraphicsApi(clientId).then(r => r.success && setSmoRequests(r.data || []));
-      } else {
-        throw new Error(res?.error || 'Failed to submit SMO request');
+      if (res && res.length > 0) {
+        const file = res[0];
+        setSmoBannerFile(file);
+        setSmoBannerUrl(file.uri || '');
       }
     } catch (err) {
-      sweetAlert({ title: 'Error', text: err.message || 'Could not submit request.', type: 'error' });
+      console.warn('Banner pick error:', err);
+    }
+  };
+
+  // Quick Preset Helper for SMO Scheduling
+  const setQuickSmoSchedule = (hoursAhead, targetHour = null) => {
+    const d = new Date();
+    if (targetHour !== null) {
+      d.setDate(d.getDate() + 1);
+      d.setHours(targetHour, 0, 0, 0);
+    } else {
+      d.setTime(d.getTime() + hoursAhead * 60 * 60 * 1000);
+    }
+    const pad = (n) => String(n).padStart(2, '0');
+    const isoVal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    setSmoScheduledDateTime(isoVal);
+  };
+
+  // Generate AI Caption & Hashtags for SMO Post
+  const handleGenerateSmoModalAiCaption = async () => {
+    const promptText = (smoRequirements || '').trim() || (smoCaption || '').trim();
+    if (!promptText) {
+      sweetAlert({
+        title: 'Topic Required',
+        text: 'Please enter a Post Title or Campaign Topic to generate relevant AI copy.',
+        type: 'info',
+      });
+      return;
+    }
+
+    setGeneratingSmoAi(true);
+    try {
+      const res = await generateAiCaptionApi({
+        requirement: promptText,
+        brandName: clientDetails?.company_name || user?.name || 'Flymedia',
+        bannerUrl: smoBannerUrl || undefined,
+      });
+
+      if (res && res.success && res.caption) {
+        setSmoCaption(res.caption);
+        if (res.hashtags) setSmoHashtags(res.hashtags);
+        sweetAlert({
+          title: '✨ AI Copy Generated!',
+          text: 'AI caption and hashtags have been added to your post.',
+          type: 'success',
+        });
+      } else {
+        throw new Error(res?.error || 'Failed to generate AI copy.');
+      }
+    } catch (err) {
+      sweetAlert({
+        title: 'AI Generation Failed',
+        text: err.message || 'Could not generate AI copy. Please try again.',
+        type: 'error',
+      });
+    } finally {
+      setGeneratingSmoAi(false);
+    }
+  };
+
+  // 2. Submit SMO Graphic Request
+  const handleCreateSmoRequest = async () => {
+    if (!smoRequirements.trim() && !smoCaption.trim() && !smoBannerUrl) {
+      sweetAlert({
+        title: 'Incomplete Post',
+        text: 'Please provide at least a post topic, banner graphic, or caption.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    if (smoActionType === 'schedule') {
+      if (!smoScheduledDateTime) {
+        sweetAlert({
+          title: 'Schedule Time Required',
+          text: 'Please specify the date and time to schedule this post.',
+          type: 'warning',
+        });
+        return;
+      }
+      const chosenTime = new Date(smoScheduledDateTime.replace(' ', 'T')).getTime();
+      if (chosenTime <= Date.now()) {
+        sweetAlert({
+          title: 'Invalid Time',
+          text: 'Scheduled time must be in the future.',
+          type: 'warning',
+        });
+        return;
+      }
+    }
+
+    if (smoActionType === 'publish' && !smoBannerUrl) {
+      sweetAlert({
+        title: 'Banner Graphic Required',
+        text: 'Meta requires an image to publish a post. Please attach or upload an image first, or choose "Ready for Approval".',
+        type: 'warning',
+      });
+      return;
+    }
+
+    setSubmittingSmo(true);
+    try {
+      let finalBannerUrl = smoBannerUrl;
+
+      // If user selected a local file from device that needs uploading
+      if (smoBannerFile && (!smoBannerUrl || !smoBannerUrl.startsWith('http'))) {
+        setUploadingSmoBanner(true);
+        const formData = new FormData();
+        const fileUri = smoBannerFile.uri || '';
+        formData.append('files', {
+          uri: Platform.OS === 'android' ? fileUri : fileUri.replace('file://', ''),
+          type: smoBannerFile.type || 'image/jpeg',
+          name: smoBannerFile.name || `smo_${Date.now()}.jpg`,
+        });
+        formData.append('folder', 'smo-banners');
+
+        const uploadRes = await fetch(`${getApiUrl()}/api/upload`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json',
+            'x-user-id': String(clientId || user?.id || ''),
+          },
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadRes.ok && uploadData.success && uploadData.fileUrls?.[0]) {
+          finalBannerUrl = uploadData.fileUrls[0];
+          setSmoBannerUrl(finalBannerUrl);
+        } else {
+          throw new Error(uploadData?.error || 'Failed to upload banner image.');
+        }
+      }
+
+      const payload = {
+        clientId: clientId,
+        client_id: clientId,
+        requirements: smoRequirements.trim() || smoCaption.slice(0, 100) || 'SMO Social Post',
+        banner_url: finalBannerUrl || null,
+        caption: smoCaption.trim(),
+        hashtags: smoHashtags.trim(),
+        platforms: smoPlatforms,
+        status: smoActionType === 'schedule' ? 'Scheduled' : smoActionType === 'publish' ? 'Published' : 'Ready for Approval',
+        scheduled_at: smoActionType === 'schedule' ? smoScheduledDateTime : null,
+        publishNow: smoActionType === 'publish',
+        simulate: false,
+        creator_id: clientId,
+        creator_name: user?.name || 'Client',
+        creator_role: 'client',
+      };
+
+      const res = await createClientSmoRequestApi(payload);
+      if (res && res.success) {
+        if (smoActionType === 'publish') {
+          sweetAlert({
+            title: '🎉 SMO Post Published Live!',
+            text: 'Your post was successfully submitted and published to your social feeds!',
+            type: 'success',
+          });
+        } else if (smoActionType === 'schedule') {
+          sweetAlert({
+            title: '🎉 SMO Post Scheduled!',
+            text: `Post scheduled for ${new Date(smoScheduledDateTime.replace(' ', 'T')).toLocaleString()}!`,
+            type: 'success',
+          });
+        } else {
+          sweetAlert({
+            title: '🎉 SMO Post Created!',
+            text: 'Your social post request has been created and sent to our team!',
+            type: 'success',
+          });
+        }
+
+        // Reset fields
+        setSmoRequirements('');
+        setSmoBannerUrl('');
+        setSmoBannerFile(null);
+        setSmoCaption('');
+        setSmoHashtags('#Flymedia #DigitalMarketing #Trending');
+        setSmoActionType('approval');
+        setSmoScheduledDateTime('');
+        setSmoModalActiveTab('compose');
+        setShowSmoModal(false);
+
+        fetchClientSmoGraphicsApi(clientId).then(r => r.success && setSmoRequests(r.data || []));
+      } else {
+        throw new Error(res?.error || 'Failed to create SMO post.');
+      }
+    } catch (err) {
+      sweetAlert({ title: 'Error', text: err.message || 'Could not create SMO post.', type: 'error' });
     } finally {
       setSubmittingSmo(false);
+      setUploadingSmoBanner(false);
     }
   };
 
@@ -1229,6 +1420,43 @@ export default function ClientDashboard({ user, onLogout }) {
     }
   };
 
+  const handleScheduleLeadFollowUp = async (leadId, followUpDate, note) => {
+    try {
+      setUpdatingLeadStatus(true);
+      const res = await updateClientCrmLeadApi({
+        clientId,
+        leadId,
+        follow_up_date: followUpDate || null,
+        note: note || (followUpDate ? `Follow-up scheduled for ${new Date(followUpDate).toLocaleString()}` : 'Follow-up schedule cleared.')
+      });
+      if (res && res.success) {
+        sweetAlert({
+          title: followUpDate ? 'Follow-up Scheduled! 📅' : 'Follow-up Cleared',
+          text: followUpDate ? `Scheduled for ${new Date(followUpDate).toLocaleString()}` : 'Follow-up reminder removed.',
+          type: 'success'
+        });
+        if (selectedCrmLead && selectedCrmLead.id === leadId) {
+          setSelectedCrmLead(prev => ({ ...prev, follow_up_date: followUpDate || null }));
+        }
+        fetchCrmLeads(crmStatusFilter, crmSearchQuery);
+      } else {
+        sweetAlert({
+          title: 'Error',
+          text: res?.error || 'Failed to update follow-up schedule',
+          type: 'error'
+        });
+      }
+    } catch (err) {
+      sweetAlert({
+        title: 'Error',
+        text: 'An error occurred while updating follow-up schedule',
+        type: 'error'
+      });
+    } finally {
+      setUpdatingLeadStatus(false);
+    }
+  };
+
   const handleCallLead = (phone) => {
     if (!phone) {
       sweetAlert({ title: 'Notice', text: 'No phone number available for this lead', type: 'info' });
@@ -1607,9 +1835,16 @@ export default function ClientDashboard({ user, onLogout }) {
                             <Text style={styles.itemDesc} numberOfLines={2}>{lead.message}</Text>
                           ) : null}
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                            <Text style={styles.itemFooterDate}>
-                              📅 {new Date(lead.created_at || Date.now()).toLocaleDateString()}
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={styles.itemFooterDate}>
+                                📅 {new Date(lead.created_at || Date.now()).toLocaleDateString()}
+                              </Text>
+                              {lead.follow_up_date ? (
+                                <Text style={[styles.itemFooterDate, { color: '#db2777', fontWeight: '700' }]}>
+                                  ⏰ {new Date(lead.follow_up_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                </Text>
+                              ) : null}
+                            </View>
                             <View style={{ flexDirection: 'row', gap: 8 }}>
                               {lead.phone ? (
                                 <TouchableOpacity
@@ -1821,6 +2056,13 @@ export default function ClientDashboard({ user, onLogout }) {
                           {lead.lead_score ? (
                             <View style={styles.metaChip}>
                               <Text style={styles.metaChipText}>🎯 Score: {lead.lead_score}</Text>
+                            </View>
+                          ) : null}
+                          {lead.follow_up_date ? (
+                            <View style={[styles.metaChip, { backgroundColor: '#fdf2f8', borderColor: '#fbcfe8' }]}>
+                              <Text style={[styles.metaChipText, { color: '#db2777', fontWeight: '700' }]}>
+                                ⏰ Follow-up: {new Date(lead.follow_up_date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                              </Text>
                             </View>
                           ) : null}
                           {lead.assigned_user_name ? (
@@ -2335,7 +2577,7 @@ export default function ClientDashboard({ user, onLogout }) {
                       onPress={() => setShowSmoModal(true)}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.smallActionBtnText}>+ Request</Text>
+                      <Text style={styles.smallActionBtnText}>+ Create Post</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -3575,81 +3817,543 @@ export default function ClientDashboard({ user, onLogout }) {
         visible={showSmoModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowSmoModal(false)}
+        onRequestClose={() => !submittingSmo && setShowSmoModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { maxHeight: '94%', padding: 14 }]}>
+            {/* Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>🎨 Request Social Media Creative</Text>
-              <TouchableOpacity onPress={() => setShowSmoModal(false)}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={styles.modalTitle}>🎨 Create SMO Social Post</Text>
+                <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
+                  Design request, AI caption, scheduling & Meta auto-publish
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => !submittingSmo && setShowSmoModal(false)} disabled={submittingSmo}>
                 <AppIcon name="x" size={18} color={themeColors.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>Creative Requirements & Text Copy *</Text>
-            <TextInput
-              style={[styles.input, styles.modalTextArea]}
-              placeholder="e.g. Festival post, 20% discount offer banner, new product launch..."
-              placeholderTextColor={themeColors.textSecondary}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              value={smoRequirements}
-              onChangeText={setSmoRequirements}
-            />
+            {/* Tabs: Compose vs Live Mockup */}
+            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', padding: 4, borderRadius: 10 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  backgroundColor: smoModalActiveTab === 'compose' ? (isDark ? '#3b82f6' : '#2563eb') : 'transparent',
+                  alignItems: 'center'
+                }}
+                onPress={() => setSmoModalActiveTab('compose')}
+              >
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '800',
+                  color: smoModalActiveTab === 'compose' ? '#ffffff' : themeColors.textSecondary
+                }}>
+                  ✏️ Compose Post
+                </Text>
+              </TouchableOpacity>
 
-            {/* Target Platforms Selection */}
-            <Text style={[styles.inputLabel, { marginTop: 10 }]}>Target Social Platforms:</Text>
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              {[
-                { id: 'facebook', label: '📘 Facebook' },
-                { id: 'instagram', label: '📸 Instagram' },
-                { id: 'linkedin', label: '💼 LinkedIn' },
-                { id: 'twitter', label: '🐦 Twitter/X' }
-              ].map((plat) => {
-                const isSelected = smoPlatforms.includes(plat.id);
-                return (
-                  <TouchableOpacity
-                    key={plat.id}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      borderRadius: 8,
-                      backgroundColor: isSelected ? (isDark ? '#1e3a8a' : '#dbeafe') : (isDark ? '#1e293b' : '#f1f5f9'),
-                      borderWidth: 1,
-                      borderColor: isSelected ? '#3b82f6' : themeColors.border
-                    }}
-                    onPress={() => handleToggleSmoPlatform(plat.id)}
-                  >
-                    <Text style={{
-                      fontSize: 11,
-                      fontWeight: isSelected ? '800' : '600',
-                      color: isSelected ? '#2563eb' : themeColors.textSecondary
-                    }}>
-                      {plat.label} {isSelected ? '✓' : ''}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  backgroundColor: smoModalActiveTab === 'preview' ? (isDark ? '#3b82f6' : '#2563eb') : 'transparent',
+                  alignItems: 'center'
+                }}
+                onPress={() => setSmoModalActiveTab('preview')}
+              >
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '800',
+                  color: smoModalActiveTab === 'preview' ? '#ffffff' : themeColors.textSecondary
+                }}>
+                  📱 Live Feed Mockup
+                </Text>
+              </TouchableOpacity>
             </View>
 
+            {/* Scrollable Content */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+              {smoModalActiveTab === 'compose' ? (
+                <View>
+                  {/* Topic / Campaign Title */}
+                  <Text style={styles.inputLabel}>Post Title / Topic *</Text>
+                  <TextInput
+                    style={[styles.input, { minHeight: 46 }]}
+                    placeholder="e.g. Festival 30% discount offer banner, new product launch..."
+                    placeholderTextColor={themeColors.textSecondary}
+                    value={smoRequirements}
+                    onChangeText={setSmoRequirements}
+                  />
+
+                  {/* Banner Graphic / Media */}
+                  <View style={{ marginTop: 12, marginBottom: 6 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <Text style={styles.inputLabel}>Creative Graphic / Banner</Text>
+                      {/* Mode Switcher */}
+                      <View style={{ flexDirection: 'row', gap: 4 }}>
+                        <TouchableOpacity
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 6,
+                            backgroundColor: smoImageMode === 'gallery' ? (isDark ? '#334155' : '#e2e8f0') : 'transparent',
+                          }}
+                          onPress={() => setSmoImageMode('gallery')}
+                        >
+                          <Text style={{ fontSize: 10.5, fontWeight: '700', color: themeColors.textPrimary }}>📷 Gallery</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 6,
+                            backgroundColor: smoImageMode === 'url' ? (isDark ? '#334155' : '#e2e8f0') : 'transparent',
+                          }}
+                          onPress={() => setSmoImageMode('url')}
+                        >
+                          <Text style={{ fontSize: 10.5, fontWeight: '700', color: themeColors.textPrimary }}>🔗 URL</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {smoImageMode === 'gallery' ? (
+                      <TouchableOpacity
+                        style={{
+                          borderWidth: 1.5,
+                          borderStyle: 'dashed',
+                          borderColor: themeColors.border,
+                          borderRadius: 10,
+                          padding: 14,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: isDark ? '#1e293b' : '#f8fafc'
+                        }}
+                        onPress={handlePickSmoBanner}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={{ fontSize: 22, marginBottom: 2 }}>📸</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#2563eb' }}>
+                          Tap to Pick Photo or Take Picture
+                        </Text>
+                        <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, marginTop: 1 }}>
+                          JPG, PNG, WebP supported
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="https://example.com/banner.jpg"
+                        placeholderTextColor={themeColors.textSecondary}
+                        value={smoBannerUrl}
+                        onChangeText={(txt) => {
+                          setSmoBannerUrl(txt);
+                          setSmoBannerFile(null);
+                        }}
+                      />
+                    )}
+
+                    {/* Banner Image Preview */}
+                    {smoBannerUrl ? (
+                      <View style={{
+                        marginTop: 10,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: themeColors.border,
+                        overflow: 'hidden',
+                        position: 'relative',
+                        backgroundColor: '#000'
+                      }}>
+                        <Image
+                          source={{ uri: resolveMediaUrl(smoBannerUrl) }}
+                          style={{ width: '100%', height: 160 }}
+                          resizeMode="cover"
+                        />
+                        <TouchableOpacity
+                          style={{
+                            position: 'absolute',
+                            top: 8,
+                            right: 8,
+                            backgroundColor: 'rgba(0,0,0,0.7)',
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 6,
+                          }}
+                          onPress={() => {
+                            setSmoBannerUrl('');
+                            setSmoBannerFile(null);
+                          }}
+                        >
+                          <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>✕ Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* AI Copywriter Card */}
+                  <View style={{
+                    marginTop: 10,
+                    marginBottom: 12,
+                    padding: 12,
+                    borderRadius: 12,
+                    backgroundColor: isDark ? 'rgba(147, 51, 234, 0.12)' : '#faf5ff',
+                    borderWidth: 1.2,
+                    borderColor: isDark ? 'rgba(147, 51, 234, 0.35)' : '#e9d5ff'
+                  }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={{ fontSize: 12.5, fontWeight: '800', color: isDark ? '#c084fc' : '#7e22ce' }}>
+                          ✨ Flymedia AI Copywriter
+                        </Text>
+                        <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, marginTop: 1 }}>
+                          Auto-generate engaging copy and hashtags from your topic
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          backgroundColor: '#9333ea',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                        }}
+                        onPress={handleGenerateSmoModalAiCaption}
+                        disabled={generatingSmoAi}
+                      >
+                        {generatingSmoAi ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>✨ Generate AI</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Post Caption */}
+                  <Text style={styles.inputLabel}>Post Caption</Text>
+                  <TextInput
+                    style={[styles.input, { minHeight: 80 }]}
+                    placeholder="Write your post caption or generate with AI..."
+                    placeholderTextColor={themeColors.textSecondary}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    value={smoCaption}
+                    onChangeText={setSmoCaption}
+                  />
+
+                  {/* Hashtags */}
+                  <Text style={[styles.inputLabel, { marginTop: 10 }]}>Hashtags</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="#Flymedia #DigitalMarketing #Trending"
+                    placeholderTextColor={themeColors.textSecondary}
+                    value={smoHashtags}
+                    onChangeText={setSmoHashtags}
+                  />
+
+                  {/* Target Platforms */}
+                  <Text style={[styles.inputLabel, { marginTop: 12 }]}>Target Social Platforms:</Text>
+                  <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {[
+                      { id: 'facebook', label: '📘 Facebook' },
+                      { id: 'instagram', label: '📸 Instagram' },
+                      { id: 'linkedin', label: '💼 LinkedIn' },
+                      { id: 'twitter', label: '🐦 Twitter/X' }
+                    ].map((plat) => {
+                      const isSelected = smoPlatforms.includes(plat.id);
+                      return (
+                        <TouchableOpacity
+                          key={plat.id}
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            borderRadius: 8,
+                            backgroundColor: isSelected ? (isDark ? '#1e3a8a' : '#dbeafe') : (isDark ? '#1e293b' : '#f1f5f9'),
+                            borderWidth: 1,
+                            borderColor: isSelected ? '#3b82f6' : themeColors.border
+                          }}
+                          onPress={() => handleToggleSmoPlatform(plat.id)}
+                        >
+                          <Text style={{
+                            fontSize: 11,
+                            fontWeight: isSelected ? '800' : '600',
+                            color: isSelected ? '#2563eb' : themeColors.textSecondary
+                          }}>
+                            {plat.label} {isSelected ? '✓' : ''}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Publishing Action Type */}
+                  <Text style={styles.inputLabel}>Publishing Action:</Text>
+                  <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+                    {[
+                      { id: 'approval', label: '🎨 Approval', desc: 'Request design/review' },
+                      { id: 'schedule', label: '📅 Schedule', desc: 'Auto-publish later' },
+                      { id: 'publish', label: '🚀 Publish', desc: 'Publish to Meta now' },
+                    ].map((act) => {
+                      const isSelected = smoActionType === act.id;
+                      return (
+                        <TouchableOpacity
+                          key={act.id}
+                          style={{
+                            flex: 1,
+                            paddingVertical: 8,
+                            paddingHorizontal: 6,
+                            borderRadius: 8,
+                            borderWidth: 1.5,
+                            borderColor: isSelected ? '#2563eb' : themeColors.border,
+                            backgroundColor: isSelected ? (isDark ? '#1e3a8a' : '#eff6ff') : (isDark ? '#1e293b' : '#ffffff'),
+                            alignItems: 'center'
+                          }}
+                          onPress={() => setSmoActionType(act.id)}
+                        >
+                          <Text style={{
+                            fontSize: 11.5,
+                            fontWeight: '800',
+                            color: isSelected ? '#2563eb' : themeColors.textPrimary
+                          }}>
+                            {act.label}
+                          </Text>
+                          <Text style={{
+                            fontSize: 9.5,
+                            color: themeColors.textSecondary,
+                            marginTop: 1,
+                            textAlign: 'center'
+                          }}>
+                            {act.desc}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Scheduled Date/Time Input if Schedule Action selected */}
+                  {smoActionType === 'schedule' && (
+                    <View style={{
+                      marginTop: 4,
+                      marginBottom: 10,
+                      padding: 10,
+                      borderRadius: 10,
+                      backgroundColor: isDark ? 'rgba(99, 102, 241, 0.12)' : '#eef2ff',
+                      borderWidth: 1,
+                      borderColor: isDark ? 'rgba(99, 102, 241, 0.35)' : '#c7d2fe'
+                    }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#4f46e5', marginBottom: 4 }}>
+                        ⏰ Schedule Publication Date & Time:
+                      </Text>
+                      <TextInput
+                        style={[styles.input, { backgroundColor: isDark ? '#0f172a' : '#ffffff' }]}
+                        placeholder="YYYY-MM-DDTHH:mm (e.g. 2026-11-15T18:00)"
+                        placeholderTextColor={themeColors.textSecondary}
+                        value={smoScheduledDateTime}
+                        onChangeText={setSmoScheduledDateTime}
+                      />
+                      <View style={{ flexDirection: 'row', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
+                        <TouchableOpacity
+                          style={{ paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6, backgroundColor: isDark ? '#312e81' : '#e0e7ff' }}
+                          onPress={() => setQuickSmoSchedule(2)}
+                        >
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#4338ca' }}>+2 Hours</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{ paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6, backgroundColor: isDark ? '#312e81' : '#e0e7ff' }}
+                          onPress={() => setQuickSmoSchedule(0, 10)}
+                        >
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#4338ca' }}>Tomorrow 10 AM</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{ paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6, backgroundColor: isDark ? '#312e81' : '#e0e7ff' }}
+                          onPress={() => setQuickSmoSchedule(0, 18)}
+                        >
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#4338ca' }}>Tomorrow 6 PM</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                /* Live Feed Mockup Tab */
+                <View>
+                  {/* Platform Switcher */}
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                    <TouchableOpacity
+                      style={{
+                        flex: 1,
+                        paddingVertical: 7,
+                        borderRadius: 8,
+                        backgroundColor: smoModalPreviewPlatform === 'facebook' ? '#2563eb' : (isDark ? '#1e293b' : '#f1f5f9'),
+                        alignItems: 'center'
+                      }}
+                      onPress={() => setSmoModalPreviewPlatform('facebook')}
+                    >
+                      <Text style={{
+                        fontSize: 11.5,
+                        fontWeight: '800',
+                        color: smoModalPreviewPlatform === 'facebook' ? '#ffffff' : themeColors.textSecondary
+                      }}>
+                        📘 Facebook Feed
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={{
+                        flex: 1,
+                        paddingVertical: 7,
+                        borderRadius: 8,
+                        backgroundColor: smoModalPreviewPlatform === 'instagram' ? '#ec4899' : (isDark ? '#1e293b' : '#f1f5f9'),
+                        alignItems: 'center'
+                      }}
+                      onPress={() => setSmoModalPreviewPlatform('instagram')}
+                    >
+                      <Text style={{
+                        fontSize: 11.5,
+                        fontWeight: '800',
+                        color: smoModalPreviewPlatform === 'instagram' ? '#ffffff' : themeColors.textSecondary
+                      }}>
+                        📸 Instagram Feed
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Rendered Mockup Feed Card */}
+                  <View style={{
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Mockup Author Header */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', padding: 10, gap: 10 }}>
+                      <View style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor: smoModalPreviewPlatform === 'facebook' ? '#2563eb' : '#ec4899',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
+                          {(clientDetails?.company_name || user?.name || 'C').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12.5, fontWeight: '800', color: themeColors.textPrimary }}>
+                          {clientDetails?.company_name || user?.name || 'Your Brand'}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: themeColors.textSecondary }}>
+                          {smoModalPreviewPlatform === 'facebook' ? 'Sponsored • 🌐' : 'Sponsored'}
+                        </Text>
+                      </View>
+                      <Text style={{ color: themeColors.textSecondary, fontSize: 14 }}>•••</Text>
+                    </View>
+
+                    {/* Facebook Caption on top */}
+                    {smoModalPreviewPlatform === 'facebook' && (smoCaption || smoRequirements) ? (
+                      <View style={{ paddingHorizontal: 10, paddingBottom: 8 }}>
+                        <Text style={{ fontSize: 12, color: themeColors.textPrimary, lineHeight: 16 }}>
+                          {smoCaption || smoRequirements}
+                        </Text>
+                        {smoHashtags ? (
+                          <Text style={{ fontSize: 11.5, color: '#2563eb', fontWeight: '700', marginTop: 4 }}>
+                            {smoHashtags}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null}
+
+                    {/* Banner Image */}
+                    {smoBannerUrl ? (
+                      <Image
+                        source={{ uri: resolveMediaUrl(smoBannerUrl) }}
+                        style={{ width: '100%', height: 210 }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={{ height: 160, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                        <Text style={{ fontSize: 26 }}>🎨</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textPrimary, marginTop: 4 }}>Banner Graphic Preview</Text>
+                        <Text style={{ fontSize: 10.5, color: themeColors.textSecondary, textAlign: 'center', marginTop: 2 }}>
+                          Pick an image in the Compose tab to preview it here
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Instagram Bottom Caption */}
+                    {smoModalPreviewPlatform === 'instagram' && (
+                      <View style={{ padding: 10 }}>
+                        <View style={{ flexDirection: 'row', gap: 14, marginBottom: 8 }}>
+                          <Text style={{ fontSize: 18 }}>❤️</Text>
+                          <Text style={{ fontSize: 18 }}>💬</Text>
+                          <Text style={{ fontSize: 18 }}>✈️</Text>
+                        </View>
+                        {(smoCaption || smoRequirements) ? (
+                          <Text style={{ fontSize: 12, color: themeColors.textPrimary, lineHeight: 16 }}>
+                            <Text style={{ fontWeight: '800' }}>{clientDetails?.company_name || user?.name || 'Brand'}: </Text>
+                            {smoCaption || smoRequirements}
+                          </Text>
+                        ) : null}
+                        {smoHashtags ? (
+                          <Text style={{ fontSize: 11.5, color: '#2563eb', fontWeight: '700', marginTop: 4 }}>
+                            {smoHashtags}
+                          </Text>
+                        ) : null}
+                      </View>
+                    )}
+
+                    {/* Facebook Engagement Action Bar */}
+                    {smoModalPreviewPlatform === 'facebook' && (
+                      <View style={{
+                        flexDirection: 'row',
+                        borderTopWidth: 1,
+                        borderColor: isDark ? '#1e293b' : '#f1f5f9',
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        justifyContent: 'space-between'
+                      }}>
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: themeColors.textSecondary }}>👍 Like</Text>
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: themeColors.textSecondary }}>💬 Comment</Text>
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: themeColors.textSecondary }}>↗️ Share</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Modal Bottom Button Row */}
             <View style={styles.modalButtonRow}>
               <TouchableOpacity
                 style={styles.modalCancelBtn}
-                onPress={() => setShowSmoModal(false)}
+                onPress={() => !submittingSmo && setShowSmoModal(false)}
+                disabled={submittingSmo}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalSubmitBtn, submittingSmo && styles.btnDisabled]}
+                style={[styles.modalSubmitBtn, (submittingSmo || uploadingSmoBanner) && styles.btnDisabled]}
                 onPress={handleCreateSmoRequest}
-                disabled={submittingSmo}
+                disabled={submittingSmo || uploadingSmoBanner}
               >
-                {submittingSmo ? (
+                {submittingSmo || uploadingSmoBanner ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.modalSubmitText}>Request Graphic 🎨</Text>
+                  <Text style={styles.modalSubmitText}>
+                    {smoActionType === 'publish'
+                      ? '🚀 Publish Live Now'
+                      : smoActionType === 'schedule'
+                      ? '📅 Schedule Post'
+                      : '🎨 Submit Post Request'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -4695,6 +5399,71 @@ export default function ClientDashboard({ user, onLogout }) {
                   </View>
                 </View>
               ) : null}
+
+              {/* Follow-up Schedule Info & Quick Presets */}
+              <View style={{ marginBottom: 14, padding: 12, borderRadius: 12, backgroundColor: selectedCrmLead?.follow_up_date ? '#fdf2f8' : '#f8fafc', borderWidth: 1, borderColor: selectedCrmLead?.follow_up_date ? '#fbcfe8' : '#e2e8f0' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={[styles.inputLabel, { marginBottom: 0, color: selectedCrmLead?.follow_up_date ? '#db2777' : themeColors.textPrimary }]}>
+                    📅 Follow-up Schedule
+                  </Text>
+                  {selectedCrmLead?.follow_up_date ? (
+                    <TouchableOpacity
+                      onPress={() => handleScheduleLeadFollowUp(selectedCrmLead.id, null)}
+                      disabled={updatingLeadStatus}
+                    >
+                      <Text style={{ fontSize: 11, color: '#e11d48', fontWeight: '700' }}>Clear</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: themeColors.textPrimary, marginBottom: 8 }}>
+                  {selectedCrmLead?.follow_up_date 
+                    ? `Scheduled: ${new Date(selectedCrmLead.follow_up_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`
+                    : 'No follow-up scheduled'}
+                </Text>
+
+                {/* Quick Presets */}
+                <Text style={[styles.inputLabel, { fontSize: 10, marginBottom: 4 }]}>Quick Reschedule:</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  <TouchableOpacity
+                    disabled={updatingLeadStatus}
+                    style={[styles.serviceChip, { paddingHorizontal: 8, paddingVertical: 4 }]}
+                    onPress={() => {
+                      const d = new Date(Date.now() + 2 * 3600 * 1000);
+                      const pad = n => String(n).padStart(2, '0');
+                      const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+                      handleScheduleLeadFollowUp(selectedCrmLead.id, iso);
+                    }}
+                  >
+                    <Text style={[styles.serviceChipText, { fontSize: 10 }]}>+2 Hours</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={updatingLeadStatus}
+                    style={[styles.serviceChip, { paddingHorizontal: 8, paddingVertical: 4 }]}
+                    onPress={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      const pad = n => String(n).padStart(2, '0');
+                      const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 10:00:00`;
+                      handleScheduleLeadFollowUp(selectedCrmLead.id, iso);
+                    }}
+                  >
+                    <Text style={[styles.serviceChipText, { fontSize: 10 }]}>Tomorrow 10 AM</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={updatingLeadStatus}
+                    style={[styles.serviceChip, { paddingHorizontal: 8, paddingVertical: 4 }]}
+                    onPress={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 2);
+                      const pad = n => String(n).padStart(2, '0');
+                      const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} 11:00:00`;
+                      handleScheduleLeadFollowUp(selectedCrmLead.id, iso);
+                    }}
+                  >
+                    <Text style={[styles.serviceChipText, { fontSize: 10 }]}>In 2 Days</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
               {/* Assign to Member */}
               <Text style={styles.inputLabel}>Assigned Team Member</Text>
