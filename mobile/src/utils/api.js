@@ -1140,11 +1140,23 @@ export async function fetchClientAdsApi(clientId) {
 
 export async function fetchClientCrmLeadsApi(clientId, params = {}) {
   let url = `${currentApiUrl}/api/client-services/crm-leads?clientId=${encodeURIComponent(clientId)}`;
-  if (params.status && params.status !== 'All') {
+  if (params.status && params.status !== 'All' && params.status !== 'all') {
     url += `&status=${encodeURIComponent(params.status)}`;
   }
-  if (params.search) {
-    url += `&search=${encodeURIComponent(params.search)}`;
+  if (params.search && params.search.trim()) {
+    url += `&search=${encodeURIComponent(params.search.trim())}`;
+  }
+  if (params.priority && params.priority !== 'All' && params.priority !== 'all') {
+    url += `&priority=${encodeURIComponent(params.priority)}`;
+  }
+  if (params.assignedTo && params.assignedTo !== 'All' && params.assignedTo !== 'all') {
+    url += `&assignedTo=${encodeURIComponent(params.assignedTo)}`;
+  }
+  if (params.startDate) {
+    url += `&startDate=${encodeURIComponent(params.startDate)}`;
+  }
+  if (params.endDate) {
+    url += `&endDate=${encodeURIComponent(params.endDate)}`;
   }
   if (params.limit) {
     url += `&limit=${encodeURIComponent(params.limit)}`;

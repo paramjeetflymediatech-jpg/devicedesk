@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -84,8 +84,39 @@ export default function ClientDashboard({ user, onLogout }) {
   const [crmCompany, setCrmCompany] = useState(null);
   const [crmHasLinked, setCrmHasLinked] = useState(true);
   const [loadingCrmLeads, setLoadingCrmLeads] = useState(false);
+  // CRM View Mode & Calendar States
+  const [crmViewMode, setCrmViewMode] = useState('list'); // 'list' | 'calendar'
+  const [crmCalendarMonth, setCrmCalendarMonth] = useState(new Date());
+  const [crmCalendarSelectedDay, setCrmCalendarSelectedDay] = useState(''); // 'YYYY-MM-DD'
+
+  // Follow-up Calendar Picker Modal (to assign follow-up date)
+  const [schedulingCalendarLead, setSchedulingCalendarLead] = useState(null);
+  const [calendarPickerMonth, setCalendarPickerMonth] = useState(new Date());
+  const [calendarSelectedDateStr, setCalendarSelectedDateStr] = useState(''); // 'YYYY-MM-DD'
+  const [calendarSelectedTimeStr, setCalendarSelectedTimeStr] = useState('10:00 AM'); // 'HH:MM AM/PM'
+  const [calendarFollowUpNote, setCalendarFollowUpNote] = useState('');
+  const [calendarFollowUpStatus, setCalendarFollowUpStatus] = useState('Contacted');
+  const [savingCalendarSchedule, setSavingCalendarSchedule] = useState(false);
+
+  // CRM Leads Filter States
   const [crmStatusFilter, setCrmStatusFilter] = useState('All');
+  const [crmPriorityFilter, setCrmPriorityFilter] = useState('All');
+  const [crmDatePreset, setCrmDatePreset] = useState('All'); // 'All', 'Today', 'Yesterday', 'Last 7 Days', 'This Month', 'Last Month'
+  const [crmFollowUpFilter, setCrmFollowUpFilter] = useState('All'); // 'All', 'Today', 'Overdue', 'Upcoming', 'Scheduled', 'Unscheduled'
+  const [crmAssignedFilter, setCrmAssignedFilter] = useState('All'); // 'All', 'unassigned', or memberId
   const [crmSearchQuery, setCrmSearchQuery] = useState('');
+  const [showCrmFilterModal, setShowCrmFilterModal] = useState(false);
+
+  // Service Requests Filter States
+  const [requestSearchQuery, setRequestSearchQuery] = useState('');
+  const [requestStatusFilter, setRequestStatusFilter] = useState('All');
+
+  // SMO Posts Filter States
+  const [smoSearchQuery, setSmoSearchQuery] = useState('');
+  const [smoStatusFilter, setSmoStatusFilter] = useState('All');
+
+  // Billing / Invoices Filter States
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('All');
   const [selectedCrmLead, setSelectedCrmLead] = useState(null);
   const [showLeadDetailsModal, setShowLeadDetailsModal] = useState(false);
   const [updatingLeadStatus, setUpdatingLeadStatus] = useState(false);
@@ -1292,11 +1323,79 @@ export default function ClientDashboard({ user, onLogout }) {
     return { bg: '#3b82f622', text: '#3b82f6', border: '#3b82f6' };
   };
 
-  const fetchCrmLeads = useCallback(async (status = crmStatusFilter, search = crmSearchQuery) => {
+  const getDateRangeForPreset = (preset) => {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const formatYMD = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    if (preset === 'Today') {
+      const today = formatYMD(now);
+      return { startDate: today, endDate: today };
+    }
+    if (preset === 'Yesterday') {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      const yStr = formatYMD(y);
+      return { startDate: yStr, endDate: yStr };
+    }
+    if (preset === 'Last 7 Days') {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 6);
+      return { startDate: formatYMD(start), endDate: formatYMD(now) };
+    }
+    if (preset === 'This Month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { startDate: formatYMD(start), endDate: formatYMD(end) };
+    }
+    if (preset === 'Last Month') {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { startDate: formatYMD(start), endDate: formatYMD(end) };
+    }
+    return { startDate: '', endDate: '' };
+  };
+
+  const fetchCrmLeads = useCallback(async (arg1 = crmStatusFilter, arg2 = crmSearchQuery) => {
     if (!clientId) return;
     try {
       setLoadingCrmLeads(true);
-      const res = await fetchClientCrmLeadsApi(clientId, { status, search });
+      let status = crmStatusFilter;
+      let search = crmSearchQuery;
+      let priority = crmPriorityFilter;
+      let assignedTo = crmAssignedFilter;
+      let datePreset = crmDatePreset;
+      let startDate = '';
+      let endDate = '';
+
+      if (typeof arg1 === 'object' && arg1 !== null) {
+        if (arg1.status !== undefined) status = arg1.status;
+        if (arg1.search !== undefined) search = arg1.search;
+        if (arg1.priority !== undefined) priority = arg1.priority;
+        if (arg1.assignedTo !== undefined) assignedTo = arg1.assignedTo;
+        if (arg1.datePreset !== undefined) datePreset = arg1.datePreset;
+        if (arg1.startDate !== undefined) startDate = arg1.startDate;
+        if (arg1.endDate !== undefined) endDate = arg1.endDate;
+      } else {
+        if (typeof arg1 === 'string') status = arg1;
+        if (typeof arg2 === 'string') search = arg2;
+      }
+
+      if (datePreset && datePreset !== 'All') {
+        const range = getDateRangeForPreset(datePreset);
+        startDate = range.startDate;
+        endDate = range.endDate;
+      }
+
+      const res = await fetchClientCrmLeadsApi(clientId, {
+        status,
+        search,
+        priority,
+        assignedTo,
+        startDate,
+        endDate,
+        limit: 150
+      });
       if (res && res.success) {
         setCrmLeads(res.leads || res.data || []);
         if (res.stats) setCrmStats(res.stats);
@@ -1309,7 +1408,277 @@ export default function ClientDashboard({ user, onLogout }) {
     } finally {
       setLoadingCrmLeads(false);
     }
-  }, [clientId, crmStatusFilter, crmSearchQuery]);
+  }, [clientId, crmStatusFilter, crmSearchQuery, crmPriorityFilter, crmAssignedFilter, crmDatePreset]);
+
+  // Client-side Follow-up, Priority & Staff filtering on loaded CRM leads
+  const filteredCrmLeads = useMemo(() => {
+    return crmLeads.filter(lead => {
+      // Follow-up filter
+      if (crmFollowUpFilter !== 'All') {
+        const isResolved = ['converted', 'lost'].includes((lead.status || '').toLowerCase());
+        if (crmFollowUpFilter === 'Scheduled') {
+          if (!lead.follow_up_date || isResolved) return false;
+        } else if (crmFollowUpFilter === 'Unscheduled') {
+          if (lead.follow_up_date && !isResolved) return false;
+        } else if (crmFollowUpFilter === 'Today') {
+          if (!lead.follow_up_date || isResolved) return false;
+          const d = new Date(lead.follow_up_date);
+          const now = new Date();
+          if (d.toDateString() !== now.toDateString()) return false;
+        } else if (crmFollowUpFilter === 'Overdue') {
+          if (!lead.follow_up_date || isResolved) return false;
+          const d = new Date(lead.follow_up_date);
+          const now = new Date();
+          if (d.toDateString() === now.toDateString() || d.getTime() >= now.getTime()) return false;
+        } else if (crmFollowUpFilter === 'Upcoming') {
+          if (!lead.follow_up_date || isResolved) return false;
+          const d = new Date(lead.follow_up_date);
+          const now = new Date();
+          if (d.toDateString() === now.toDateString() || d.getTime() <= now.getTime()) return false;
+        }
+      }
+
+      // Priority filter client-side fallback
+      if (crmPriorityFilter !== 'All') {
+        if ((lead.priority || 'Medium').toLowerCase() !== crmPriorityFilter.toLowerCase()) return false;
+      }
+
+      // Assigned filter client-side fallback
+      if (crmAssignedFilter !== 'All') {
+        if (crmAssignedFilter === 'unassigned') {
+          if (lead.assigned_to) return false;
+        } else if (Number(lead.assigned_to) !== Number(crmAssignedFilter)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [crmLeads, crmFollowUpFilter, crmPriorityFilter, crmAssignedFilter]);
+
+  // Active CRM filters count
+  const activeCrmFilterCount = useMemo(() => {
+    let count = 0;
+    if (crmStatusFilter !== 'All') count++;
+    if (crmPriorityFilter !== 'All') count++;
+    if (crmDatePreset !== 'All') count++;
+    if (crmFollowUpFilter !== 'All') count++;
+    if (crmAssignedFilter !== 'All') count++;
+    if (crmSearchQuery.trim()) count++;
+    return count;
+  }, [crmStatusFilter, crmPriorityFilter, crmDatePreset, crmFollowUpFilter, crmAssignedFilter, crmSearchQuery]);
+
+  const handleResetCrmFilters = () => {
+    setCrmStatusFilter('All');
+    setCrmPriorityFilter('All');
+    setCrmDatePreset('All');
+    setCrmFollowUpFilter('All');
+    setCrmAssignedFilter('All');
+    setCrmSearchQuery('');
+    fetchCrmLeads({ status: 'All', search: '', priority: 'All', assignedTo: 'All', datePreset: 'All' });
+  };
+
+  // Month Names Helper
+  const CALENDAR_MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  // Group CRM leads by follow_up_date (YYYY-MM-DD)
+  const leadsByFollowUpDateMap = useMemo(() => {
+    const map = {};
+    crmLeads.forEach(lead => {
+      if (!lead.follow_up_date) return;
+      try {
+        const d = new Date(lead.follow_up_date);
+        if (isNaN(d.getTime())) return;
+        const pad = n => String(n).padStart(2, '0');
+        const dateKey = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        if (!map[dateKey]) map[dateKey] = [];
+        map[dateKey].push(lead);
+      } catch (e) {}
+    });
+    return map;
+  }, [crmLeads]);
+
+  // Calendar View month grid days
+  const crmCalendarViewDays = useMemo(() => {
+    const year = crmCalendarMonth.getFullYear();
+    const month = crmCalendarMonth.getMonth();
+    const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun
+    const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevMonthDays = new Date(year, month, 0).getDate();
+    const pad = n => String(n).padStart(2, '0');
+
+    const days = [];
+    // Prev month padding
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const dayNum = prevMonthDays - i;
+      const prevDate = new Date(year, month - 1, dayNum);
+      const dateStr = `${prevDate.getFullYear()}-${pad(prevDate.getMonth() + 1)}-${pad(dayNum)}`;
+      days.push({ dayNum, dateStr, isCurrentMonth: false, leads: leadsByFollowUpDateMap[dateStr] || [] });
+    }
+    // Current month days
+    for (let dayNum = 1; dayNum <= totalDaysInMonth; dayNum++) {
+      const dateStr = `${year}-${pad(month + 1)}-${pad(dayNum)}`;
+      days.push({ dayNum, dateStr, isCurrentMonth: true, leads: leadsByFollowUpDateMap[dateStr] || [] });
+    }
+    // Next month padding
+    const remaining = (7 - (days.length % 7)) % 7;
+    for (let dayNum = 1; dayNum <= remaining; dayNum++) {
+      const nextDate = new Date(year, month + 1, dayNum);
+      const dateStr = `${nextDate.getFullYear()}-${pad(nextDate.getMonth() + 1)}-${pad(dayNum)}`;
+      days.push({ dayNum, dateStr, isCurrentMonth: false, leads: leadsByFollowUpDateMap[dateStr] || [] });
+    }
+    return days;
+  }, [crmCalendarMonth, leadsByFollowUpDateMap]);
+
+  // Calendar Picker Modal Days (for assigning follow-up)
+  const calendarPickerDays = useMemo(() => {
+    const year = calendarPickerMonth.getFullYear();
+    const month = calendarPickerMonth.getMonth();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+    const pad = n => String(n).padStart(2, '0');
+
+    const days = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      days.push({ dayNum: null, dateStr: null });
+    }
+    for (let dayNum = 1; dayNum <= totalDaysInMonth; dayNum++) {
+      const dateStr = `${year}-${pad(month + 1)}-${pad(dayNum)}`;
+      days.push({ dayNum, dateStr });
+    }
+    return days;
+  }, [calendarPickerMonth]);
+
+  // Open the interactive Calendar Picker Modal to assign follow-up date
+  const openScheduleCalendarModal = (lead, defaultDateStr = null) => {
+    setSchedulingCalendarLead(lead);
+    setCalendarFollowUpStatus(lead.status || 'Contacted');
+    setCalendarFollowUpNote('');
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+
+    if (lead.follow_up_date) {
+      try {
+        const d = new Date(lead.follow_up_date);
+        setCalendarPickerMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+        setCalendarSelectedDateStr(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+        const hours = d.getHours();
+        const minutes = pad(d.getMinutes());
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const formattedHours = pad(hours % 12 || 12);
+        setCalendarSelectedTimeStr(`${formattedHours}:${minutes} ${ampm}`);
+      } catch (e) {
+        setCalendarPickerMonth(now);
+        setCalendarSelectedDateStr(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+        setCalendarSelectedTimeStr('10:00 AM');
+      }
+    } else if (defaultDateStr) {
+      const parts = defaultDateStr.split('-').map(Number);
+      setCalendarPickerMonth(new Date(parts[0], parts[1] - 1, 1));
+      setCalendarSelectedDateStr(defaultDateStr);
+      setCalendarSelectedTimeStr('10:00 AM');
+    } else {
+      const tmrw = new Date();
+      tmrw.setDate(tmrw.getDate() + 1);
+      setCalendarPickerMonth(new Date(tmrw.getFullYear(), tmrw.getMonth(), 1));
+      setCalendarSelectedDateStr(`${tmrw.getFullYear()}-${pad(tmrw.getMonth() + 1)}-${pad(tmrw.getDate())}`);
+      setCalendarSelectedTimeStr('10:00 AM');
+    }
+  };
+
+  // Quick Preset setter inside calendar picker modal
+  const handleApplyCalendarPreset = (daysAhead, targetHour = 10, targetMinute = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    d.setHours(targetHour, targetMinute, 0, 0);
+
+    const pad = n => String(n).padStart(2, '0');
+    setCalendarPickerMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+    setCalendarSelectedDateStr(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+    const ampm = targetHour >= 12 ? 'PM' : 'AM';
+    const formattedHours = pad(targetHour % 12 || 12);
+    setCalendarSelectedTimeStr(`${formattedHours}:${pad(targetMinute)} ${ampm}`);
+  };
+
+  // Save selected calendar follow-up date
+  const handleSaveCalendarSchedule = async () => {
+    if (!schedulingCalendarLead) return;
+    if (!calendarSelectedDateStr) {
+      sweetAlert({ title: 'Date Required', text: 'Please select a date from the calendar.', type: 'warning' });
+      return;
+    }
+
+    try {
+      setSavingCalendarSchedule(true);
+      let [timePart, modifier] = (calendarSelectedTimeStr || '10:00 AM').trim().split(' ');
+      let [hours, minutes] = (timePart || '10:00').split(':').map(Number);
+      if (modifier) {
+        if (modifier.toUpperCase() === 'PM' && hours < 12) hours += 12;
+        if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
+      }
+      const pad = n => String(n).padStart(2, '0');
+      const isoDatetime = `${calendarSelectedDateStr} ${pad(hours)}:${pad(minutes || 0)}:00`;
+
+      await handleScheduleLeadFollowUp(
+        schedulingCalendarLead.id,
+        isoDatetime,
+        calendarFollowUpNote.trim() || undefined
+      );
+      setSchedulingCalendarLead(null);
+    } catch (e) {
+      sweetAlert({ title: 'Error', text: 'Failed to schedule follow-up', type: 'error' });
+    } finally {
+      setSavingCalendarSchedule(false);
+    }
+  };
+
+  // Filtered Service Requests
+  const filteredRequests = useMemo(() => {
+    return requests.filter(req => {
+      if (requestStatusFilter !== 'All' && (req.status || '').toLowerCase() !== requestStatusFilter.toLowerCase()) {
+        return false;
+      }
+      if (requestSearchQuery.trim()) {
+        const q = requestSearchQuery.toLowerCase();
+        const match = (req.service_type || '').toLowerCase().includes(q) || (req.requirements || '').toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [requests, requestStatusFilter, requestSearchQuery]);
+
+  // Filtered SMO Requests
+  const filteredSmoRequests = useMemo(() => {
+    return smoRequests.filter(req => {
+      if (smoStatusFilter !== 'All' && (req.status || '').toLowerCase() !== smoStatusFilter.toLowerCase()) {
+        return false;
+      }
+      if (smoSearchQuery.trim()) {
+        const q = smoSearchQuery.toLowerCase();
+        const match = (req.caption || '').toLowerCase().includes(q) || (req.requirements || '').toLowerCase().includes(q) || String(req.id).includes(q);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [smoRequests, smoStatusFilter, smoSearchQuery]);
+
+  // Filtered Invoices
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(inv => {
+      const isPaid = (inv.status || '').toLowerCase() === 'paid';
+      if (invoiceStatusFilter === 'Paid') return isPaid;
+      if (invoiceStatusFilter === 'Unpaid') return !isPaid;
+      if (invoiceStatusFilter === 'Overdue') {
+        if (isPaid || !inv.due_date) return false;
+        return new Date(inv.due_date).getTime() < Date.now();
+      }
+      return true;
+    });
+  }, [invoices, invoiceStatusFilter]);
 
   const handleAssignLeadMember = async (leadId, memberId) => {
     try {
@@ -1459,26 +1828,51 @@ export default function ClientDashboard({ user, onLogout }) {
 
   const handleCallLead = (phone) => {
     if (!phone) {
-      sweetAlert({ title: 'Notice', text: 'No phone number available for this lead', type: 'info' });
+      sweetAlert({ title: 'No Phone Number', text: 'This lead does not have a contact number available.', type: 'info' });
       return;
     }
     const clean = phone.replace(/[^0-9+]/g, '');
+    if (!clean) {
+      sweetAlert({ title: 'Invalid Phone', text: 'The phone number format is invalid.', type: 'error' });
+      return;
+    }
     Linking.openURL(`tel:${clean}`).catch(() => {
-      sweetAlert({ title: 'Error', text: 'Unable to open phone dialer', type: 'error' });
+      sweetAlert({ title: 'Error', text: 'Unable to open phone dialer on this device.', type: 'error' });
     });
   };
 
-  const handleWhatsAppLead = (phone, leadName) => {
+  const handleWhatsAppLead = async (phone, leadName) => {
     if (!phone) {
-      sweetAlert({ title: 'Notice', text: 'No phone number available for this lead', type: 'info' });
+      sweetAlert({ title: 'No Phone Number', text: 'This lead does not have a contact number available for WhatsApp.', type: 'info' });
       return;
     }
     let clean = phone.replace(/[^0-9]/g, '');
-    if (clean.length === 10) clean = '91' + clean;
+    if (clean.startsWith('0')) {
+      clean = clean.replace(/^0+/, '');
+    }
+    if (clean.length === 10) {
+      clean = '91' + clean;
+    }
+    if (!clean || clean.length < 7) {
+      sweetAlert({ title: 'Invalid Phone', text: 'The phone number is not valid for WhatsApp.', type: 'error' });
+      return;
+    }
     const msg = encodeURIComponent(`Hello ${leadName || ''}, thank you for your inquiry with ${clientDetails?.company_name || 'Fly Media Technology'}. How can we assist you today?`);
-    Linking.openURL(`https://wa.me/${clean}?text=${msg}`).catch(() => {
-      sweetAlert({ title: 'Error', text: 'Unable to launch WhatsApp', type: 'error' });
-    });
+    const waNativeUrl = `whatsapp://send?phone=${clean}&text=${msg}`;
+    const waWebUrl = `https://wa.me/${clean}?text=${msg}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(waNativeUrl);
+      if (canOpen) {
+        await Linking.openURL(waNativeUrl);
+      } else {
+        await Linking.openURL(waWebUrl);
+      }
+    } catch (e) {
+      Linking.openURL(waWebUrl).catch(() => {
+        sweetAlert({ title: 'Error', text: 'Unable to launch WhatsApp on this device.', type: 'error' });
+      });
+    }
   };
 
   const getLeadStatusBadge = (status) => {
@@ -1848,18 +2242,18 @@ export default function ClientDashboard({ user, onLogout }) {
                             <View style={{ flexDirection: 'row', gap: 8 }}>
                               {lead.phone ? (
                                 <TouchableOpacity
-                                  style={styles.quickActionIconBtn}
+                                  style={[styles.quickActionIconBtn, { borderColor: '#10b981', backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5' }]}
                                   onPress={() => handleCallLead(lead.phone)}
                                 >
-                                  <AppIcon name="phone" size={13} color="#2563eb" />
+                                  <AppIcon name="phone" size={13} color="#10b981" />
                                 </TouchableOpacity>
                               ) : null}
                               {lead.phone ? (
                                 <TouchableOpacity
-                                  style={[styles.quickActionIconBtn, { borderColor: '#10b981' }]}
+                                  style={[styles.quickActionIconBtn, { borderColor: '#25D366', backgroundColor: isDark ? 'rgba(37, 211, 102, 0.15)' : '#f0fdf4' }]}
                                   onPress={() => handleWhatsAppLead(lead.phone, fullName)}
                                 >
-                                  <Text style={{ fontSize: 12 }}>💬</Text>
+                                  <AppIcon name="whatsapp" size={13} color="#25D366" />
                                 </TouchableOpacity>
                               ) : null}
                             </View>
@@ -1930,58 +2324,452 @@ export default function ClientDashboard({ user, onLogout }) {
                   </ScrollView>
                 </View>
 
-                {/* Search Bar */}
-                <View style={styles.crmSearchBar}>
-                  <AppIcon name="search" size={16} color={themeColors.textSecondary} />
-                  <TextInput
-                    style={styles.crmSearchInput}
-                    placeholder="Search leads by name, email, phone..."
-                    placeholderTextColor={themeColors.textSecondary}
-                    value={crmSearchQuery}
-                    onChangeText={(text) => {
-                      setCrmSearchQuery(text);
-                      fetchCrmLeads(crmStatusFilter, text);
+                {/* View Switcher: List View vs Follow-up Calendar View */}
+                <View style={{ flexDirection: 'row', backgroundColor: isDark ? '#1e293b' : '#f1f5f9', borderRadius: 12, padding: 3, marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={[
+                      { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
+                      crmViewMode === 'list' && { backgroundColor: isDark ? '#334155' : '#ffffff', elevation: 2 }
+                    ]}
+                    onPress={() => setCrmViewMode('list')}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: crmViewMode === 'list' ? (isDark ? '#ffffff' : '#0f172a') : themeColors.textSecondary }}>
+                      📋 List View
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
+                      crmViewMode === 'calendar' && { backgroundColor: isDark ? '#334155' : '#ffffff', elevation: 2 }
+                    ]}
+                    onPress={() => {
+                      setCrmViewMode('calendar');
+                      const now = new Date();
+                      const pad = n => String(n).padStart(2, '0');
+                      if (!crmCalendarSelectedDay) {
+                        setCrmCalendarSelectedDay(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+                      }
                     }}
-                    returnKeyType="search"
-                  />
-                  {crmSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => {
-                      setCrmSearchQuery('');
-                      fetchCrmLeads(crmStatusFilter, '');
-                    }}>
-                      <AppIcon name="x" size={16} color={themeColors.textSecondary} />
-                    </TouchableOpacity>
-                  )}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: crmViewMode === 'calendar' ? '#db2777' : themeColors.textSecondary }}>
+                      📅 Follow-up Calendar
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
-                {/* Status Filter Chips */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {['All', 'New', 'Contacted', 'Qualified', 'Converted', 'Lost'].map((st) => {
-                      const isActive = crmStatusFilter.toLowerCase() === st.toLowerCase();
-                      return (
+                {/* ======================================================== */}
+                {/* CALENDAR VIEW MODE                                       */}
+                {/* ======================================================== */}
+                {crmViewMode === 'calendar' && (
+                  <View style={{ marginBottom: 16 }}>
+                    {/* Calendar Month Header */}
+                    <View style={[styles.crmHeaderCard, { paddingVertical: 12, paddingHorizontal: 14, marginBottom: 10 }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <TouchableOpacity
-                          key={st}
-                          style={[
-                            styles.crmFilterChip,
-                            isActive && styles.crmFilterChipActive
-                          ]}
+                          style={[styles.smallActionBtn, { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: isDark ? '#334155' : '#f3f4f6' }]}
                           onPress={() => {
-                            setCrmStatusFilter(st);
-                            fetchCrmLeads(st, crmSearchQuery);
+                            const prev = new Date(crmCalendarMonth);
+                            prev.setMonth(prev.getMonth() - 1);
+                            setCrmCalendarMonth(prev);
                           }}
                         >
-                          <Text style={[
-                            styles.crmFilterChipText,
-                            isActive && styles.crmFilterChipTextActive
-                          ]}>
-                            {st}
-                          </Text>
+                          <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary }}>◀</Text>
                         </TouchableOpacity>
-                      );
-                    })}
+
+                        <View style={{ alignItems: 'center' }}>
+                          <Text style={{ fontSize: 15, fontWeight: '800', color: themeColors.textPrimary }}>
+                            {CALENDAR_MONTH_NAMES[crmCalendarMonth.getMonth()]} {crmCalendarMonth.getFullYear()}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
+                            Tap any date to view scheduled leads
+                          </Text>
+                        </View>
+
+                        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                          <TouchableOpacity
+                            style={[styles.smallActionBtn, { paddingHorizontal: 8, paddingVertical: 6, backgroundColor: isDark ? '#334155' : '#f3f4f6' }]}
+                            onPress={() => {
+                              const now = new Date();
+                              setCrmCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+                              const pad = n => String(n).padStart(2, '0');
+                              setCrmCalendarSelectedDay(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+                            }}
+                          >
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#db2777' }}>Today</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.smallActionBtn, { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: isDark ? '#334155' : '#f3f4f6' }]}
+                            onPress={() => {
+                              const next = new Date(crmCalendarMonth);
+                              next.setMonth(next.getMonth() + 1);
+                              setCrmCalendarMonth(next);
+                            }}
+                          >
+                            <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary }}>▶</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Calendar 7-Day Grid */}
+                    <View style={[styles.crmHeaderCard, { padding: 10, marginBottom: 14 }]}>
+                      {/* Day of Week Headers */}
+                      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((dName, idx) => (
+                          <View key={idx} style={{ flex: 1, alignItems: 'center' }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: idx === 0 || idx === 6 ? '#f43f5e' : themeColors.textSecondary }}>
+                              {dName}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Day Tiles */}
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                        {crmCalendarViewDays.map((dItem, idx) => {
+                          const isSelected = crmCalendarSelectedDay === dItem.dateStr;
+                          const now = new Date();
+                          const pad = n => String(n).padStart(2, '0');
+                          const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+                          const isToday = dItem.dateStr === todayStr;
+                          const hasLeads = (dItem.leads || []).length > 0;
+
+                          return (
+                            <TouchableOpacity
+                              key={idx}
+                              style={[
+                                { width: '14.28%', height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 2 },
+                                isSelected && { backgroundColor: '#db2777' },
+                                !isSelected && isToday && { borderWidth: 1.5, borderColor: '#db2777' }
+                              ]}
+                              onPress={() => setCrmCalendarSelectedDay(dItem.dateStr)}
+                            >
+                              <Text style={[
+                                { fontSize: 12, fontWeight: '700' },
+                                isSelected ? { color: '#ffffff' } : dItem.isCurrentMonth ? { color: themeColors.textPrimary } : { color: themeColors.textSecondary, opacity: 0.4 },
+                                isToday && !isSelected && { color: '#db2777', fontWeight: '800' }
+                              ]}>
+                                {dItem.dayNum}
+                              </Text>
+
+                              {hasLeads && (
+                                <View style={[
+                                  { paddingHorizontal: 4, height: 14, borderRadius: 7, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+                                  isSelected ? { backgroundColor: '#ffffff' } : { backgroundColor: '#db2777' }
+                                ]}>
+                                  <Text style={[
+                                    { fontSize: 8.5, fontWeight: '800' },
+                                    isSelected ? { color: '#db2777' } : { color: '#ffffff' }
+                                  ]}>
+                                    {dItem.leads.length}
+                                  </Text>
+                                </View>
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    {/* Selected Day Agenda Box */}
+                    <View style={[styles.crmHeaderCard, { padding: 14 }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <View>
+                          <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary }}>
+                            📅 Follow-ups for {crmCalendarSelectedDay ? new Date(crmCalendarSelectedDay).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Selected Date'}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }}>
+                            {(leadsByFollowUpDateMap[crmCalendarSelectedDay] || []).length} leads scheduled
+                          </Text>
+                        </View>
+                        {crmLeads.length > 0 && (
+                          <TouchableOpacity
+                            style={[styles.smallActionBtn, { backgroundColor: '#db2777', borderColor: '#db2777' }]}
+                            onPress={() => openScheduleCalendarModal(crmLeads[0], crmCalendarSelectedDay)}
+                          >
+                            <Text style={[styles.smallActionBtnText, { color: '#ffffff' }]}>+ Schedule</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {!(leadsByFollowUpDateMap[crmCalendarSelectedDay] || []).length ? (
+                        <View style={{ paddingVertical: 18, alignItems: 'center' }}>
+                          <Text style={{ fontSize: 24, marginBottom: 4 }}>☕</Text>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textPrimary }}>
+                            No Follow-ups on this Date
+                          </Text>
+                          <Text style={{ fontSize: 11, color: themeColors.textSecondary, textAlign: 'center', marginTop: 2 }}>
+                            Tap "+ Schedule" above or switch to List View to plan follow-ups.
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={{ gap: 10 }}>
+                          {(leadsByFollowUpDateMap[crmCalendarSelectedDay] || []).map((lead) => {
+                            const badge = getLeadStatusBadge(lead.status);
+                            const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'New Lead';
+                            return (
+                              <View key={lead.id} style={[styles.itemCard, { padding: 12, marginBottom: 0, backgroundColor: isDark ? '#1e293b' : '#f8fafc' }]}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                                  <View style={{ flex: 1, paddingRight: 8 }}>
+                                    <Text style={{ fontSize: 13, fontWeight: '800', color: themeColors.textPrimary }}>{fullName}</Text>
+                                    <Text style={{ fontSize: 11, color: themeColors.textSecondary }}>{lead.subject || 'Website Inquiry'}</Text>
+                                  </View>
+                                  <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+                                    <Text style={[styles.badgeText, { color: badge.text }]}>{lead.status || 'New'}</Text>
+                                  </View>
+                                </View>
+
+                                {lead.follow_up_date && (
+                                  <Text style={{ fontSize: 11, color: '#db2777', fontWeight: '700', marginBottom: 8 }}>
+                                    ⏰ Time: {new Date(lead.follow_up_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </Text>
+                                )}
+
+                                <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+                                  <TouchableOpacity
+                                    style={[styles.leadActionBtn, styles.leadCallBtn, { flex: 1, paddingVertical: 7 }, !lead.phone && styles.leadActionBtnDisabled]}
+                                    onPress={() => handleCallLead(lead.phone)}
+                                  >
+                                    <AppIcon name="phone" size={13} color="#ffffff" />
+                                    <Text style={[styles.leadCallBtnText, { fontSize: 11 }]}>Call</Text>
+                                  </TouchableOpacity>
+
+                                  <TouchableOpacity
+                                    style={[styles.leadActionBtn, styles.leadWhatsAppBtn, { flex: 1, paddingVertical: 7 }, !lead.phone && styles.leadActionBtnDisabled]}
+                                    onPress={() => handleWhatsAppLead(lead.phone, fullName)}
+                                  >
+                                    <AppIcon name="whatsapp" size={13} color="#ffffff" />
+                                    <Text style={[styles.leadWhatsAppBtnText, { fontSize: 11 }]}>WhatsApp</Text>
+                                  </TouchableOpacity>
+
+                                  <TouchableOpacity
+                                    style={[styles.leadActionBtn, { flex: 1, paddingVertical: 7, backgroundColor: isDark ? 'rgba(219, 39, 119, 0.15)' : '#fdf2f8', borderColor: isDark ? 'rgba(219, 39, 119, 0.3)' : '#fbcfe8', borderWidth: 1 }]}
+                                    onPress={() => openScheduleCalendarModal(lead, crmCalendarSelectedDay)}
+                                  >
+                                    <AppIcon name="calendar" size={12} color="#db2777" />
+                                    <Text style={{ fontSize: 11, color: '#db2777', fontWeight: '700' }}>Change</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
                   </View>
-                </ScrollView>
+                )}
+
+                {/* ======================================================== */}
+                {/* LIST VIEW MODE                                           */}
+                {/* ======================================================== */}
+                {crmViewMode === 'list' && (
+                  <View>
+                {/* Search Bar & Filter Button Row */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <View style={[styles.crmSearchBar, { flex: 1, marginBottom: 0 }]}>
+                    <AppIcon name="search" size={16} color={themeColors.textSecondary} />
+                    <TextInput
+                      style={styles.crmSearchInput}
+                      placeholder="Search name, email, phone..."
+                      placeholderTextColor={themeColors.textSecondary}
+                      value={crmSearchQuery}
+                      onChangeText={(text) => {
+                        setCrmSearchQuery(text);
+                        fetchCrmLeads({ search: text });
+                      }}
+                      returnKeyType="search"
+                    />
+                    {crmSearchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => {
+                        setCrmSearchQuery('');
+                        fetchCrmLeads({ search: '' });
+                      }}>
+                        <AppIcon name="x" size={16} color={themeColors.textSecondary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.filterButton,
+                      activeCrmFilterCount > 0 && styles.filterButtonActive
+                    ]}
+                    onPress={() => setShowCrmFilterModal(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ fontSize: 13 }}>⚙️</Text>
+                    <Text style={[styles.filterButtonText, activeCrmFilterCount > 0 && styles.filterButtonTextActive]}>
+                      Filter{activeCrmFilterCount > 0 ? ` (${activeCrmFilterCount})` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Quick Filters Scrollable Strips */}
+                <View style={{ marginBottom: 10, gap: 6 }}>
+                  {/* Row 1: Status Chips */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: themeColors.textSecondary, textTransform: 'uppercase', marginRight: 2 }}>Status:</Text>
+                      {['All', 'New', 'Contacted', 'Qualified', 'Converted', 'Lost'].map((st) => {
+                        const isActive = crmStatusFilter.toLowerCase() === st.toLowerCase();
+                        return (
+                          <TouchableOpacity
+                            key={st}
+                            style={[
+                              styles.crmFilterChip,
+                              isActive && styles.crmFilterChipActive
+                            ]}
+                            onPress={() => {
+                              setCrmStatusFilter(st);
+                              fetchCrmLeads({ status: st });
+                            }}
+                          >
+                            <Text style={[
+                              styles.crmFilterChipText,
+                              isActive && styles.crmFilterChipTextActive
+                            ]}>
+                              {st}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+
+                  {/* Row 2: Date Presets */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: themeColors.textSecondary, textTransform: 'uppercase', marginRight: 2 }}>Date:</Text>
+                      {['All', 'Today', 'Yesterday', 'Last 7 Days', 'This Month'].map((dp) => {
+                        const isActive = crmDatePreset === dp;
+                        return (
+                          <TouchableOpacity
+                            key={dp}
+                            style={[
+                              styles.crmFilterChip,
+                              { paddingVertical: 5, paddingHorizontal: 10 },
+                              isActive && styles.crmFilterChipActive
+                            ]}
+                            onPress={() => {
+                              setCrmDatePreset(dp);
+                              fetchCrmLeads({ datePreset: dp });
+                            }}
+                          >
+                            <Text style={[
+                              styles.crmFilterChipText,
+                              { fontSize: 11 },
+                              isActive && styles.crmFilterChipTextActive
+                            ]}>
+                              {dp === 'All' ? 'All Time' : dp}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+
+                  {/* Row 3: Follow-up Presets */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: themeColors.textSecondary, textTransform: 'uppercase', marginRight: 2 }}>Follow-up:</Text>
+                      {[
+                        { id: 'All', label: 'All' },
+                        { id: 'Today', label: '⏰ Due Today' },
+                        { id: 'Overdue', label: '⚠️ Overdue' },
+                        { id: 'Upcoming', label: '📅 Upcoming' },
+                        { id: 'Scheduled', label: '📌 Scheduled' }
+                      ].map((item) => {
+                        const isActive = crmFollowUpFilter === item.id;
+                        return (
+                          <TouchableOpacity
+                            key={item.id}
+                            style={[
+                              styles.crmFilterChip,
+                              { paddingVertical: 5, paddingHorizontal: 10 },
+                              isActive && styles.crmFilterChipActive
+                            ]}
+                            onPress={() => setCrmFollowUpFilter(item.id)}
+                          >
+                            <Text style={[
+                              styles.crmFilterChipText,
+                              { fontSize: 11 },
+                              isActive && styles.crmFilterChipTextActive
+                            ]}>
+                              {item.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                {/* Active Filter Chips Strip */}
+                {activeCrmFilterCount > 0 && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 12, paddingHorizontal: 2 }}>
+                    {crmStatusFilter !== 'All' && (
+                      <View style={styles.activeTagChip}>
+                        <Text style={styles.activeTagChipText}>Status: {crmStatusFilter}</Text>
+                        <TouchableOpacity onPress={() => { setCrmStatusFilter('All'); fetchCrmLeads({ status: 'All' }); }}>
+                          <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: 'bold' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {crmDatePreset !== 'All' && (
+                      <View style={styles.activeTagChip}>
+                        <Text style={styles.activeTagChipText}>Date: {crmDatePreset}</Text>
+                        <TouchableOpacity onPress={() => { setCrmDatePreset('All'); fetchCrmLeads({ datePreset: 'All' }); }}>
+                          <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: 'bold' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {crmFollowUpFilter !== 'All' && (
+                      <View style={styles.activeTagChip}>
+                        <Text style={styles.activeTagChipText}>Follow-up: {crmFollowUpFilter}</Text>
+                        <TouchableOpacity onPress={() => setCrmFollowUpFilter('All')}>
+                          <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: 'bold' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {crmPriorityFilter !== 'All' && (
+                      <View style={styles.activeTagChip}>
+                        <Text style={styles.activeTagChipText}>Priority: {crmPriorityFilter}</Text>
+                        <TouchableOpacity onPress={() => { setCrmPriorityFilter('All'); fetchCrmLeads({ priority: 'All' }); }}>
+                          <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: 'bold' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {crmAssignedFilter !== 'All' && (
+                      <View style={styles.activeTagChip}>
+                        <Text style={styles.activeTagChipText}>
+                          Staff: {crmAssignedFilter === 'unassigned' ? 'Unassigned' : (crmMembers.find(m => String(m.id) === String(crmAssignedFilter))?.name || 'Member')}
+                        </Text>
+                        <TouchableOpacity onPress={() => { setCrmAssignedFilter('All'); fetchCrmLeads({ assignedTo: 'All' }); }}>
+                          <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: 'bold' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {crmSearchQuery.trim().length > 0 && (
+                      <View style={styles.activeTagChip}>
+                        <Text style={styles.activeTagChipText}>Search: "{crmSearchQuery}"</Text>
+                        <TouchableOpacity onPress={() => { setCrmSearchQuery(''); fetchCrmLeads({ search: '' }); }}>
+                          <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: 'bold' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <TouchableOpacity onPress={handleResetCrmFilters} style={{ marginLeft: 'auto', paddingVertical: 2 }}>
+                      <Text style={{ fontSize: 11, color: '#ef4444', fontWeight: '800' }}>Clear All ✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Leads Count Banner */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 2 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary }}>
+                    Showing {filteredCrmLeads.length} {filteredCrmLeads.length === 1 ? 'Lead' : 'Leads'}
+                  </Text>
+                </View>
 
                 {/* Leads List */}
                 {loadingCrmLeads && crmLeads.length === 0 ? (
@@ -1989,20 +2777,28 @@ export default function ClientDashboard({ user, onLogout }) {
                     <ActivityIndicator size="large" color="#2563eb" />
                     <Text style={styles.loadingText}>Fetching CRM leads...</Text>
                   </View>
-                ) : crmLeads.length === 0 ? (
+                ) : filteredCrmLeads.length === 0 ? (
                   <View style={styles.emptyCard}>
                     <Text style={{ fontSize: 36, marginBottom: 8 }}>👥</Text>
                     <Text style={styles.emptyTitle}>
-                      {crmSearchQuery ? 'No matching leads found' : 'No CRM Leads Recorded Yet'}
+                      {activeCrmFilterCount > 0 ? 'No matching leads found' : 'No CRM Leads Recorded Yet'}
                     </Text>
                     <Text style={styles.emptySub}>
-                      {crmSearchQuery
-                        ? 'Try modifying your search or filter keywords.'
+                      {activeCrmFilterCount > 0
+                        ? 'Try modifying your search query or reset the applied filters.'
                         : 'Customer inquiries submitted through your website forms, landing pages, and ads will appear here automatically.'}
                     </Text>
+                    {activeCrmFilterCount > 0 && (
+                      <TouchableOpacity
+                        onPress={handleResetCrmFilters}
+                        style={[styles.serviceChip, { marginTop: 12, alignSelf: 'center', paddingHorizontal: 16, backgroundColor: '#2563eb', borderColor: '#2563eb' }]}
+                      >
+                        <Text style={[styles.serviceChipText, { color: '#ffffff', fontWeight: '800' }]}>Reset All Filters</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ) : (
-                  crmLeads.map((lead) => {
+                  filteredCrmLeads.map((lead) => {
                     const badge = getLeadStatusBadge(lead.status);
                     const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'New Lead';
                     return (
@@ -2095,30 +2891,47 @@ export default function ClientDashboard({ user, onLogout }) {
                               <AppIcon name="phone" size={13} color="#10b981" />
                               <Text style={styles.leadContactText} numberOfLines={1}>{lead.phone}</Text>
                             </TouchableOpacity>
-                          ) : null}
+                          ) : (
+                            <View style={styles.leadContactItem}>
+                              <AppIcon name="phone" size={13} color={isDark ? '#64748b' : '#94a3b8'} />
+                              <Text style={[styles.leadContactText, { color: isDark ? '#64748b' : '#94a3b8', fontStyle: 'italic' }]}>No phone number</Text>
+                            </View>
+                          )}
                         </View>
 
-                        {/* Action buttons */}
+                        {/* Action Buttons Row 1: Direct Contact (Call & WhatsApp) */}
                         <View style={styles.leadActionRow}>
-                          {lead.phone ? (
-                            <TouchableOpacity
-                              style={[styles.leadActionBtn, styles.leadCallBtn]}
-                              onPress={() => handleCallLead(lead.phone)}
-                            >
-                              <AppIcon name="phone" size={14} color="#ffffff" />
-                              <Text style={styles.leadCallBtnText}>Call</Text>
-                            </TouchableOpacity>
-                          ) : null}
+                          <TouchableOpacity
+                            style={[styles.leadActionBtn, styles.leadCallBtn, !lead.phone && styles.leadActionBtnDisabled]}
+                            onPress={() => handleCallLead(lead.phone)}
+                            activeOpacity={lead.phone ? 0.7 : 1}
+                          >
+                            <AppIcon name="phone" size={14} color="#ffffff" />
+                            <Text style={styles.leadCallBtnText}>Call</Text>
+                          </TouchableOpacity>
 
-                          {lead.phone ? (
-                            <TouchableOpacity
-                              style={[styles.leadActionBtn, styles.leadWhatsAppBtn]}
-                              onPress={() => handleWhatsAppLead(lead.phone, fullName)}
-                            >
-                              <Text style={{ fontSize: 13 }}>💬</Text>
-                              <Text style={styles.leadWhatsAppBtnText}>WhatsApp</Text>
-                            </TouchableOpacity>
-                          ) : null}
+                          <TouchableOpacity
+                            style={[styles.leadActionBtn, styles.leadWhatsAppBtn, !lead.phone && styles.leadActionBtnDisabled]}
+                            onPress={() => handleWhatsAppLead(lead.phone, fullName)}
+                            activeOpacity={lead.phone ? 0.7 : 1}
+                          >
+                            <AppIcon name="whatsapp" size={14} color="#ffffff" />
+                            <Text style={styles.leadWhatsAppBtnText}>WhatsApp</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Action Buttons Row 2: Workflow & Details */}
+                        <View style={[styles.leadActionRow, { marginTop: 6 }]}>
+                          <TouchableOpacity
+                            style={[styles.leadActionBtn, styles.leadScheduleBtn]}
+                            onPress={() => openScheduleCalendarModal(lead)}
+                            activeOpacity={0.7}
+                          >
+                            <AppIcon name="calendar" size={13} color="#db2777" />
+                            <Text style={styles.leadScheduleBtnText}>
+                              {lead.follow_up_date ? 'Reschedule' : 'Follow-up'}
+                            </Text>
+                          </TouchableOpacity>
 
                           <TouchableOpacity
                             style={[styles.leadActionBtn, styles.leadDetailsBtn]}
@@ -2131,14 +2944,17 @@ export default function ClientDashboard({ user, onLogout }) {
                               setEditLeadPriority(lead.priority || 'Medium');
                               setShowLeadDetailsModal(true);
                             }}
+                            activeOpacity={0.7}
                           >
-                            <AppIcon name="file" size={13} color="#2563eb" />
-                            <Text style={styles.leadDetailsBtnText}>View & Edit</Text>
+                            <AppIcon name="file" size={13} color={isDark ? '#e2e8f0' : '#475569'} />
+                            <Text style={styles.leadDetailsBtnText}>Details</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
                     );
                   })
+                )}
+                  </View>
                 )}
               </View>
             )}
@@ -2344,7 +3160,7 @@ export default function ClientDashboard({ user, onLogout }) {
                 )}
 
                 <View style={styles.rowBetween}>
-                  <Text style={styles.sectionHeading}>📝 Service Requests ({requests.length})</Text>
+                  <Text style={styles.sectionHeading}>📝 Service Requests ({filteredRequests.length})</Text>
                   <TouchableOpacity
                     style={styles.smallActionBtn}
                     onPress={handleOpenBookService}
@@ -2354,14 +3170,65 @@ export default function ClientDashboard({ user, onLogout }) {
                   </TouchableOpacity>
                 </View>
 
-                {requests.length === 0 ? (
+                {/* Requests Search & Status Filter */}
+                <View style={{ marginBottom: 12 }}>
+                  <View style={[styles.crmSearchBar, { marginBottom: 8 }]}>
+                    <AppIcon name="search" size={16} color={themeColors.textSecondary} />
+                    <TextInput
+                      style={styles.crmSearchInput}
+                      placeholder="Search requests by service or requirements..."
+                      placeholderTextColor={themeColors.textSecondary}
+                      value={requestSearchQuery}
+                      onChangeText={setRequestSearchQuery}
+                    />
+                    {requestSearchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setRequestSearchQuery('')}>
+                        <AppIcon name="x" size={16} color={themeColors.textSecondary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {['All', 'Pending', 'In Progress', 'Completed', 'Cancelled'].map((st) => {
+                        const isSel = requestStatusFilter.toLowerCase() === st.toLowerCase();
+                        return (
+                          <TouchableOpacity
+                            key={st}
+                            style={[styles.crmFilterChip, { paddingVertical: 5, paddingHorizontal: 12 }, isSel && styles.crmFilterChipActive]}
+                            onPress={() => setRequestStatusFilter(st)}
+                          >
+                            <Text style={[styles.crmFilterChipText, { fontSize: 11 }, isSel && styles.crmFilterChipTextActive]}>
+                              {st}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                {filteredRequests.length === 0 ? (
                   <View style={styles.emptyCard}>
                     <Text style={{ fontSize: 28, marginBottom: 4 }}>📝</Text>
-                    <Text style={styles.emptyTitle}>No Requests Submitted</Text>
-                    <Text style={styles.emptySub}>Tap "+ Book Service" to submit your project requirements.</Text>
+                    <Text style={styles.emptyTitle}>
+                      {requestSearchQuery || requestStatusFilter !== 'All' ? 'No Matching Requests' : 'No Requests Submitted'}
+                    </Text>
+                    <Text style={styles.emptySub}>
+                      {requestSearchQuery || requestStatusFilter !== 'All' 
+                        ? 'Try modifying your search keywords or status filter.'
+                        : 'Tap "+ Book Service" to submit your project requirements.'}
+                    </Text>
+                    {(requestSearchQuery || requestStatusFilter !== 'All') && (
+                      <TouchableOpacity
+                        onPress={() => { setRequestSearchQuery(''); setRequestStatusFilter('All'); }}
+                        style={[styles.serviceChip, { marginTop: 10, alignSelf: 'center' }]}
+                      >
+                        <Text style={[styles.serviceChipText, { color: '#2563eb' }]}>Reset Filters</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ) : (
-                  requests.map((req) => {
+                  filteredRequests.map((req) => {
                     const badge = getStatusBadge(req.status);
                     const isCompleted = (req.status || '').toLowerCase() === 'completed';
                     const attList = parseAttachments(req.attachment || req.attachments || req.fileUrl || req.file_url);
@@ -2627,14 +3494,65 @@ export default function ClientDashboard({ user, onLogout }) {
                   return null;
                 })()}
 
-                {smoRequests.length === 0 ? (
+                {/* SMO Search & Status Filters */}
+                <View style={{ marginBottom: 12 }}>
+                  <View style={[styles.crmSearchBar, { marginBottom: 8 }]}>
+                    <AppIcon name="search" size={16} color={themeColors.textSecondary} />
+                    <TextInput
+                      style={styles.crmSearchInput}
+                      placeholder="Search posts by caption or requirements..."
+                      placeholderTextColor={themeColors.textSecondary}
+                      value={smoSearchQuery}
+                      onChangeText={setSmoSearchQuery}
+                    />
+                    {smoSearchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setSmoSearchQuery('')}>
+                        <AppIcon name="x" size={16} color={themeColors.textSecondary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {['All', 'Ready for Approval', 'Approved', 'Scheduled', 'Published', 'Under Review'].map((st) => {
+                        const isSel = smoStatusFilter.toLowerCase() === st.toLowerCase();
+                        return (
+                          <TouchableOpacity
+                            key={st}
+                            style={[styles.crmFilterChip, { paddingVertical: 5, paddingHorizontal: 12 }, isSel && styles.crmFilterChipActive]}
+                            onPress={() => setSmoStatusFilter(st)}
+                          >
+                            <Text style={[styles.crmFilterChipText, { fontSize: 11 }, isSel && styles.crmFilterChipTextActive]}>
+                              {st}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                {filteredSmoRequests.length === 0 ? (
                   <View style={styles.emptyCard}>
                     <Text style={{ fontSize: 28, marginBottom: 4 }}>🎨</Text>
-                    <Text style={styles.emptyTitle}>No Creative Requests</Text>
-                    <Text style={styles.emptySub}>Request promotional banners for Facebook, Instagram & LinkedIn.</Text>
+                    <Text style={styles.emptyTitle}>
+                      {smoSearchQuery || smoStatusFilter !== 'All' ? 'No Matching Creatives' : 'No Creative Requests'}
+                    </Text>
+                    <Text style={styles.emptySub}>
+                      {smoSearchQuery || smoStatusFilter !== 'All'
+                        ? 'Try modifying your search or filter keywords.'
+                        : 'Request promotional banners for Facebook, Instagram & LinkedIn.'}
+                    </Text>
+                    {(smoSearchQuery || smoStatusFilter !== 'All') && (
+                      <TouchableOpacity
+                        onPress={() => { setSmoSearchQuery(''); setSmoStatusFilter('All'); }}
+                        style={[styles.serviceChip, { marginTop: 10, alignSelf: 'center' }]}
+                      >
+                        <Text style={[styles.serviceChipText, { color: '#2563eb' }]}>Reset Filters</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ) : (
-                  smoRequests.map((req) => {
+                  filteredSmoRequests.map((req) => {
                     const status = req.status || 'Pending Design';
                     const isReady = status === 'Ready for Approval';
                     const isApproved = status === 'Approved';
@@ -3078,15 +3996,50 @@ export default function ClientDashboard({ user, onLogout }) {
             {/* ======================================================== */}
             {activeTab === 'billing' && (
               <View>
-                <Text style={styles.sectionHeading}>🧾 Invoices & Payment Records ({invoices.length})</Text>
-                {invoices.length === 0 ? (
+                <Text style={styles.sectionHeading}>🧾 Invoices & Payment Records ({filteredInvoices.length})</Text>
+
+                {/* Invoices Status Filter Chips */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {['All', 'Paid', 'Unpaid', 'Overdue'].map((st) => {
+                      const isSel = invoiceStatusFilter.toLowerCase() === st.toLowerCase();
+                      return (
+                        <TouchableOpacity
+                          key={st}
+                          style={[styles.crmFilterChip, { paddingVertical: 5, paddingHorizontal: 14 }, isSel && styles.crmFilterChipActive]}
+                          onPress={() => setInvoiceStatusFilter(st)}
+                        >
+                          <Text style={[styles.crmFilterChipText, { fontSize: 11 }, isSel && styles.crmFilterChipTextActive]}>
+                            {st}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+
+                {filteredInvoices.length === 0 ? (
                   <View style={styles.emptyCard}>
                     <Text style={{ fontSize: 28, marginBottom: 4 }}>🧾</Text>
-                    <Text style={styles.emptyTitle}>No Invoices Issued</Text>
-                    <Text style={styles.emptySub}>Statements will appear here upon subscription cycle renewal.</Text>
+                    <Text style={styles.emptyTitle}>
+                      {invoiceStatusFilter !== 'All' ? 'No Matching Invoices' : 'No Invoices Issued'}
+                    </Text>
+                    <Text style={styles.emptySub}>
+                      {invoiceStatusFilter !== 'All'
+                        ? 'No payment records match the selected status.'
+                        : 'Statements will appear here upon subscription cycle renewal.'}
+                    </Text>
+                    {invoiceStatusFilter !== 'All' && (
+                      <TouchableOpacity
+                        onPress={() => setInvoiceStatusFilter('All')}
+                        style={[styles.serviceChip, { marginTop: 10, alignSelf: 'center' }]}
+                      >
+                        <Text style={[styles.serviceChipText, { color: '#2563eb' }]}>Reset Filter</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ) : (
-                  invoices.map((inv) => {
+                  filteredInvoices.map((inv) => {
                     const badge = getStatusBadge(inv.status);
                     return (
                       <View key={inv.id} style={styles.itemCard}>
@@ -5421,8 +6374,20 @@ export default function ClientDashboard({ user, onLogout }) {
                     : 'No follow-up scheduled'}
                 </Text>
 
+                {/* Pick Exact Date with Calendar Button */}
+                <TouchableOpacity
+                  style={[styles.buttonPrimary, { backgroundColor: '#db2777', paddingVertical: 8, marginBottom: 10 }]}
+                  onPress={() => {
+                    const l = selectedCrmLead;
+                    setShowLeadDetailsModal(false);
+                    openScheduleCalendarModal(l);
+                  }}
+                >
+                  <Text style={[styles.buttonPrimaryText, { fontSize: 12 }]}>📅 Open Calendar to Assign Date & Time</Text>
+                </TouchableOpacity>
+
                 {/* Quick Presets */}
-                <Text style={[styles.inputLabel, { fontSize: 10, marginBottom: 4 }]}>Quick Reschedule:</Text>
+                <Text style={[styles.inputLabel, { fontSize: 10, marginBottom: 4 }]}>Quick Presets:</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                   <TouchableOpacity
                     disabled={updatingLeadStatus}
@@ -5612,24 +6577,31 @@ export default function ClientDashboard({ user, onLogout }) {
 
               {/* Action Buttons in Modal */}
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                {selectedCrmLead?.phone ? (
-                  <TouchableOpacity
-                    style={[styles.leadActionBtn, styles.leadCallBtn, { flex: 1, paddingVertical: 10 }]}
-                    onPress={() => handleCallLead(selectedCrmLead.phone)}
-                  >
-                    <AppIcon name="phone" size={16} color="#ffffff" />
-                    <Text style={[styles.leadCallBtnText, { fontSize: 13 }]}>Call Now</Text>
-                  </TouchableOpacity>
-                ) : null}
-                {selectedCrmLead?.phone ? (
-                  <TouchableOpacity
-                    style={[styles.leadActionBtn, styles.leadWhatsAppBtn, { flex: 1, paddingVertical: 10 }]}
-                    onPress={() => handleWhatsAppLead(selectedCrmLead.phone, `${selectedCrmLead.first_name || ''} ${selectedCrmLead.last_name || ''}`.trim())}
-                  >
-                    <Text style={{ fontSize: 14 }}>💬</Text>
-                    <Text style={[styles.leadWhatsAppBtnText, { fontSize: 13 }]}>WhatsApp</Text>
-                  </TouchableOpacity>
-                ) : null}
+                <TouchableOpacity
+                  style={[
+                    styles.leadActionBtn,
+                    styles.leadCallBtn,
+                    { flex: 1, paddingVertical: 10 },
+                    !selectedCrmLead?.phone && styles.leadActionBtnDisabled
+                  ]}
+                  onPress={() => handleCallLead(selectedCrmLead?.phone)}
+                >
+                  <AppIcon name="phone" size={15} color="#ffffff" />
+                  <Text style={[styles.leadCallBtnText, { fontSize: 13 }]}>Call Now</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.leadActionBtn,
+                    styles.leadWhatsAppBtn,
+                    { flex: 1, paddingVertical: 10 },
+                    !selectedCrmLead?.phone && styles.leadActionBtnDisabled
+                  ]}
+                  onPress={() => handleWhatsAppLead(selectedCrmLead?.phone, `${selectedCrmLead?.first_name || ''} ${selectedCrmLead?.last_name || ''}`.trim())}
+                >
+                  <AppIcon name="whatsapp" size={15} color="#ffffff" />
+                  <Text style={[styles.leadWhatsAppBtnText, { fontSize: 13 }]}>WhatsApp</Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
 
@@ -5639,6 +6611,597 @@ export default function ClientDashboard({ user, onLogout }) {
             >
               <Text style={styles.serviceChipText}>Close</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+{/* ======================================================== */}
+      {/* CALENDAR PICKER MODAL TO ASSIGN FOLLOW-UP DATE           */}
+      {/* ======================================================== */}
+      <Modal
+        visible={!!schedulingCalendarLead}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setSchedulingCalendarLead(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                maxHeight: '92%',
+                paddingHorizontal: 18,
+                paddingTop: 18,
+                paddingBottom: 20,
+                borderRadius: 22,
+                borderWidth: 1.5,
+                borderColor: isDark ? '#334155' : '#e2e8f0',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.4,
+                shadowRadius: 22,
+                elevation: 15,
+              }
+            ]}
+          >
+            {/* Header */}
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingBottom: 14,
+              marginBottom: 12,
+              borderBottomWidth: 1,
+              borderBottomColor: isDark ? '#334155' : '#f1f5f9'
+            }}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 12,
+                    backgroundColor: isDark ? 'rgba(219, 39, 119, 0.2)' : '#fce7f3',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(219, 39, 119, 0.4)' : '#fbcfe8'
+                  }}>
+                    <Text style={{ fontSize: 20 }}>📅</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: themeColors.textPrimary }}>
+                      Schedule Follow-up
+                    </Text>
+                    <Text style={{ fontSize: 11, color: themeColors.textSecondary, marginTop: 1 }} numberOfLines={1}>
+                      Lead #{schedulingCalendarLead?.id} • {schedulingCalendarLead?.full_name || `${schedulingCalendarLead?.first_name || ''} ${schedulingCalendarLead?.last_name || ''}`.trim() || 'Inquiry'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setSchedulingCalendarLead(null)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <AppIcon name="x" size={16} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Quick Preset Buttons Strip */}
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ fontSize: 10.5, fontWeight: '800', color: themeColors.textSecondary, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>
+                  ⚡ Quick Presets
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {[
+                      { label: '+2 Hours', d: 0, h: new Date().getHours() + 2, m: 0 },
+                      { label: 'Tomorrow 10 AM', d: 1, h: 10, m: 0 },
+                      { label: 'Tomorrow 4 PM', d: 1, h: 16, m: 0 },
+                      { label: 'In 2 Days (11 AM)', d: 2, h: 11, m: 0 },
+                      { label: 'In 1 Week', d: 7, h: 10, m: 0 }
+                    ].map((item, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 7,
+                          borderRadius: 20,
+                          backgroundColor: isDark ? '#27272a' : '#f1f5f9',
+                          borderWidth: 1,
+                          borderColor: isDark ? '#3f3f46' : '#e2e8f0',
+                        }}
+                        onPress={() => handleApplyCalendarPreset(item.d, item.h, item.m)}
+                      >
+                        <Text style={{ fontSize: 11.5, fontWeight: '700', color: isDark ? '#f43f5e' : '#db2777' }}>
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+
+              {/* Interactive Month Calendar Box */}
+              <View style={{
+                padding: 14,
+                marginBottom: 14,
+                borderRadius: 16,
+                backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                borderWidth: 1.5,
+                borderColor: isDark ? '#27272a' : '#e2e8f0'
+              }}>
+                {/* Month Navigation */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderWidth: 1,
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    onPress={() => {
+                      const prev = new Date(calendarPickerMonth);
+                      prev.setMonth(prev.getMonth() - 1);
+                      setCalendarPickerMonth(prev);
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>◀</Text>
+                  </TouchableOpacity>
+
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: themeColors.textPrimary }}>
+                    {CALENDAR_MONTH_NAMES[calendarPickerMonth.getMonth()]} {calendarPickerMonth.getFullYear()}
+                  </Text>
+
+                  <TouchableOpacity
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 10,
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderWidth: 1,
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    onPress={() => {
+                      const next = new Date(calendarPickerMonth);
+                      next.setMonth(next.getMonth() + 1);
+                      setCalendarPickerMonth(next);
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: themeColors.textPrimary }}>▶</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Day of Week Row */}
+                <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+                  {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((dName, idx) => (
+                    <View key={idx} style={{ flex: 1, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: idx === 0 || idx === 6 ? '#f43f5e' : themeColors.textSecondary }}>
+                        {dName}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Month Days Grid */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                  {calendarPickerDays.map((dItem, idx) => {
+                    if (!dItem.dayNum) {
+                      return <View key={idx} style={{ width: '14.28%', height: 40 }} />;
+                    }
+
+                    const isSelected = calendarSelectedDateStr === dItem.dateStr;
+                    const now = new Date();
+                    const pad = n => String(n).padStart(2, '0');
+                    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+                    const isToday = dItem.dateStr === todayStr;
+
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        style={[
+                          {
+                            width: '14.28%',
+                            height: 40,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: 10,
+                            marginVertical: 1
+                          },
+                          isSelected && {
+                            backgroundColor: '#db2777',
+                            shadowColor: '#db2777',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.4,
+                            shadowRadius: 4,
+                            elevation: 4
+                          },
+                          !isSelected && isToday && {
+                            borderWidth: 1.5,
+                            borderColor: '#db2777',
+                            backgroundColor: isDark ? 'rgba(219, 39, 119, 0.15)' : '#fdf2f8'
+                          }
+                        ]}
+                        onPress={() => setCalendarSelectedDateStr(dItem.dateStr)}
+                      >
+                        <Text style={[
+                          { fontSize: 12.5, fontWeight: '700' },
+                          isSelected ? { color: '#ffffff', fontWeight: '800' } : { color: themeColors.textPrimary },
+                          isToday && !isSelected && { color: '#db2777', fontWeight: '800' }
+                        ]}>
+                          {dItem.dayNum}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Selected Schedule Banner */}
+              <View style={{
+                padding: 13,
+                marginBottom: 14,
+                borderRadius: 14,
+                backgroundColor: isDark ? 'rgba(219, 39, 119, 0.14)' : '#fdf2f8',
+                borderWidth: 1.5,
+                borderColor: isDark ? 'rgba(219, 39, 119, 0.4)' : '#fbcfe8'
+              }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: '#db2777', textTransform: 'uppercase', marginBottom: 2 }}>
+                  Selected Follow-up Target
+                </Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: isDark ? '#ffffff' : '#0f172a' }}>
+                  📅 {calendarSelectedDateStr ? new Date(calendarSelectedDateStr).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Pick a date'} at {calendarSelectedTimeStr}
+                </Text>
+              </View>
+
+              {/* Time Selector */}
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ fontSize: 10.5, fontWeight: '800', color: themeColors.textSecondary, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>
+                  ⏰ Follow-up Time
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {['09:00 AM', '10:00 AM', '11:30 AM', '02:00 PM', '04:00 PM', '05:30 PM', '07:00 PM'].map((tStr) => {
+                      const isSel = calendarSelectedTimeStr === tStr;
+                      return (
+                        <TouchableOpacity
+                          key={tStr}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 7,
+                            borderRadius: 12,
+                            backgroundColor: isSel ? '#db2777' : (isDark ? '#27272a' : '#f1f5f9'),
+                            borderWidth: 1,
+                            borderColor: isSel ? '#db2777' : (isDark ? '#3f3f46' : '#e2e8f0'),
+                          }}
+                          onPress={() => setCalendarSelectedTimeStr(tStr)}
+                        >
+                          <Text style={{ fontSize: 11.5, fontWeight: '700', color: isSel ? '#ffffff' : themeColors.textPrimary }}>
+                            {tStr}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+
+              {/* Lead Status Selector */}
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ fontSize: 10.5, fontWeight: '800', color: themeColors.textSecondary, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>
+                  Update Lead Status
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {['New', 'Contacted', 'Qualified', 'Converted', 'Lost'].map(st => {
+                    const isSel = calendarFollowUpStatus.toLowerCase() === st.toLowerCase();
+                    return (
+                      <TouchableOpacity
+                        key={st}
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 12,
+                          backgroundColor: isSel ? '#2563eb' : (isDark ? '#27272a' : '#f1f5f9'),
+                          borderWidth: 1,
+                          borderColor: isSel ? '#2563eb' : (isDark ? '#3f3f46' : '#e2e8f0'),
+                        }}
+                        onPress={() => setCalendarFollowUpStatus(st)}
+                      >
+                        <Text style={{ fontSize: 11.5, fontWeight: '700', color: isSel ? '#ffffff' : themeColors.textPrimary }}>
+                          {st}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Follow-up Note */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 10.5, fontWeight: '800', color: themeColors.textSecondary, textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>
+                  📝 Follow-up Goal / Agenda Note (Optional)
+                </Text>
+                <TextInput
+                  style={{
+                    minHeight: 70,
+                    textAlignVertical: 'top',
+                    padding: 12,
+                    borderRadius: 12,
+                    backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                    borderWidth: 1,
+                    borderColor: isDark ? '#334155' : '#cbd5e1',
+                    color: themeColors.textPrimary,
+                    fontSize: 12.5,
+                  }}
+                  multiline
+                  numberOfLines={3}
+                  placeholder="e.g. Call customer back to discuss quote & package options..."
+                  placeholderTextColor={themeColors.textSecondary}
+                  value={calendarFollowUpNote}
+                  onChangeText={setCalendarFollowUpNote}
+                />
+              </View>
+            </ScrollView>
+
+            {/* Bottom Actions */}
+            <View style={{
+              flexDirection: 'row',
+              gap: 8,
+              paddingTop: 12,
+              borderTopWidth: 1,
+              borderTopColor: isDark ? '#334155' : '#f1f5f9',
+              alignItems: 'center'
+            }}>
+              {schedulingCalendarLead?.follow_up_date && (
+                <TouchableOpacity
+                  disabled={savingCalendarSchedule}
+                  style={{
+                    paddingVertical: 11,
+                    paddingHorizontal: 14,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: '#fca5a5',
+                    backgroundColor: isDark ? '#450a0a33' : '#fef2f2'
+                  }}
+                  onPress={async () => {
+                    await handleScheduleLeadFollowUp(schedulingCalendarLead.id, null);
+                    setSchedulingCalendarLead(null);
+                  }}
+                >
+                  <Text style={{ fontSize: 12, color: '#ef4444', fontWeight: '800' }}>Clear</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 11,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: isDark ? '#334155' : '#cbd5e1',
+                  backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onPress={() => setSchedulingCalendarLead(null)}
+              >
+                <Text style={{ fontSize: 12.5, fontWeight: '700', color: themeColors.textPrimary }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                disabled={savingCalendarSchedule}
+                style={{
+                  flex: 2,
+                  paddingVertical: 11,
+                  borderRadius: 12,
+                  backgroundColor: '#db2777',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: '#db2777',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 4,
+                  elevation: 4
+                }}
+                onPress={handleSaveCalendarSchedule}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '800', color: '#ffffff' }}>
+                  {savingCalendarSchedule ? 'Saving...' : 'Save Follow-up Date 📅'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+            {/* CRM Leads Filter Modal Sheet */}
+      <Modal
+        visible={showCrmFilterModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCrmFilterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[
+            styles.modalCard,
+            {
+              backgroundColor: isDark ? '#1e293b' : '#ffffff',
+              maxHeight: '88%',
+              paddingHorizontal: 18,
+              paddingTop: 18,
+              paddingBottom: 20,
+              borderRadius: 22,
+              borderWidth: 1.5,
+              borderColor: isDark ? '#334155' : '#e2e8f0',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.4,
+              shadowRadius: 22,
+              elevation: 15,
+            }
+          ]}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 16 }}>🔍</Text>
+                <Text style={styles.modalTitle}>Filter CRM Leads</Text>
+                {activeCrmFilterCount > 0 && (
+                  <View style={{ backgroundColor: '#2563eb22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563eb' }}>{activeCrmFilterCount} active</Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity onPress={() => setShowCrmFilterModal(false)}>
+                <AppIcon name="x" size={18} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* 1. Status Filter */}
+              <Text style={[styles.inputLabel, { fontWeight: '700', marginBottom: 6 }]}>Lead Status</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                {['All', 'New', 'Contacted', 'Qualified', 'Converted', 'Lost'].map(st => {
+                  const isSel = crmStatusFilter.toLowerCase() === st.toLowerCase();
+                  return (
+                    <TouchableOpacity
+                      key={st}
+                      style={[styles.serviceChip, isSel && styles.serviceChipActive, { paddingHorizontal: 12, paddingVertical: 6 }]}
+                      onPress={() => setCrmStatusFilter(st)}
+                    >
+                      <Text style={[styles.serviceChipText, isSel && styles.serviceChipTextActive]}>{st}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* 2. Date Presets */}
+              <Text style={[styles.inputLabel, { fontWeight: '700', marginBottom: 6 }]}>Received Date</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                {['All', 'Today', 'Yesterday', 'Last 7 Days', 'This Month', 'Last Month'].map(dp => {
+                  const isSel = crmDatePreset === dp;
+                  return (
+                    <TouchableOpacity
+                      key={dp}
+                      style={[styles.serviceChip, isSel && styles.serviceChipActive, { paddingHorizontal: 12, paddingVertical: 6 }]}
+                      onPress={() => setCrmDatePreset(dp)}
+                    >
+                      <Text style={[styles.serviceChipText, isSel && styles.serviceChipTextActive]}>{dp}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* 3. Follow-up Reminders */}
+              <Text style={[styles.inputLabel, { fontWeight: '700', marginBottom: 6 }]}>Follow-up Reminders</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                {[
+                  { id: 'All', label: 'All Follow-ups' },
+                  { id: 'Today', label: '⏰ Due Today' },
+                  { id: 'Overdue', label: '⚠️ Overdue' },
+                  { id: 'Upcoming', label: '📅 Upcoming' },
+                  { id: 'Scheduled', label: '📌 Scheduled' },
+                  { id: 'Unscheduled', label: '⭕ Not Scheduled' }
+                ].map(item => {
+                  const isSel = crmFollowUpFilter === item.id;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.serviceChip, isSel && styles.serviceChipActive, { paddingHorizontal: 10, paddingVertical: 6 }]}
+                      onPress={() => setCrmFollowUpFilter(item.id)}
+                    >
+                      <Text style={[styles.serviceChipText, isSel && styles.serviceChipTextActive]}>{item.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* 4. Priority Level */}
+              <Text style={[styles.inputLabel, { fontWeight: '700', marginBottom: 6 }]}>Priority Level</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                {['All', 'Urgent', 'High', 'Medium', 'Low'].map(pr => {
+                  const isSel = crmPriorityFilter.toLowerCase() === pr.toLowerCase();
+                  return (
+                    <TouchableOpacity
+                      key={pr}
+                      style={[styles.serviceChip, isSel && styles.serviceChipActive, { paddingHorizontal: 12, paddingVertical: 6 }]}
+                      onPress={() => setCrmPriorityFilter(pr)}
+                    >
+                      <Text style={[styles.serviceChipText, isSel && styles.serviceChipTextActive]}>{pr}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* 5. Assigned Team Member */}
+              <Text style={[styles.inputLabel, { fontWeight: '700', marginBottom: 6 }]}>Assigned Team Member</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                <TouchableOpacity
+                  style={[styles.serviceChip, crmAssignedFilter === 'All' && styles.serviceChipActive, { paddingHorizontal: 10, paddingVertical: 6 }]}
+                  onPress={() => setCrmAssignedFilter('All')}
+                >
+                  <Text style={[styles.serviceChipText, crmAssignedFilter === 'All' && styles.serviceChipTextActive]}>All Staff</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.serviceChip, crmAssignedFilter === 'unassigned' && styles.serviceChipActive, { paddingHorizontal: 10, paddingVertical: 6 }]}
+                  onPress={() => setCrmAssignedFilter('unassigned')}
+                >
+                  <Text style={[styles.serviceChipText, crmAssignedFilter === 'unassigned' && styles.serviceChipTextActive]}>👤 Unassigned</Text>
+                </TouchableOpacity>
+                {crmMembers.map(m => {
+                  const isSel = String(crmAssignedFilter) === String(m.id);
+                  return (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={[styles.serviceChip, isSel && styles.serviceChipActive, { paddingHorizontal: 10, paddingVertical: 6 }]}
+                      onPress={() => setCrmAssignedFilter(String(m.id))}
+                    >
+                      <Text style={[styles.serviceChipText, isSel && styles.serviceChipTextActive]}>👤 {m.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {/* Bottom Actions */}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: themeColors.border }}>
+              <TouchableOpacity
+                style={[styles.serviceChip, { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10 }]}
+                onPress={() => {
+                  handleResetCrmFilters();
+                  setShowCrmFilterModal(false);
+                }}
+              >
+                <Text style={[styles.serviceChipText, { color: '#ef4444', fontWeight: '700' }]}>Reset All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.buttonPrimary, { flex: 2, paddingVertical: 10 }]}
+                onPress={() => {
+                  fetchCrmLeads({
+                    status: crmStatusFilter,
+                    priority: crmPriorityFilter,
+                    assignedTo: crmAssignedFilter,
+                    datePreset: crmDatePreset,
+                    search: crmSearchQuery
+                  });
+                  setShowCrmFilterModal(false);
+                }}
+              >
+                <Text style={styles.buttonPrimaryText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -6317,12 +7880,31 @@ const getStyles = (colors, isDark) =>
     },
     modalCard: {
       width: '100%',
-      maxWidth: 420,
+      maxWidth: 440,
       backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
-      borderRadius: 16,
+      borderRadius: 20,
       padding: 16,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 20,
+      elevation: 12,
+    },
+    modalContent: {
+      width: '100%',
+      maxWidth: 440,
+      backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
+      borderRadius: 20,
+      padding: 16,
+      borderWidth: 1.5,
+      borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 20,
+      elevation: 12,
     },
     modalHeader: {
       flexDirection: 'row',
@@ -6569,6 +8151,45 @@ const getStyles = (colors, isDark) =>
     crmFilterChipTextActive: {
       color: '#ffffff',
     },
+    filterButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border || (isDark ? '#334155' : '#e2e8f0'),
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+    },
+    filterButtonActive: {
+      backgroundColor: isDark ? '#1e3a8a33' : '#eff6ff',
+      borderColor: '#2563eb',
+    },
+    filterButtonText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textPrimary || (isDark ? '#f8fafc' : '#0f172a'),
+    },
+    filterButtonTextActive: {
+      color: '#2563eb',
+    },
+    activeTagChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+      borderWidth: 1,
+      borderColor: colors.border || (isDark ? '#334155' : '#cbd5e1'),
+    },
+    activeTagChipText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.textPrimary || (isDark ? '#e2e8f0' : '#334155'),
+    },
     leadCard: {
       backgroundColor: colors.cardBg || (isDark ? '#1e293b' : '#ffffff'),
       borderRadius: 14,
@@ -6658,44 +8279,70 @@ const getStyles = (colors, isDark) =>
     leadActionRow: {
       flexDirection: 'row',
       gap: 8,
-      marginTop: 2,
+      marginTop: 4,
     },
     leadActionBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
-      paddingVertical: 8,
+      paddingVertical: 9,
       paddingHorizontal: 12,
-      borderRadius: 8,
+      borderRadius: 10,
+    },
+    leadActionBtnDisabled: {
+      opacity: 0.45,
     },
     leadCallBtn: {
-      backgroundColor: '#2563eb',
+      backgroundColor: '#10b981',
       flex: 1,
+      shadowColor: '#10b981',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 2,
     },
     leadCallBtnText: {
       color: '#ffffff',
-      fontSize: 12,
+      fontSize: 12.5,
       fontWeight: '800',
+      letterSpacing: 0.2,
     },
     leadWhatsAppBtn: {
-      backgroundColor: '#10b981',
+      backgroundColor: '#25D366',
       flex: 1,
+      shadowColor: '#25D366',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 2,
     },
     leadWhatsAppBtnText: {
       color: '#ffffff',
-      fontSize: 12,
+      fontSize: 12.5,
       fontWeight: '800',
+      letterSpacing: 0.2,
+    },
+    leadScheduleBtn: {
+      backgroundColor: isDark ? 'rgba(219, 39, 119, 0.15)' : '#fdf2f8',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(219, 39, 119, 0.35)' : '#fbcfe8',
+      flex: 1,
+    },
+    leadScheduleBtnText: {
+      color: '#db2777',
+      fontSize: 12,
+      fontWeight: '700',
     },
     leadDetailsBtn: {
-      backgroundColor: isDark ? '#334155' : '#eff6ff',
+      backgroundColor: isDark ? '#334155' : '#f1f5f9',
       borderWidth: 1,
-      borderColor: isDark ? '#475569' : '#bfdbfe',
-      paddingHorizontal: 14,
+      borderColor: isDark ? '#475569' : '#e2e8f0',
+      flex: 1,
     },
     leadDetailsBtnText: {
-      color: '#2563eb',
+      color: isDark ? '#e2e8f0' : '#475569',
       fontSize: 12,
-      fontWeight: '800',
+      fontWeight: '700',
     },
   });
