@@ -350,7 +350,7 @@ export default function AdminLayout({ children }) {
   return (
     <div style={{ display: "contents" }}>
       {/* Sidebar Navigation (Desktop) */}
-      <aside className="sidebar desktop-only" style={{ width: isCollapsed ? '80px' : '260px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: 'var(--bg-secondary)', borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, padding: 0, overflow: 'hidden' }}>
+      <aside className="sidebar desktop-only hidden md:flex" style={{ width: isCollapsed ? '80px' : '260px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: 'var(--bg-secondary)', borderRight: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', height: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, padding: 0, overflow: 'hidden' }}>
         <div style={{ flexShrink: 0, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: isCollapsed ? 'center' : 'space-between', borderBottom: '1px solid var(--glass-border)' }}>
           {!isCollapsed && (
             <Link href="/" style={{ textDecoration: "none" }}>
@@ -701,13 +701,16 @@ export default function AdminLayout({ children }) {
           width: calc(100% - 80px);
         }
         @media (max-width: 768px) {
+          .sidebar, .desktop-only {
+            display: none !important;
+          }
           .main-wrapper, .main-wrapper.collapsed {
             margin-left: 0 !important;
             width: 100% !important;
             padding: 10px !important;
           }
           /* Make all tables automatically responsive without wrappers */
-          table {
+          table:not(.modal-table) {
             display: block !important;
             width: 100% !important;
             overflow-x: auto !important;
@@ -718,16 +721,16 @@ export default function AdminLayout({ children }) {
             /* Keep normal table layout within the scrollable block */
           }
           
-          /* Fix flex headers to wrap instead of squish */
-          .flex.justify-between.items-center {
+          /* Fix flex headers to wrap instead of squish (exclude modals and dialogs) */
+          .flex.justify-between.items-center:not(.modal-row):not(.keep-row):not([role="dialog"] *):not(.modal-portal *) {
             flex-direction: column !important;
             align-items: stretch !important;
             gap: 12px !important;
           }
           
           /* Handle search bar and filter layouts */
-          .flex.items-center.gap-3,
-          .flex.items-center.gap-4 {
+          .flex.items-center.gap-3:not(.modal-row *):not(.keep-row *):not([role="dialog"] *):not(.modal-portal *),
+          .flex.items-center.gap-4:not(.modal-row *):not(.keep-row *):not([role="dialog"] *):not(.modal-portal *) {
             flex-wrap: wrap !important;
           }
           

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   FiTarget,
@@ -43,6 +44,11 @@ import Swal from 'sweetalert2';
 import Pagination from '@/app/components/Pagination.js';
 
 export default function SuperadminCompanyLeadsPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -866,6 +872,22 @@ export default function SuperadminCompanyLeadsPage() {
       setCopiedWebhookKey(true);
       setTimeout(() => setCopiedWebhookKey(false), 2000);
     }
+  };
+
+  // General Copy helper with toast
+  const handleCopyText = (text, message = 'Copied to clipboard!') => {
+    if (!text) return;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+    }
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'success',
+      title: message,
+      showConfirmButton: false,
+      timer: 2000
+    });
   };
 
   return (
@@ -1985,24 +2007,37 @@ export default function SuperadminCompanyLeadsPage() {
       )}
 
       {/* ======================================================== */}
+      {/* ======================================================== */}
       {/* 5. MODAL: ADD NEW LEAD (FOR ANY COMPANY)                 */}
       {/* ======================================================== */}
-      {showAddModal && (
+      {mounted && showAddModal && createPortal(
         <div
-          className="fixed inset-0 z-[9999] bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200"
-          style={{ zIndex: 9999 }}
+          role="dialog"
+          aria-modal="true"
+          className="modal-portal fixed inset-0 z-[999999] bg-gray-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+          style={{ zIndex: 999999, display: 'flex', flexWrap: 'nowrap' }}
         >
-          <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-2xl p-6 space-y-4 my-8 overflow-hidden">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 flex items-center justify-center font-bold shadow-xs">
+          <div
+            className="leads-modal-card flex-nowrap w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden my-auto"
+            style={{ display: 'flex', flexDirection: 'column', flexWrap: 'nowrap', maxHeight: 'calc(100dvh - 16px)' }}
+          >
+            {/* Modal Header */}
+            <div
+              className="modal-row keep-row p-3.5 sm:p-5 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0 bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:to-slate-800"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <div
+                className="flex items-center gap-2.5 min-w-0 flex-1"
+                style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', minWidth: 0, flex: 1 }}
+              >
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 flex items-center justify-center font-bold shadow-xs shrink-0">
                   <FiPlus size={18} />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                <div className="min-w-0">
+                  <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white truncate">
                     Add New CRM Lead
                   </h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
                     Create a sales inquiry for any registered client company.
                   </p>
                 </div>
@@ -2010,236 +2045,253 @@ export default function SuperadminCompanyLeadsPage() {
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer shrink-0"
               >
-                <FiX size={20} />
+                <FiX size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleAddSubmit} className="space-y-4 text-xs">
-              {/* Company Selection */}
-              <div>
-                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
-                  Target Client Company <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  required
-                  value={addForm.company_id}
-                  onChange={(e) => setAddForm({ ...addForm, company_id: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none font-semibold cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-xs"
-                >
-                  <option value="">-- Choose Company --</option>
-                  {companies.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.company_name} ({c.email || c.website || 'Client'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Name Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Scrollable Form Body */}
+            <form onSubmit={handleAddSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div
+                className="p-3.5 sm:p-6 space-y-3.5 sm:space-y-4 text-xs overflow-y-auto flex-1 min-h-0"
+                style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+              >
+                {/* Company Selection */}
                 <div>
                   <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
-                    First Name <span className="text-rose-500">*</span>
+                    Target Client Company <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="text"
+                  <select
                     required
-                    placeholder="e.g. John"
-                    value={addForm.first_name}
-                    onChange={(e) => setAddForm({ ...addForm, first_name: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Last Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Doe"
-                    value={addForm.last_name}
-                    onChange={(e) => setAddForm({ ...addForm, last_name: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Contact Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Email Address</label>
-                  <input
-                    type="email"
-                    placeholder="john@example.com"
-                    value={addForm.email}
-                    onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Phone Number</label>
-                  <input
-                    type="text"
-                    placeholder="+91 9876543210"
-                    value={addForm.phone}
-                    onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Subject */}
-              <div>
-                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Inquiry Subject / Title</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Roof Repair Quote / Digital Marketing Consultation"
-                  value={addForm.subject}
-                  onChange={(e) => setAddForm({ ...addForm, subject: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
-                />
-              </div>
-
-              {/* Requirements Message */}
-              <div>
-                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Message / Requirements</label>
-                <textarea
-                  rows={3}
-                  placeholder="Client project details, specific requirements, quotation request..."
-                  value={addForm.message}
-                  onChange={(e) => setAddForm({ ...addForm, message: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none resize-none focus:ring-2 focus:ring-blue-500 shadow-xs"
-                />
-              </div>
-
-              {/* Status, Priority, Staff Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Status</label>
-                  <select
-                    value={addForm.status}
-                    onChange={(e) => setAddForm({ ...addForm, status: e.target.value })}
+                    value={addForm.company_id}
+                    onChange={(e) => setAddForm({ ...addForm, company_id: e.target.value })}
                     className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none font-semibold cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-xs"
                   >
-                    <option value="New">New</option>
-                    <option value="Contacted">Contacted</option>
-                    <option value="Qualified">Qualified</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Converted">Converted</option>
-                    <option value="Lost">Lost</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Priority</label>
-                  <select
-                    value={addForm.priority}
-                    onChange={(e) => setAddForm({ ...addForm, priority: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none font-semibold cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-xs"
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Assign Staff</label>
-                  <select
-                    value={addForm.assigned_to}
-                    onChange={(e) => setAddForm({ ...addForm, assigned_to: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none font-semibold cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-xs"
-                  >
-                    <option value="">Unassigned</option>
-                    {addModalCompanyStaff.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
+                    <option value="">-- Choose Company --</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.company_name} ({c.email || c.website || 'Client'})
                       </option>
                     ))}
                   </select>
                 </div>
-              </div>
 
-              {/* Source & Follow-up Date Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Lead Source</label>
-                  <select
-                    value={addForm.source}
-                    onChange={(e) => setAddForm({ ...addForm, source: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none font-semibold cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-xs"
-                  >
-                    <option value="Website Contact Form">Website Contact Form</option>
-                    <option value="Google Ads">Google Ads</option>
-                    <option value="WordPress Integration">WordPress Integration</option>
-                    <option value="Facebook / Instagram">Facebook / Instagram</option>
-                    <option value="Referral">Referral</option>
-                    <option value="Superadmin Manual">Superadmin Manual</option>
-                    <option value="Phone Call">Phone Call</option>
-                    <option value="WhatsApp Inquiry">WhatsApp Inquiry</option>
-                  </select>
+                {/* Name Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
+                      First Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. John"
+                      value={addForm.first_name}
+                      onChange={(e) => setAddForm({ ...addForm, first_name: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Doe"
+                      value={addForm.last_name}
+                      onChange={(e) => setAddForm({ ...addForm, last_name: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+                    />
+                  </div>
                 </div>
 
+                {/* Contact Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      placeholder="john@example.com"
+                      value={addForm.email}
+                      onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Phone Number</label>
+                    <input
+                      type="text"
+                      placeholder="+91 9876543210"
+                      value={addForm.phone}
+                      onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Subject */}
                 <div>
-                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Follow-up Schedule (Optional)</label>
+                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Inquiry Subject / Title</label>
                   <input
-                    type="datetime-local"
-                    value={addForm.follow_up_date}
-                    onChange={(e) => setAddForm({ ...addForm, follow_up_date: e.target.value })}
+                    type="text"
+                    placeholder="e.g. Roof Repair Quote / Digital Marketing Consultation"
+                    value={addForm.subject}
+                    onChange={(e) => setAddForm({ ...addForm, subject: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+                  />
+                </div>
+
+                {/* Requirements Message */}
+                <div>
+                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Message / Requirements</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Client project details, specific requirements, quotation request..."
+                    value={addForm.message}
+                    onChange={(e) => setAddForm({ ...addForm, message: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none resize-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+                  />
+                </div>
+
+                {/* Status, Priority, Staff Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Status</label>
+                    <select
+                      value={addForm.status}
+                      onChange={(e) => setAddForm({ ...addForm, status: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none font-semibold cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-xs"
+                    >
+                      <option value="New">New</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Qualified">Qualified</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Converted">Converted</option>
+                      <option value="Lost">Lost</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Priority</label>
+                    <select
+                      value={addForm.priority}
+                      onChange={(e) => setAddForm({ ...addForm, priority: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none font-semibold cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-xs"
+                    >
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Assign Staff</label>
+                    <select
+                      value={addForm.assigned_to}
+                      onChange={(e) => setAddForm({ ...addForm, assigned_to: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none font-semibold cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-xs"
+                    >
+                      <option value="">Unassigned</option>
+                      {addModalCompanyStaff.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Source & Follow-up Date Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Lead Source</label>
+                    <select
+                      value={addForm.source}
+                      onChange={(e) => setAddForm({ ...addForm, source: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none font-semibold cursor-pointer focus:ring-2 focus:ring-blue-500 shadow-xs"
+                    >
+                      <option value="Website Contact Form">Website Contact Form</option>
+                      <option value="Google Ads">Google Ads</option>
+                      <option value="WordPress Integration">WordPress Integration</option>
+                      <option value="Facebook / Instagram">Facebook / Instagram</option>
+                      <option value="Referral">Referral</option>
+                      <option value="Superadmin Manual">Superadmin Manual</option>
+                      <option value="Phone Call">Phone Call</option>
+                      <option value="WhatsApp Inquiry">WhatsApp Inquiry</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Follow-up Schedule (Optional)</label>
+                    <input
+                      type="datetime-local"
+                      value={addForm.follow_up_date}
+                      onChange={(e) => setAddForm({ ...addForm, follow_up_date: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Initial Note */}
+                <div>
+                  <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Initial Internal Note (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Lead received via direct sales call, needs callback tomorrow..."
+                    value={addForm.note}
+                    onChange={(e) => setAddForm({ ...addForm, note: e.target.value })}
                     className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
                   />
                 </div>
               </div>
 
-              {/* Initial Note */}
-              <div>
-                <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Initial Internal Note (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Lead received via direct sales call, needs callback tomorrow..."
-                  value={addForm.note}
-                  onChange={(e) => setAddForm({ ...addForm, note: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
-                />
-              </div>
-
-              {/* Form Buttons */}
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-gray-200 dark:border-slate-800">
+              {/* Pinned Form Buttons */}
+              <div
+                className="modal-row keep-row p-3 sm:p-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-900/80 flex items-center justify-end gap-2.5 shrink-0"
+                style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}
+              >
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-bold rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors shadow-xs"
+                  className="flex-1 sm:flex-initial text-center justify-center px-4 py-2 text-xs font-bold rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors shadow-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingAdd}
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs disabled:opacity-50 cursor-pointer transition-colors"
+                  className="flex-1 sm:flex-initial text-center justify-center px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   {submittingAdd ? 'Creating...' : 'Create Lead'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
-
       {/* 6. MODAL: VIEW / EDIT LEAD & ACTIVITY NOTES              */}
       {/* ======================================================== */}
-      {showDetailsModal && selectedLead && (
+      {mounted && showDetailsModal && selectedLead && createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200"
-          style={{ zIndex: 9999 }}
+          role="dialog"
+          aria-modal="true"
+          className="modal-portal fixed inset-0 z-[999999] flex items-center justify-center p-2 sm:p-4 bg-gray-950/75 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200"
+          style={{ zIndex: 999999, display: 'flex', flexWrap: 'nowrap' }}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden my-auto">
+          <div
+            className="leads-modal-card flex-nowrap bg-white dark:bg-slate-900 rounded-2xl max-w-3xl w-full flex flex-col shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden my-auto"
+            style={{ display: 'flex', flexDirection: 'column', flexWrap: 'nowrap', maxHeight: 'calc(100dvh - 16px)' }}
+          >
             {/* Modal Header */}
-            <div className="p-5 sm:p-6 border-b border-gray-200 dark:border-slate-800 flex items-start justify-between bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:to-slate-800 shrink-0">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+            <div
+              className="modal-row keep-row p-3.5 sm:p-5 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between gap-2.5 bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:to-slate-800 shrink-0"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <div className="min-w-0 flex-1" style={{ minWidth: 0, flex: 1 }}>
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate max-w-[200px] sm:max-w-none">
                     {selectedLead.full_name || 'Lead Details'}
                   </h2>
                   <span
@@ -2257,27 +2309,30 @@ export default function SuperadminCompanyLeadsPage() {
                     {selectedLead.priority}
                   </span>
                 </div>
-                <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-1">
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-0.5 sm:mt-1 truncate">
                   🏢 {selectedLead.company_name} • Received on{' '}
-                  {new Date(selectedLead.created_at).toLocaleString()}
+                  {new Date(selectedLead.created_at).toLocaleDateString()}
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setShowDetailsModal(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer shrink-0"
               >
-                <FiX size={20} />
+                <FiX size={18} />
               </button>
             </div>
 
             {/* Modal Tabs */}
-            <div className="flex items-center gap-2 px-6 border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+            <div
+              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-6 border-b border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 overflow-x-auto no-scrollbar"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}
+            >
               <button
                 type="button"
                 onClick={() => setActiveDetailsTab('overview')}
-                className={`px-3.5 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                className={`px-3 py-2 sm:px-3.5 sm:py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   activeDetailsTab === 'overview'
                     ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
                     : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
@@ -2288,33 +2343,36 @@ export default function SuperadminCompanyLeadsPage() {
               <button
                 type="button"
                 onClick={() => setActiveDetailsTab('notes')}
-                className={`px-3.5 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-2 sm:px-3.5 sm:py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
                   activeDetailsTab === 'notes'
                     ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
                     : 'border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                 }`}
               >
                 <FiMessageSquare size={13} />
-                <span>Notes & Activity Log ({leadNotes.length})</span>
+                <span>Notes & Activity ({leadNotes.length})</span>
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+            <div
+              className="p-3 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto flex-1 min-h-0"
+              style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+            >
 
             {/* TAB 1: OVERVIEW & EDIT */}
             {activeDetailsTab === 'overview' && (
-              <div className="space-y-4 text-xs">
+              <div className="space-y-3 sm:space-y-4 text-xs">
                 {/* Contact Quick Action Bar */}
-                <div className="p-3.5 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/40 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="p-2.5 sm:p-3.5 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                     {selectedLead.phone && (
                       <a
                         href={`tel:${selectedLead.phone.replace(/[^0-9+]/g, '')}`}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold flex items-center gap-1.5 hover:bg-emerald-700 transition-colors shadow-xs"
+                        className="px-3 py-2 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition-colors shadow-xs text-xs"
                       >
-                        <FiPhone size={13} />
-                        <span>Call Lead</span>
+                        <FiPhone size={12} />
+                        <span>Call</span>
                       </a>
                     )}
                     {selectedLead.phone && (
@@ -2322,17 +2380,17 @@ export default function SuperadminCompanyLeadsPage() {
                         href={`https://wa.me/${selectedLead.phone.replace(/[^0-9]/g, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-lg bg-[#25D366] text-white font-bold flex items-center gap-1.5 hover:bg-green-600 transition-colors shadow-xs"
+                        className="px-3 py-2 rounded-lg bg-[#25D366] text-white font-bold flex items-center justify-center gap-1.5 hover:bg-green-600 transition-colors shadow-xs text-xs"
                       >
-                        <span>💬 Chat WhatsApp</span>
+                        <span>💬 WhatsApp</span>
                       </a>
                     )}
                     {selectedLead.email && (
                       <a
                         href={`mailto:${selectedLead.email}`}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold flex items-center gap-1.5 hover:bg-blue-700 transition-colors shadow-xs"
+                        className="col-span-2 sm:col-span-1 px-3 py-2 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center gap-1.5 hover:bg-blue-700 transition-colors shadow-xs text-xs"
                       >
-                        <FiMail size={13} />
+                        <FiMail size={12} />
                         <span>Send Email</span>
                       </a>
                     )}
@@ -2341,16 +2399,16 @@ export default function SuperadminCompanyLeadsPage() {
                   <button
                     type="button"
                     onClick={() => setIsEditingLead(!isEditingLead)}
-                    className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 font-bold flex items-center gap-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-xs"
+                    className="w-full sm:w-auto px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 font-bold flex items-center justify-center gap-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-xs text-xs"
                   >
-                    <FiEdit2 size={13} />
+                    <FiEdit2 size={12} />
                     <span>{isEditingLead ? 'Cancel Edit' : 'Edit Lead Information'}</span>
                   </button>
                 </div>
 
                 {/* Edit Form or Read-only Display */}
                 {isEditingLead ? (
-                  <div className="space-y-3.5 p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20">
+                  <div className="space-y-3.5 p-3.5 sm:p-4 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/40 dark:bg-blue-950/20">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Company</label>
@@ -2493,7 +2551,7 @@ export default function SuperadminCompanyLeadsPage() {
                       <button
                         type="button"
                         onClick={() => setIsEditingLead(false)}
-                        className="px-4 py-2 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                        className="flex-1 sm:flex-initial text-center px-4 py-2 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
                       >
                         Cancel
                       </button>
@@ -2501,20 +2559,20 @@ export default function SuperadminCompanyLeadsPage() {
                         type="button"
                         onClick={handleSaveEdit}
                         disabled={savingEdit}
-                        className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer disabled:opacity-50 shadow-xs"
+                        className="flex-1 sm:flex-initial text-center px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer disabled:opacity-50 shadow-xs"
                       >
                         {savingEdit ? 'Saving...' : 'Save Changes'}
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-5 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-800/40 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-3.5 sm:p-5 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-800/40 space-y-3 sm:space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
                         <span className="text-gray-500 dark:text-gray-400 font-bold uppercase text-[10px] tracking-wider block">
                           Client Inquiry Title
                         </span>
-                        <p className="font-bold text-gray-900 dark:text-white text-sm mt-1">
+                        <p className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm mt-0.5 break-words">
                           {selectedLead.subject || 'Website Inquiry'}
                         </p>
                       </div>
@@ -2523,7 +2581,7 @@ export default function SuperadminCompanyLeadsPage() {
                         <span className="text-gray-500 dark:text-gray-400 font-bold uppercase text-[10px] tracking-wider block">
                           Lead Source
                         </span>
-                        <p className="font-bold text-gray-900 dark:text-white text-sm mt-1">
+                        <p className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm mt-0.5 break-words">
                           {selectedLead.source || 'Website Contact Form'}
                         </p>
                       </div>
@@ -2532,7 +2590,7 @@ export default function SuperadminCompanyLeadsPage() {
                         <span className="text-gray-500 dark:text-gray-400 font-bold uppercase text-[10px] tracking-wider block">
                           Assigned Staff
                         </span>
-                        <p className="font-bold text-gray-900 dark:text-white text-sm mt-1">
+                        <p className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm mt-0.5">
                           {selectedLead.assigned_user_name ? (
                             <span className="inline-flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
                               👤 {selectedLead.assigned_user_name}
@@ -2547,8 +2605,8 @@ export default function SuperadminCompanyLeadsPage() {
                         <span className="text-gray-500 dark:text-gray-400 font-bold uppercase text-[10px] tracking-wider block">
                           Follow-up Schedule
                         </span>
-                        <p className="font-bold text-pink-600 dark:text-pink-400 text-sm mt-1 flex items-center gap-1.5">
-                          <FiCalendar size={14} />
+                        <p className="font-bold text-pink-600 dark:text-pink-400 text-xs sm:text-sm mt-0.5 flex items-center gap-1.5 break-words">
+                          <FiCalendar size={13} className="shrink-0" />
                           <span>
                             {selectedLead.follow_up_date
                               ? new Date(selectedLead.follow_up_date).toLocaleString()
@@ -2558,11 +2616,11 @@ export default function SuperadminCompanyLeadsPage() {
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-gray-200 dark:border-slate-700/60">
-                      <span className="text-gray-500 dark:text-gray-400 font-bold uppercase text-[10px] tracking-wider block mb-1.5">
+                    <div className="pt-2.5 sm:pt-3 border-t border-gray-200 dark:border-slate-700/60">
+                      <span className="text-gray-500 dark:text-gray-400 font-bold uppercase text-[10px] tracking-wider block mb-1">
                         Inquiry Message / Requirement
                       </span>
-                      <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700/70 text-gray-800 dark:text-gray-200 font-medium leading-relaxed whitespace-pre-wrap text-xs shadow-xs">
+                      <div className="p-3 sm:p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700/70 text-gray-800 dark:text-gray-200 font-medium leading-relaxed whitespace-pre-wrap text-xs shadow-xs break-words max-h-40 overflow-y-auto">
                         {selectedLead.message || 'No additional message was provided with this inquiry.'}
                       </div>
                     </div>
@@ -2573,9 +2631,9 @@ export default function SuperadminCompanyLeadsPage() {
 
             {/* TAB 2: INTERNAL NOTES & ACTIVITIES */}
             {activeDetailsTab === 'notes' && (
-              <div className="space-y-4 text-xs">
+              <div className="space-y-3 sm:space-y-4 text-xs">
                 {/* Add Note Input */}
-                <div className="p-4 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-800/40 space-y-2.5">
+                <div className="p-3.5 sm:p-4 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-800/40 space-y-2.5">
                   <label className="font-bold text-gray-800 dark:text-gray-200 block text-xs">
                     📝 Log Internal Note / Follow-up Discussion
                   </label>
@@ -2591,7 +2649,7 @@ export default function SuperadminCompanyLeadsPage() {
                       type="button"
                       onClick={handleAddNote}
                       disabled={savingNote || !newNoteInput.trim()}
-                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold disabled:opacity-50 cursor-pointer shadow-xs"
+                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold disabled:opacity-50 cursor-pointer shadow-xs text-xs"
                     >
                       {savingNote ? 'Adding...' : 'Post Note'}
                     </button>
@@ -2599,24 +2657,24 @@ export default function SuperadminCompanyLeadsPage() {
                 </div>
 
                 {/* Notes List */}
-                <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                   {leadNotes.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 dark:text-gray-500 font-medium">
+                    <div className="p-6 sm:p-8 text-center text-gray-400 dark:text-gray-500 font-medium text-xs">
                       No internal notes recorded for this lead yet.
                     </div>
                   ) : (
                     leadNotes.map((note) => (
                       <div
                         key={note.id}
-                        className="p-3.5 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/40 space-y-1.5 shadow-xs"
+                        className="p-3 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/40 space-y-1 shadow-xs"
                       >
-                        <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400">
                           <span className="font-bold text-blue-600 dark:text-blue-400">
                             👤 {note.user_name || 'Admin'} {note.user_role ? `(${note.user_role})` : ''}
                           </span>
                           <span>{new Date(note.created_at).toLocaleString()}</span>
                         </div>
-                        <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed font-normal">{note.note}</p>
+                        <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed font-normal text-xs break-words">{note.note}</p>
                       </div>
                     ))
                   )}
@@ -2626,47 +2684,62 @@ export default function SuperadminCompanyLeadsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 sm:p-5 border-t border-gray-200 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-900/80 flex items-center justify-between shrink-0">
+            <div
+              className="modal-row keep-row p-3 sm:p-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-900/80 flex items-center justify-between gap-2 shrink-0"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+            >
               <button
                 type="button"
                 onClick={() => handleDeleteLead(selectedLead)}
-                className="px-3.5 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-bold flex items-center gap-1.5 cursor-pointer text-xs transition-colors"
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-bold flex items-center gap-1.5 cursor-pointer text-xs transition-colors shrink-0"
               >
                 <FiTrash2 size={13} />
-                <span>Delete Lead</span>
+                <span>Delete</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setShowDetailsModal(false)}
-                className="px-5 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                className="px-4 py-1.5 sm:px-5 sm:py-2 rounded-xl bg-gray-900 hover:bg-gray-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
               >
                 Close
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* 7. MODAL: SCHEDULE / RESCHEDULE FOLLOW-UP                */}
       {/* ======================================================== */}
-      {showScheduleModal && schedulingLead && (
+      {mounted && showScheduleModal && schedulingLead && createPortal(
         <div
-          className="fixed inset-0 z-[9999] bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
-          style={{ zIndex: 9999 }}
+          role="dialog"
+          aria-modal="true"
+          className="modal-portal fixed inset-0 z-[999999] bg-gray-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+          style={{ zIndex: 999999, display: 'flex', flexWrap: 'nowrap' }}
         >
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-2xl p-6 space-y-4 overflow-hidden">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-pink-100 text-pink-600 dark:bg-pink-950/60 dark:text-pink-400 flex items-center justify-center shadow-xs font-bold">
-                  <FiCalendar size={18} />
+          <div
+            className="leads-modal-card flex-nowrap w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-2xl overflow-hidden my-auto flex flex-col"
+            style={{ display: 'flex', flexDirection: 'column', flexWrap: 'nowrap', maxHeight: 'calc(100dvh - 16px)' }}
+          >
+            <div
+              className="modal-row keep-row p-3.5 sm:p-5 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0 bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:to-slate-800"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <div
+                className="flex items-center gap-2.5 min-w-0 flex-1"
+                style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', minWidth: 0, flex: 1 }}
+              >
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-pink-100 text-pink-600 dark:bg-pink-950/60 dark:text-pink-400 flex items-center justify-center shadow-xs font-bold shrink-0">
+                  <FiCalendar size={16} />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                <div className="min-w-0">
+                  <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white truncate">
                     Schedule Follow-up
                   </h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
                     {schedulingLead.full_name || 'Lead'} • {schedulingLead.company_name}
                   </p>
                 </div>
@@ -2674,13 +2747,16 @@ export default function SuperadminCompanyLeadsPage() {
               <button
                 type="button"
                 onClick={() => setShowScheduleModal(false)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer shrink-0"
               >
-                <FiX size={20} />
+                <FiX size={18} />
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs">
+            <div
+              className="p-3.5 sm:p-5 space-y-3.5 overflow-y-auto flex-1 min-h-0 text-xs"
+              style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+            >
               <div>
                 <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">
                   Follow-up Date <span className="text-rose-500">*</span>
@@ -2696,7 +2772,7 @@ export default function SuperadminCompanyLeadsPage() {
 
               <div>
                 <label className="font-bold text-gray-700 dark:text-gray-300 block mb-1">Follow-up Time Slot</label>
-                <div className="grid grid-cols-3 gap-1.5 mb-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-2">
                   {['10:00 AM', '11:30 AM', '02:00 PM', '03:30 PM', '05:00 PM', '06:30 PM'].map((t) => (
                     <button
                       key={t}
@@ -2745,79 +2821,96 @@ export default function SuperadminCompanyLeadsPage() {
                   className="w-full px-3.5 py-2 rounded-xl text-xs bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white outline-none resize-none focus:ring-2 focus:ring-pink-500 shadow-xs"
                 />
               </div>
+            </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowScheduleModal(false)}
-                  className="px-4 py-2 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-slate-700 text-xs transition-colors shadow-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveSchedule}
-                  disabled={savingSchedule || !scheduleDateStr}
-                  className="px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
-                >
-                  {savingSchedule ? 'Scheduling...' : 'Set Follow-up'}
-                </button>
-              </div>
+            <div
+              className="modal-row keep-row p-3 sm:p-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-900/80 flex items-center justify-end gap-2 shrink-0"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowScheduleModal(false)}
+                className="flex-1 sm:flex-initial text-center justify-center px-4 py-2 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-slate-700 text-xs transition-colors shadow-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSchedule}
+                disabled={savingSchedule || !scheduleDateStr}
+                className="flex-1 sm:flex-initial text-center justify-center px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
+              >
+                {savingSchedule ? 'Scheduling...' : 'Set Follow-up'}
+              </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
-
       {/* 4. CLIENT LEADS WEBHOOK CONFIGURATION MODAL (SUPERADMIN) */}
       {/* ======================================================== */}
-      {showWebhookModal && (
+      {mounted && showWebhookModal && createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200"
-          style={{ zIndex: 9999 }}
+          role="dialog"
+          aria-modal="true"
+          className="modal-portal fixed inset-0 z-[999999] flex items-center justify-center p-2 sm:p-4 bg-gray-950/75 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200"
+          style={{ zIndex: 999999, display: 'flex', flexWrap: 'nowrap' }}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden my-auto">
+          <div
+            className="leads-modal-card flex-nowrap bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full flex flex-col shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden my-auto"
+            style={{ display: 'flex', flexDirection: 'column', flexWrap: 'nowrap', maxHeight: 'calc(100dvh - 16px)' }}
+          >
             {/* Modal Header */}
-            <div className="p-5 sm:p-6 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-gray-50 via-white to-pink-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-pink-950/20 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 dark:bg-pink-950/60 dark:text-pink-400 flex items-center justify-center shadow-xs font-bold shrink-0">
-                  <FiSettings size={20} />
+            <div
+              className="modal-row keep-row p-3.5 sm:p-5 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0 bg-gradient-to-r from-gray-50 via-white to-pink-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-pink-950/20"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <div
+                className="flex items-center gap-2.5 min-w-0 flex-1"
+                style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', minWidth: 0, flex: 1 }}
+              >
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-pink-100 text-pink-700 dark:bg-pink-950/60 dark:text-pink-400 flex items-center justify-center shadow-xs font-bold shrink-0">
+                  <FiSettings size={18} />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                      Client Leads Webhook Configuration
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <h3 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white leading-tight truncate">
+                      Webhook Configuration
                     </h3>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 dark:bg-pink-950/60 dark:text-pink-300 border border-pink-200 dark:border-pink-800/40">
-                      Superadmin Control
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-pink-100 text-pink-700 dark:bg-pink-950/60 dark:text-pink-300 border border-pink-200 dark:border-pink-800/40 shrink-0">
+                      Superadmin
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Configure incoming lead webhooks, assign or generate client API keys, and verify pipeline ingestion.
+                  <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                    Configure webhooks, assign API keys, and verify pipeline ingestion.
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowWebhookModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer shrink-0"
               >
-                <FiX size={20} />
+                <FiX size={18} />
               </button>
             </div>
 
-            {/* Modal Body - with min-h-0 and overflow-y-auto for smooth scrolling */}
-            <div className="p-5 sm:p-6 space-y-6 overflow-y-auto flex-1 min-h-0">
+            {/* Modal Body */}
+            <div
+              className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1 min-h-0"
+              style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
+            >
               {/* 1. Client Company Selector Bar */}
-              <div className="p-4 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="p-3.5 sm:p-4 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="space-y-0.5">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-pink-600 dark:text-pink-400 flex items-center gap-1.5">
                     <FiUsers size={13} />
-                    <span>Select Client Company to Configure</span>
+                    <span>Select Client Company</span>
                   </label>
                   <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Choose a company to view their webhook credentials or assign a new API key.
+                    Choose a company to view credentials or assign a new API key.
                   </p>
                 </div>
                 <div className="w-full md:w-80">
@@ -2837,16 +2930,16 @@ export default function SuperadminCompanyLeadsPage() {
 
               {/* 2. Active Tenant Credentials Card */}
               {activeWebhookCompany && (
-                <div className="rounded-2xl p-5 border border-gray-200/90 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/40 space-y-5">
+                <div className="rounded-2xl p-3.5 sm:p-5 border border-gray-200/90 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/40 space-y-4 sm:space-y-5">
                   {/* Status header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-200 dark:border-slate-800">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Target Tenant:</span>
-                      <span className="text-sm font-black text-gray-900 dark:text-white">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 sm:pb-4 border-b border-gray-200 dark:border-slate-800">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tenant:</span>
+                      <span className="text-sm font-black text-gray-900 dark:text-white truncate">
                         {activeWebhookCompany.company_name}
                       </span>
                       <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 font-semibold">
-                        Company ID #{activeWebhookCompany.id}
+                        ID #{activeWebhookCompany.id}
                       </span>
                       {activeWebhookCompany.client_name && (
                         <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 font-semibold">
@@ -2854,7 +2947,7 @@ export default function SuperadminCompanyLeadsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center justify-between sm:justify-start gap-2 shrink-0 w-full sm:w-auto">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
                         Pipeline Ready
@@ -2863,7 +2956,7 @@ export default function SuperadminCompanyLeadsPage() {
                         type="button"
                         onClick={handleTestWebhookLead}
                         disabled={testingWebhook}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shadow-xs cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors shadow-xs cursor-pointer ml-auto sm:ml-0"
                         title="Dispatch a test lead into this company's pipeline"
                       >
                         {testingWebhook ? (
@@ -2883,10 +2976,10 @@ export default function SuperadminCompanyLeadsPage() {
 
                   {/* Superadmin API Key Input & Generator */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-1">
                       <label className="text-xs font-bold flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
                         <FiKey size={14} className="text-pink-600" />
-                        <span>CRM Company API Key (Superadmin Editable)</span>
+                        <span>CRM Company API Key</span>
                       </label>
                       <div className="flex items-center gap-3">
                         <button
@@ -2895,7 +2988,7 @@ export default function SuperadminCompanyLeadsPage() {
                           className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <FiZap size={12} />
-                          <span>Generate New Key</span>
+                          <span>Generate Key</span>
                         </button>
                         <button
                           type="button"
@@ -2912,99 +3005,86 @@ export default function SuperadminCompanyLeadsPage() {
                         type={showWebhookApiKeyPlain ? 'text' : 'password'}
                         value={webhookApiKeyInput}
                         onChange={(e) => setWebhookApiKeyInput(e.target.value)}
-                        placeholder="Enter custom API key or click Generate New Key..."
-                        className="flex-1 px-3.5 py-2 rounded-xl text-xs font-mono outline-none border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 transition-all shadow-xs"
+                        placeholder="Enter custom API key or click Generate Key..."
+                        className="w-full sm:flex-1 px-3.5 py-2 rounded-xl text-xs font-mono outline-none border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 transition-all shadow-xs"
                       />
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 shrink-0 w-full sm:w-auto">
                         <button
                           type="button"
-                          onClick={() => handleCopyWebhookText(webhookApiKeyInput, 'key')}
+                          onClick={() => handleCopyText(webhookApiKeyInput, 'API Key copied to clipboard!')}
                           disabled={!webhookApiKeyInput}
-                          className="inline-flex items-center gap-1 px-3.5 py-2 bg-white hover:bg-gray-100 dark:bg-slate-800 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-200 text-xs font-bold rounded-xl transition-colors shadow-xs cursor-pointer disabled:opacity-40"
+                          className="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
                         >
-                          {copiedWebhookKey ? <FiCheck size={14} className="text-emerald-600" /> : <FiCopy size={14} />}
-                          <span>{copiedWebhookKey ? 'Copied' : 'Copy Key'}</span>
+                          <FiCopy size={13} />
+                          <span>Copy</span>
                         </button>
                         <button
                           type="button"
                           onClick={handleSaveWebhookKey}
                           disabled={savingWebhookConfig || !webhookApiKeyInput.trim()}
-                          className="px-4 py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                          className="w-full sm:w-auto px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
                         >
-                          {savingWebhookConfig ? (
-                            <>
-                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              <span>Saving...</span>
-                            </>
-                          ) : (
-                            <>
-                              <FiCheck size={14} />
-                              <span>Save & Link Key</span>
-                            </>
-                          )}
+                          <FiCheck size={13} />
+                          <span>{savingWebhookConfig ? 'Saving...' : 'Save & Link'}</span>
                         </button>
                       </div>
                     </div>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                      Saving this key immediately links it to the client company and synchronizes it across <code className="text-pink-600 font-mono font-bold">crm_saas.companies</code> and <code className="text-pink-600 font-mono font-bold">client_details</code>.
-                    </p>
                   </div>
 
-                  {/* Webhook Ingestion URL */}
-                  <div className="space-y-1.5 pt-3 border-t border-gray-200 dark:border-slate-800">
-                    <label className="text-xs font-bold flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
-                      <FiLink size={14} className="text-blue-600" />
-                      <span>Live Ingestion Webhook URL for this Company</span>
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={`https://demo.socialflymediatech.com/api/leads/create?api_key=${webhookApiKeyInput.trim() || activeWebhookCompany.api_key || ''}`}
-                        className="flex-1 px-3.5 py-2 rounded-xl text-xs font-mono outline-none border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-white cursor-text select-all shadow-xs"
-                      />
+                  {/* Endpoint URL Card */}
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700/80 space-y-2 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                        <FiExternalLink size={13} className="text-blue-600" />
+                        <span>Live Webhook Ingestion URL</span>
+                      </span>
                       <button
                         type="button"
-                        onClick={() => handleCopyWebhookText(`https://demo.socialflymediatech.com/api/leads/create?api_key=${webhookApiKeyInput.trim() || activeWebhookCompany.api_key || ''}`, 'url')}
-                        className="inline-flex items-center gap-1 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0 shadow-xs cursor-pointer"
+                        onClick={() =>
+                          handleCopyText(
+                            `https://demo.socialflymediatech.com/api/leads/create?api_key=${webhookApiKeyInput.trim() || activeWebhookCompany?.api_key || ''}`,
+                            'Webhook URL copied!'
+                          )
+                        }
+                        className="text-xs font-bold text-pink-600 dark:text-pink-400 hover:underline flex items-center gap-1 cursor-pointer"
                       >
-                        {copiedWebhookUrl ? <FiCheck size={14} /> : <FiCopy size={14} />}
-                        <span>{copiedWebhookUrl ? 'Copied URL!' : 'Copy URL'}</span>
+                        <FiCopy size={12} />
+                        <span>Copy URL</span>
                       </button>
                     </div>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                      Endpoint: <code className="text-pink-600 font-mono font-bold">https://demo.socialflymediatech.com/api/leads/create</code> • Method: <span className="font-bold text-pink-600 font-mono">POST</span> • Format: <span className="font-bold text-pink-600 font-mono">JSON</span>
-                    </p>
+                    <code className="block p-2.5 rounded-lg bg-gray-50 dark:bg-slate-800 text-pink-600 dark:text-pink-400 font-mono text-[11px] sm:text-xs border border-gray-200 dark:border-slate-700 break-all select-all">
+                      {`https://demo.socialflymediatech.com/api/leads/create?api_key=${webhookApiKeyInput.trim() || activeWebhookCompany?.api_key || '<API_KEY>'}`}
+                    </code>
                   </div>
                 </div>
               )}
 
-              {/* 3. Step-by-Step Integration Guides */}
+              {/* 3. Integration Guides */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white flex items-center gap-1.5">
-                    <FiCode size={15} className="text-pink-600" />
-                    <span>Website & Form Ingestion Guides</span>
+                    <FiCode size={14} className="text-pink-600" />
+                    <span>Website & Form Setup Guide</span>
                   </h4>
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400">Pre-populated with active company API key</span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">Select Form Type</span>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-slate-800 pb-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-1 text-xs whitespace-nowrap">
                   {[
-                    { id: 'elementor', label: '🎨 Elementor Forms (WordPress)' },
-                    { id: 'cf7', label: '📝 Contact Form 7' },
-                    { id: 'wpforms', label: '📋 WPForms / Gravity' },
-                    { id: 'curl', label: '⚡ cURL / Zapier / Meta' }
+                    { id: 'elementor', label: 'WordPress Elementor' },
+                    { id: 'cf7', label: 'Contact Form 7' },
+                    { id: 'wpforms', label: 'WPForms / Gravity' },
+                    { id: 'curl', label: 'cURL / REST API' }
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       type="button"
                       onClick={() => setActiveGuideTab(tab.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer shrink-0 ${
                         activeGuideTab === tab.id
                           ? 'bg-pink-600 text-white shadow-xs'
-                          : 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300'
+                          : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'
                       }`}
                     >
                       {tab.label}
@@ -3012,34 +3092,25 @@ export default function SuperadminCompanyLeadsPage() {
                   ))}
                 </div>
 
-                {/* Tab 1: Elementor */}
+                {/* Tab Content */}
                 {activeGuideTab === 'elementor' && (
-                  <div className="p-4 bg-gray-50 dark:bg-slate-800/40 rounded-xl border border-gray-200 dark:border-slate-700 text-xs text-gray-700 dark:text-gray-300 space-y-2.5">
-                    <p className="font-bold text-gray-900 dark:text-white">
-                      Connecting Elementor Pro Contact Form to {activeWebhookCompany?.company_name || 'this Company'}:
-                    </p>
+                  <div className="p-3.5 sm:p-4 bg-gray-50 dark:bg-slate-800/40 rounded-xl border border-gray-200 dark:border-slate-700 text-xs text-gray-700 dark:text-gray-300 space-y-2">
+                    <p className="font-bold text-gray-900 dark:text-white">Connecting Elementor Form Webhook:</p>
                     <ol className="list-decimal list-inside space-y-1.5 pl-1 leading-relaxed">
-                      <li>Open your WordPress page in the <strong>Elementor Editor</strong> and select the Form widget.</li>
-                      <li>In the left panel under <strong>Actions After Submit</strong>, add <strong>Webhook</strong>.</li>
-                      <li>
-                        Under the <strong>Webhook</strong> settings, paste this Webhook URL:
-                        <code className="block my-1.5 p-2 bg-gray-900 text-pink-400 font-mono rounded-lg break-all select-all">
-                          {`https://demo.socialflymediatech.com/api/leads/create?api_key=${webhookApiKeyInput.trim() || activeWebhookCompany?.api_key || ''}`}
-                        </code>
-                      </li>
-                      <li>Ensure your form fields have Shortcode/Field IDs matching: <code className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded text-gray-900 dark:text-gray-200">name</code>, <code className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded text-gray-900 dark:text-gray-200">email</code>, <code className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded text-gray-900 dark:text-gray-200">phone</code>, and <code className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded text-gray-900 dark:text-gray-200">message</code>.</li>
-                      <li>Click <strong>Publish / Update</strong>. Inquiries will immediately route to this company's CRM leads board!</li>
+                      <li>Open your Elementor Form editor in WordPress.</li>
+                      <li>Go to <strong>Actions After Submit</strong> &gt; Add <strong>Webhook</strong>.</li>
+                      <li>In the <strong>Webhook URL</strong> field, paste your company webhook URL:</li>
                     </ol>
+                    <code className="block p-2 bg-gray-900 text-pink-400 font-mono rounded-lg break-all select-all text-[11px]">
+                      {`https://demo.socialflymediatech.com/api/leads/create?api_key=${webhookApiKeyInput.trim() || activeWebhookCompany?.api_key || ''}`}
+                    </code>
                   </div>
                 )}
 
-                {/* Tab 2: Contact Form 7 */}
                 {activeGuideTab === 'cf7' && (
-                  <div className="p-4 bg-gray-50 dark:bg-slate-800/40 rounded-xl border border-gray-200 dark:border-slate-700 text-xs text-gray-700 dark:text-gray-300 space-y-2.5">
-                    <p className="font-bold text-gray-900 dark:text-white">
-                      Paste into WordPress theme's <code className="font-mono bg-gray-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-gray-900 dark:text-gray-200">functions.php</code> file:
-                    </p>
-                    <pre className="p-3 bg-gray-900 text-emerald-400 font-mono rounded-xl text-[11px] overflow-x-auto leading-relaxed select-all">
+                  <div className="p-3.5 sm:p-4 bg-gray-50 dark:bg-slate-800/40 rounded-xl border border-gray-200 dark:border-slate-700 text-xs text-gray-700 dark:text-gray-300 space-y-2">
+                    <p className="font-bold text-gray-900 dark:text-white">Contact Form 7 Webhook Hook:</p>
+                    <pre className="p-3 bg-gray-900 text-emerald-400 font-mono rounded-xl text-[10px] sm:text-[11px] overflow-x-auto leading-relaxed select-all">
 {`add_action('wpcf7_mail_sent', function($contact_form) {
     $submission = WPCF7_Submission::get_instance();
     if (!$submission) return;
@@ -3064,36 +3135,25 @@ export default function SuperadminCompanyLeadsPage() {
                   </div>
                 )}
 
-                {/* Tab 3: WPForms / Gravity */}
                 {activeGuideTab === 'wpforms' && (
-                  <div className="p-4 bg-gray-50 dark:bg-slate-800/40 rounded-xl border border-gray-200 dark:border-slate-700 text-xs text-gray-700 dark:text-gray-300 space-y-2.5">
-                    <p className="font-bold text-gray-900 dark:text-white">
-                      Configuring WPForms or Gravity Forms Webhook Add-on:
-                    </p>
+                  <div className="p-3.5 sm:p-4 bg-gray-50 dark:bg-slate-800/40 rounded-xl border border-gray-200 dark:border-slate-700 text-xs text-gray-700 dark:text-gray-300 space-y-2">
+                    <p className="font-bold text-gray-900 dark:text-white">WPForms or Gravity Forms Webhooks:</p>
                     <ol className="list-decimal list-inside space-y-1.5 pl-1 leading-relaxed">
-                      <li>Enable the <strong>Webhooks Add-on</strong> in your WordPress form plugin.</li>
-                      <li>Navigate to <strong>Form Settings &gt; Webhooks &gt; Add New Webhook</strong>.</li>
-                      <li>
-                        Set <strong>Request URL</strong> to:
-                        <code className="block my-1.5 p-2 bg-gray-900 text-pink-400 font-mono rounded-lg break-all select-all">
-                          {`https://demo.socialflymediatech.com/api/leads/create?api_key=${webhookApiKeyInput.trim() || activeWebhookCompany?.api_key || ''}`}
-                        </code>
-                      </li>
-                      <li>Set <strong>Request Method</strong> to <strong>POST</strong> and <strong>Format</strong> to <strong>JSON</strong>.</li>
-                      <li>Map payload fields: <code className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded text-gray-900 dark:text-gray-200">name</code>, <code className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded text-gray-900 dark:text-gray-200">email</code>, <code className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded text-gray-900 dark:text-gray-200">phone</code>, <code className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded text-gray-900 dark:text-gray-200">subject</code>, and <code className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded text-gray-900 dark:text-gray-200">message</code>.</li>
+                      <li>Enable the <strong>Webhooks Add-on</strong> in your WordPress form settings.</li>
+                      <li>Set <strong>Request URL</strong> to:</li>
                     </ol>
+                    <code className="block p-2 bg-gray-900 text-pink-400 font-mono rounded-lg break-all select-all text-[11px]">
+                      {`https://demo.socialflymediatech.com/api/leads/create?api_key=${webhookApiKeyInput.trim() || activeWebhookCompany?.api_key || ''}`}
+                    </code>
                   </div>
                 )}
 
-                {/* Tab 4: cURL / Zapier / Meta */}
                 {activeGuideTab === 'curl' && (
-                  <div className="p-4 bg-gray-50 dark:bg-slate-800/40 rounded-xl border border-gray-200 dark:border-slate-700 text-xs text-gray-700 dark:text-gray-300 space-y-2.5">
-                    <p className="font-bold text-gray-900 dark:text-white">
-                      Direct REST API Webhook Specification:
-                    </p>
-                    <pre className="p-3 bg-gray-900 text-pink-300 font-mono rounded-xl text-[11px] overflow-x-auto leading-relaxed select-all">
-{`curl -X POST "https://demo.socialflymediatech.com/api/leads/create?api_key=${webhookApiKeyInput.trim() || activeWebhookCompany?.api_key || ''}" \\
-  -H "Content-Type: application/json" \\
+                  <div className="p-3.5 sm:p-4 bg-gray-50 dark:bg-slate-800/40 rounded-xl border border-gray-200 dark:border-slate-700 text-xs text-gray-700 dark:text-gray-300 space-y-2">
+                    <p className="font-bold text-gray-900 dark:text-white">Direct REST API cURL Specification:</p>
+                    <pre className="p-3 bg-gray-900 text-pink-300 font-mono rounded-xl text-[10px] sm:text-[11px] overflow-x-auto leading-relaxed select-all">
+{`curl -X POST "https://demo.socialflymediatech.com/api/leads/create?api_key=${webhookApiKeyInput.trim() || activeWebhookCompany?.api_key || ''}" \
+  -H "Content-Type: application/json" \
   -d '{
     "name": "Jane Smith",
     "email": "jane.smith@clientwebsite.com",
@@ -3112,14 +3172,14 @@ export default function SuperadminCompanyLeadsPage() {
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white flex items-center gap-1.5">
                     <FiLayers size={14} className="text-blue-600" />
-                    <span>All Client Companies Webhook Registry ({companies.length})</span>
+                    <span>Company Webhook Registry ({companies.length})</span>
                   </h4>
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400">Click any row to configure</span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">Tap row to configure</span>
                 </div>
 
                 <div className="rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
+                    <table className="modal-table w-full text-left text-xs min-w-[500px]">
                       <thead className="bg-gray-50 dark:bg-slate-800/60 text-gray-500 dark:text-gray-400 font-bold uppercase text-[10px] tracking-wider border-b border-gray-200 dark:border-slate-800">
                         <tr>
                           <th className="px-4 py-3">Company & Client</th>
@@ -3154,14 +3214,14 @@ export default function SuperadminCompanyLeadsPage() {
                               <td className="px-4 py-3">
                                 {hasKey ? (
                                   <div className="flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    <span className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                    <span className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold truncate max-w-[120px]">
                                       {(comp.api_key || comp.client_crm_api_key).slice(0, 16)}...
                                     </span>
                                   </div>
                                 ) : (
                                   <span className="text-amber-600 dark:text-amber-400 font-semibold text-[11px]">
-                                    ⚠️ No key configured
+                                    ⚠️ No key
                                   </span>
                                 )}
                               </td>
@@ -3177,13 +3237,9 @@ export default function SuperadminCompanyLeadsPage() {
                                     e.stopPropagation();
                                     handleSelectWebhookCompany(comp.id);
                                   }}
-                                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                    isSelected
-                                      ? 'bg-pink-600 text-white'
-                                      : 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300'
-                                  }`}
+                                  className="px-2.5 py-1 text-xs font-bold rounded-lg border border-pink-500/30 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10 transition-colors"
                                 >
-                                  {isSelected ? 'Active' : 'Configure'}
+                                  Configure
                                 </button>
                               </td>
                             </tr>
@@ -3197,21 +3253,23 @@ export default function SuperadminCompanyLeadsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-gray-200 dark:border-slate-800 flex items-center justify-between bg-gray-50 dark:bg-slate-900 shrink-0">
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                Superadmin Webhook Control • DeviceDesk CRM Multi-Tenant Architecture
-              </span>
+            <div
+              className="modal-row keep-row p-3 sm:p-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50/80 dark:bg-slate-900/80 flex items-center justify-end shrink-0"
+              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}
+            >
               <button
                 type="button"
                 onClick={() => setShowWebhookModal(false)}
-                className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl transition-colors shadow-sm cursor-pointer"
+                className="w-full sm:w-auto px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl transition-colors shadow-sm cursor-pointer text-center justify-center"
               >
                 Close Settings
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
     </div>
   );
 }

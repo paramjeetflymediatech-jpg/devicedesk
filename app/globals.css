@@ -2303,12 +2303,21 @@ textarea.form-control {
   }
   
   /* Prevent flex rows from overflowing by allowing wrapping on mobile */
-  .flex-row, .flex {
+  .flex-row, .flex:not(.flex-col) {
     flex-wrap: wrap;
   }
   
-  /* Keep specific flex items strictly un-wrapped (like badges, small icons) */
-  .flex-nowrap, .sidebar .flex, .mobile-drawer .flex {
+  /* Keep specific flex items strictly un-wrapped (like badges, small icons, flex columns) */
+  .flex-nowrap, .flex-col, .sidebar .flex, .mobile-drawer .flex {
+    flex-wrap: nowrap !important;
+  }
+
+  /* Structured CRM Modals with pinned edge-to-edge headers & footers */
+  .leads-modal-card {
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
     flex-wrap: nowrap !important;
   }
 
