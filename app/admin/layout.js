@@ -115,6 +115,9 @@ export default function AdminLayout({ children }) {
     // Role-specific route protection for IT Support
     if (isIT) {
       const itForbidden = [
+        '/admin/users',
+        '/admin/team-hierarchy',
+        '/admin/companies',
         '/admin/client',
         '/admin/leads',
         '/admin/marketing',
@@ -335,7 +338,16 @@ export default function AdminLayout({ children }) {
       }
       if (isITSupport) {
         filteredItems = filteredItems.filter(item => {
-          if (["Dashboard", "Chat Workspace", "Screenshots", "Attendance", "Leave Requests", "Activity & Screenshots"].includes(item.name)) return false;
+          if ([
+            "Dashboard",
+            "Chat Workspace",
+            "Screenshots",
+            "Attendance",
+            "Leave Requests",
+            "Activity & Screenshots",
+            "Team Directory",
+            "Team Hierarchy"
+          ].includes(item.name)) return false;
           return true;
         });
       }

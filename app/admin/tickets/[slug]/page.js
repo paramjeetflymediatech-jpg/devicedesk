@@ -5,8 +5,12 @@ import Link from "next/link";
 import { FiAlertCircle, FiArrowLeft, FiMonitor, FiUser, FiLink, FiCheckCircle } from "react-icons/fi";
 import { getTickets, getEmployees, getSystems } from "../../../store.js";
 import { getEmployeeSlug, getSystemSlug } from "../../../utils/slugUtils.js";
+import { useAuth } from "../../../auth/AuthContext";
+import { isSuperAdminUser, isITSupportUser } from "../../../utils/authTokens.js";
 
 export default function AdminSingleTicketPage() {
+  const { user } = useAuth();
+  const isITSupport = !isSuperAdminUser(user) && isITSupportUser(user);
   const params = useParams();
   const router = useRouter();
   const slug = params?.slug ? String(params.slug) : "";
@@ -92,9 +96,15 @@ export default function AdminSingleTicketPage() {
               <span style={{ fontSize: "0.75rem", color: "var(--text-secondary, #94a3b8)" }}>Raised By</span>
               <div style={{ fontWeight: 700, marginTop: "4px" }}>
                 {raisedUser ? (
-                  <Link href={`/admin/users/${empSlug}`} style={{ color: "var(--accent-cyan, #06b6d4)", textDecoration: "none" }}>
-                    {raisedUser.name}
-                  </Link>
+                  isITSupport ? (
+                    <span style={{ color: "var(--accent-cyan, #06b6d4)", fontWeight: 600 }}>
+                      {raisedUser.name}
+                    </span>
+                  ) : (
+                    <Link href={`/admin/users/${empSlug}`} style={{ color: "var(--accent-cyan, #06b6d4)", textDecoration: "none" }}>
+                      {raisedUser.name}
+                    </Link>
+                  )
                 ) : (
                   ticket.raisedByName || "Staff"
                 )}

@@ -7,8 +7,12 @@ import { getTickets, getEmployees, resolveTicket, getSystems, updateSystem } fro
 import ResolveTicketModal from "../../components/modals/ResolveTicketModal.js";
 import { getEmployeeSlug } from "../../utils/slugUtils.js";
 import Pagination from "../../components/Pagination.js";
+import { useAuth } from "../../auth/AuthContext";
+import { isSuperAdminUser, isITSupportUser } from "../../utils/authTokens.js";
 
 export default function AdminTicketsPage() {
+  const { user } = useAuth();
+  const isITSupport = !isSuperAdminUser(user) && isITSupportUser(user);
   const [tickets, setTickets] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
@@ -203,9 +207,15 @@ export default function AdminTicketsPage() {
                     </td>
                     <td style={{ padding: "14px 16px" }}>
                       {raisedEmp ? (
-                        <Link href={`/admin/users/${empSlug}`} style={{ color: "var(--text-primary, #f8fafc)", textDecoration: "none", fontSize: "0.85rem" }}>
-                          {raisedEmp.name}
-                        </Link>
+                        isITSupport ? (
+                          <span style={{ color: "var(--text-primary, #f8fafc)", fontSize: "0.85rem", fontWeight: 600 }}>
+                            {raisedEmp.name}
+                          </span>
+                        ) : (
+                          <Link href={`/admin/users/${empSlug}`} style={{ color: "var(--text-primary, #f8fafc)", textDecoration: "none", fontSize: "0.85rem" }}>
+                            {raisedEmp.name}
+                          </Link>
+                        )
                       ) : (
                         <span style={{ color: "var(--text-secondary, #94a3b8)", fontSize: "0.85rem" }}>{t.raisedByName || "Staff"}</span>
                       )}

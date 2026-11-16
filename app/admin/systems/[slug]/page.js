@@ -5,8 +5,12 @@ import Link from "next/link";
 import { FiMonitor, FiArrowLeft, FiCpu, FiHardDrive, FiUser, FiLink, FiLayers, FiActivity } from "react-icons/fi";
 import { getSystems, getEmployees, getTickets } from "../../../store.js";
 import { findSystemBySlug, getSystemSlug, getEmployeeSlug } from "../../../utils/slugUtils.js";
+import { useAuth } from "../../../auth/AuthContext";
+import { isSuperAdminUser, isITSupportUser } from "../../../utils/authTokens.js";
 
 export default function AdminSingleSystemPage() {
+  const { user } = useAuth();
+  const isITSupport = !isSuperAdminUser(user) && isITSupportUser(user);
   const params = useParams();
   const router = useRouter();
   const slug = params?.slug ? String(params.slug) : "";
@@ -129,14 +133,16 @@ export default function AdminSingleSystemPage() {
                   {assignedEmp.role} &bull; {assignedEmp.department}
                 </div>
               </div>
-              <div className="pt-2">
-                <Link 
-                  href={`/admin/users/${empSlug}`} 
-                  className="btn-secondary text-xs px-3 py-2 rounded-lg inline-flex items-center gap-1.5 w-full justify-center"
-                >
-                  <FiLink /> View User Profile (@{empSlug})
-                </Link>
-              </div>
+              {!isITSupport && (
+                <div className="pt-2">
+                  <Link 
+                    href={`/admin/users/${empSlug}`} 
+                    className="btn-secondary text-xs px-3 py-2 rounded-lg inline-flex items-center gap-1.5 w-full justify-center"
+                  >
+                    <FiLink /> View User Profile (@{empSlug})
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-xs text-[var(--text-muted,#64748b)]">

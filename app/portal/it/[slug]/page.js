@@ -136,9 +136,9 @@ export default function ITSlugPortal() {
                     {assignedEmp ? (
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span>Assigned to: <strong>{assignedEmp.name}</strong></span>
-                        <Link href={`/admin/users/${empSlug}`} style={{ color: "var(--accent-purple, #a855f7)", textDecoration: "none" }}>
+                        <span style={{ color: "var(--accent-purple, #a855f7)", fontWeight: 600 }}>
                           @{empSlug}
-                        </Link>
+                        </span>
                       </div>
                     ) : (
                       <span style={{ color: "var(--text-muted, #64748b)" }}>Unassigned Inventory</span>

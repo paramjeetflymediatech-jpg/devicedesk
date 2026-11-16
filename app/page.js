@@ -2364,9 +2364,6 @@ export default function Home() {
                   <button onClick={() => window.location.href = "/admin/tasks"}><span className="nav-icon"><FiCheckSquare /></span> Task Board</button>
                 </li>
                 <li className="nav-item">
-                  <button onClick={() => window.location.href = "/admin/users"}><span className="nav-icon"><FiUser /></span> Team Directory</button>
-                </li>
-                <li className="nav-item">
                   <button onClick={() => window.location.href = "/admin/departments"}><span className="nav-icon"><FiBriefcase /></span> Departments</button>
                 </li>
                 <li className="nav-item">
@@ -2478,12 +2475,16 @@ export default function Home() {
                     Organization & HR
                   </div>
                   <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                    <li className="nav-item">
-                      <button onClick={() => window.location.href = "/admin/users"}><span className="nav-icon"><FiUser /></span> Team Directory</button>
-                    </li>
-                    <li className="nav-item">
-                      <button onClick={() => window.location.href = "/admin/team-hierarchy"}><span className="nav-icon"><FiUsers /></span> Team Hierarchy</button>
-                    </li>
+                    {!isITSupport && (
+                      <>
+                        <li className="nav-item">
+                          <button onClick={() => window.location.href = "/admin/users"}><span className="nav-icon"><FiUser /></span> Team Directory</button>
+                        </li>
+                        <li className="nav-item">
+                          <button onClick={() => window.location.href = "/admin/team-hierarchy"}><span className="nav-icon"><FiUsers /></span> Team Hierarchy</button>
+                        </li>
+                      </>
+                    )}
                     <li className="nav-item">
                       <button onClick={() => window.location.href = "/admin/departments"}><span className="nav-icon"><FiBriefcase /></span> Departments</button>
                     </li>
@@ -2581,7 +2582,6 @@ export default function Home() {
             <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
               <button className={`mobile-drawer-item ${currentView === "dashboard" ? "active" : ""}`} onClick={() => { setCurrentView("dashboard"); setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiGrid /></span> Dashboard</button>
               <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/tasks"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiCheckSquare /></span> Task Board</button>
-              <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/users"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUser /></span> Team Directory</button>
               <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/departments"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments</button>
               <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/systems"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiServer /></span> Systems Inventory</button>
               <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/tickets"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiTag /></span> Raise Records</button>
@@ -2662,8 +2662,12 @@ export default function Home() {
                     Organization & HR
                   </div>
                   <div style={{ paddingLeft: "10px", display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" }}>
-                    <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/users"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUser /></span> Team Directory</button>
-                    <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/team-hierarchy"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUsers /></span> Team Hierarchy</button>
+                    {!isITSupport && (
+                      <>
+                        <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/users"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUser /></span> Team Directory</button>
+                        <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/team-hierarchy"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUsers /></span> Team Hierarchy</button>
+                      </>
+                    )}
                     <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/departments"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments</button>
                     <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/recruitment"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiUserPlus /></span> Recruitment</button>
                     {!isITSupport && !isDnsManager && (

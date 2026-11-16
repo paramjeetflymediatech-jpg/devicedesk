@@ -5,8 +5,12 @@ import { FiMonitor, FiLink, FiArrowLeft, FiPlus, FiCpu, FiHardDrive, FiSearch } 
 import { getSystems, getEmployees } from "../../store.js";
 import { getSystemSlug, getEmployeeSlug } from "../../utils/slugUtils.js";
 import Pagination from "../../components/Pagination.js";
+import { useAuth } from "../../auth/AuthContext";
+import { isSuperAdminUser, isITSupportUser } from "../../utils/authTokens.js";
 
 export default function AdminSystemsPage() {
+  const { user } = useAuth();
+  const isITSupport = !isSuperAdminUser(user) && isITSupportUser(user);
   const [systems, setSystems] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
@@ -132,9 +136,15 @@ export default function AdminSystemsPage() {
                   <div className="text-xs">
                     <span className="text-[var(--text-muted,#64748b)] block text-[11px]">Assigned To</span>
                     {assigned ? (
-                      <Link href={`/admin/users/${empSlug}`} className="text-[var(--accent-cyan,#06b6d4)] font-semibold hover:underline">
-                        {assigned.name}
-                      </Link>
+                      isITSupport ? (
+                        <span className="text-[var(--accent-cyan,#06b6d4)] font-semibold">
+                          {assigned.name}
+                        </span>
+                      ) : (
+                        <Link href={`/admin/users/${empSlug}`} className="text-[var(--accent-cyan,#06b6d4)] font-semibold hover:underline">
+                          {assigned.name}
+                        </Link>
+                      )
                     ) : (
                       <span className="text-[var(--text-muted,#64748b)]">Unassigned</span>
                     )}
@@ -200,9 +210,15 @@ export default function AdminSystemsPage() {
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {assigned ? (
-                          <Link href={`/admin/users/${empSlug}`} className="text-[var(--accent-cyan,#06b6d4)] text-xs font-semibold hover:underline">
-                            {assigned.name}
-                          </Link>
+                          isITSupport ? (
+                            <span className="text-[var(--accent-cyan,#06b6d4)] text-xs font-semibold">
+                              {assigned.name}
+                            </span>
+                          ) : (
+                            <Link href={`/admin/users/${empSlug}`} className="text-[var(--accent-cyan,#06b6d4)] text-xs font-semibold hover:underline">
+                              {assigned.name}
+                            </Link>
+                          )
                         ) : (
                           <span className="text-[var(--text-muted,#64748b)] text-xs">Unassigned</span>
                         )}
