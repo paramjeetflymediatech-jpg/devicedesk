@@ -777,6 +777,8 @@ async function initializeDatabase(db) {
   try { await db.execute(`ALTER TABLE client_details ADD COLUMN fb_page_id VARCHAR(100) DEFAULT NULL`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_details ADD COLUMN ig_business_id VARCHAR(100) DEFAULT NULL`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_details ADD COLUMN meta_access_token TEXT DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_details ADD COLUMN crm_company_id INT DEFAULT NULL`); } catch (err) {}
+  try { await db.execute(`ALTER TABLE client_details ADD COLUMN crm_api_key VARCHAR(100) DEFAULT NULL`); } catch (err) {}
   
   try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`); } catch (err) {}
   try { await db.execute(`ALTER TABLE client_package_overrides ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`); } catch (err) {}

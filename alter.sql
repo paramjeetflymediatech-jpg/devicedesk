@@ -13,3 +13,7 @@ ALTER TABLE attendance_records ADD COLUMN punchSource VARCHAR(30) DEFAULT 'WEB';
 -- Migration: Align collation between attendance tables and employees
 ALTER TABLE attendance_records CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE attendance_breaks CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Migration: Add CRM integration fields to client_details table
+ALTER TABLE client_details ADD COLUMN crm_company_id INT DEFAULT NULL;
+ALTER TABLE client_details ADD COLUMN crm_api_key VARCHAR(100) DEFAULT NULL;

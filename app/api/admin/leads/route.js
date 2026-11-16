@@ -52,17 +52,34 @@ export async function GET(request) {
     const db = await getDbConnection();
 
     // 1. Fetch all companies for filters and dropdowns
-    const [companies] = await db.query(`
-      SELECT 
-        c.id, c.company_name, c.email, c.phone, c.website, c.status, c.api_key,
-        cd.client_id, cd.crm_api_key as client_crm_api_key,
-        e.name as client_name, e.email as client_email,
-        (SELECT COUNT(*) FROM crm_saas.leads l WHERE l.company_id = c.id) as leads_count
-      FROM crm_saas.companies c
-      LEFT JOIN client_details cd ON (cd.crm_company_id = c.id)
-      LEFT JOIN employees e ON cd.client_id = e.id
-      ORDER BY c.company_name ASC
-    `);
+    let companies = [];
+    try {
+      const [compRows] = await db.query(`
+        SELECT 
+          c.id, c.company_name, c.email, c.phone, c.website, c.status, c.api_key,
+          cd.client_id, cd.crm_api_key as client_crm_api_key,
+          e.name as client_name, e.email as client_email,
+          (SELECT COUNT(*) FROM crm_saas.leads l WHERE l.company_id = c.id) as leads_count
+        FROM crm_saas.companies c
+        LEFT JOIN client_details cd ON (cd.crm_company_id = c.id)
+        LEFT JOIN employees e ON cd.client_id = e.id
+        ORDER BY c.company_name ASC
+      `);
+      companies = compRows;
+    } catch (compErr) {
+      // Fallback query if client_details does not have crm_api_key or crm_company_id columns yet
+      console.warn('Companies query fallback without cd.crm_api_key:', compErr.message);
+      const [fallbackCompRows] = await db.query(`
+        SELECT 
+          c.id, c.company_name, c.email, c.phone, c.website, c.status, c.api_key,
+          c.api_key as client_crm_api_key,
+          NULL as client_id, NULL as client_name, NULL as client_email,
+          (SELECT COUNT(*) FROM crm_saas.leads l WHERE l.company_id = c.id) as leads_count
+        FROM crm_saas.companies c
+        ORDER BY c.company_name ASC
+      `);
+      companies = fallbackCompRows;
+    }
 
     // 2. Fetch all staff users across companies
     const [users] = await db.query(`
@@ -331,7 +348,7 @@ export async function POST(request) {
           UPDATE client_details
           SET crm_api_key = ?, crm_company_id = COALESCE(crm_company_id, ?)
           WHERE client_id = ?
-        `, [trimmedKey, targetCompanyId, clientId]);
+        `, [trimmedKey, targetCompanyId, clientId]).catch(() => null);
       }
 
       return NextResponse.json({
