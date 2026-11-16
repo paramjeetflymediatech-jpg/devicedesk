@@ -1106,8 +1106,8 @@ export default function Home() {
   };
   
   const handleRemoveSystem = (sysId, sn) => {
-    if (userRole !== 'admin') {
-      Swal.fire({ icon: 'error', title: 'Access Denied', text: 'Only admins can delete systems.' });
+    if (userRole !== 'admin' && !isITSupport && user?.dbRole !== 'it support' && user?.dbRole !== 'it') {
+      Swal.fire({ icon: 'error', title: 'Access Denied', text: 'Only administrators and IT engineers can delete systems.' });
       return;
     }
     Swal.fire({
@@ -3011,6 +3011,7 @@ export default function Home() {
               handleOpenEditSysModal={handleOpenEditSysModal}
               handleOpenHistoryModal={handleOpenHistoryModal}
               userRole={userRole}
+              isITSupport={isITSupport}
               handleRemoveSystem={handleRemoveSystem}
               sysPage={sysPage}
               totalSysPages={totalSysPages}

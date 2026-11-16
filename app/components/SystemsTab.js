@@ -25,6 +25,7 @@ export default function SystemsTab({
   handleOpenEditSysModal,
   handleOpenHistoryModal,
   userRole,
+  isITSupport,
   handleRemoveSystem,
   sysPage,
   totalSysPages
@@ -211,7 +212,7 @@ export default function SystemsTab({
                         >
                           History
                         </button>
-                        {userRole === "admin" && (
+                        {(userRole === "admin" || isITSupport) && (
                           <button
                             className="btn-action resolve"
                             style={{
@@ -301,7 +302,7 @@ export default function SystemsTab({
                   <button className="btn-action resolve" onClick={() => handleOpenHistoryModal(sys)}>
                     📜 History
                   </button>
-                  {userRole === "admin" && (
+                  {(userRole === "admin" || isITSupport) && (
                     <button
                       className="btn-action resolve"
                       style={{
