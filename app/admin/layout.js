@@ -34,7 +34,8 @@ import {
   FiMenu,
   FiActivity,
   FiBox,
-  FiCompass
+  FiCompass,
+  FiTarget
 } from "react-icons/fi";
 
 export default function AdminLayout({ children }) {
@@ -115,6 +116,7 @@ export default function AdminLayout({ children }) {
     if (isIT) {
       const itForbidden = [
         '/admin/client',
+        '/admin/leads',
         '/admin/marketing',
         '/admin/projects',
         '/admin/submissions',
@@ -146,6 +148,7 @@ export default function AdminLayout({ children }) {
     if (isHR) {
       const hrForbidden = [
         '/admin/client',
+        '/admin/leads',
         '/admin/marketing',
         '/admin/projects',
         '/admin/submissions',
@@ -244,6 +247,7 @@ export default function AdminLayout({ children }) {
       adminOnly: true,
       items: [
         { name: "Client Records", path: "/admin/client", icon: <FiUsers /> },
+        { name: "Company Leads", path: "/admin/leads", icon: <FiTarget /> },
         { name: "Domain Portfolio", path: "/admin/domains", icon: <FiGlobe /> },
         { name: "Packages", path: "/admin/packages", icon: <FiBox /> },
         { name: "Subscriptions", path: "/admin/subscriptions", icon: <FiList /> },

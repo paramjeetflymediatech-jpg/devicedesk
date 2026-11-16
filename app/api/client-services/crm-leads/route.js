@@ -20,7 +20,8 @@ async function getCrmToken() {
       body: JSON.stringify({
         email: CRM_SERVICE_EMAIL,
         password: CRM_SERVICE_PASSWORD
-      })
+      }),
+      signal: AbortSignal.timeout(2000)
     });
     const data = await res.json();
     if (data.token) {
@@ -46,7 +47,8 @@ async function resolveCompanyForClient(token, client, db) {
 
   try {
     const compRes = await fetch(`${CRM_BASE_URL}/admin/companies`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(2000)
     });
     if (compRes.ok) {
       const { companies } = await compRes.json();
@@ -151,7 +153,8 @@ export async function GET(request) {
       if (token) {
         try {
           const usersRes = await fetch(`${CRM_BASE_URL}/users`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${token}` },
+            signal: AbortSignal.timeout(2000)
           });
           if (usersRes.ok) {
             const usersData = await usersRes.json();
@@ -171,6 +174,14 @@ export async function GET(request) {
           console.warn('Failed to fetch CRM users:', e.message);
         }
       }
+      if (members.length === 0) {
+        const [localUsers] = await db.query(`
+          SELECT id, name, email, role, avatar, phone, status
+          FROM crm_saas.users
+          WHERE company_id = ?
+        `, [targetCompanyId || client.crm_company_id || 1]).catch(() => [[]]);
+        members = localUsers || [];
+      }
       return NextResponse.json({ success: true, members });
     }
 
@@ -180,10 +191,12 @@ export async function GET(request) {
         try {
           const [leadRes, usersRes] = await Promise.all([
             fetch(`${CRM_BASE_URL}/leads/${leadId}`, {
-              headers: { 'Authorization': `Bearer ${token}` }
+              headers: { 'Authorization': `Bearer ${token}` },
+              signal: AbortSignal.timeout(2000)
             }),
             fetch(`${CRM_BASE_URL}/users`, {
-              headers: { 'Authorization': `Bearer ${token}` }
+              headers: { 'Authorization': `Bearer ${token}` },
+              signal: AbortSignal.timeout(2000)
             }).catch(() => null)
           ]);
 
@@ -267,19 +280,45 @@ export async function GET(request) {
       }
 
       // Fallback local query for single lead
-      const [localLeadRows] = await db.execute(`SELECT * FROM crm_saas.leads WHERE id = ? LIMIT 1`, [leadId]).catch(() => [[]]);
+      const [localLeadRows] = await db.query(`
+        SELECT l.*,
+          CONCAT(COALESCE(l.first_name, ''), ' ', COALESCE(l.last_name, '')) as full_name,
+          u.name as assigned_user_name, u.email as assigned_user_email, u.avatar as assigned_user_avatar, u.role as assigned_user_role
+        FROM crm_saas.leads l
+        LEFT JOIN crm_saas.users u ON l.assigned_to = u.id
+        WHERE l.id = ? LIMIT 1
+      `, [leadId]).catch(() => [[]]);
+
       if (localLeadRows && localLeadRows.length > 0) {
-        const l = localLeadRows[0];
+        const [localNotes] = await db.query(`
+          SELECT n.*, u.name as user_name, u.role as user_role
+          FROM crm_saas.lead_notes n
+          LEFT JOIN crm_saas.users u ON n.user_id = u.id
+          WHERE n.lead_id = ?
+          ORDER BY n.created_at DESC
+        `, [leadId]).catch(() => [[]]);
+
+        const [localMembers] = await db.query(`
+          SELECT id, name, email, role, avatar, phone, status
+          FROM crm_saas.users
+          WHERE company_id = ?
+        `, [targetCompanyId || client.crm_company_id || 1]).catch(() => [[]]);
+
         return NextResponse.json({
           success: true,
           lead: {
-            ...l,
-            full_name: `${l.first_name || ''} ${l.last_name || ''}`.trim() || `Lead #${l.id}`,
-            notes: [],
+            ...localLeadRows[0],
+            notes: localNotes || [],
             activities: [],
             tasks: []
           },
-          members: []
+          members: localMembers || [],
+          company: {
+            id: targetCompanyId || client.crm_company_id || 1,
+            name: companyName,
+            apiKey: crmApiKey,
+            webhookUrl: `${CRM_BASE_URL}/leads/create?api_key=${crmApiKey}`
+          }
         });
       }
       return NextResponse.json({ success: false, error: 'Lead not found' }, { status: 404 });
@@ -305,10 +344,12 @@ export async function GET(request) {
 
         const [leadsRes, usersRes] = await Promise.all([
           fetch(`${CRM_BASE_URL}/leads?${queryParams.toString()}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${token}` },
+            signal: AbortSignal.timeout(2500)
           }),
           fetch(`${CRM_BASE_URL}/users`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${token}` },
+            signal: AbortSignal.timeout(2500)
           }).catch(() => null)
         ]);
 
@@ -397,17 +438,20 @@ export async function GET(request) {
     }
 
     // 3. Fallback to local DB if remote CRM API was temporarily unreachable
-    const [statsRows] = await db.execute(`
+    const compId = targetCompanyId || client.crm_company_id || 1;
+
+    const [statsRows] = await db.query(`
       SELECT 
         COUNT(*) as total,
         COUNT(CASE WHEN LOWER(status) = 'new' THEN 1 END) as new_count,
         COUNT(CASE WHEN LOWER(status) = 'contacted' THEN 1 END) as contacted_count,
         COUNT(CASE WHEN LOWER(status) = 'qualified' THEN 1 END) as qualified_count,
-        COUNT(CASE WHEN LOWER(status) = 'converted' THEN 1 END) as converted_count,
-        COUNT(CASE WHEN LOWER(status) = 'lost' THEN 1 END) as lost_count
+        COUNT(CASE WHEN LOWER(status) IN ('in progress', 'in_progress') THEN 1 END) as in_progress_count,
+        COUNT(CASE WHEN LOWER(status) IN ('converted', 'won') THEN 1 END) as converted_count,
+        COUNT(CASE WHEN LOWER(status) IN ('lost', 'closed lost', 'junk') THEN 1 END) as lost_count
       FROM crm_saas.leads
       WHERE company_id = ?
-    `, [client.crm_company_id || 1]);
+    `, [compId]);
 
     const s = statsRows[0] || {};
     const stats = {
@@ -415,25 +459,38 @@ export async function GET(request) {
       new: Number(s.new_count) || 0,
       contacted: Number(s.contacted_count) || 0,
       qualified: Number(s.qualified_count) || 0,
+      in_progress: Number(s.in_progress_count) || 0,
       converted: Number(s.converted_count) || 0,
       lost: Number(s.lost_count) || 0
     };
 
     const whereConditions = ['l.company_id = ?'];
-    const params = [client.crm_company_id || 1];
+    const params = [compId];
 
     if (status && status !== 'all' && status !== '_all') {
-      whereConditions.push('LOWER(l.status) = LOWER(?)');
-      params.push(status.trim());
+      if (status.toLowerCase() === 'in progress' || status.toLowerCase() === 'in_progress') {
+        whereConditions.push("LOWER(l.status) IN ('in progress', 'in_progress')");
+      } else {
+        whereConditions.push('LOWER(l.status) = LOWER(?)');
+        params.push(status.trim());
+      }
     }
     if (priority && priority !== 'all' && priority !== '_all') {
       whereConditions.push('LOWER(l.priority) = LOWER(?)');
       params.push(priority.trim());
     }
+    if (assignedTo && assignedTo !== 'all' && assignedTo !== '_all') {
+      if (assignedTo === 'unassigned' || assignedTo === 'null' || assignedTo === '0') {
+        whereConditions.push('l.assigned_to IS NULL');
+      } else {
+        whereConditions.push('l.assigned_to = ?');
+        params.push(Number(assignedTo));
+      }
+    }
     if (search && search.trim() !== '') {
       const term = `%${search.trim()}%`;
-      whereConditions.push('(l.first_name LIKE ? OR l.last_name LIKE ? OR l.email LIKE ? OR l.phone LIKE ? OR l.subject LIKE ? OR l.message LIKE ?)');
-      params.push(term, term, term, term, term, term);
+      whereConditions.push('(l.first_name LIKE ? OR l.last_name LIKE ? OR CONCAT(COALESCE(l.first_name, ""), " ", COALESCE(l.last_name, "")) LIKE ? OR l.email LIKE ? OR l.phone LIKE ? OR l.subject LIKE ? OR l.message LIKE ?)');
+      params.push(term, term, term, term, term, term, term);
     }
     if (startDate && startDate.trim()) {
       whereConditions.push('l.created_at >= ?');
@@ -447,40 +504,51 @@ export async function GET(request) {
     }
 
     const whereSql = whereConditions.join(' AND ');
-    const [countRows] = await db.execute(`SELECT COUNT(*) as filteredTotal FROM crm_saas.leads l WHERE ${whereSql}`, params);
+    const [countRows] = await db.query(`SELECT COUNT(*) as filteredTotal FROM crm_saas.leads l WHERE ${whereSql}`, params);
     const filteredTotal = Number(countRows[0]?.filteredTotal) || 0;
 
-    const queryParams = [...params, limit, (page - 1) * limit];
-    const [leadRows] = await db.execute(`
+    const safeLimit = Math.max(1, limit);
+    const offset = Math.max(0, (page - 1) * limit);
+    const [leadRows] = await db.query(`
       SELECT 
         l.id, l.company_id, l.assigned_to, l.source, l.first_name, l.last_name,
         CONCAT(COALESCE(l.first_name, ''), ' ', COALESCE(l.last_name, '')) as full_name,
         l.email, l.phone, l.subject, l.message, l.status, l.priority, l.lead_score,
-        l.follow_up_date, l.created_at, l.updated_at
+        l.follow_up_date, l.created_at, l.updated_at,
+        u.name as assigned_user_name, u.email as assigned_user_email, u.avatar as assigned_user_avatar, u.role as assigned_user_role,
+        (SELECT COUNT(*) FROM crm_saas.lead_notes n WHERE n.lead_id = l.id) as notes_count
       FROM crm_saas.leads l
+      LEFT JOIN crm_saas.users u ON l.assigned_to = u.id
       WHERE ${whereSql}
       ORDER BY l.created_at DESC
-      LIMIT ? OFFSET ?
-    `, queryParams);
+      LIMIT ${safeLimit} OFFSET ${offset}
+    `, params);
+
+    const [memberRows] = await db.query(`
+      SELECT id, name, email, role, avatar, phone, status
+      FROM crm_saas.users
+      WHERE company_id = ?
+    `, [compId]).catch(() => [[]]);
 
     return NextResponse.json({
       success: true,
       hasCrm: true,
       company: {
-        id: client.crm_company_id || 1,
+        id: compId,
         name: companyName,
         email: client.client_email,
         status: 'active',
         apiKey: crmApiKey,
-        webhookUrl: `${CRM_BASE_URL}/leads/create`
+        webhookUrl: `${CRM_BASE_URL}/leads/create?api_key=${crmApiKey}`
       },
       stats,
       leads: leadRows,
       data: leadRows,
+      members: memberRows || [],
       totalCount: filteredTotal,
       page,
       limit,
-      totalPages: Math.ceil(filteredTotal / limit)
+      totalPages: Math.max(1, Math.ceil(filteredTotal / safeLimit))
     });
 
   } catch (error) {
@@ -672,10 +740,16 @@ export async function PUT(request) {
       }
 
       if (note && note.trim() !== '') {
+        let noteUserId = 1;
+        try {
+          const [uRows] = await db.query(`SELECT id FROM crm_saas.users WHERE company_id = ? LIMIT 1`, [targetCompanyId || client.crm_company_id || 1]);
+          if (uRows && uRows.length > 0) noteUserId = uRows[0].id;
+        } catch (e) {}
+
         await db.execute(`
-          INSERT INTO crm_saas.lead_notes (lead_id, user_id, note, created_at, updated_at)
-          VALUES (?, NULL, ?, NOW(), NOW())
-        `, [targetLeadId, note.trim()]).catch(() => null);
+          INSERT INTO crm_saas.lead_notes (lead_id, user_id, note, created_at)
+          VALUES (?, ?, ?, NOW())
+        `, [targetLeadId, noteUserId, note.trim()]).catch(() => null);
       }
     } catch (e) {}
 
@@ -736,10 +810,16 @@ export async function POST(request) {
 
       // Also save to local DB
       try {
+        let noteUserId = 1;
+        try {
+          const [uRows] = await db.query(`SELECT id FROM crm_saas.users LIMIT 1`);
+          if (uRows && uRows.length > 0) noteUserId = uRows[0].id;
+        } catch (e) {}
+
         await db.execute(`
-          INSERT INTO crm_saas.lead_notes (lead_id, user_id, note, created_at, updated_at)
-          VALUES (?, NULL, ?, NOW(), NOW())
-        `, [targetLeadId, note.trim()]).catch(() => null);
+          INSERT INTO crm_saas.lead_notes (lead_id, user_id, note, created_at)
+          VALUES (?, ?, ?, NOW())
+        `, [targetLeadId, noteUserId, note.trim()]).catch(() => null);
       } catch (e) {}
 
       return NextResponse.json({
@@ -791,7 +871,7 @@ export async function POST(request) {
       `, [clientId]);
 
       const client = clientRows?.[0] || {};
-      const apiKey = client.crm_api_key || 'acme_wp_integration_key_xyz_2026';
+      const apiKey = client.crm_api_key || '';
       const testPhone = `+91 98${Math.floor(10000000 + Math.random() * 90000000)}`;
       const testEmail = `inquiry.${Math.floor(1000 + Math.random() * 9000)}@customer.com`;
 
@@ -840,7 +920,7 @@ export async function POST(request) {
       apiKey = (body.api_key || body.apiKey).trim();
     }
     if (!apiKey) {
-      apiKey = 'acme_wp_integration_key_xyz_2026';
+      apiKey = '';
     }
 
     const proxyRes = await fetch(`${CRM_BASE_URL}/leads/create`, {

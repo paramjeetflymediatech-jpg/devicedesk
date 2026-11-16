@@ -2653,12 +2653,12 @@ export default function ClientCrmLeadsPage() {
                     <input
                       type="text"
                       readOnly
-                      value={`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}`}
+                      value={`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || ''}`}
                       className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none"
                     />
                     <button
                       type="button"
-                      onClick={() => handleCopyText(`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}`, 'webhook')}
+                      onClick={() => handleCopyText(`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || ''}`, 'webhook')}
                       className="inline-flex items-center gap-1 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0 shadow-xs"
                     >
                       {copiedWebhook ? <FiCheck size={14} /> : <FiCopy size={14} />}
@@ -2710,7 +2710,7 @@ export default function ClientCrmLeadsPage() {
                       <li>
                         Under the new <strong>Webhook</strong> section that appears, paste your Webhook URL:
                         <code className="block my-1.5 p-2 bg-gray-900 text-pink-400 font-mono rounded-lg break-all select-all">
-                          {`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}`}
+                          {`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || ''}`}
                         </code>
                       </li>
                       <li>Make sure your form field names or Shortcode IDs are named: <code className="font-mono bg-gray-200 px-1 rounded">name</code>, <code className="font-mono bg-gray-200 px-1 rounded">email</code>, <code className="font-mono bg-gray-200 px-1 rounded">phone</code>, and <code className="font-mono bg-gray-200 px-1 rounded">message</code>.</li>
@@ -2738,7 +2738,7 @@ export default function ClientCrmLeadsPage() {
         'source'  => 'Contact Form 7'
     ];
 
-    wp_remote_post('https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}', [
+    wp_remote_post('https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || ''}', [
         'headers' => ['Content-Type' => 'application/json'],
         'body'    => json_encode($payload),
         'timeout' => 15
@@ -2757,7 +2757,7 @@ export default function ClientCrmLeadsPage() {
                       <li>Navigate to <strong>Form Settings &gt; Webhooks &gt; Add New</strong>.</li>
                       <li>Set <strong>Request URL</strong> to your Webhook URL:
                         <code className="block my-1.5 p-2 bg-gray-900 text-pink-400 font-mono rounded-lg break-all select-all">
-                          {`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}`}
+                          {`https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || ''}`}
                         </code>
                       </li>
                       <li>Set <strong>Request Method</strong> to <strong>POST</strong> and <strong>Request Format</strong> to <strong>JSON</strong>.</li>
@@ -2771,7 +2771,7 @@ export default function ClientCrmLeadsPage() {
                   <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-700 space-y-2.5">
                     <p className="font-bold text-gray-900">Direct HTTP Request Specification:</p>
                     <pre className="p-3 bg-gray-900 text-pink-300 font-mono rounded-xl text-[11px] overflow-x-auto leading-relaxed select-all">
-{`curl -X POST "https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || 'acme_wp_integration_key_xyz_2026'}" \\
+{`curl -X POST "https://demo.socialflymediatech.com/api/leads/create?api_key=${crmCompany?.apiKey || ''}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "Alex Johnson",
