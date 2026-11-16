@@ -111,6 +111,25 @@ async function initializeDatabase(db) {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS company_credentials (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      company_name VARCHAR(255) NOT NULL,
+      website_url VARCHAR(500) DEFAULT NULL,
+      admin_url VARCHAR(500) DEFAULT NULL,
+      admin_name VARCHAR(255) DEFAULT NULL,
+      admin_email VARCHAR(255) DEFAULT NULL,
+      admin_phone VARCHAR(100) DEFAULT NULL,
+      username VARCHAR(255) NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      platform VARCHAR(100) DEFAULT 'WordPress',
+      status VARCHAR(50) DEFAULT 'Active',
+      notes TEXT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
   // Alter tables if columns do not exist
   try {
     await db.execute(`ALTER TABLE client_notes ADD COLUMN tl_reply TEXT DEFAULT NULL`);
