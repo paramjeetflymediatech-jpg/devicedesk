@@ -235,6 +235,22 @@ async function initializeDatabase(db) {
   } catch (err) {}
 
   try {
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS agent_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        employeeId VARCHAR(100) NOT NULL,
+        employeeName VARCHAR(150) NOT NULL,
+        action VARCHAR(100) NOT NULL,
+        details TEXT,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err) {}
+  try {
+    await db.execute(`ALTER TABLE agent_logs ADD COLUMN createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+  } catch (err) {}
+
+  try {
     await db.execute(`ALTER TABLE chat_messages ADD COLUMN deletedForEveryone INT DEFAULT 0`);
   } catch (err) {}
 

@@ -246,6 +246,7 @@ export default function AdminLayout({ children }) {
       title: "Client Management",
       adminOnly: true,
       items: [
+        { name: "Companies & Admins", path: "/admin/companies", icon: <FiBriefcase /> },
         { name: "Client Records", path: "/admin/client", icon: <FiUsers /> },
         { name: "Company Leads", path: "/admin/leads", icon: <FiTarget /> },
         { name: "Domain Portfolio", path: "/admin/domains", icon: <FiGlobe /> },

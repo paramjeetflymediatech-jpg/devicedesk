@@ -38,7 +38,8 @@ import {
   FiCode,
   FiGlobe,
   FiShield,
-  FiFileText
+  FiFileText,
+  FiBriefcase
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 import Pagination from '@/app/components/Pagination.js';
@@ -978,6 +979,15 @@ export default function SuperadminCompanyLeadsPage() {
             <FiRefreshCw size={14} className={refreshing ? 'animate-spin text-blue-500' : 'text-blue-500'} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
+
+          <Link
+            href="/admin/companies"
+            className="px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400"
+            title="Manage Companies & Company Admins"
+          >
+            <FiBriefcase size={14} />
+            <span className="hidden sm:inline">Companies & Admins</span>
+          </Link>
 
           <button
             type="button"
@@ -2913,7 +2923,17 @@ export default function SuperadminCompanyLeadsPage() {
                     Choose a company to view credentials or assign a new API key.
                   </p>
                 </div>
-                <div className="w-full md:w-80">
+                <div className="w-full md:w-80 space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-gray-400">Choose Company</span>
+                    <Link
+                      href="/admin/companies"
+                      className="font-bold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+                    >
+                      <FiBriefcase size={11} />
+                      <span>+ Add / Manage</span>
+                    </Link>
+                  </div>
                   <select
                     value={activeWebhookCompany?.id || ''}
                     onChange={(e) => handleSelectWebhookCompany(e.target.value)}
