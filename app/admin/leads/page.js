@@ -730,6 +730,12 @@ export default function SuperadminCompanyLeadsPage() {
     return users.filter((u) => Number(u.company_id) === Number(editForm.company_id));
   }, [users, editForm.company_id]);
 
+  // Filter staff by selected company in main filter toolbar
+  const filterSectionStaff = useMemo(() => {
+    if (selectedCompanyId === 'all') return users;
+    return users.filter((u) => Number(u.company_id) === Number(selectedCompanyId));
+  }, [users, selectedCompanyId]);
+
   // Active company object in Webhook modal
   const activeWebhookCompany = useMemo(() => {
     if (!companies || companies.length === 0) return null;
@@ -1147,8 +1153,18 @@ export default function SuperadminCompanyLeadsPage() {
             <select
               value={selectedCompanyId}
               onChange={(e) => {
-                setSelectedCompanyId(e.target.value);
+                const newCompanyId = e.target.value;
+                setSelectedCompanyId(newCompanyId);
                 setCurrentPage(1);
+                // If assigned staff filter was set to a staff member not in the new company, reset to 'all'
+                if (assignedFilter !== 'all' && assignedFilter !== 'unassigned' && newCompanyId !== 'all') {
+                  const staffStillInCompany = users.some(
+                    (u) => String(u.id) === String(assignedFilter) && Number(u.company_id) === Number(newCompanyId)
+                  );
+                  if (!staffStillInCompany) {
+                    setAssignedFilter('all');
+                  }
+                }
               }}
               className="w-full px-3 py-2 text-xs font-semibold rounded-xl outline-none transition-all cursor-pointer"
               style={{
@@ -1223,9 +1239,16 @@ export default function SuperadminCompanyLeadsPage() {
 
           {/* Assigned Staff Filter */}
           <div className="space-y-1">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-              <FiUsers size={12} className="text-indigo-500" />
-              <span>Assigned Staff</span>
+            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <FiUsers size={12} className="text-indigo-500" />
+                <span>Assigned Staff</span>
+              </span>
+              {selectedCompanyId !== 'all' && (
+                <span className="text-[10px] text-indigo-500 font-semibold lowercase">
+                  ({filterSectionStaff.length} staff)
+                </span>
+              )}
             </label>
             <select
               value={assignedFilter}
@@ -1240,11 +1263,13 @@ export default function SuperadminCompanyLeadsPage() {
                 color: 'var(--text-primary)'
               }}
             >
-              <option value="all">All Staff Members</option>
+              <option value="all">
+                {selectedCompanyId !== 'all' ? 'All Company Staff' : 'All Staff Members'}
+              </option>
               <option value="unassigned">⚠️ Unassigned Only</option>
-              {users.map((u) => (
+              {filterSectionStaff.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.name} ({u.company_name || 'Staff'})
+                  {u.name} {selectedCompanyId === 'all' && u.company_name ? `(${u.company_name})` : (u.role ? `(${u.role})` : '')}
                 </option>
               ))}
             </select>
