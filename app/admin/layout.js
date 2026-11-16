@@ -115,6 +115,7 @@ export default function AdminLayout({ children }) {
     // Role-specific route protection for IT Support
     if (isIT) {
       const itForbidden = [
+        '/admin/audit-logs',
         '/admin/users',
         '/admin/team-hierarchy',
         '/admin/companies',
@@ -315,7 +316,7 @@ export default function AdminLayout({ children }) {
     .filter(group => {
       if (isHRUser && group.adminOnly) return false;
       if (isITSupport) {
-        if (["Client Management", "Marketing", "Operations & Projects", "HR Portal"].includes(group.title)) return false;
+        if (["Client Management", "Marketing", "Operations & Projects", "HR Portal", "Security & Auditing"].includes(group.title)) return false;
       }
       if (isDnsManager && !isAdminUser) {
         if (group.title !== "Client Management") return false;
@@ -346,7 +347,9 @@ export default function AdminLayout({ children }) {
             "Leave Requests",
             "Activity & Screenshots",
             "Team Directory",
-            "Team Hierarchy"
+            "Team Hierarchy",
+            "Security & Audit Logs",
+            "System Logs & Audit"
           ].includes(item.name)) return false;
           return true;
         });

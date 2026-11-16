@@ -2372,9 +2372,6 @@ export default function Home() {
                 <li className="nav-item">
                   <button onClick={() => window.location.href = "/admin/tickets"}><span className="nav-icon"><FiTag /></span> Raise Records</button>
                 </li>
-                <li className="nav-item">
-                  <button onClick={() => window.location.href = "/admin/audit-logs"}><span className="nav-icon"><FiFileText /></span> System Logs & Audit</button>
-                </li>
               </>
             )}
             {!isITSupport && isRootAdmin && (
@@ -2585,7 +2582,6 @@ export default function Home() {
               <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/departments"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiBriefcase /></span> Departments</button>
               <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/systems"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiServer /></span> Systems Inventory</button>
               <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/tickets"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiTag /></span> Raise Records</button>
-              <button className="mobile-drawer-item" onClick={() => { window.location.href = "/admin/audit-logs"; setMobileMenuOpen(false); }}><span style={{ display: "inline-flex" }}><FiActivity /></span> System Logs & Audit</button>
             </div>
           )}
           {!isITSupport && ['admin', 'it support', 'it_support', 'it', 'hr', 'management', 'superadmin', 'team leader'].includes((userRole || '').toLowerCase()) && (
