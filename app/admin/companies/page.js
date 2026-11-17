@@ -30,7 +30,11 @@ import {
   FiServer,
   FiFileText,
   FiDownload,
-  FiUpload
+  FiUpload,
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronsLeft,
+  FiChevronsRight
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 
@@ -67,6 +71,13 @@ export default function SuperadminCompanyCredentialsPage() {
   // Multiple selection for bulk delete
   const [selectedCompanyIds, setSelectedCompanyIds] = useState([]);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [totalFiltered, setTotalFiltered] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [serverStats, setServerStats] = useState(null);
+
   // Form states
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [modalShowPassword, setModalShowPassword] = useState(true);
@@ -87,6 +98,11 @@ export default function SuperadminCompanyCredentialsPage() {
 
   const [formData, setFormData] = useState(initialForm);
 
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, platformFilter]);
+
   // Fetch Companies
   const fetchCompanies = useCallback(async (isRefresh = false) => {
     try {
@@ -97,12 +113,17 @@ export default function SuperadminCompanyCredentialsPage() {
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (platformFilter !== 'all') params.set('platform', platformFilter);
+      params.set('page', String(currentPage));
+      params.set('limit', String(limit));
 
       const res = await fetch(`/api/admin/companies?${params.toString()}`);
       const data = await res.json();
 
       if (data.success) {
         setCompanies(data.companies || []);
+        setTotalFiltered(data.total || 0);
+        setTotalPages(data.totalPages || 1);
+        if (data.stats) setServerStats(data.stats);
       } else {
         Swal.fire({
           toast: true,
@@ -127,7 +148,34 @@ export default function SuperadminCompanyCredentialsPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [searchQuery, statusFilter, platformFilter]);
+  }, [searchQuery, statusFilter, platformFilter, currentPage, limit]);
+
+  // Pagination navigation helpers
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, '...', totalPages];
+    }
+    if (currentPage >= totalPages - 3) {
+      return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+  };
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleLimitChange = (newLimit) => {
+    const lim = Number(newLimit) || 10;
+    setLimit(lim);
+    setCurrentPage(1);
+  };
 
   useEffect(() => {
     fetchCompanies();
@@ -144,8 +192,27 @@ export default function SuperadminCompanyCredentialsPage() {
 
     try {
       setExporting(true);
+
+      // Fetch all matching companies for export if currently paginated
+      let dataset = companies;
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery.trim()) params.set('search', searchQuery.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (platformFilter !== 'all') params.set('platform', platformFilter);
+        params.set('page', 'all');
+
+        const allRes = await fetch(`/api/admin/companies?${params.toString()}`);
+        const allData = await allRes.json();
+        if (allData.success && Array.isArray(allData.companies)) {
+          dataset = allData.companies;
+        }
+      } catch (fetchErr) {
+        console.warn('Export full fetch fallback to local state:', fetchErr);
+      }
+
       const XLSX = await import('xlsx');
-      const exportData = companies.map((c, idx) => ({
+      const exportData = dataset.map((c, idx) => ({
         'No.': idx + 1,
         'Company Name': c.company_name || '',
         'Website URL': c.website_url || '',
@@ -176,7 +243,7 @@ export default function SuperadminCompanyCredentialsPage() {
         toast: true,
         position: 'top-end',
         icon: 'success',
-        title: `Exported ${companies.length} companies (${format.toUpperCase()})`,
+        title: `Exported ${dataset.length} companies (${format.toUpperCase()})`,
         showConfirmButton: false,
         timer: 2000
       });
@@ -652,12 +719,13 @@ export default function SuperadminCompanyCredentialsPage() {
 
   // Calculations for KPI Cards
   const stats = useMemo(() => {
-    const total = companies.length;
+    if (serverStats) return serverStats;
+    const total = totalFiltered || companies.length;
     const active = companies.filter((c) => c.status?.toLowerCase() === 'active').length;
     const wpCount = companies.filter((c) => c.platform?.toLowerCase().includes('word')).length;
     const otherCount = total - wpCount;
     return { total, active, wpCount, otherCount };
-  }, [companies]);
+  }, [companies, serverStats, totalFiltered]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
@@ -1222,6 +1290,124 @@ export default function SuperadminCompanyCredentialsPage() {
                 </div>
               );
             })}
+          </div>
+
+          {/* Pagination Controls Bar */}
+          <div className="px-4 sm:px-6 py-3.5 bg-gray-50/80 dark:bg-slate-800/50 border-t border-gray-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600 dark:text-gray-400">
+            {/* Left: Summary and Limit Selector */}
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+              <span className="font-medium text-gray-700 dark:text-gray-300">
+                Showing{' '}
+                <strong className="text-gray-900 dark:text-white font-bold">
+                  {totalFiltered === 0 ? 0 : (currentPage - 1) * limit + 1}
+                </strong>{' '}
+                to{' '}
+                <strong className="text-gray-900 dark:text-white font-bold">
+                  {Math.min(currentPage * limit, totalFiltered)}
+                </strong>{' '}
+                of{' '}
+                <strong className="text-gray-900 dark:text-white font-bold">
+                  {totalFiltered}
+                </strong>{' '}
+                companies
+              </span>
+
+              <div className="flex items-center gap-1.5 pl-2 border-l border-gray-300 dark:border-slate-700">
+                <label className="text-gray-500 dark:text-gray-400 font-medium">Per page:</label>
+                <select
+                  value={limit}
+                  onChange={(e) => handleLimitChange(e.target.value)}
+                  className="px-2 py-1 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-xs font-bold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs"
+                  title="Rows per page limit"
+                >
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Right: Page Navigation Buttons */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1 w-full sm:w-auto justify-center sm:justify-end">
+                {/* First Page */}
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage <= 1 || loading}
+                  className="p-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-xs"
+                  title="First Page"
+                >
+                  <FiChevronsLeft size={15} />
+                </button>
+
+                {/* Previous Page */}
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage <= 1 || loading}
+                  className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed transition-all font-semibold shadow-xs flex items-center gap-1"
+                  title="Previous Page"
+                >
+                  <FiChevronLeft size={14} />
+                  <span className="hidden sm:inline text-xs">Prev</span>
+                </button>
+
+                {/* Page Number Buttons */}
+                <div className="flex items-center gap-1">
+                  {getPageNumbers().map((p, idx) => {
+                    if (p === '...') {
+                      return (
+                        <span key={`dots-${idx}`} className="px-1 text-gray-400 select-none font-bold">
+                          ...
+                        </span>
+                      );
+                    }
+                    const isCurrent = p === currentPage;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => handlePageChange(p)}
+                        disabled={loading}
+                        className={`min-w-[30px] h-7 px-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                          isCurrent
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Next Page */}
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage >= totalPages || loading}
+                  className="px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed transition-all font-semibold shadow-xs flex items-center gap-1"
+                  title="Next Page"
+                >
+                  <span className="hidden sm:inline text-xs">Next</span>
+                  <FiChevronRight size={14} />
+                </button>
+
+                {/* Last Page */}
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(totalPages)}
+                  disabled={currentPage >= totalPages || loading}
+                  className="p-1.5 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-xs"
+                  title="Last Page"
+                >
+                  <FiChevronsRight size={15} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

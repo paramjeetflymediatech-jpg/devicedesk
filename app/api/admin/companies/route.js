@@ -11,6 +11,13 @@ export async function GET(request) {
     const search = (searchParams.get('search') || '').trim().toLowerCase();
     const status = (searchParams.get('status') || 'all').toLowerCase();
     const platform = (searchParams.get('platform') || 'all').toLowerCase();
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+
+    const isPaginated = pageParam !== null && pageParam !== 'all';
+    const page = Math.max(1, parseInt(pageParam, 10) || 1);
+    const limit = Math.max(1, parseInt(limitParam, 10) || 10);
+    const offset = (page - 1) * limit;
 
     const db = await getDbConnection();
 
@@ -34,6 +41,52 @@ export async function GET(request) {
       )
     `);
 
+    // 1. Overall stats for KPI cards (regardless of pagination/search)
+    const [overallStats] = await db.query(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN LOWER(status) = 'active' THEN 1 ELSE 0 END) as active,
+        SUM(CASE WHEN LOWER(platform) LIKE '%word%' THEN 1 ELSE 0 END) as wpCount
+      FROM company_credentials
+    `);
+    const stats = {
+      total: Number(overallStats[0]?.total || 0),
+      active: Number(overallStats[0]?.active || 0),
+      wpCount: Number(overallStats[0]?.wpCount || 0),
+      otherCount: Number((overallStats[0]?.total || 0) - (overallStats[0]?.wpCount || 0))
+    };
+
+    // 2. Count query for current filters
+    let countQuery = `SELECT COUNT(*) as count FROM company_credentials WHERE 1=1`;
+    const countParams = [];
+
+    if (status !== 'all') {
+      countQuery += ` AND LOWER(status) = ?`;
+      countParams.push(status);
+    }
+
+    if (platform !== 'all') {
+      countQuery += ` AND LOWER(platform) = ?`;
+      countParams.push(platform);
+    }
+
+    if (search) {
+      countQuery += ` AND (
+        LOWER(company_name) LIKE ? OR
+        LOWER(COALESCE(website_url, '')) LIKE ? OR
+        LOWER(COALESCE(admin_url, '')) LIKE ? OR
+        LOWER(COALESCE(admin_name, '')) LIKE ? OR
+        LOWER(COALESCE(admin_email, '')) LIKE ? OR
+        LOWER(username) LIKE ?
+      )`;
+      const wild = `%${search}%`;
+      countParams.push(wild, wild, wild, wild, wild, wild);
+    }
+
+    const [countRows] = await db.query(countQuery, countParams);
+    const totalFiltered = Number(countRows[0]?.count || 0);
+
+    // 3. Query records with optional pagination
     let query = `SELECT * FROM company_credentials WHERE 1=1`;
     const params = [];
 
@@ -62,12 +115,21 @@ export async function GET(request) {
 
     query += ` ORDER BY id DESC`;
 
+    if (isPaginated) {
+      query += ` LIMIT ? OFFSET ?`;
+      params.push(limit, offset);
+    }
+
     const [rows] = await db.query(query, params);
 
     return NextResponse.json({
       success: true,
       companies: rows,
-      total: rows.length
+      total: totalFiltered,
+      page: isPaginated ? page : 1,
+      limit: isPaginated ? limit : rows.length,
+      totalPages: isPaginated ? Math.max(1, Math.ceil(totalFiltered / limit)) : 1,
+      stats
     });
   } catch (error) {
     console.error('[API /admin/companies GET] Error:', error);
