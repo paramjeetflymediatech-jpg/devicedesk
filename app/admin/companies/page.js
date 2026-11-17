@@ -64,6 +64,9 @@ export default function SuperadminCompanyCredentialsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
 
+  // Multiple selection for bulk delete
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState([]);
+
   // Form states
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [modalShowPassword, setModalShowPassword] = useState(true);
@@ -521,6 +524,7 @@ export default function SuperadminCompanyCredentialsPage() {
           const data = await res.json();
           if (data.success) {
             fetchCompanies(true);
+            setSelectedCompanyIds((prev) => prev.filter((id) => id !== comp.id));
             Swal.fire({
               toast: true,
               position: 'top-end',
@@ -537,6 +541,79 @@ export default function SuperadminCompanyCredentialsPage() {
         }
       }
     });
+  };
+
+  // Bulk Selection Helpers
+  const isAllSelected = useMemo(() => {
+    return companies.length > 0 && companies.every((c) => selectedCompanyIds.includes(c.id));
+  }, [companies, selectedCompanyIds]);
+
+  const isSomeSelected = useMemo(() => {
+    return selectedCompanyIds.length > 0 && !isAllSelected;
+  }, [selectedCompanyIds, isAllSelected]);
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedCompanyIds([]);
+    } else {
+      setSelectedCompanyIds(companies.map((c) => c.id));
+    }
+  };
+
+  const handleToggleSelectCompany = (id) => {
+    setSelectedCompanyIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleClearSelection = () => {
+    setSelectedCompanyIds([]);
+  };
+
+  // Bulk Delete Companies
+  const handleBulkDeleteCompanies = async () => {
+    if (selectedCompanyIds.length === 0) return;
+    const count = selectedCompanyIds.length;
+    const result = await Swal.fire({
+      title: `Delete ${count} Companies?`,
+      html: `Are you sure you want to permanently delete credentials for <b>${count}</b> selected compan${count > 1 ? 'ies' : 'y'}?<br/><span class="text-rose-500 font-medium text-xs mt-2 block">This action cannot be undone.</span>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `Yes, Delete ${count} Compan${count > 1 ? 'ies' : 'y'}`,
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/admin/companies', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: selectedCompanyIds })
+        });
+        const data = await res.json();
+        if (data.success) {
+          setSelectedCompanyIds([]);
+          fetchCompanies(true);
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: data.message || `Deleted ${count} companies.`,
+            showConfirmButton: false,
+            timer: 2500
+          });
+        } else {
+          Swal.fire('Failed', data.message || 'Could not delete credentials.', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Network error deleting credentials.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   // Copy helper
@@ -740,6 +817,18 @@ export default function SuperadminCompanyCredentialsPage() {
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
+
+          {selectedCompanyIds.length > 0 && (
+            <button
+              type="button"
+              onClick={handleBulkDeleteCompanies}
+              className="px-3 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              title="Delete all selected companies"
+            >
+              <FiTrash2 size={13} />
+              <span>Delete ({selectedCompanyIds.length})</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -777,6 +866,18 @@ export default function SuperadminCompanyCredentialsPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/40 text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider text-[10px]">
+                  <th className="py-3.5 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isSomeSelected;
+                      }}
+                      onChange={handleToggleSelectAll}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      title="Select all companies"
+                    />
+                  </th>
                   <th className="py-3.5 px-4">Company & Website</th>
                   <th className="py-3.5 px-4">Admin Contact</th>
                   <th className="py-3.5 px-4">Username</th>
@@ -788,8 +889,27 @@ export default function SuperadminCompanyCredentialsPage() {
               <tbody className="divide-y divide-gray-100 dark:divide-slate-800/60 font-medium">
                 {companies.map((comp) => {
                   const isPwdVisible = visiblePasswords[comp.id] || false;
+                  const isSelected = selectedCompanyIds.includes(comp.id);
                   return (
-                    <tr key={comp.id} className="hover:bg-gray-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                    <tr
+                      key={comp.id}
+                      className={`transition-colors ${
+                        isSelected
+                          ? 'bg-blue-50/60 dark:bg-blue-950/25'
+                          : 'hover:bg-gray-50/60 dark:hover:bg-slate-800/30'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectCompany(comp.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          title={`Select ${comp.company_name}`}
+                        />
+                      </td>
+
                       {/* 1. Company & Website */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
@@ -955,14 +1075,26 @@ export default function SuperadminCompanyCredentialsPage() {
           <div className="md:hidden divide-y divide-gray-100 dark:divide-slate-800 p-2 space-y-3">
             {companies.map((comp) => {
               const isPwdVisible = visiblePasswords[comp.id] || false;
+              const isSelected = selectedCompanyIds.includes(comp.id);
               return (
                 <div
                   key={comp.id}
-                  className="p-4 rounded-xl border border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/30 space-y-3"
+                  className={`p-4 rounded-xl border transition-colors ${
+                    isSelected
+                      ? 'border-blue-500/50 bg-blue-50/40 dark:bg-blue-950/20 ring-1 ring-blue-500/30'
+                      : 'border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/30'
+                  } space-y-3`}
                 >
                   {/* Top info */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleSelectCompany(comp.id)}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
+                        title={`Select ${comp.company_name}`}
+                      />
                       <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 text-blue-600 dark:text-cyan-400 font-black text-sm flex items-center justify-center shrink-0 border border-blue-500/20">
                         {comp.company_name?.charAt(0).toUpperCase() || 'C'}
                       </div>
@@ -1091,6 +1223,34 @@ export default function SuperadminCompanyCredentialsPage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* FLOATING BULK ACTIONS BAR */}
+      {selectedCompanyIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-gray-900/95 dark:bg-slate-800/95 text-white shadow-2xl backdrop-blur-md border border-gray-700/80 animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <span className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-[11px] font-bold">
+              {selectedCompanyIds.length}
+            </span>
+            <span>selected</span>
+          </span>
+          <div className="h-4 w-px bg-gray-700 mx-0.5" />
+          <button
+            type="button"
+            onClick={handleClearSelection}
+            className="text-xs text-gray-300 hover:text-white transition-colors cursor-pointer"
+          >
+            Deselect
+          </button>
+          <button
+            type="button"
+            onClick={handleBulkDeleteCompanies}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold shadow-md shadow-rose-600/30 transition-all cursor-pointer"
+          >
+            <FiTrash2 size={13} />
+            <span>Delete Selected ({selectedCompanyIds.length})</span>
+          </button>
         </div>
       )}
 

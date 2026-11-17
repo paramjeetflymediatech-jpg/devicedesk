@@ -230,12 +230,12 @@ export async function POST(request) {
     const cleanAccessType = access_type === 'all' ? 'all' : 'specific';
     const cleanStatus = status === 'inactive' ? 'inactive' : 'active';
 
-    // Format assigned companies as a JSON array of numbers
+    // Format assigned companies as a JSON array of numbers or null if none
     let compArray = [];
     if (cleanAccessType === 'specific' && Array.isArray(assigned_companies)) {
       compArray = assigned_companies.map((id) => Number(id)).filter((id) => !isNaN(id) && id > 0);
     }
-    const assignedJson = JSON.stringify(compArray);
+    const assignedJson = compArray.length > 0 ? JSON.stringify(compArray) : null;
 
     const db = await getDbConnection();
 
@@ -321,7 +321,7 @@ export async function PUT(request) {
         compArray = [];
       }
     }
-    const assignedJson = JSON.stringify(compArray);
+    const assignedJson = compArray.length > 0 ? JSON.stringify(compArray) : null;
 
     // Check if another member uses this email
     if (cleanEmail) {
@@ -364,7 +364,7 @@ export async function PUT(request) {
 
 /**
  * DELETE /api/admin/crm-team
- * Removes a CRM team member
+ * Removes one or multiple CRM team members
  */
 export async function DELETE(request) {
   try {
@@ -373,19 +373,41 @@ export async function DELETE(request) {
       return NextResponse.json({ success: false, error: 'Unauthorized: Admin access required.' }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    let idsToDelete = [];
+    try {
+      const body = await request.json().catch(() => null);
+      if (body) {
+        if (Array.isArray(body.ids)) {
+          idsToDelete = body.ids.map(Number).filter((n) => !isNaN(n) && n > 0);
+        } else if (body.id) {
+          idsToDelete = [Number(body.id)].filter((n) => !isNaN(n) && n > 0);
+        }
+      }
+    } catch (e) {}
 
-    if (!id) {
-      return NextResponse.json({ success: false, error: 'Member ID is required.' }, { status: 400 });
+    if (idsToDelete.length === 0) {
+      const { searchParams } = new URL(request.url);
+      const idsParam = searchParams.get('ids');
+      const idParam = searchParams.get('id');
+      if (idsParam) {
+        idsToDelete = idsParam.split(',').map((s) => Number(s.trim())).filter((n) => !isNaN(n) && n > 0);
+      } else if (idParam) {
+        idsToDelete = [Number(idParam)].filter((n) => !isNaN(n) && n > 0);
+      }
+    }
+
+    if (idsToDelete.length === 0) {
+      return NextResponse.json({ success: false, error: 'Member ID(s) required for deletion.' }, { status: 400 });
     }
 
     const db = await getDbConnection();
-    await db.execute(`DELETE FROM crm_team_members WHERE id = ?`, [id]);
+    const placeholders = idsToDelete.map(() => '?').join(',');
+    const [result] = await db.execute(`DELETE FROM crm_team_members WHERE id IN (${placeholders})`, idsToDelete);
 
     return NextResponse.json({
       success: true,
-      message: 'CRM team member deleted successfully.'
+      message: `Successfully deleted ${result.affectedRows} CRM team member${result.affectedRows === 1 ? '' : 's'}.`,
+      deletedCount: result.affectedRows
     });
   } catch (err) {
     console.error('Delete CRM Team Member API Error:', err);

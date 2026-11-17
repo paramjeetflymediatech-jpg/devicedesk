@@ -14,17 +14,18 @@ import ThemeToggle from '@/app/components/ThemeToggle.js';
 export default function CrmPortalLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-
-  // Don't apply layout frame to the login page
-  if (pathname === '/crm/login' || pathname === '/portal/crm/login') {
-    return <>{children}</>;
-  }
+  const isLoginPage = pathname === '/crm/login' || pathname === '/portal/crm/login';
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
+    if (isLoginPage) {
+      setLoading(false);
+      return;
+    }
+
     const checkAuth = async () => {
       try {
         const stored = localStorage.getItem('crm_auth_user');
@@ -62,15 +63,20 @@ export default function CrmPortalLayout({ children }) {
     };
 
     checkAuth();
-  }, [router]);
+  }, [router, isLoginPage]);
 
   // Ensure full-width layout without sidebar margins
   useEffect(() => {
+    if (isLoginPage) return;
     document.body.classList.add('page-standalone', 'page-full-width', 'crm-portal-active');
     return () => {
       document.body.classList.remove('page-standalone', 'page-full-width', 'crm-portal-active');
     };
-  }, []);
+  }, [isLoginPage]);
+
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
 
   const handleLogout = async () => {
     const result = await Swal.fire({
@@ -180,10 +186,12 @@ export default function CrmPortalLayout({ children }) {
             <div className={`scope-badge hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
               isFullAccess
                 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                : assignedCount > 0
+                ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isFullAccess ? 'bg-emerald-500' : 'bg-blue-500'}`} />
-              <span>{isFullAccess ? '🌐 Full Access' : `🏢 ${assignedCount} ${assignedCount === 1 ? 'Company' : 'Companies'}`}</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${isFullAccess ? 'bg-emerald-500' : assignedCount > 0 ? 'bg-blue-500' : 'bg-amber-500'}`} />
+              <span>{isFullAccess ? '🌐 Full Access' : assignedCount > 0 ? `🏢 ${assignedCount} ${assignedCount === 1 ? 'Company' : 'Companies'}` : '⚠️ No Company Assigned'}</span>
             </div>
 
             {/* Theme Toggle (Light / Dark mode switch matching Admin Panel) */}

@@ -29,6 +29,7 @@ import {
   FiExternalLink,
   FiClock,
   FiInfo,
+  FiAlertCircle,
   FiArrowRight,
   FiDownload,
   FiUpload,
@@ -63,6 +64,9 @@ export default function SuperadminCrmTeamPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+
+  // Multiple selection for bulk delete
+  const [selectedMemberIds, setSelectedMemberIds] = useState([]);
 
   // Form states
   const [formName, setFormName] = useState('');
@@ -119,7 +123,7 @@ export default function SuperadminCrmTeamPage() {
     setFormPassword('');
     setFormShowPassword(true);
     setFormAccessType('specific');
-    setFormSelectedCompanies(companies.length > 0 ? [companies[0].id] : []);
+    setFormSelectedCompanies([]);
     setFormStatus('active');
     setFormNotes('');
     setCompanySearch('');
@@ -178,14 +182,6 @@ export default function SuperadminCrmTeamPage() {
       Swal.fire({ icon: 'warning', title: 'Required Fields', text: 'Name, Email, and Password are required.' });
       return;
     }
-    if (formAccessType === 'specific' && formSelectedCompanies.length === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Company Assignment Required',
-        text: 'Please select at least one company for specific access, or choose Full Access to all companies.'
-      });
-      return;
-    }
 
     try {
       setSubmitting(true);
@@ -228,14 +224,6 @@ export default function SuperadminCrmTeamPage() {
     e.preventDefault();
     if (!formName.trim() || !formEmail.trim()) {
       Swal.fire({ icon: 'warning', title: 'Required Fields', text: 'Name and Email are required.' });
-      return;
-    }
-    if (formAccessType === 'specific' && formSelectedCompanies.length === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Company Assignment Required',
-        text: 'Please select at least one company for specific access, or choose Full Access to all companies.'
-      });
       return;
     }
 
@@ -321,6 +309,7 @@ export default function SuperadminCrmTeamPage() {
         if (data.success) {
           Swal.fire({ icon: 'success', title: 'Deleted', text: 'CRM member removed.', timer: 1500, showConfirmButton: false });
           setMembers((prev) => prev.filter((m) => m.id !== member.id));
+          setSelectedMemberIds((prev) => prev.filter((id) => id !== member.id));
         } else {
           Swal.fire({ icon: 'error', title: 'Delete Failed', text: data.error });
         }
@@ -576,6 +565,78 @@ export default function SuperadminCrmTeamPage() {
     });
   }, [members, searchQuery, scopeFilter, statusFilter]);
 
+  // Bulk selection helpers
+  const isAllSelected = useMemo(() => {
+    return filteredMembers.length > 0 && filteredMembers.every((m) => selectedMemberIds.includes(m.id));
+  }, [filteredMembers, selectedMemberIds]);
+
+  const isSomeSelected = useMemo(() => {
+    return selectedMemberIds.length > 0 && !isAllSelected;
+  }, [selectedMemberIds, isAllSelected]);
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedMemberIds([]);
+    } else {
+      setSelectedMemberIds(filteredMembers.map((m) => m.id));
+    }
+  };
+
+  const handleToggleSelectMember = (id) => {
+    setSelectedMemberIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleClearSelection = () => {
+    setSelectedMemberIds([]);
+  };
+
+  // Bulk Delete Members
+  const handleBulkDeleteMembers = async () => {
+    if (selectedMemberIds.length === 0) return;
+    const count = selectedMemberIds.length;
+    const result = await Swal.fire({
+      title: `Delete ${count} CRM Agent${count > 1 ? 's' : ''}?`,
+      html: `Are you sure you want to permanently delete <b>${count}</b> selected CRM team member${count > 1 ? 's' : ''}?<br/><span class="text-rose-500 font-medium text-xs mt-2 block">This will revoke their CRM portal access immediately. This action cannot be undone.</span>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `Yes, Delete ${count} Agent${count > 1 ? 's' : ''}`,
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/admin/crm-team', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: selectedMemberIds })
+        });
+        const data = await res.json();
+        if (data.success) {
+          setSelectedMemberIds([]);
+          await fetchData();
+          Swal.fire({
+            icon: 'success',
+            title: 'Deleted Successfully',
+            text: data.message || `Deleted ${count} CRM team member(s).`,
+            timer: 2000,
+            showConfirmButton: false
+          });
+        } else {
+          Swal.fire({ icon: 'error', title: 'Failed to Delete', text: data.error || 'Server error occurred.' });
+        }
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Network Error', text: err.message });
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   // Filtered companies for modal checkbox list
   const modalFilteredCompanies = useMemo(() => {
     if (!companySearch.trim()) return companies;
@@ -748,6 +809,18 @@ export default function SuperadminCrmTeamPage() {
             <option value="active">Active Only</option>
             <option value="inactive">Inactive Only</option>
           </select>
+
+          {selectedMemberIds.length > 0 && (
+            <button
+              type="button"
+              onClick={handleBulkDeleteMembers}
+              className="col-span-2 sm:col-span-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 transition-all shadow-sm cursor-pointer"
+              title="Delete all selected members"
+            >
+              <FiTrash2 size={13} />
+              <span>Delete Selected ({selectedMemberIds.length})</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -784,6 +857,18 @@ export default function SuperadminCrmTeamPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50/75 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
                 <tr>
+                  <th className="px-4 py-3.5 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isSomeSelected;
+                      }}
+                      onChange={handleToggleSelectAll}
+                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      title="Select all filtered members"
+                    />
+                  </th>
                   <th className="px-5 py-3.5">Team Member</th>
                   <th className="px-5 py-3.5">Contact Details</th>
                   <th className="px-5 py-3.5">CRM Leads Scope</th>
@@ -796,8 +881,27 @@ export default function SuperadminCrmTeamPage() {
                 {filteredMembers.map((member) => {
                   const isFull = member.access_type === 'all';
                   const assignedCount = member.assigned_companies_details?.length || member.assigned_company_ids?.length || 0;
+                  const isSelected = selectedMemberIds.includes(member.id);
                   return (
-                    <tr key={member.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                    <tr
+                      key={member.id}
+                      className={`transition-colors ${
+                        isSelected
+                          ? 'bg-indigo-50/60 dark:bg-indigo-950/25'
+                          : 'hover:bg-slate-50/50 dark:hover:bg-slate-900/30'
+                      }`}
+                    >
+                      {/* Selection Checkbox */}
+                      <td className="px-4 py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectMember(member.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          title={`Select ${member.name}`}
+                        />
+                      </td>
+
                       {/* Name & Avatar */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
@@ -833,6 +937,11 @@ export default function SuperadminCrmTeamPage() {
                           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                             <FiGlobe size={13} />
                             <span>Full CRM Access (All Companies)</span>
+                          </div>
+                        ) : assignedCount === 0 ? (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            <FiAlertCircle size={12} />
+                            <span>Unassigned (No Company)</span>
                           </div>
                         ) : (
                           <div className="space-y-1.5">
@@ -928,10 +1037,25 @@ export default function SuperadminCrmTeamPage() {
             {filteredMembers.map((member) => {
               const isFull = member.access_type === 'all';
               const assignedCount = member.assigned_companies_details?.length || member.assigned_company_ids?.length || 0;
+              const isSelected = selectedMemberIds.includes(member.id);
               return (
-                <div key={member.id} className="p-3.5 sm:p-4 space-y-3">
+                <div
+                  key={member.id}
+                  className={`p-3.5 sm:p-4 space-y-3 transition-colors ${
+                    isSelected
+                      ? 'bg-indigo-50/60 dark:bg-indigo-950/25 ring-1 ring-indigo-500/30'
+                      : ''
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-2.5">
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleSelectMember(member.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                        title={`Select ${member.name}`}
+                      />
                       <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
                         {member.name ? member.name.charAt(0).toUpperCase() : 'C'}
                       </div>
@@ -973,6 +1097,10 @@ export default function SuperadminCrmTeamPage() {
                     {isFull ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                         <FiGlobe size={12} /> Full CRM Access (All Companies)
+                      </span>
+                    ) : assignedCount === 0 ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                        <FiAlertCircle size={11} /> Unassigned (No Company)
                       </span>
                     ) : (
                       <div className="space-y-1">
@@ -1017,6 +1145,34 @@ export default function SuperadminCrmTeamPage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* FLOATING BULK ACTIONS BAR */}
+      {selectedMemberIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl bg-slate-900/95 dark:bg-slate-800/95 text-white shadow-2xl backdrop-blur-md border border-slate-700/80 animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <span className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-600 text-[11px] font-bold">
+              {selectedMemberIds.length}
+            </span>
+            <span>selected</span>
+          </span>
+          <div className="h-4 w-px bg-slate-700 mx-0.5" />
+          <button
+            type="button"
+            onClick={handleClearSelection}
+            className="text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
+          >
+            Deselect
+          </button>
+          <button
+            type="button"
+            onClick={handleBulkDeleteMembers}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold shadow-md shadow-rose-600/30 transition-all cursor-pointer"
+          >
+            <FiTrash2 size={13} />
+            <span>Delete Selected ({selectedMemberIds.length})</span>
+          </button>
         </div>
       )}
 
@@ -1194,7 +1350,7 @@ export default function SuperadminCrmTeamPage() {
                       <button
                         type="button"
                         onClick={handleSelectAllCompanies}
-                        className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                        className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                       >
                         All
                       </button>
@@ -1202,12 +1358,20 @@ export default function SuperadminCrmTeamPage() {
                       <button
                         type="button"
                         onClick={handleDeselectAllCompanies}
-                        className="text-[11px] font-semibold text-slate-500 hover:underline"
+                        className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                        title="Unassign all companies (Assign Null)"
                       >
-                        Clear
+                        Assign None (Null)
                       </button>
                     </div>
                   </div>
+
+                  {formSelectedCompanies.length === 0 && (
+                    <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                      <FiAlertCircle size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                      <span>No company selected. This team member will be created with <strong>null / unassigned</strong> company access.</span>
+                    </div>
+                  )}
 
                   {companies.length > 4 && (
                     <div className="relative flex items-center">
@@ -1479,7 +1643,7 @@ export default function SuperadminCrmTeamPage() {
                       <button
                         type="button"
                         onClick={handleSelectAllCompanies}
-                        className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                        className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                       >
                         All
                       </button>
@@ -1487,12 +1651,20 @@ export default function SuperadminCrmTeamPage() {
                       <button
                         type="button"
                         onClick={handleDeselectAllCompanies}
-                        className="text-[11px] font-semibold text-slate-500 hover:underline"
+                        className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                        title="Unassign all companies (Assign Null)"
                       >
-                        Clear
+                        Assign None (Null)
                       </button>
                     </div>
                   </div>
+
+                  {formSelectedCompanies.length === 0 && (
+                    <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                      <FiAlertCircle size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                      <span>No company selected. This team member will be created with <strong>null / unassigned</strong> company access.</span>
+                    </div>
+                  )}
 
                   {companies.length > 4 && (
                     <div className="relative flex items-center">

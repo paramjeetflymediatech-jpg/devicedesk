@@ -375,28 +375,49 @@ export async function PUT(request) {
 
 /**
  * DELETE /api/admin/companies
- * Delete company credentials
+ * Delete one or multiple company credentials
  */
 export async function DELETE(request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    let idsToDelete = [];
+    try {
+      const body = await request.json().catch(() => null);
+      if (body) {
+        if (Array.isArray(body.ids)) {
+          idsToDelete = body.ids.map(Number).filter((n) => !isNaN(n) && n > 0);
+        } else if (body.id) {
+          idsToDelete = [Number(body.id)].filter((n) => !isNaN(n) && n > 0);
+        }
+      }
+    } catch (e) {}
 
-    if (!id) {
-      return NextResponse.json({ success: false, message: 'ID is required.' }, { status: 400 });
+    if (idsToDelete.length === 0) {
+      const { searchParams } = new URL(request.url);
+      const idsParam = searchParams.get('ids');
+      const idParam = searchParams.get('id');
+      if (idsParam) {
+        idsToDelete = idsParam.split(',').map((s) => Number(s.trim())).filter((n) => !isNaN(n) && n > 0);
+      } else if (idParam) {
+        idsToDelete = [Number(idParam)].filter((n) => !isNaN(n) && n > 0);
+      }
+    }
+
+    if (idsToDelete.length === 0) {
+      return NextResponse.json({ success: false, message: 'Company credential ID(s) required.' }, { status: 400 });
     }
 
     const db = await getDbConnection();
-
-    const [result] = await db.execute(`DELETE FROM company_credentials WHERE id = ?`, [id]);
+    const placeholders = idsToDelete.map(() => '?').join(',');
+    const [result] = await db.execute(`DELETE FROM company_credentials WHERE id IN (${placeholders})`, idsToDelete);
 
     if (result.affectedRows === 0) {
-      return NextResponse.json({ success: false, message: 'Record not found.' }, { status: 404 });
+      return NextResponse.json({ success: false, message: 'Record not found or already deleted.' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Company credentials deleted successfully.'
+      message: `Successfully deleted ${result.affectedRows} company credential${result.affectedRows === 1 ? '' : 's'}.`,
+      deletedCount: result.affectedRows
     });
   } catch (error) {
     console.error('[API /admin/companies DELETE] Error:', error);

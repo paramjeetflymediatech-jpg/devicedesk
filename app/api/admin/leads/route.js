@@ -691,7 +691,7 @@ export async function PUT(request) {
 
 /**
  * DELETE /api/admin/leads
- * Superadmin permanently deletes a lead and its related notes/activities
+ * Superadmin permanently deletes one or multiple leads and their related notes/activities
  */
 export async function DELETE(request) {
   try {
@@ -700,29 +700,43 @@ export async function DELETE(request) {
       return NextResponse.json({ success: false, error: 'Unauthorized: Admin access required.' }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
-    let leadId = searchParams.get('leadId') || searchParams.get('id');
+    let idsToDelete = [];
+    try {
+      const body = await request.json().catch(() => null);
+      if (body) {
+        if (Array.isArray(body.ids)) {
+          idsToDelete = body.ids.map(Number).filter((n) => !isNaN(n) && n > 0);
+        } else if (body.leadId || body.id) {
+          idsToDelete = [Number(body.leadId || body.id)].filter((n) => !isNaN(n) && n > 0);
+        }
+      }
+    } catch (e) {}
 
-    if (!leadId) {
-      try {
-        const body = await request.json();
-        leadId = body.leadId || body.id;
-      } catch (e) {}
+    if (idsToDelete.length === 0) {
+      const { searchParams } = new URL(request.url);
+      const idsParam = searchParams.get('ids');
+      const leadId = searchParams.get('leadId') || searchParams.get('id');
+      if (idsParam) {
+        idsToDelete = idsParam.split(',').map((s) => Number(s.trim())).filter((n) => !isNaN(n) && n > 0);
+      } else if (leadId) {
+        idsToDelete = [Number(leadId)].filter((n) => !isNaN(n) && n > 0);
+      }
     }
 
-    if (!leadId) {
-      return NextResponse.json({ success: false, error: 'Lead ID is required.' }, { status: 400 });
+    if (idsToDelete.length === 0) {
+      return NextResponse.json({ success: false, error: 'Lead ID(s) required.' }, { status: 400 });
     }
 
     const db = await getDbConnection();
+    const placeholders = idsToDelete.map(() => '?').join(',');
 
     // Clean up related records
-    await db.execute(`DELETE FROM crm_saas.lead_notes WHERE lead_id = ?`, [leadId]).catch(() => null);
-    await db.execute(`DELETE FROM crm_saas.lead_activities WHERE lead_id = ?`, [leadId]).catch(() => null);
-    await db.execute(`DELETE FROM crm_saas.tasks WHERE lead_id = ?`, [leadId]).catch(() => null);
+    await db.execute(`DELETE FROM crm_saas.lead_notes WHERE lead_id IN (${placeholders})`, idsToDelete).catch(() => null);
+    await db.execute(`DELETE FROM crm_saas.lead_activities WHERE lead_id IN (${placeholders})`, idsToDelete).catch(() => null);
+    await db.execute(`DELETE FROM crm_saas.tasks WHERE lead_id IN (${placeholders})`, idsToDelete).catch(() => null);
 
     // Delete lead
-    const [result] = await db.execute(`DELETE FROM crm_saas.leads WHERE id = ?`, [leadId]);
+    const [result] = await db.execute(`DELETE FROM crm_saas.leads WHERE id IN (${placeholders})`, idsToDelete);
 
     if (result.affectedRows === 0) {
       return NextResponse.json({ success: false, error: 'Lead not found or already deleted.' }, { status: 404 });
@@ -730,7 +744,8 @@ export async function DELETE(request) {
 
     return NextResponse.json({
       success: true,
-      message: 'Lead and associated records deleted successfully.'
+      message: `Successfully deleted ${result.affectedRows} lead${result.affectedRows === 1 ? '' : 's'}.`,
+      deletedCount: result.affectedRows
     });
 
   } catch (error) {
