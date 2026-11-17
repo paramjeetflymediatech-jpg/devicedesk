@@ -9,6 +9,8 @@ import {
 
 const PUBLIC_EXACT_PATHS = new Set([
   '/login',
+  '/crm/login',
+  '/portal/crm/login',
   '/register',
   '/forgot-password',
   '/reset-password',
@@ -23,6 +25,8 @@ const PUBLIC_EXACT_PATHS = new Set([
 
 function isPublicPath(pathname) {
   if (PUBLIC_EXACT_PATHS.has(pathname)) return true;
+  if (pathname.startsWith('/crm/login')) return true;
+  if (pathname.startsWith('/portal/crm/login')) return true;
   if (pathname.startsWith('/careers/register')) return true;
   if (pathname.startsWith('/support')) return true;
   if (pathname.startsWith('/kiosk')) return true;
@@ -35,6 +39,35 @@ function isPublicPath(pathname) {
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
+
+  // 0. Specific isolation for dedicated CRM Portal routes (/crm and /portal/crm)
+  if (pathname === '/crm' || pathname.startsWith('/crm/') || pathname.startsWith('/portal/crm/')) {
+    // If navigating to the CRM login page
+    if (pathname === '/crm/login' || pathname === '/portal/crm/login') {
+      return NextResponse.next();
+    }
+
+    // Verify CRM agent session token
+    const crmToken = request.cookies.get('crm_auth_token')?.value;
+    if (crmToken) {
+      const crmCheck = await verifySessionToken(crmToken);
+      if (crmCheck.valid && crmCheck.payload?.id) {
+        return NextResponse.next();
+      }
+    }
+
+    // Also allow superadmin session to access /crm routes
+    const adminToken = request.cookies.get('devicedesk_token')?.value;
+    if (adminToken) {
+      const adminCheck = await verifySessionToken(adminToken);
+      if (adminCheck.valid && isSuperAdminUser(adminCheck.payload)) {
+        return NextResponse.next();
+      }
+    }
+
+    // Unauthenticated on /crm/* -> send to /crm/login
+    return NextResponse.redirect(new URL('/crm/login', request.url));
+  }
 
   // Retrieve auth cookies
   const rawToken = request.cookies.get('devicedesk_token')?.value;

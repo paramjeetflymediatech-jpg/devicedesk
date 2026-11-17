@@ -130,6 +130,25 @@ async function initializeDatabase(db) {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS crm_team_members (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL,
+      phone VARCHAR(50) DEFAULT NULL,
+      access_type ENUM('all', 'specific') DEFAULT 'specific',
+      assigned_companies TEXT DEFAULT NULL,
+      status ENUM('active', 'inactive') DEFAULT 'active',
+      role VARCHAR(50) DEFAULT 'crm_agent',
+      avatar VARCHAR(500) DEFAULT NULL,
+      notes TEXT DEFAULT NULL,
+      last_login TIMESTAMP NULL DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
   // Alter tables if columns do not exist
   try {
     await db.execute(`ALTER TABLE client_notes ADD COLUMN tl_reply TEXT DEFAULT NULL`);

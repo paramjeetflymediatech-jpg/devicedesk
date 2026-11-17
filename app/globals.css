@@ -283,16 +283,25 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Standalone Full-Width Pages (e.g. /inactive-account, /flow, /login) */
+/* Standalone Full-Width Pages (e.g. /inactive-account, /flow, /login, /crm/*) */
 body.page-full-width,
-body:has(.page-standalone) {
+body:has(.page-standalone),
+body:has(.crm-portal-wrapper),
+body.crm-portal-active {
   display: flex !important;
   flex-direction: column !important;
   width: 100% !important;
-  min-width: 100vw !important;
-  max-width: 100vw !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+html:has(.crm-portal-wrapper),
+html.crm-portal-active {
+  background-color: var(--bg-primary) !important;
 }
 
 /* Webkit scrollbar customization */
@@ -2284,9 +2293,21 @@ textarea.form-control {
     font-size: 13px !important;
   }
 
-  /* Force all grids (cards, stats) to stack into a single column on mobile */
-  .grid-cols-2, .grid-cols-3, .grid-cols-4, .grid-cols-5, .grid-cols-6 {
+  /* Collapse desktop grids on mobile, while allowing explicit 2-column or 3-column mobile grids */
+  .grid-cols-3:not(.mobile-cols-2):not(.mobile-cols-3),
+  .grid-cols-4:not(.mobile-cols-2):not(.mobile-cols-3),
+  .grid-cols-5:not(.mobile-cols-2):not(.mobile-cols-3),
+  .grid-cols-6:not(.mobile-cols-2):not(.mobile-cols-3) {
     grid-template-columns: 1fr !important;
+  }
+  .grid-cols-2:not(.mobile-cols-2):not(.mobile-cols-3) {
+    grid-template-columns: 1fr !important;
+  }
+  .mobile-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .mobile-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
   /* Reclaim screen space by shrinking oversized desktop paddings */

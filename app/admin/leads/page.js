@@ -980,6 +980,20 @@ export default function SuperadminCompanyLeadsPage() {
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
+          <Link
+            href="/admin/crm-team"
+            className="px-3.5 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+            style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--glass-border)',
+              color: 'var(--text-primary)'
+            }}
+            title="Manage CRM Team Members & Company Access Scopes"
+          >
+            <FiUsers size={14} className="text-indigo-500" />
+            <span>CRM Team</span>
+          </Link>
+
           <button
             type="button"
             onClick={() => openWebhookModal()}

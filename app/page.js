@@ -2307,7 +2307,8 @@ export default function Home() {
         justifyContent: 'center',
         background: 'var(--bg-primary, #0f172a)',
         color: '#94a3b8'
-      }}>
+      }} className="w-full">
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ width: '24px', height: '24px', border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#06b6d4', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           <span>Verifying authentication...</span>

@@ -119,6 +119,7 @@ export default function AdminLayout({ children }) {
         '/admin/users',
         '/admin/team-hierarchy',
         '/admin/companies',
+        '/admin/crm-team',
         '/admin/client',
         '/admin/leads',
         '/admin/marketing',
@@ -152,6 +153,8 @@ export default function AdminLayout({ children }) {
     if (isHR) {
       const hrForbidden = [
         '/admin/client',
+        '/admin/companies',
+        '/admin/crm-team',
         '/admin/leads',
         '/admin/marketing',
         '/admin/projects',
@@ -251,8 +254,9 @@ export default function AdminLayout({ children }) {
       adminOnly: true,
       items: [
         { name: "Companies & Admins", path: "/admin/companies", icon: <FiBriefcase /> },
-        { name: "Client Records", path: "/admin/client", icon: <FiUsers /> },
+        { name: "CRM Team", path: "/admin/crm-team", icon: <FiUsers /> },
         { name: "Company Leads", path: "/admin/leads", icon: <FiTarget /> },
+        { name: "Client Records", path: "/admin/client", icon: <FiUsers /> },
         { name: "Domain Portfolio", path: "/admin/domains", icon: <FiGlobe /> },
         { name: "Packages", path: "/admin/packages", icon: <FiBox /> },
         { name: "Subscriptions", path: "/admin/subscriptions", icon: <FiList /> },
