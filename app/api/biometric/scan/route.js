@@ -229,6 +229,30 @@ export async function POST(request) {
       ]);
     }
 
+    // Count how many times this employee has punched IN today
+    const [inCountRows] = await pool.execute(`
+      SELECT COUNT(*) as cnt FROM biometric_room_attendance
+      WHERE employee_id = ? AND attendance_date = ? AND punch_type = 'PUNCH_IN'
+    `, [employeeId, dateStr]);
+    const punchInNumber = (inCountRows[0]?.cnt || 0) + 1;
+    const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    // Insert into biometric_door_sessions
+    await pool.execute(`
+      INSERT INTO biometric_door_sessions (
+        session_id, employee_id, device_id, fingerprint_slot, attendance_date,
+        in_time, status, session_number
+      ) VALUES (?, ?, ?, ?, ?, NOW(), 'INSIDE', ?)
+    `, [sessionId, employeeId, device.device_id, slot, dateStr, punchInNumber]);
+
+    // Insert into biometric_room_attendance
+    await pool.execute(`
+      INSERT INTO biometric_room_attendance (
+        employee_id, device_id, fingerprint_slot, attendance_date,
+        punch_type, punch_time, punch_number, session_id
+      ) VALUES (?, ?, ?, ?, 'PUNCH_IN', NOW(), ?, ?)
+    `, [employeeId, device.device_id, slot, dateStr, punchInNumber, sessionId]);
+
     // Close any previous unclosed lab session before starting new one
     await pool.execute(`
       UPDATE biometric_lab_attendance
@@ -247,10 +271,10 @@ export async function POST(request) {
     await pool.execute(`
       INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message)
       VALUES (?, ?, ?, ?, 'PUNCH_IN', ?)
-    `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} punched in via ${deviceInfo}`]);
+    `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} entered room (Punch In #${punchInNumber}) via ${deviceInfo}`]);
 
     const l1 = `Hi ${shortName}`;
-    const l2 = `PUNCH IN ${timeFormatted}`;
+    const l2 = `IN #${punchInNumber} ${timeFormatted}`;
     tele.display_line1 = l1;
     tele.display_line2 = l2;
     tele.last_event_type = 'PUNCH_IN';
@@ -261,9 +285,11 @@ export async function POST(request) {
       employee: { id: employeeId, name: employeeName, department: mapping.emp_dept },
       punch_time: timeIso,
       formatted_time: timeFormatted,
+      punch_in_number: punchInNumber,
       fingerprint_slot: slot,
       attendance_id: attRecordId,
-      message: `${employeeName} punched in successfully!`,
+      session_id: sessionId,
+      message: `${employeeName} entered room (Punch In #${punchInNumber})!`,
       display_line1: l1,
       display_line2: l2
     });
@@ -272,8 +298,25 @@ export async function POST(request) {
     // -------------------------------------------------------------
     // PUNCH OUT
     // -------------------------------------------------------------
+    // Find active open door session
+    const [openDoorRows] = await pool.execute(`
+      SELECT * FROM biometric_door_sessions
+      WHERE employee_id = ? AND status = 'INSIDE' AND out_time IS NULL
+      ORDER BY in_time DESC LIMIT 1
+    `, [employeeId]);
+    const activeDoor = openDoorRows[0] || null;
+
+    // Count how many times this employee has punched OUT today
+    const [outCountRows] = await pool.execute(`
+      SELECT COUNT(*) as cnt FROM biometric_room_attendance
+      WHERE employee_id = ? AND attendance_date = ? AND punch_type = 'PUNCH_OUT'
+    `, [employeeId, dateStr]);
+    const punchOutNumber = (outCountRows[0]?.cnt || 0) + 1;
+
     let effectivePunchInMs = null;
-    if (openAttendanceRecord?.punchInTime) {
+    if (activeDoor?.in_time) {
+      effectivePunchInMs = new Date(activeDoor.in_time).getTime();
+    } else if (openAttendanceRecord?.punchInTime) {
       effectivePunchInMs = new Date(openAttendanceRecord.punchInTime).getTime();
     } else if (openLabSession?.in_time) {
       effectivePunchInMs = new Date(openLabSession.in_time).getTime();
@@ -284,10 +327,25 @@ export async function POST(request) {
     }
 
     const punchOutMs = new Date(timeIso).getTime();
-    const totalMinutes = Math.max(0, Math.floor((punchOutMs - effectivePunchInMs) / 60000));
+    const totalMinutes = Math.max(1, Math.floor((punchOutMs - effectivePunchInMs) / 60000));
     const targetRecord = openAttendanceRecord || todayRecord;
     const totalBreak = Number(targetRecord?.totalBreakMinutes || 0);
     const netMinutes = Math.max(0, totalMinutes - totalBreak);
+
+    // Close biometric_door_sessions
+    await pool.execute(`
+      UPDATE biometric_door_sessions
+      SET out_time = NOW(), duration_minutes = ?, status = 'COMPLETED'
+      WHERE employee_id = ? AND status = 'INSIDE' AND out_time IS NULL
+    `, [totalMinutes, employeeId]);
+
+    // Insert into biometric_room_attendance
+    await pool.execute(`
+      INSERT INTO biometric_room_attendance (
+        employee_id, device_id, fingerprint_slot, attendance_date,
+        punch_type, punch_time, punch_number, duration_minutes, session_id
+      ) VALUES (?, ?, ?, ?, 'PUNCH_OUT', NOW(), ?, ?, ?)
+    `, [employeeId, device.device_id, slot, dateStr, punchOutNumber, totalMinutes, activeDoor?.session_id || null]);
 
     // Update attendance_records if record exists
     if (targetRecord) {
@@ -325,10 +383,10 @@ export async function POST(request) {
     await pool.execute(`
       INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message)
       VALUES (?, ?, ?, ?, 'PUNCH_OUT', ?)
-    `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} punched out after ${durLabel} via ${deviceInfo}`]);
+    `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} exited room (Punch Out #${punchOutNumber}) after ${durLabel} via ${deviceInfo}`]);
 
     const l1 = `Bye ${shortName}`;
-    const l2 = `OUT (${durLabel})`;
+    const l2 = `OUT #${punchOutNumber} (${durLabel})`;
     tele.display_line1 = l1;
     tele.display_line2 = l2;
     tele.last_event_type = 'PUNCH_OUT';
@@ -339,11 +397,13 @@ export async function POST(request) {
       employee: { id: employeeId, name: employeeName, department: mapping.emp_dept },
       punch_time: timeIso,
       formatted_time: timeFormatted,
+      punch_out_number: punchOutNumber,
       duration_minutes: totalMinutes,
       duration_label: durLabel,
       fingerprint_slot: slot,
       attendance_id: targetRecord?.id || null,
-      message: `${employeeName} punched out successfully (${durLabel})!`,
+      session_id: activeDoor?.session_id || null,
+      message: `${employeeName} exited room (Punch Out #${punchOutNumber}) after ${durLabel}!`,
       display_line1: l1,
       display_line2: l2
     });

@@ -5,7 +5,8 @@ import {
   FiCpu, FiRadio, FiActivity, FiCheckCircle, FiAlertCircle, FiClock,
   FiPlus, FiTrash2, FiRefreshCw, FiUser, FiSliders, FiTerminal,
   FiLayers, FiSearch, FiFilter, FiExternalLink, FiDownload, FiHelpCircle,
-  FiChevronRight, FiWifi, FiCheck, FiX, FiShield, FiAlertTriangle, FiEye
+  FiChevronRight, FiWifi, FiCheck, FiX, FiShield, FiAlertTriangle, FiEye,
+  FiLogIn, FiLogOut, FiCalendar
 } from 'react-icons/fi';
 import Swal from 'sweetalert2';
 
@@ -29,17 +30,25 @@ function signalColor(quality) {
   }
 }
 
-export default function BiometricTerminalPage() {
+export default function AdminBiometricTerminalPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [activeTab, setActiveTab] = useState('mappings'); // 'mappings' | 'logs' | 'sessions' | 'guide'
+  const [activeTab, setActiveTab] = useState('summary'); // 'summary' | 'inside' | 'logs' | 'mappings' | 'guide'
 
   // Data state
   const [statusData, setStatusData] = useState(null);
   const [lastFetched, setLastFetched] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
+
+  // Employee history modal state
+  const [selectedEmpForHistory, setSelectedEmpForHistory] = useState(null);
 
   // Enrollment Modal state
   const [showEnrollModal, setShowEnrollModal] = useState(false);
@@ -84,7 +93,10 @@ export default function BiometricTerminalPage() {
   const logs = statusData?.recent_logs || [];
   const pendingCommands = statusData?.pending_commands || [];
   const labSessions = statusData?.lab_sessions || [];
-  const currentlyInLab = statusData?.currently_in_lab || [];
+  const currentlyInside = statusData?.currently_inside || statusData?.currently_in_lab || [];
+  const roomSummary = statusData?.room_summary || [];
+  const roomSessions = statusData?.room_sessions || [];
+  const roomPunches = statusData?.room_punches || [];
   const employees = statusData?.employees || [];
 
   // Suggest next free slot
@@ -141,88 +153,105 @@ export default function BiometricTerminalPage() {
         setShowEnrollModal(false);
         fetchStatus(false);
       } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'Enrollment Error',
-          text: data.error || 'Failed to save mapping.'
-        });
+        Swal.fire({ icon: 'error', title: 'Failed', text: data.error || 'Failed to save mapping' });
       }
     } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Network Error', text: err.message });
+      Swal.fire({ icon: 'error', title: 'Error', text: err.message });
     } finally {
       setSubmittingEnroll(false);
     }
   };
 
-  const handleDeleteMapping = async (slot, empName) => {
-    const result = await Swal.fire({
-      title: `Delete Slot #${slot}?`,
-      text: `Are you sure you want to remove the fingerprint mapping for ${empName}?`,
+  const handleDeleteMapping = async (mappingId, slot, empName) => {
+    const confirm = await Swal.fire({
+      title: 'Remove Fingerprint Mapping?',
+      html: `Delete slot <b>#${slot}</b> assigned to <b>${empName || 'Staff'}</b>?<br/><small class="text-slate-400">This will queue a DELETE command on the ESP32 terminal to wipe the template from R307 sensor storage.</small>`,
       icon: 'warning',
       showCancelButton: true,
-      showDenyButton: true,
-      confirmButtonText: 'Delete & Erase from Sensor',
-      denyButtonText: 'Delete Mapping Only',
-      cancelButtonText: 'Cancel',
       confirmButtonColor: '#ef4444',
-      denyButtonColor: '#6366f1'
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete Slot'
     });
 
-    if (result.isConfirmed || result.isDenied) {
-      const triggerDelete = result.isConfirmed; // if confirmed, also command hardware to erase slot
+    if (confirm.isConfirmed) {
       try {
-        const res = await fetch(`/api/biometric/mappings?slot=${slot}&device_id=${device?.device_id || 'DEVICE001'}&trigger_delete=${triggerDelete}`, {
+        const res = await fetch(`/api/biometric/mappings?id=${mappingId}&device_id=${device?.device_id || 'DEVICE001'}&slot=${slot}`, {
           method: 'DELETE'
         });
         const data = await res.json();
         if (data.success) {
           Swal.fire({
-            toast: true,
-            position: 'top-end',
             icon: 'success',
-            title: data.message,
-            showConfirmButton: false,
-            timer: 3000
+            title: 'Deleted',
+            text: `Slot #${slot} cleared and delete command queued on terminal.`,
+            timer: 2500,
+            showConfirmButton: false
           });
           fetchStatus(false);
         } else {
           Swal.fire({ icon: 'error', title: 'Error', text: data.error });
         }
       } catch (err) {
-        Swal.fire({ icon: 'error', title: 'Network Error', text: err.message });
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message });
       }
     }
   };
 
-  // Filter mappings
   const filteredMappings = useMemo(() => {
     return mappings.filter(m => {
-      const matchesSearch = !searchQuery || 
-        m.employee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(m.fingerprint_slot).includes(searchQuery);
-      const matchesDept = deptFilter === 'all' || m.department === deptFilter;
-      return matchesSearch && matchesDept;
+      const q = searchQuery.toLowerCase().trim();
+      const matchSearch = !q ||
+        (m.employee_name && m.employee_name.toLowerCase().includes(q)) ||
+        (m.employee_id && String(m.employee_id).toLowerCase().includes(q)) ||
+        String(m.fingerprint_slot).includes(q) ||
+        (m.department && m.department.toLowerCase().includes(q));
+      const matchDept = deptFilter === 'all' || m.department === deptFilter;
+      return matchSearch && matchDept;
     });
   }, [mappings, searchQuery, deptFilter]);
 
-  const uniqueDepartments = useMemo(() => {
-    const set = new Set();
-    mappings.forEach(m => { if (m.department) set.add(m.department); });
-    return Array.from(set);
+  const filteredSummary = useMemo(() => {
+    return roomSummary.filter(s => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchSearch = !q ||
+        (s.employee_name && s.employee_name.toLowerCase().includes(q)) ||
+        (s.employee_id && String(s.employee_id).toLowerCase().includes(q)) ||
+        (s.department && s.department.toLowerCase().includes(q));
+      const matchDept = deptFilter === 'all' || s.department === deptFilter;
+      return matchSearch && matchDept;
+    });
+  }, [roomSummary, searchQuery, deptFilter]);
+
+  const allDepts = useMemo(() => {
+    const d = new Set();
+    mappings.forEach(m => { if (m.department) d.add(m.department); });
+    return Array.from(d);
   }, [mappings]);
 
+  // Selected employee sessions for history modal
+  const selectedEmpSessions = useMemo(() => {
+    if (!selectedEmpForHistory) return [];
+    return roomSessions.filter(s => String(s.employee_id) === String(selectedEmpForHistory.employee_id));
+  }, [selectedEmpForHistory, roomSessions]);
+
+  const selectedEmpPunches = useMemo(() => {
+    if (!selectedEmpForHistory) return [];
+    return roomPunches.filter(p => String(p.employee_id) === String(selectedEmpForHistory.employee_id));
+  }, [selectedEmpForHistory, roomPunches]);
+
+  if (!mounted) return null;
+
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="min-w-0">
+    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      {/* Top Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+        <div>
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 shrink-0">
-              <FiCpu size={22} />
+            <span className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 shrink-0">
+              <FiClock size={24} />
             </span>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              Biometric Punch Terminal
+              Current Biometric Attendance (Room Entry & Exit)
             </h1>
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
               ESP32 + R307
@@ -240,7 +269,7 @@ export default function BiometricTerminalPage() {
             )}
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Real-time IoT biometric punch system, optical fingerprint slot management, and hardware telemetry.
+            Real-time room entry & exit tracking, employee punch-in / punch-out frequency, and live active personnel inside.
           </p>
         </div>
 
@@ -254,27 +283,28 @@ export default function BiometricTerminalPage() {
                 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
             }`}
-            title="Toggle 3-second live auto polling"
+            title="Auto refresh polls every 3s"
           >
-            <FiRadio size={14} className={autoRefresh ? 'animate-pulse text-emerald-600' : ''} />
-            <span>{autoRefresh ? 'Live Polling: ON' : 'Live Polling: OFF'}</span>
+            <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
+            <span>{autoRefresh ? 'Auto Live (3s)' : 'Polling Paused'}</span>
           </button>
 
+          {/* Manual Refresh */}
           <button
             type="button"
             onClick={() => fetchStatus(false)}
             disabled={refreshing}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer text-xs font-semibold"
-            title="Manual refresh"
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer shadow-sm disabled:opacity-50"
+            title="Refresh now"
           >
-            <FiRefreshCw size={14} className={refreshing ? 'animate-spin text-indigo-600' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
+            <FiRefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
 
+          {/* Enroll Fingerprint */}
           <button
             type="button"
             onClick={handleOpenEnrollModal}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/25 active:scale-95 transition-all cursor-pointer"
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm transition shadow-lg shadow-indigo-600/30 flex items-center gap-2 cursor-pointer"
           >
             <FiPlus size={16} />
             <span>Enroll Fingerprint</span>
@@ -282,107 +312,128 @@ export default function BiometricTerminalPage() {
         </div>
       </div>
 
-      {/* Hardware Telemetry & Virtual OLED Display */}
+      {/* Top 4 Metrics Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 shrink-0">
+            <FiLogIn size={20} />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Currently Inside</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>{currentlyInside.length}</span>
+              <span className="text-xs font-normal text-emerald-600 dark:text-emerald-400">staff in room</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 shrink-0">
+            <FiActivity size={20} />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Room Movements</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>{roomPunches.length}</span>
+              <span className="text-xs font-normal text-indigo-600 dark:text-indigo-400">punches today</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 shrink-0">
+            <FiUser size={20} />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Active Staff Today</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>{roomSummary.length}</span>
+              <span className="text-xs font-normal text-cyan-600 dark:text-cyan-400">visited room</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 shrink-0">
+            <FiCpu size={20} />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Enrolled Staff</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>{mappings.length}</span>
+              <span className="text-xs font-normal text-purple-600 dark:text-purple-400">/ 1000 slots</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Hardware Telemetry Card */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Terminal Telemetry Card */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-900 dark:text-white">Terminal Telemetry</span>
-              <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 font-mono text-slate-600 dark:text-slate-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span className="font-bold text-sm text-slate-900 dark:text-white">ESP32 Hardware Terminal State</span>
+              <span className="text-xs font-mono text-slate-400 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded">
                 {device?.device_id || 'DEVICE001'}
               </span>
             </div>
             <span className="text-xs text-slate-400">
-              {lastFetched ? `Updated: ${lastFetched}` : 'Connecting...'}
+              {lastFetched ? `Updated at ${lastFetched}` : 'Connecting...'}
             </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60">
-              <span className="text-[11px] font-bold uppercase text-slate-400 block">Wi-Fi Network</span>
-              <div className="flex items-center gap-1.5 mt-1 font-bold text-sm text-slate-900 dark:text-white truncate">
-                <FiWifi size={14} className="text-indigo-600 shrink-0" />
-                <span className="truncate">{device?.wifi_ssid || '—'}</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+              <span className="text-slate-400 block font-semibold mb-1">Wi-Fi Network</span>
+              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                <FiWifi size={14} className="text-indigo-500" />
+                <span className="truncate">{device?.wifi_ssid || 'Disconnected'}</span>
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60">
-              <span className="text-[11px] font-bold uppercase text-slate-400 block">IP Address</span>
-              <div className="flex items-center gap-1.5 mt-1 font-mono text-sm font-bold text-slate-900 dark:text-white truncate">
-                <span>{device?.ip_address || '—'}</span>
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+              <span className="text-slate-400 block font-semibold mb-1">IP Address</span>
+              <div className="font-mono font-bold text-slate-900 dark:text-white truncate">
+                {device?.ip_address || '0.0.0.0'}
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60">
-              <span className="text-[11px] font-bold uppercase text-slate-400 block">Signal Quality</span>
-              <div className="flex items-center gap-1.5 mt-1 text-sm font-bold" style={{ color: signalColor(device?.signal_quality) }}>
-                <span>{device?.signal_quality || 'Offline'}</span>
-                {device?.rssi && <span className="text-xs font-normal text-slate-400">({device.rssi} dBm)</span>}
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+              <span className="text-slate-400 block font-semibold mb-1">Signal Quality</span>
+              <div className="font-bold flex items-center gap-1.5" style={{ color: signalColor(device?.signal_quality) }}>
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: signalColor(device?.signal_quality) }} />
+                <span>{device?.signal_quality || 'Unknown'} ({device?.wifi_rssi || 0} dBm)</span>
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60">
-              <span className="text-[11px] font-bold uppercase text-slate-400 block">Device Uptime</span>
-              <div className="flex items-center gap-1.5 mt-1 text-sm font-bold text-slate-900 dark:text-white">
-                <FiClock size={14} className="text-indigo-600 shrink-0" />
-                <span>{formatUptime(device?.uptime_seconds)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sensor Engine</span>
-              <div className="flex items-center gap-1 mt-0.5 text-xs font-bold text-slate-700 dark:text-slate-300">
-                <span className={`w-2 h-2 rounded-full ${device?.sensor_ready ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                <span>{device?.sensor_ready ? 'R307 Ready' : 'Sensor Offline'}</span>
-              </div>
-            </div>
-
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Stored Templates</span>
-              <div className="mt-0.5 text-xs font-bold text-slate-700 dark:text-slate-300">
-                <span>{device?.templates_count || mappings.length} / 1000 Slots</span>
-              </div>
-            </div>
-
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Offline Queue</span>
-              <div className="mt-0.5 text-xs font-bold text-slate-700 dark:text-slate-300">
-                <span>{device?.queued_events || 0} Events Cached</span>
-              </div>
-            </div>
-
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Heartbeat Count</span>
-              <div className="mt-0.5 text-xs font-bold text-slate-700 dark:text-slate-300">
-                <span>{device?.ping_count || 0} Pings Received</span>
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+              <span className="text-slate-400 block font-semibold mb-1">Terminal Uptime</span>
+              <div className="font-bold text-slate-900 dark:text-white">
+                {formatUptime(device?.uptime_seconds)}
               </div>
             </div>
           </div>
         </div>
 
-        {/* OLED Screen Simulator (Exact replica of SSD1306 0.96" display) */}
-        <div className="bg-slate-900 text-white rounded-2xl border border-slate-700 p-5 shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <FiTerminal size={14} className="text-amber-400" />
-                <span>OLED Virtual Simulator (128x64)</span>
-              </span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            </div>
+        {/* OLED Screen Simulator */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700/60">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Terminal OLED Mirror (128x64)
+            </span>
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          </div>
 
-            {/* Virtual Screen Bezel */}
-            <div className="mt-4 p-4 rounded-xl bg-black border-2 border-slate-800 font-mono shadow-inner space-y-2">
-              <div className="text-[11px] text-amber-300 border-b border-amber-300/30 pb-1 flex justify-between items-center">
+          <div className="my-auto py-3">
+            <div className="mx-auto w-56 h-24 bg-black rounded-lg border-2 border-slate-800 p-2.5 font-mono shadow-inner flex flex-col justify-between">
+              <div className="flex justify-between items-center text-[10px] text-cyan-500 border-b border-cyan-900/60 pb-1">
                 <span>FLYMEDIA TECH</span>
                 <span>{device?.is_online ? 'WIFI OK' : 'NO LINK'}</span>
               </div>
-              <div className="pt-2 text-center">
+              <div className="pt-1 text-center">
                 <div className="text-cyan-400 font-bold text-sm tracking-wide">
-                  {device?.display_line1 || 'Waiting for ESP32'}
+                  {device?.display_line1 || 'Waiting for scan'}
                 </div>
                 <div className="text-cyan-200 text-xs mt-1 font-semibold">
                   {device?.display_line2 || 'STANDBY'}
@@ -391,165 +442,202 @@ export default function BiometricTerminalPage() {
             </div>
           </div>
 
-          <div className="mt-3 text-[11px] text-slate-400 text-center">
-            Synchronized live with physical SSD1306 display on Terminal.
+          <div className="text-[11px] text-slate-400 text-center">
+            Synchronized live with physical SSD1306 display on terminal.
           </div>
         </div>
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-3">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-3 overflow-x-auto">
         <button
           type="button"
-          onClick={() => setActiveTab('mappings')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-            activeTab === 'mappings'
+          onClick={() => setActiveTab('summary')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'summary'
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
-          <FiUser size={15} />
-          <span>Enrolled Fingerprints ({mappings.length})</span>
+          <FiClock size={16} />
+          <span>Room Movements & Punch Frequency ({roomSummary.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('inside')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'inside'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <FiLogIn size={16} />
+          <span>Currently Inside Room ({currentlyInside.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('logs')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'logs'
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
-          <FiActivity size={15} />
+          <FiActivity size={16} />
           <span>Live Scan Stream ({logs.length})</span>
         </button>
 
         <button
           type="button"
-          onClick={() => setActiveTab('sessions')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-            activeTab === 'sessions'
+          onClick={() => setActiveTab('mappings')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'mappings'
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
-          <FiClock size={15} />
-          <span>Currently Inside ({currentlyInLab.length})</span>
+          <FiUser size={16} />
+          <span>Enrolled Fingerprints ({mappings.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('guide')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'guide'
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
-          <FiSliders size={15} />
+          <FiSliders size={16} />
           <span>Hardware Wiring & Guide</span>
         </button>
       </div>
 
-      {/* TAB 1: Enrolled Fingerprints Table */}
-      {activeTab === 'mappings' && (
+      {/* TAB 1: Room Movements & Punch Frequency Summary */}
+      {activeTab === 'summary' && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-          {/* Filter Bar */}
+          {/* Header & Filter */}
           <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="relative w-full sm:w-72">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search employee or slot #..."
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-              />
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Today&apos;s Room Movement & Punch Count Summary
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Track how many times each employee entered and exited the room today.
+              </p>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 focus:outline-hidden"
-              >
-                <option value="all">All Departments</option>
-                {uniqueDepartments.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
+            <div className="relative w-full sm:w-72">
+              <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <input
+                type="text"
+                placeholder="Search staff, dept, or slot..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-xl text-xs border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+              />
             </div>
           </div>
 
-          {/* Table */}
-          {filteredMappings.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">
-              <FiUser size={32} className="mx-auto mb-2 opacity-40" />
-              <p className="text-sm font-semibold">No fingerprint mappings found</p>
-              <p className="text-xs mt-1">Click "Enroll Fingerprint" above to map staff to sensor slots.</p>
+          {filteredSummary.length === 0 ? (
+            <div className="p-12 text-center text-slate-400">
+              <FiClock size={36} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+              <p className="text-sm font-semibold">No room movements logged today yet</p>
+              <p className="text-xs mt-1">When staff punch in or out at the biometric sensor, their movements will appear here.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    <th className="py-3 px-4">Sensor Slot</th>
                     <th className="py-3 px-4">Employee</th>
-                    <th className="py-3 px-4">Department / Role</th>
-                    <th className="py-3 px-4">Terminal</th>
-                    <th className="py-3 px-4">Enrolled Date</th>
+                    <th className="py-3 px-4">Slot</th>
+                    <th className="py-3 px-4">Current Status</th>
+                    <th className="py-3 px-4 text-center">Punched IN</th>
+                    <th className="py-3 px-4 text-center">Punched OUT</th>
+                    <th className="py-3 px-4">Total Time In Room</th>
+                    <th className="py-3 px-4">Last Movement</th>
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 text-xs">
-                  {filteredMappings.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                        <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/80 dark:border-indigo-800">
-                          Slot #{m.fingerprint_slot}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900 dark:text-white">{m.employee_name}</div>
-                        <div className="text-[11px] text-slate-400 font-mono">{m.email}</div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="text-slate-800 dark:text-slate-200">{m.department || '—'}</div>
-                        <div className="text-[11px] text-slate-400">{m.role || 'Employee'}</div>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-300">
-                        {m.device_id}
-                      </td>
-                      <td className="py-3 px-4 text-slate-500">
-                        {new Date(m.enrolled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </td>
-                      <td className="py-3 px-4 text-right space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedEmpId(String(m.employee_id));
-                            setSlotInput(String(m.fingerprint_slot));
-                            setTriggerEnrollRemote(true);
-                            setShowEnrollModal(true);
-                          }}
-                          className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold cursor-pointer shadow-xs inline-flex items-center gap-1"
-                          title="Re-enroll finger on physical sensor"
-                        >
-                          <FiRefreshCw size={12} />
-                          <span>Re-Enroll</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteMapping(m.fingerprint_slot, m.employee_name)}
-                          className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 transition-all cursor-pointer shadow-xs"
-                          title="Delete mapping"
-                        >
-                          <FiTrash2 size={13} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                  {filteredSummary.map((s) => {
+                    const isInside = s.current_room_status === 'INSIDE';
+                    const totalMins = Number(s.total_inside_minutes || 0);
+                    const durLabel = totalMins >= 60
+                      ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m`
+                      : `${totalMins}m`;
+
+                    return (
+                      <tr key={s.employee_id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition">
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-900 dark:text-white text-sm">{s.employee_name}</div>
+                          <div className="text-[11px] text-slate-400">{s.department || 'Staff'}</div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <span className="font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                            #{s.fingerprint_slot || '-'}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          {isInside ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                              <span>INSIDE ROOM</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                              <span>OUTSIDE</span>
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 text-center">
+                          <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            {s.total_punch_in} {Number(s.total_punch_in) === 1 ? 'time' : 'times'}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 text-center">
+                          <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            {s.total_punch_out} {Number(s.total_punch_out) === 1 ? 'time' : 'times'}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                          {durLabel}
+                        </td>
+
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-300 text-[11px]">
+                          {s.last_punch_time ? (
+                            <div>
+                              <span className={s.last_punch_type === 'PUNCH_IN' ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
+                                {s.last_punch_type}
+                              </span>{' '}
+                              <span>{new Date(s.last_punch_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                            </div>
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedEmpForHistory(s)}
+                            className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold transition cursor-pointer"
+                          >
+                            View Movements
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -557,46 +645,99 @@ export default function BiometricTerminalPage() {
         </div>
       )}
 
-      {/* TAB 2: Live Biometric Scan Stream */}
-      {activeTab === 'logs' && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
+      {/* TAB 2: Currently Inside Room */}
+      {activeTab === 'inside' && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
-            <span className="text-sm font-bold text-slate-900 dark:text-white">Real-Time Scan Events</span>
-            <span className="text-xs text-slate-400">Stream updates live every 3s</span>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Staff Currently Inside the Room ({currentlyInside.length})
+              </h2>
+              <p className="text-xs text-slate-400">Personnel currently logged in-room right now</p>
+            </div>
+          </div>
+
+          {currentlyInside.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-xs">
+              <FiLogIn size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+              <p className="text-sm font-semibold">Room is currently empty</p>
+              <p className="text-xs mt-1">No staff members are logged inside right now.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+              {currentlyInside.map((s) => (
+                <div key={s.id} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-3 shadow-sm">
+                  <div>
+                    <div className="font-bold text-sm text-slate-900 dark:text-white">{s.employee_name}</div>
+                    <div className="text-xs text-slate-400">{s.department || 'Staff'}</div>
+                    <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                      <FiClock size={12} />
+                      <span>Entered at {new Date(s.in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                    </div>
+                  </div>
+                  <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: Live Scan Stream */}
+      {activeTab === 'logs' && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
+            <div>
+              <span className="text-base font-bold text-slate-900 dark:text-white">Real-Time Door Scan Events</span>
+              <p className="text-xs text-slate-400">Stream updates live every 3s directly from ESP32</p>
+            </div>
           </div>
 
           {logs.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 text-xs">No scan events recorded yet.</div>
+            <div className="text-center py-12 text-slate-400 text-xs">
+              No scans recorded yet. Touch the sensor to see events stream in real-time.
+            </div>
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+            <div className="divide-y divide-slate-100 dark:divide-slate-700/60 max-h-[500px] overflow-y-auto pr-1">
               {logs.map((log) => {
-                let badgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
-                if (log.action === 'PUNCH_IN' || log.action === 'LAB_IN') {
-                  badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800';
-                } else if (log.action === 'PUNCH_OUT' || log.action === 'LAB_OUT') {
-                  badgeClass = 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800';
-                } else if (log.action === 'COOLDOWN') {
-                  badgeClass = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800';
-                } else if (log.action.includes('REJECTED') || log.action.includes('FAILED')) {
-                  badgeClass = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800';
-                }
+                const isPunchIn = log.action === 'PUNCH_IN';
+                const isPunchOut = log.action === 'PUNCH_OUT';
+                const isRejected = log.action.includes('REJECTED');
 
                 return (
                   <div key={log.id} className="py-3 flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] border uppercase shrink-0 ${badgeClass}`}>
-                        {log.action}
+                    <div className="flex items-center gap-3">
+                      <span className={`p-2 rounded-xl shrink-0 ${
+                        isPunchIn
+                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600'
+                          : isPunchOut
+                          ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600'
+                          : isRejected
+                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600'
+                          : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600'
+                      }`}>
+                        {isPunchIn ? <FiLogIn size={16} /> : isPunchOut ? <FiLogOut size={16} /> : <FiRadio size={16} />}
                       </span>
-                      <div className="min-w-0">
-                        <div className="font-semibold text-slate-900 dark:text-white truncate">
-                          {log.employee_name || 'Unregistered User'}
-                          {log.fingerprint_slot && <span className="text-slate-400 font-mono ml-1.5">(Slot #{log.fingerprint_slot})</span>}
+
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <span className={isPunchIn ? 'text-emerald-600' : isPunchOut ? 'text-amber-600' : 'text-slate-700 dark:text-slate-300'}>
+                            {log.action}
+                          </span>
+                          <span className="text-slate-400">•</span>
+                          <span>{log.employee_name || 'Unregistered User'}</span>
+                          {log.fingerprint_slot && (
+                            <span className="text-slate-400 text-[11px] font-mono">
+                              (Slot #{log.fingerprint_slot})
+                            </span>
+                          )}
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        <div className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
                           {log.message}
                         </div>
                       </div>
                     </div>
+
                     <div className="text-right shrink-0 text-slate-400 font-mono text-[11px]">
                       {new Date(log.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
                     </div>
@@ -608,38 +749,105 @@ export default function BiometricTerminalPage() {
         </div>
       )}
 
-      {/* TAB 3: Currently Inside */}
-      {activeTab === 'sessions' && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
-            <span className="text-sm font-bold text-slate-900 dark:text-white">Currently In Office / Lab ({currentlyInLab.length})</span>
-            <span className="text-xs text-slate-400">Active checked-in personnel</span>
+      {/* TAB 4: Enrolled Fingerprints Table */}
+      {activeTab === 'mappings' && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          {/* Filter Bar */}
+          <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative w-full sm:w-72">
+              <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <input
+                type="text"
+                placeholder="Search staff, dept, or slot..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-xl text-xs border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <select
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl text-xs border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+              >
+                <option value="all">All Departments</option>
+                {allDepts.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {currentlyInLab.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-xs">
-              No employees currently logged inside.
+          {filteredMappings.length === 0 ? (
+            <div className="p-12 text-center text-slate-400">
+              <FiUser size={36} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+              <p className="text-sm font-semibold">No fingerprint mappings found</p>
+              <p className="text-xs mt-1">Click &quot;Enroll Fingerprint&quot; above to map staff to sensor slots.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
-              {currentlyInLab.map((s) => (
-                <div key={s.id} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-3">
-                  <div>
-                    <div className="font-bold text-sm text-slate-900 dark:text-white">{s.employee_name}</div>
-                    <div className="text-xs text-slate-400">{s.department || 'Staff'}</div>
-                    <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold mt-1">
-                      Entered: {new Date(s.in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                    </div>
-                  </div>
-                  <span className="w-3 h-3 rounded-full bg-emerald-500 animate-ping shrink-0" />
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="py-3 px-4">Sensor Slot</th>
+                    <th className="py-3 px-4">Employee</th>
+                    <th className="py-3 px-4">Department / Role</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Enrolled At</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                  {filteredMappings.map((m) => (
+                    <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition">
+                      <td className="py-3 px-4">
+                        <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg">
+                          Slot #{m.fingerprint_slot}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-slate-900 dark:text-white text-sm">{m.employee_name}</div>
+                        <div className="text-[11px] text-slate-400">{m.email}</div>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-slate-700 dark:text-slate-300">{m.department || 'Staff'}</div>
+                        <div className="text-[11px] text-slate-400">{m.role}</div>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span>Active</span>
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4 text-slate-400 text-[11px]">
+                        {m.enrolled_at ? new Date(m.enrolled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
+                      </td>
+
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMapping(m.id, m.fingerprint_slot, m.employee_name)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                          title="Delete slot & erase template"
+                        >
+                          <FiTrash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
       )}
 
-      {/* TAB 4: Hardware Pinout & Wiring Guide */}
+      {/* TAB 5: Hardware Pinout & Wiring Guide */}
       {activeTab === 'guide' && (
         <div className="space-y-6">
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-4">
@@ -655,60 +863,166 @@ export default function BiometricTerminalPage() {
                     <th className="py-2.5 px-3">Peripheral Component</th>
                     <th className="py-2.5 px-3">Module Pin</th>
                     <th className="py-2.5 px-3">ESP32 Pin</th>
-                    <th className="py-2.5 px-3">Description</th>
+                    <th className="py-2.5 px-3">Description & Role</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 font-mono">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-[11px]">
                   <tr>
-                    <td className="py-2.5 px-3 font-sans font-bold text-slate-900 dark:text-white">R307 Optical Sensor</td>
-                    <td className="py-2.5 px-3 text-indigo-600">TX / RX / VIN / GND</td>
-                    <td className="py-2.5 px-3 text-indigo-600">GPIO 16 (RX2) / GPIO 17 (TX2)</td>
-                    <td className="py-2.5 px-3 font-sans text-slate-500">Hardware UART2 @ 57600 baud rate</td>
+                    <td className="py-2.5 px-3 font-sans font-bold text-indigo-600">R307 Optical Sensor</td>
+                    <td className="py-2.5 px-3 text-emerald-600">TX (Green)</td>
+                    <td className="py-2.5 px-3 text-emerald-600 font-bold">GPIO 16 (RX2)</td>
+                    <td className="py-2.5 px-3 font-sans text-slate-500">Hardware Serial 2 RX (57600 baud)</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-sans font-bold text-slate-900 dark:text-white">SSD1306 0.96" OLED</td>
-                    <td className="py-2.5 px-3 text-cyan-600">SDA / SCL / 3V3 / GND</td>
-                    <td className="py-2.5 px-3 text-cyan-600">GPIO 21 (SDA) / GPIO 22 (SCL)</td>
-                    <td className="py-2.5 px-3 font-sans text-slate-500">I2C interface @ address 0x3C</td>
+                    <td className="py-2.5 px-3 font-sans font-bold text-indigo-600">R307 Optical Sensor</td>
+                    <td className="py-2.5 px-3 text-emerald-600">RX (White)</td>
+                    <td className="py-2.5 px-3 text-emerald-600 font-bold">GPIO 17 (TX2)</td>
+                    <td className="py-2.5 px-3 font-sans text-slate-500">Hardware Serial 2 TX (57600 baud)</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-sans font-bold text-slate-900 dark:text-white">RGB Status LED</td>
-                    <td className="py-2.5 px-3 text-emerald-600">R / G / B / Anode</td>
-                    <td className="py-2.5 px-3 text-emerald-600">GPIO 25 (Red), 26 (Green), 33 (Blue)</td>
-                    <td className="py-2.5 px-3 font-sans text-slate-500">Common Anode (Long leg to 3V3, 220Ω resistor)</td>
+                    <td className="py-2.5 px-3 font-sans font-bold text-cyan-600">OLED Display (SSD1306)</td>
+                    <td className="py-2.5 px-3 text-cyan-600">SDA</td>
+                    <td className="py-2.5 px-3 text-cyan-600 font-bold">GPIO 21</td>
+                    <td className="py-2.5 px-3 font-sans text-slate-500">I2C Data line (0x3C address)</td>
                   </tr>
                   <tr>
-                    <td className="py-2.5 px-3 font-sans font-bold text-slate-900 dark:text-white">Piezo Buzzer</td>
+                    <td className="py-2.5 px-3 font-sans font-bold text-cyan-600">OLED Display (SSD1306)</td>
+                    <td className="py-2.5 px-3 text-cyan-600">SCL</td>
+                    <td className="py-2.5 px-3 text-cyan-600 font-bold">GPIO 22</td>
+                    <td className="py-2.5 px-3 font-sans text-slate-500">I2C Clock line</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-sans font-bold text-purple-600">RGB Status LED</td>
+                    <td className="py-2.5 px-3 text-purple-600">R / G / B</td>
+                    <td className="py-2.5 px-3 text-purple-600 font-bold">GPIO 25 / 26 / 33</td>
+                    <td className="py-2.5 px-3 font-sans text-slate-500">Green = OK, Red = Fail, Blue = Mode</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-sans font-bold text-amber-600">Buzzer Alert</td>
                     <td className="py-2.5 px-3 text-amber-600">I/O / VCC / GND</td>
-                    <td className="py-2.5 px-3 text-amber-600">GPIO 27</td>
+                    <td className="py-2.5 px-3 text-amber-600 font-bold">GPIO 27</td>
                     <td className="py-2.5 px-3 font-sans text-slate-500">2.8 kHz PWM chime on punch</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-700/60 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60">
-                <span className="text-xs font-bold text-slate-900 dark:text-white block mb-2">RGB LED Status Codes</span>
-                <ul className="text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
-                  <li><strong className="text-slate-700 dark:text-slate-200">⚪ White (R+G+B):</strong> Idle & ready, awaiting finger</li>
-                  <li><strong className="text-blue-600">🔵 Blue:</strong> Finger placed, optical scan in progress</li>
-                  <li><strong className="text-purple-600">🟣 Magenta:</strong> Enrollment mode active (Steps 1 & 2)</li>
-                  <li><strong className="text-emerald-600">🟢 Green:</strong> Verification OK / Punch In / Punch Out</li>
-                  <li><strong className="text-rose-600">🔴 Red:</strong> Unrecognized finger / Sensor mismatch</li>
-                </ul>
+      {/* Employee Movements History Modal */}
+      {selectedEmpForHistory && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-5 text-slate-800 dark:text-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <FiClock className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Today&apos;s Room Movements: {selectedEmpForHistory.employee_name}
+                </h3>
               </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEmpForHistory(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60">
-                <span className="text-xs font-bold text-slate-900 dark:text-white block mb-2">Serial Monitor Commands (115200 baud)</span>
-                <ul className="text-xs font-mono space-y-1.5 text-slate-600 dark:text-slate-300">
-                  <li><code>ENROLL &lt;slot&gt;</code> - Calibrate finger into slot (e.g. <code>ENROLL 2</code>)</li>
-                  <li><code>DELETE &lt;slot&gt;</code> - Erase specific fingerprint slot</li>
-                  <li><code>CLEAR</code> - Wipe all fingerprints from sensor memory</li>
-                  <li><code>STATUS</code> - Print Wi-Fi RSSI and template count</li>
-                  <li><code>TEST</code> - Trigger instant heartbeat to server</li>
-                </ul>
+            {/* Quick Metrics Header */}
+            <div className="grid grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
+              <div>
+                <span className="text-[11px] text-slate-400 uppercase font-semibold">Total Punches In</span>
+                <div className="text-lg font-black text-emerald-600 mt-0.5">{selectedEmpForHistory.total_punch_in} times</div>
               </div>
+              <div>
+                <span className="text-[11px] text-slate-400 uppercase font-semibold">Total Punches Out</span>
+                <div className="text-lg font-black text-amber-600 mt-0.5">{selectedEmpForHistory.total_punch_out} times</div>
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-400 uppercase font-semibold">Current State</span>
+                <div className="mt-0.5 font-bold text-xs">
+                  {selectedEmpForHistory.current_room_status === 'INSIDE' ? (
+                    <span className="text-emerald-600">🟢 Inside Room</span>
+                  ) : (
+                    <span className="text-slate-500">⚪ Outside Room</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* In / Out Sessions Timeline */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Completed & Active Room Stays
+              </h4>
+
+              {selectedEmpSessions.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  No detailed session intervals recorded for today.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {selectedEmpSessions.map((sess, idx) => (
+                    <div key={sess.id || idx} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-mono text-[10px]">
+                            Stay #{sess.session_number || (selectedEmpSessions.length - idx)}
+                          </span>
+                          <span>Entered: {new Date(sess.in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                        </div>
+                        <div className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
+                          {sess.out_time ? (
+                            <span>Exited: {new Date(sess.out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                          ) : (
+                            <span className="text-emerald-600 font-semibold animate-pulse">● Currently Inside Room</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="px-2.5 py-1 rounded-full font-bold text-xs bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                          {sess.duration_minutes ? `${sess.duration_minutes} mins` : 'Active'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Individual Door Punch Log Stream */}
+            <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Raw In / Out Door Punches ({selectedEmpPunches.length})
+              </h4>
+              <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                {selectedEmpPunches.map((p, idx) => (
+                  <div key={p.id || idx} className="flex items-center justify-between text-[11px] p-2 rounded-lg bg-slate-100/50 dark:bg-slate-800/20">
+                    <div className="flex items-center gap-2">
+                      <span className={p.punch_type === 'PUNCH_IN' ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
+                        {p.punch_type === 'PUNCH_IN' ? '➔ PUNCH IN' : '⬅ PUNCH OUT'}
+                      </span>
+                      <span className="text-slate-400">#{p.punch_number}</span>
+                    </div>
+                    <div className="font-mono text-slate-600 dark:text-slate-400">
+                      {new Date(p.punch_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setSelectedEmpForHistory(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition cursor-pointer"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -716,104 +1030,91 @@ export default function BiometricTerminalPage() {
 
       {/* Enroll Fingerprint Modal */}
       {showEnrollModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
-            <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-5 text-slate-800 dark:text-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400">
-                  <FiCpu size={18} />
-                </span>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Enroll Employee Fingerprint
-                </h3>
+                <FiPlus className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Enroll Fingerprint Slot</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowEnrollModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg cursor-pointer"
               >
-                <FiX size={16} />
+                <FiX size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEnrollment} className="p-5 space-y-4">
+            <form onSubmit={handleSaveEnrollment} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                  Select Employee
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  1. Select Staff Member *
                 </label>
                 <select
+                  required
                   value={selectedEmpId}
                   onChange={(e) => setSelectedEmpId(e.target.value)}
-                  required
-                  className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
                 >
-                  <option value="">-- Choose Employee --</option>
-                  {employees.map(emp => (
+                  <option value="">-- Choose employee --</option>
+                  {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.department || 'Staff'}) {emp.biometric_id ? `[Current Slot: #${emp.biometric_id}]` : ''}
+                      {emp.name} ({emp.department || 'Staff'})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Fingerprint Sensor Slot # (1–1000)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setSlotInput(String(nextAvailableSlot))}
-                    className="text-[11px] font-bold text-indigo-600 hover:underline"
-                  >
-                    Auto-Fill Next (#{nextAvailableSlot})
-                  </button>
-                </div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  2. Optical Sensor Slot # (1 - 1000) *
+                </label>
                 <input
                   type="number"
                   min="1"
                   max="1000"
+                  required
                   value={slotInput}
                   onChange={(e) => setSlotInput(e.target.value)}
-                  required
-                  placeholder="e.g. 2"
-                  className="w-full text-xs font-mono px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  placeholder="e.g. 1"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 font-mono"
                 />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Next recommended slot is #{nextAvailableSlot}.
+                </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/80 space-y-2">
-                <label className="flex items-start gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={triggerEnrollRemote}
-                    onChange={(e) => setTriggerEnrollRemote(e.target.checked)}
-                    className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <div className="text-xs">
-                    <span className="font-bold text-indigo-950 dark:text-indigo-200 block">
-                      Queue Remote Enrollment on ESP32 Sensor
-                    </span>
-                    <span className="text-indigo-700 dark:text-indigo-300 text-[11px] leading-relaxed block mt-0.5">
-                      The ESP32 will pick up the command on its next heartbeat (within 5 seconds). The RGB LED will turn Magenta/Blue and prompt the user to place their finger twice on the R307 sensor.
-                    </span>
-                  </div>
+              <div className="p-3.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="remoteEnrollCheck"
+                  checked={triggerEnrollRemote}
+                  onChange={(e) => setTriggerEnrollRemote(e.target.checked)}
+                  className="w-4 h-4 accent-indigo-600 mt-0.5 rounded cursor-pointer"
+                />
+                <label htmlFor="remoteEnrollCheck" className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                  <strong className="text-slate-900 dark:text-white block font-semibold">
+                    Queue Instant Remote Enrollment on ESP32
+                  </strong>
+                  The ESP32 LED turns Blue/Magenta and displays &quot;Enroll Slot #{slotInput || '1'}&quot; waiting for 2 finger touches.
                 </label>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowEnrollModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingEnroll}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow-md shadow-indigo-600/20 active:scale-95 transition-all disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer"
                 >
-                  {submittingEnroll ? 'Saving...' : 'Confirm & Enroll'}
+                  {submittingEnroll ? 'Saving...' : 'Start Enrollment'}
                 </button>
               </div>
             </form>

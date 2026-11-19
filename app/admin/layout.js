@@ -290,9 +290,9 @@ export default function AdminLayout({ children }) {
         { name: "Team Hierarchy", path: "/admin/team-hierarchy", icon: <FiUsers /> },
         { name: "Departments", path: "/admin/departments", icon: <FiBriefcase /> },
         // { name: "Recruitment", path: "/employee-dashboard/hr-recruitment", icon: <FiUserPlus /> },
-        { name: "Attendance", path: "/admin/attendance", icon: <FiClock /> },
-        { name: "Biometric Terminal", path: "/admin/biometric", icon: <FiCpu /> },
-        { name: "Leave Requests", path: "/admin/leaves", icon: <FiCalendar />, badge: leaveCount },
+        { name: "Attendance History", path: "/admin/attendance", icon: <FiCalendar /> },
+        { name: "Current Attendance", path: "/admin/biometric", icon: <FiClock /> },
+        { name: "Leave Requests", path: "/admin/leaves", icon: <FiList />, badge: leaveCount },
         { name: "Workplace Grievances", path: "/admin/grievances", icon: <FiAlertTriangle /> }
       ]
     },

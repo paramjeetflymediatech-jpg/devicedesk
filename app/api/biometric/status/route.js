@@ -92,6 +92,73 @@ export async function GET() {
       ORDER BY name ASC
     `);
 
+    // 8. Room Movement Summary (Today's in/out counts per employee)
+    const nowDate = new Date();
+    const istDate = new Date(nowDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const yyyy = istDate.getFullYear();
+    const mm = String(istDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(istDate.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    let room_summary = [];
+    let room_sessions = [];
+    let room_punches = [];
+
+    try {
+      const [summaryRows] = await pool.execute(`
+        SELECT 
+          e.id as employee_id,
+          e.name as employee_name,
+          e.department,
+          fm.fingerprint_slot,
+          COUNT(CASE WHEN r.punch_type = 'PUNCH_IN' THEN 1 END) as total_punch_in,
+          COUNT(CASE WHEN r.punch_type = 'PUNCH_OUT' THEN 1 END) as total_punch_out,
+          SUM(COALESCE(r.duration_minutes, 0)) as total_inside_minutes,
+          MAX(r.punch_time) as last_punch_time,
+          (
+            SELECT punch_type FROM biometric_room_attendance sub 
+            WHERE CONVERT(sub.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci 
+              AND sub.attendance_date = ? 
+            ORDER BY sub.id DESC LIMIT 1
+          ) as last_punch_type,
+          CASE 
+            WHEN EXISTS(
+              SELECT 1 FROM biometric_door_sessions s 
+              WHERE CONVERT(s.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci 
+                AND s.status = 'INSIDE' AND s.out_time IS NULL
+            ) THEN 'INSIDE'
+            ELSE 'OUTSIDE'
+          END as current_room_status
+        FROM biometric_room_attendance r
+        JOIN employees e ON CONVERT(r.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
+        LEFT JOIN fingerprint_mappings fm ON CONVERT(fm.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
+        WHERE r.attendance_date = ?
+        GROUP BY e.id, e.name, e.department, fm.fingerprint_slot
+        ORDER BY last_punch_time DESC
+      `, [todayStr, todayStr]);
+      room_summary = summaryRows;
+
+      const [sessionRows] = await pool.execute(`
+        SELECT s.*, e.name as employee_name, e.department
+        FROM biometric_door_sessions s
+        JOIN employees e ON CONVERT(s.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
+        WHERE s.attendance_date = ?
+        ORDER BY s.in_time DESC LIMIT 100
+      `, [todayStr]);
+      room_sessions = sessionRows;
+
+      const [punchRows] = await pool.execute(`
+        SELECT p.*, e.name as employee_name, e.department
+        FROM biometric_room_attendance p
+        JOIN employees e ON CONVERT(p.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
+        WHERE p.attendance_date = ?
+        ORDER BY p.punch_time DESC LIMIT 100
+      `, [todayStr]);
+      room_punches = punchRows;
+    } catch (e) {
+      console.warn('Room attendance summary error:', e.message);
+    }
+
     return NextResponse.json({
       success: true,
       server_time: new Date().toISOString(),
@@ -101,6 +168,10 @@ export async function GET() {
       pending_commands,
       lab_sessions,
       currently_in_lab,
+      currently_inside: currently_in_lab,
+      room_summary,
+      room_sessions,
+      room_punches,
       employees
     });
   } catch (error) {

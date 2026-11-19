@@ -225,6 +225,45 @@ async function initializeDatabase(db) {
   `);
 
   await db.execute(`
+    CREATE TABLE IF NOT EXISTS biometric_room_attendance (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id VARCHAR(50) NOT NULL,
+      device_id VARCHAR(50) NOT NULL,
+      fingerprint_slot INT NOT NULL,
+      attendance_date VARCHAR(20) NOT NULL,
+      punch_type VARCHAR(20) NOT NULL,
+      punch_time DATETIME NOT NULL,
+      punch_number INT DEFAULT 1,
+      duration_minutes INT DEFAULT NULL,
+      session_id VARCHAR(100) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_emp_date (employee_id, attendance_date),
+      INDEX idx_date (attendance_date),
+      INDEX idx_punch_time (punch_time)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS biometric_door_sessions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      session_id VARCHAR(100) UNIQUE,
+      employee_id VARCHAR(50) NOT NULL,
+      device_id VARCHAR(50) NOT NULL,
+      fingerprint_slot INT NOT NULL,
+      attendance_date VARCHAR(20) NOT NULL,
+      in_time DATETIME NOT NULL,
+      out_time DATETIME NULL,
+      duration_minutes INT DEFAULT 0,
+      status VARCHAR(20) DEFAULT 'INSIDE',
+      session_number INT DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_emp_date (employee_id, attendance_date),
+      INDEX idx_status (status)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci
+  `);
+
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS team_grievances (
       id INT AUTO_INCREMENT PRIMARY KEY,
       reporter_id VARCHAR(50) NOT NULL,
@@ -269,6 +308,8 @@ async function initializeDatabase(db) {
     await db.query(`ALTER TABLE fingerprint_mappings MODIFY employee_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
     await db.query(`ALTER TABLE biometric_scan_logs MODIFY employee_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
     await db.query(`ALTER TABLE biometric_lab_attendance MODIFY employee_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
+    await db.query(`ALTER TABLE biometric_room_attendance MODIFY employee_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
+    await db.query(`ALTER TABLE biometric_door_sessions MODIFY employee_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
     await db.query(`ALTER TABLE team_grievances MODIFY reporter_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
     await db.query(`ALTER TABLE team_grievances MODIFY reported_against_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
     await db.query(`ALTER TABLE team_grievances MODIFY reviewed_by VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
