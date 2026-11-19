@@ -7,7 +7,7 @@ export async function GET() {
     const [mappings] = await pool.execute(`
       SELECT fm.*, e.name as employee_name, e.email, e.role, e.department, e.status as employee_status
       FROM fingerprint_mappings fm
-      JOIN employees e ON fm.employee_id = e.id
+      JOIN employees e ON CONVERT(fm.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
       ORDER BY fm.fingerprint_slot ASC
     `);
 

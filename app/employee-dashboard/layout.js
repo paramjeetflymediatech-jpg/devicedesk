@@ -237,6 +237,7 @@ export default function EmployeeLayout({ children }) {
     { name: "Attendance", path: "/employee-dashboard/attendance", icon: <FiClock /> },
     ...(isSmoMember ? [{ name: "SMO Studio", path: "/employee-dashboard/smo", icon: <FiShare2 /> }] : []),
     { name: "File Complaint", path: "/employee-dashboard/complaint", icon: <FiAlertCircle /> },
+    { name: "Workplace Grievance", path: "/employee-dashboard/grievance", icon: <FiShield /> },
     { name: "My Records", path: "/employee-dashboard/records", icon: <FiClipboard /> },
     { name: "Task Board", path: "/employee-dashboard/tasks", icon: <FiCheckSquare /> },
     {

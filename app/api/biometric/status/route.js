@@ -46,7 +46,7 @@ export async function GET() {
     const [mappings] = await pool.execute(`
       SELECT fm.*, e.name as employee_name, e.email, e.role, e.department, e.status as employee_status
       FROM fingerprint_mappings fm
-      JOIN employees e ON fm.employee_id = e.id
+      JOIN employees e ON CONVERT(fm.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
       ORDER BY fm.fingerprint_slot ASC
     `);
 
@@ -54,7 +54,7 @@ export async function GET() {
     const [recent_logs] = await pool.execute(`
       SELECT l.*, e.name as employee_name, e.department
       FROM biometric_scan_logs l
-      LEFT JOIN employees e ON l.employee_id = e.id
+      LEFT JOIN employees e ON CONVERT(l.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
       ORDER BY l.id DESC LIMIT 40
     `);
 
@@ -62,7 +62,7 @@ export async function GET() {
     const [pending_commands] = await pool.execute(`
       SELECT bc.*, e.name as employee_name
       FROM biometric_commands bc
-      LEFT JOIN employees e ON bc.employee_id = e.id
+      LEFT JOIN employees e ON CONVERT(bc.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
       WHERE bc.status IN ('PENDING', 'IN_PROGRESS')
       ORDER BY bc.id DESC LIMIT 10
     `);
@@ -71,7 +71,7 @@ export async function GET() {
     const [lab_sessions] = await pool.execute(`
       SELECT b.*, e.name as employee_name, e.email, e.role, e.department
       FROM biometric_lab_attendance b
-      JOIN employees e ON b.employee_id = e.id
+      JOIN employees e ON CONVERT(b.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
       ORDER BY b.id DESC LIMIT 50
     `);
 
@@ -79,7 +79,7 @@ export async function GET() {
     const [currently_in_lab] = await pool.execute(`
       SELECT b.*, e.name as employee_name, e.department
       FROM biometric_lab_attendance b
-      JOIN employees e ON b.employee_id = e.id
+      JOIN employees e ON CONVERT(b.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
       WHERE b.status = 'IN_LAB' AND b.out_time IS NULL
       ORDER BY b.in_time DESC
     `);

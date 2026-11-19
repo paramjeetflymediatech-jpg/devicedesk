@@ -11,7 +11,7 @@ export async function GET(request) {
     let query = `
       SELECT l.*, e.name as employee_name, e.department, e.role
       FROM biometric_scan_logs l
-      LEFT JOIN employees e ON l.employee_id = e.id
+      LEFT JOIN employees e ON CONVERT(l.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
       WHERE 1=1
     `;
     const params = [];

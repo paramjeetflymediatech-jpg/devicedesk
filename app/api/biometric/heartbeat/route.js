@@ -50,7 +50,7 @@ export async function POST(request) {
   const [commands] = await pool.execute(`
     SELECT bc.*, e.name as employee_name
     FROM biometric_commands bc
-    LEFT JOIN employees e ON bc.employee_id = e.id
+    LEFT JOIN employees e ON CONVERT(bc.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
     WHERE bc.device_id = ? AND bc.status = 'PENDING'
     ORDER BY bc.id ASC LIMIT 1
   `, [device.device_id]);

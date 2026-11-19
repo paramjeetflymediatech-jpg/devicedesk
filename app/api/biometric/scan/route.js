@@ -82,7 +82,7 @@ export async function POST(request) {
     SELECT fm.*, e.id as emp_id, e.name as emp_name, e.email as emp_email, 
            e.role as emp_role, e.department as emp_dept, e.status as emp_status
     FROM fingerprint_mappings fm
-    JOIN employees e ON fm.employee_id = e.id
+    JOIN employees e ON CONVERT(fm.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
     WHERE fm.device_id = ? AND fm.fingerprint_slot = ? AND fm.is_active = 1
     LIMIT 1
   `, [device.device_id, slot]);

@@ -12,7 +12,7 @@ export async function GET(request) {
     let query = `
       SELECT b.*, e.name as employee_name, e.email, e.role, e.department
       FROM biometric_lab_attendance b
-      JOIN employees e ON b.employee_id = e.id
+      JOIN employees e ON CONVERT(b.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
       WHERE 1=1
     `;
     const params = [];
@@ -38,7 +38,7 @@ export async function GET(request) {
     const [currently_in] = await pool.execute(`
       SELECT b.*, e.name as employee_name, e.department, e.role
       FROM biometric_lab_attendance b
-      JOIN employees e ON b.employee_id = e.id
+      JOIN employees e ON CONVERT(b.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
       WHERE b.status = 'IN_LAB' AND b.out_time IS NULL
       ORDER BY b.in_time DESC
     `);
