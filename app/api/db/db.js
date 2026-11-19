@@ -221,7 +221,29 @@ async function initializeDatabase(db) {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_emp_date (employee_id, attendance_date)
-    )
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS team_grievances (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      reporter_id VARCHAR(50) NOT NULL,
+      reported_against_id VARCHAR(50) NULL,
+      category VARCHAR(50) NOT NULL,
+      severity VARCHAR(20) DEFAULT 'MEDIUM',
+      subject VARCHAR(255) NOT NULL,
+      description TEXT NOT NULL,
+      is_anonymous TINYINT DEFAULT 0,
+      status VARCHAR(30) DEFAULT 'SUBMITTED',
+      hr_notes TEXT NULL,
+      reviewed_by VARCHAR(50) NULL,
+      reviewed_at DATETIME NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_reporter (reporter_id),
+      INDEX idx_target (reported_against_id),
+      INDEX idx_status (status)
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci
   `);
 
   try {
@@ -232,6 +254,24 @@ async function initializeDatabase(db) {
         ['DEVICE001', 'Main Office Entrance Terminal', 'Main Office Entrance', 'flymedia_esp32_key_2026', 1]
       );
     }
+  } catch (e) {}
+
+  // Auto-harmonize column collations with employees.id to prevent ER_CANT_AGGREGATE_2COLLATIONS
+  try {
+    const [empCol] = await db.query(`
+      SELECT COLLATION_NAME 
+      FROM information_schema.columns 
+      WHERE table_schema = DATABASE() AND table_name = 'employees' AND column_name = 'id'
+    `);
+    const targetCollation = empCol[0]?.COLLATION_NAME || 'utf8mb4_general_ci';
+
+    await db.query(`ALTER TABLE biometric_commands MODIFY employee_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
+    await db.query(`ALTER TABLE fingerprint_mappings MODIFY employee_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
+    await db.query(`ALTER TABLE biometric_scan_logs MODIFY employee_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
+    await db.query(`ALTER TABLE biometric_lab_attendance MODIFY employee_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
+    await db.query(`ALTER TABLE team_grievances MODIFY reporter_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
+    await db.query(`ALTER TABLE team_grievances MODIFY reported_against_id VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
+    await db.query(`ALTER TABLE team_grievances MODIFY reviewed_by VARCHAR(50) CHARACTER SET utf8mb4 COLLATE ${targetCollation}`).catch(() => {});
   } catch (e) {}
 
   // Alter tables if columns do not exist
