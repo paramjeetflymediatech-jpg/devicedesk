@@ -77,7 +77,7 @@ const int ROAM_RSSI_THRESHOLD = -82;
 // Primary (Fastest on same LAN): Host PC LAN IP on Port 5000
 const char* API_BASE_URL       = "http://192.168.1.72:5000/api/biometric";
 // Auto-Fallback (If Wi-Fi is on a different subnet/router): Live Cloudflare HTTPS URL
-const char* CLOUD_API_BASE_URL = "https://tray-colorado-substitute-chances.trycloudflare.com/api/biometric";
+const char* CLOUD_API_BASE_URL = "https://devicedesk.flymediatech.com/api/biometric";
 bool useCloudFallback          = false;
 
 // Device Identity & Secret Key (Must match biometric_devices table on server)
