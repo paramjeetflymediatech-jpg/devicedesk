@@ -149,6 +149,91 @@ async function initializeDatabase(db) {
     )
   `);
 
+  // Biometric Attendance Terminal (ESP32 + R307)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS biometric_devices (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      device_id VARCHAR(50) NOT NULL UNIQUE,
+      name VARCHAR(100) NOT NULL,
+      location VARCHAR(100) DEFAULT 'Main Office Entrance',
+      api_key VARCHAR(100) NOT NULL,
+      is_active TINYINT DEFAULT 1,
+      last_seen_at DATETIME NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS fingerprint_mappings (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id VARCHAR(50) NOT NULL,
+      device_id VARCHAR(50) NOT NULL,
+      fingerprint_slot INT NOT NULL,
+      is_active TINYINT DEFAULT 1,
+      enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_device_slot (device_id, fingerprint_slot),
+      INDEX idx_emp (employee_id)
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS biometric_scan_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      event_id VARCHAR(100) UNIQUE,
+      device_id VARCHAR(50) NOT NULL,
+      fingerprint_slot INT NULL,
+      employee_id VARCHAR(50) NULL,
+      action VARCHAR(50) NOT NULL,
+      message TEXT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_device_time (device_id, created_at),
+      INDEX idx_emp_time (employee_id, created_at)
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS biometric_commands (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      device_id VARCHAR(50) NOT NULL,
+      command VARCHAR(50) NOT NULL,
+      fingerprint_slot INT NULL,
+      employee_id VARCHAR(50) NULL,
+      status VARCHAR(20) DEFAULT 'PENDING',
+      result_message TEXT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_device_status (device_id, status)
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS biometric_lab_attendance (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id VARCHAR(50) NOT NULL,
+      device_id VARCHAR(50) NOT NULL,
+      fingerprint_slot INT NOT NULL,
+      attendance_date VARCHAR(20) NOT NULL,
+      in_time DATETIME NOT NULL,
+      out_time DATETIME NULL,
+      duration_minutes INT DEFAULT 0,
+      status VARCHAR(20) DEFAULT 'IN_LAB',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_emp_date (employee_id, attendance_date)
+    )
+  `);
+
+  try {
+    const [existingDev] = await db.execute('SELECT id FROM biometric_devices WHERE device_id = ?', ['DEVICE001']);
+    if (existingDev.length === 0) {
+      await db.execute(
+        'INSERT INTO biometric_devices (device_id, name, location, api_key, is_active) VALUES (?, ?, ?, ?, ?)',
+        ['DEVICE001', 'Main Office Entrance Terminal', 'Main Office Entrance', 'flymedia_esp32_key_2026', 1]
+      );
+    }
+  } catch (e) {}
+
   // Alter tables if columns do not exist
   try {
     await db.execute(`ALTER TABLE client_notes ADD COLUMN tl_reply TEXT DEFAULT NULL`);

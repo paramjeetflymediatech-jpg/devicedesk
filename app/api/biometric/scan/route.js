@@ -1,0 +1,287 @@
+import { NextResponse } from 'next/server';
+import { getPool } from '../../db/db.js';
+import { authenticateBiometricDevice, getOrCreateTelemetry } from '../telemetry.js';
+
+function firstNameOf(fullName) {
+  return (fullName || 'Employee').trim().split(/\s+/)[0].slice(0, 14);
+}
+
+function getIstDateStrings() {
+  const now = new Date();
+  const istDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const yyyy = istDate.getFullYear();
+  const mm = String(istDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getDate()).padStart(2, '0');
+  const dateStr = `${yyyy}-${mm}-${dd}`;
+  const timeIso = istDate.toISOString();
+  const timeFormatted = istDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return { dateStr, timeIso, timeFormatted, istDate };
+}
+
+export async function POST(request) {
+  let body = {};
+  try {
+    body = await request.json();
+  } catch (e) {
+    body = {};
+  }
+
+  // 1. Authenticate Hardware Terminal
+  const auth = await authenticateBiometricDevice(request, body);
+  if (!auth.authenticated) {
+    return NextResponse.json(
+      {
+        status: 'UNAUTHORIZED',
+        error: auth.error,
+        display_line1: auth.display_line1,
+        display_line2: auth.display_line2
+      },
+      { status: auth.status }
+    );
+  }
+
+  const device = auth.device;
+  const tele = getOrCreateTelemetry(device.device_id);
+  tele.last_ping_ms = Date.now();
+
+  const { fingerprint_slot, event_id, scanned_at } = body;
+  if (fingerprint_slot === undefined || fingerprint_slot === null || isNaN(Number(fingerprint_slot))) {
+    return NextResponse.json(
+      {
+        status: 'ERROR',
+        error: 'Valid numeric fingerprint_slot is required.',
+        display_line1: 'Invalid Scan',
+        display_line2: 'No Slot ID'
+      },
+      { status: 400 }
+    );
+  }
+
+  const slot = Number(fingerprint_slot);
+  const safeEventId = event_id ? String(event_id).trim() : `${device.device_id}-${slot}-${Date.now()}`;
+  const pool = getPool();
+
+  // 2. Idempotency check
+  const [existingLogs] = await pool.execute(
+    'SELECT * FROM biometric_scan_logs WHERE event_id = ? LIMIT 1',
+    [safeEventId]
+  );
+  if (existingLogs && existingLogs.length > 0) {
+    const existing = existingLogs[0];
+    return NextResponse.json({
+      status: existing.action,
+      duplicate: true,
+      message: existing.message || 'Event already processed.',
+      display_line1: 'Already Synced',
+      display_line2: existing.action
+    });
+  }
+
+  // 3. Lookup employee mapped to (device_id, fingerprint_slot)
+  const [mappings] = await pool.execute(`
+    SELECT fm.*, e.id as emp_id, e.name as emp_name, e.email as emp_email, 
+           e.role as emp_role, e.department as emp_dept, e.status as emp_status
+    FROM fingerprint_mappings fm
+    JOIN employees e ON fm.employee_id = e.id
+    WHERE fm.device_id = ? AND fm.fingerprint_slot = ? AND fm.is_active = 1
+    LIMIT 1
+  `, [device.device_id, slot]);
+
+  if (!mappings || mappings.length === 0) {
+    await pool.execute(`
+      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message)
+      VALUES (?, ?, ?, NULL, 'REJECTED_UNKNOWN', ?)
+    `, [safeEventId, device.device_id, slot, `Unmapped fingerprint slot #${slot}`]);
+
+    tele.display_line1 = 'Unregistered';
+    tele.display_line2 = `Slot #${slot}`;
+    tele.last_event_type = 'REJECTED';
+
+    return NextResponse.json(
+      {
+        status: 'REJECTED',
+        error: `Fingerprint slot #${slot} is not assigned to any employee.`,
+        display_line1: 'Unregistered',
+        display_line2: `Slot #${slot}`
+      },
+      { status: 404 }
+    );
+  }
+
+  const mapping = mappings[0];
+  const employeeId = mapping.emp_id;
+  const employeeName = mapping.emp_name;
+  const shortName = firstNameOf(employeeName);
+
+  // 4. 30-second cooldown check (prevent accidental double door / sensor taps)
+  const [recentScans] = await pool.execute(`
+    SELECT id, created_at FROM biometric_scan_logs
+    WHERE employee_id = ? AND action IN ('PUNCH_IN', 'PUNCH_OUT', 'LAB_IN', 'LAB_OUT')
+      AND created_at >= (NOW() - INTERVAL 30 SECOND)
+    ORDER BY id DESC LIMIT 1
+  `, [employeeId]);
+
+  if (recentScans && recentScans.length > 0) {
+    await pool.execute(`
+      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message)
+      VALUES (?, ?, ?, ?, 'COOLDOWN', 'Ignored duplicate scan within 30s cooldown')
+    `, [safeEventId, device.device_id, slot, employeeId]);
+
+    tele.display_line1 = shortName;
+    tele.display_line2 = 'Wait 30s...';
+    tele.last_event_type = 'COOLDOWN';
+
+    return NextResponse.json({
+      status: 'COOLDOWN',
+      employee: { id: employeeId, name: employeeName, department: mapping.emp_dept },
+      message: 'Scan ignored: please wait 30 seconds between scans.',
+      display_line1: shortName,
+      display_line2: 'Wait 30s...'
+    });
+  }
+
+  // 5. Determine whether PUNCH IN or PUNCH OUT
+  const { dateStr, timeIso, timeFormatted, istDate } = getIstDateStrings();
+  const deviceInfo = `ESP32 (${device.device_id}) - Slot #${slot}`;
+
+  // Check today's active attendance in attendance_records
+  const [todayAttendance] = await pool.execute(`
+    SELECT * FROM attendance_records
+    WHERE employeeId = ? AND date = ?
+    ORDER BY id DESC LIMIT 1
+  `, [employeeId, dateStr]);
+
+  const activeRecord = todayAttendance.length > 0 ? todayAttendance[0] : null;
+  const hasOpenPunch = activeRecord && activeRecord.punchInTime && !activeRecord.punchOutTime;
+
+  if (!hasOpenPunch) {
+    // -------------------------------------------------------------
+    // PUNCH IN
+    // -------------------------------------------------------------
+    // Check if late (office grace time usually 09:40 AM)
+    const punchHour = istDate.getHours();
+    const punchMin = istDate.getMinutes();
+    const totalMinutesSinceMidnight = punchHour * 60 + punchMin;
+    const isLate = totalMinutesSinceMidnight > (9 * 60 + 40); // After 9:40 AM
+    const attStatus = isLate ? 'Late' : 'Present';
+
+    let attRecordId;
+    if (activeRecord) {
+      // Re-opening or updating today's record
+      attRecordId = activeRecord.id;
+      await pool.execute(`
+        UPDATE attendance_records
+        SET punchInTime = ?, status = ?, punchSource = 'ESP32_BIOMETRIC',
+            deviceInfo = ?, remarks = CONCAT(COALESCE(remarks, ''), ' | ESP32 Punch In at ', ?)
+        WHERE id = ?
+      `, [timeIso, attStatus, deviceInfo, timeFormatted, attRecordId]);
+    } else {
+      // New attendance record for today
+      attRecordId = `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      await pool.execute(`
+        INSERT INTO attendance_records (
+          id, employeeId, employeeName, date, punchInTime, status,
+          punchSource, deviceInfo, remarks, breakStatus
+        ) VALUES (?, ?, ?, ?, ?, ?, 'ESP32_BIOMETRIC', ?, ?, 'Completed')
+      `, [
+        attRecordId,
+        employeeId,
+        employeeName,
+        dateStr,
+        timeIso,
+        attStatus,
+        deviceInfo,
+        `ESP32 Biometric Punch In at ${timeFormatted} (Slot #${slot})`
+      ]);
+    }
+
+    // Insert into biometric_lab_attendance for IoT granular tracking
+    await pool.execute(`
+      INSERT INTO biometric_lab_attendance (
+        employee_id, device_id, fingerprint_slot, attendance_date, in_time, status
+      ) VALUES (?, ?, ?, ?, NOW(), 'IN_LAB')
+    `, [employeeId, device.device_id, slot, dateStr]);
+
+    // Audit log
+    await pool.execute(`
+      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message)
+      VALUES (?, ?, ?, ?, 'PUNCH_IN', ?)
+    `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} punched in via ${deviceInfo}`]);
+
+    const l1 = `Hi ${shortName}`;
+    const l2 = `PUNCH IN ${timeFormatted}`;
+    tele.display_line1 = l1;
+    tele.display_line2 = l2;
+    tele.last_event_type = 'PUNCH_IN';
+
+    return NextResponse.json({
+      status: 'PUNCH_IN',
+      action: 'PUNCH_IN',
+      employee: { id: employeeId, name: employeeName, department: mapping.emp_dept },
+      punch_time: timeIso,
+      formatted_time: timeFormatted,
+      fingerprint_slot: slot,
+      attendance_id: attRecordId,
+      message: `${employeeName} punched in successfully!`,
+      display_line1: l1,
+      display_line2: l2
+    });
+
+  } else {
+    // -------------------------------------------------------------
+    // PUNCH OUT
+    // -------------------------------------------------------------
+    const punchInMs = new Date(activeRecord.punchInTime).getTime();
+    const punchOutMs = new Date(timeIso).getTime();
+    const totalMinutes = Math.max(0, Math.floor((punchOutMs - punchInMs) / 60000));
+    const totalBreak = Number(activeRecord.totalBreakMinutes || 0);
+    const netMinutes = Math.max(0, totalMinutes - totalBreak);
+
+    // Update attendance_records
+    await pool.execute(`
+      UPDATE attendance_records
+      SET punchOutTime = ?, totalWorkMinutes = ?, netWorkMinutes = ?,
+          remarks = CONCAT(COALESCE(remarks, ''), ' | ESP32 Punch Out at ', ?)
+      WHERE id = ?
+    `, [timeIso, totalMinutes, netMinutes, timeFormatted, activeRecord.id]);
+
+    // Close biometric_lab_attendance session if open
+    await pool.execute(`
+      UPDATE biometric_lab_attendance
+      SET out_time = NOW(), duration_minutes = TIMESTAMPDIFF(MINUTE, in_time, NOW()), status = 'OUT_LAB'
+      WHERE employee_id = ? AND status = 'IN_LAB' AND out_time IS NULL
+      ORDER BY id DESC LIMIT 1
+    `, [employeeId]);
+
+    // Audit log
+    const durLabel = totalMinutes >= 60
+      ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`
+      : `${totalMinutes}m`;
+
+    await pool.execute(`
+      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message)
+      VALUES (?, ?, ?, ?, 'PUNCH_OUT', ?)
+    `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} punched out after ${durLabel} via ${deviceInfo}`]);
+
+    const l1 = `Bye ${shortName}`;
+    const l2 = `OUT (${durLabel})`;
+    tele.display_line1 = l1;
+    tele.display_line2 = l2;
+    tele.last_event_type = 'PUNCH_OUT';
+
+    return NextResponse.json({
+      status: 'PUNCH_OUT',
+      action: 'PUNCH_OUT',
+      employee: { id: employeeId, name: employeeName, department: mapping.emp_dept },
+      punch_time: timeIso,
+      formatted_time: timeFormatted,
+      duration_minutes: totalMinutes,
+      duration_label: durLabel,
+      fingerprint_slot: slot,
+      attendance_id: activeRecord.id,
+      message: `${employeeName} punched out successfully (${durLabel})!`,
+      display_line1: l1,
+      display_line2: l2
+    });
+  }
+}

@@ -35,7 +35,8 @@ import {
   FiActivity,
   FiBox,
   FiCompass,
-  FiTarget
+  FiTarget,
+  FiCpu
 } from "react-icons/fi";
 
 export default function AdminLayout({ children }) {
@@ -290,6 +291,7 @@ export default function AdminLayout({ children }) {
         { name: "Departments", path: "/admin/departments", icon: <FiBriefcase /> },
         // { name: "Recruitment", path: "/employee-dashboard/hr-recruitment", icon: <FiUserPlus /> },
         { name: "Attendance", path: "/admin/attendance", icon: <FiClock /> },
+        { name: "Biometric Terminal", path: "/admin/biometric", icon: <FiCpu /> },
         { name: "Leave Requests", path: "/admin/leaves", icon: <FiCalendar />, badge: leaveCount }
       ]
     },
@@ -297,6 +299,7 @@ export default function AdminLayout({ children }) {
       title: "IT & Infrastructure",
       items: [
         { name: "Systems Inventory", path: "/admin/systems", icon: <FiServer /> },
+        { name: "Biometric Terminal (ESP32)", path: "/admin/biometric", icon: <FiCpu /> },
         { name: "Raise Records", path: "/admin/tickets", icon: <FiTag /> }
       ]
     },
