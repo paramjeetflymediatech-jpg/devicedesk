@@ -136,7 +136,11 @@ export default function AdminLayout({ children }) {
         '/admin/domains',
         '/admin/leaves',
         '/admin/attendance',
-        '/admin/screenshots'
+        '/admin/screenshots',
+        '/admin/grievances',
+        '/admin/biometric',
+        '/admin/current-attendance',
+        '/admin/departments'
       ];
       if (itForbidden.some(prefix => pathname.startsWith(prefix))) {
         router.replace('/admin/tickets');
@@ -324,7 +328,7 @@ export default function AdminLayout({ children }) {
     .filter(group => {
       if (isHRUser && group.adminOnly) return false;
       if (isITSupport) {
-        if (["Client Management", "Marketing", "Operations & Projects", "HR Portal", "Security & Auditing"].includes(group.title)) return false;
+        if (["Client Management", "Marketing", "Operations & Projects", "HR Portal", "Security & Auditing", "Organization & HR"].includes(group.title)) return false;
       }
       if (isDnsManager && !isAdminUser) {
         if (group.title !== "Client Management") return false;
@@ -352,10 +356,15 @@ export default function AdminLayout({ children }) {
             "Chat Workspace",
             "Screenshots",
             "Attendance",
+            "Attendance History",
+            "Current Attendance",
+            "Biometric Terminal (ESP32)",
+            "Workplace Grievances",
             "Leave Requests",
             "Activity & Screenshots",
             "Team Directory",
             "Team Hierarchy",
+            "Departments",
             "Security & Audit Logs",
             "System Logs & Audit"
           ].includes(item.name)) return false;

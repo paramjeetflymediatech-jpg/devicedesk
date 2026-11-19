@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../auth/AuthContext';
+import { isITSupportUser, isSuperAdminUser } from '../../utils/authTokens';
 import {
   FiAlertTriangle,
   FiShield,
@@ -27,8 +30,17 @@ import {
 import Swal from 'sweetalert2';
 
 export default function AdminGrievancesPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Security gate: Block IT Support / IT Engineers from accessing Workplace Grievances Admin desk
+  useEffect(() => {
+    if (user && isITSupportUser(user) && !isSuperAdminUser(user)) {
+      router.replace('/admin/tickets');
+    }
+  }, [user, router]);
   const [refreshing, setRefreshing] = useState(false);
   const [grievances, setGrievances] = useState([]);
   const [employees, setEmployees] = useState([]);

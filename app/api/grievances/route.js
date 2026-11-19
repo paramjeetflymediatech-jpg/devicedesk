@@ -18,7 +18,11 @@ export async function GET(request) {
     const currentUserId = currentUser?.id || queryEmpId || null;
     const currentRole = (currentUser?.role || queryRole || '').toUpperCase();
 
-    const isHR = currentRole === 'ADMIN' || currentRole === 'SUPERADMIN' || currentRole === 'HR';
+    const userRoleLower = (currentUser?.role || '').toLowerCase();
+    const userDeptLower = (currentUser?.department || '').toLowerCase();
+    const isIT = userRoleLower.includes('engineer') || userRoleLower.includes('it support') || userDeptLower.includes('it');
+
+    const isHR = !isIT && (currentRole === 'ADMIN' || currentRole === 'SUPERADMIN' || currentRole === 'HR');
 
     // Base query with defensive collation conversions to prevent ER_CANT_AGGREGATE_2COLLATIONS
     let query = `

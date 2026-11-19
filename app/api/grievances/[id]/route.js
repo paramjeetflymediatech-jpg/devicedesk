@@ -14,6 +14,13 @@ export async function PATCH(request, context) {
     }
 
     const auth = await checkAuth(request);
+    const userRoleLower = (auth?.user?.role || '').toLowerCase();
+    const userDeptLower = (auth?.user?.department || '').toLowerCase();
+    const isIT = userRoleLower.includes('engineer') || userRoleLower.includes('it support') || userDeptLower.includes('it');
+    if (isIT) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: IT engineers cannot manage or review workplace grievances.' }, { status: 403 });
+    }
+
     const body = await request.json();
 
     const reviewerId = auth?.user?.id || body.reviewed_by || 'HR_ADMIN';
@@ -67,6 +74,14 @@ export async function DELETE(request, context) {
 
     if (!grievanceId) {
       return NextResponse.json({ success: false, error: 'Grievance ID is required' }, { status: 400 });
+    }
+
+    const auth = await checkAuth(request);
+    const userRoleLower = (auth?.user?.role || '').toLowerCase();
+    const userDeptLower = (auth?.user?.department || '').toLowerCase();
+    const isIT = userRoleLower.includes('engineer') || userRoleLower.includes('it support') || userDeptLower.includes('it');
+    if (isIT) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: IT engineers cannot delete workplace grievances.' }, { status: 403 });
     }
 
     const pool = await getPool();

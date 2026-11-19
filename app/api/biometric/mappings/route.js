@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
+import { checkAuth } from '../../utils/storageManager.js';
 
 export async function GET() {
   try {
@@ -19,6 +20,14 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    const auth = await checkAuth(request);
+    const userRoleLower = (auth?.user?.role || '').toLowerCase();
+    const userDeptLower = (auth?.user?.department || '').toLowerCase();
+    const isIT = userRoleLower.includes('engineer') || userRoleLower.includes('it support') || userDeptLower.includes('it');
+    if (isIT) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: IT engineers cannot manage biometric fingerprint mappings.' }, { status: 403 });
+    }
+
     const body = await request.json();
     const {
       employee_id,
@@ -100,6 +109,14 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
+    const auth = await checkAuth(request);
+    const userRoleLower = (auth?.user?.role || '').toLowerCase();
+    const userDeptLower = (auth?.user?.department || '').toLowerCase();
+    const isIT = userRoleLower.includes('engineer') || userRoleLower.includes('it support') || userDeptLower.includes('it');
+    if (isIT) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: IT engineers cannot delete biometric fingerprint mappings.' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const slot = Number(searchParams.get('slot'));
     const deviceId = searchParams.get('device_id') || 'DEVICE001';

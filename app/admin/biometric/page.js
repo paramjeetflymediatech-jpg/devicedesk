@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../auth/AuthContext';
+import { isITSupportUser, isSuperAdminUser } from '../../utils/authTokens';
 import {
   FiCpu, FiRadio, FiActivity, FiCheckCircle, FiAlertCircle, FiClock,
   FiPlus, FiTrash2, FiRefreshCw, FiUser, FiSliders, FiTerminal,
@@ -31,7 +34,17 @@ function signalColor(quality) {
 }
 
 export default function AdminBiometricTerminalPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
+
+  // Security gate: Block IT Support / IT Engineers from accessing Biometric & Current Attendance
+  useEffect(() => {
+    if (user && isITSupportUser(user) && !isSuperAdminUser(user)) {
+      router.replace('/admin/tickets');
+    }
+  }, [user, router]);
+
   useEffect(() => {
     setMounted(true);
   }, []);
