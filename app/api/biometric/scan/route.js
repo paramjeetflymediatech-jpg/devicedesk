@@ -144,17 +144,48 @@ export async function POST(request) {
   const { dateStr, timeIso, timeFormatted, istDate } = getIstDateStrings();
   const deviceInfo = `ESP32 (${device.device_id}) - Slot #${slot}`;
 
-  // Check today's active attendance in attendance_records
-  const [todayAttendance] = await pool.execute(`
+  // Check 1: What was the employee's last biometric action?
+  const [lastScanRows] = await pool.execute(`
+    SELECT action FROM biometric_scan_logs
+    WHERE employee_id = ? AND action IN ('PUNCH_IN', 'PUNCH_OUT')
+    ORDER BY id DESC LIMIT 1
+  `, [employeeId]);
+  const lastBiometricAction = lastScanRows.length > 0 ? lastScanRows[0].action : null;
+
+  // Check 2: Active unclosed biometric lab session
+  const [openLabRows] = await pool.execute(`
+    SELECT * FROM biometric_lab_attendance
+    WHERE employee_id = ? AND status = 'IN_LAB' AND out_time IS NULL
+    ORDER BY in_time DESC LIMIT 1
+  `, [employeeId]);
+  const openLabSession = openLabRows.length > 0 ? openLabRows[0] : null;
+
+  // Check 3: Active open attendance record in attendance_records
+  const [openAttendanceRows] = await pool.execute(`
+    SELECT * FROM attendance_records
+    WHERE employeeId = ? 
+      AND punchInTime IS NOT NULL 
+      AND (punchOutTime IS NULL OR TRIM(punchOutTime) = '')
+    ORDER BY punchInTime DESC LIMIT 1
+  `, [employeeId]);
+  const openAttendanceRecord = openAttendanceRows.length > 0 ? openAttendanceRows[0] : null;
+
+  // Check 4: Any attendance record for today (even if previously punched out)
+  const [todayAttendanceRows] = await pool.execute(`
     SELECT * FROM attendance_records
     WHERE employeeId = ? AND date = ?
-    ORDER BY id DESC LIMIT 1
+    ORDER BY punchInTime DESC LIMIT 1
   `, [employeeId, dateStr]);
+  const todayRecord = todayAttendanceRows.length > 0 ? todayAttendanceRows[0] : null;
 
-  const activeRecord = todayAttendance.length > 0 ? todayAttendance[0] : null;
-  const hasOpenPunch = activeRecord && activeRecord.punchInTime && !activeRecord.punchOutTime;
+  // Smart Toggle Determination:
+  // An employee is currently punched in if:
+  // - Their last biometric scan was PUNCH_IN, OR
+  // - They have an open lab session, OR
+  // - They have an open attendance record without punchOutTime
+  const isPunchedIn = (lastBiometricAction === 'PUNCH_IN') || Boolean(openLabSession) || Boolean(openAttendanceRecord);
 
-  if (!hasOpenPunch) {
+  if (!isPunchedIn) {
     // -------------------------------------------------------------
     // PUNCH IN
     // -------------------------------------------------------------
@@ -166,23 +197,26 @@ export async function POST(request) {
     const attStatus = isLate ? 'Late' : 'Present';
 
     let attRecordId;
-    if (activeRecord) {
-      // Re-opening or updating today's record
-      attRecordId = activeRecord.id;
+    if (todayRecord) {
+      // Re-opening today's record (e.g. returning from break / re-entry)
+      attRecordId = todayRecord.id;
       await pool.execute(`
         UPDATE attendance_records
-        SET punchInTime = ?, status = ?, punchSource = 'ESP32_BIOMETRIC',
-            deviceInfo = ?, remarks = CONCAT(COALESCE(remarks, ''), ' | ESP32 Punch In at ', ?)
+        SET punchOutTime = NULL,
+            status = ?,
+            punchSource = 'ESP32_BIOMETRIC',
+            deviceInfo = ?,
+            remarks = CONCAT(COALESCE(remarks, ''), ' | ESP32 Punch In at ', ?)
         WHERE id = ?
-      `, [timeIso, attStatus, deviceInfo, timeFormatted, attRecordId]);
+      `, [attStatus, deviceInfo, timeFormatted, attRecordId]);
     } else {
       // New attendance record for today
       attRecordId = `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       await pool.execute(`
         INSERT INTO attendance_records (
-          id, employeeId, employeeName, date, punchInTime, status,
+          id, employeeId, employeeName, date, punchInTime, punchOutTime, status,
           punchSource, deviceInfo, remarks, breakStatus
-        ) VALUES (?, ?, ?, ?, ?, ?, 'ESP32_BIOMETRIC', ?, ?, 'Completed')
+        ) VALUES (?, ?, ?, ?, ?, NULL, ?, 'ESP32_BIOMETRIC', ?, ?, 'Completed')
       `, [
         attRecordId,
         employeeId,
@@ -194,6 +228,13 @@ export async function POST(request) {
         `ESP32 Biometric Punch In at ${timeFormatted} (Slot #${slot})`
       ]);
     }
+
+    // Close any previous unclosed lab session before starting new one
+    await pool.execute(`
+      UPDATE biometric_lab_attendance
+      SET status = 'OUT_OF_LAB', out_time = NOW()
+      WHERE employee_id = ? AND status = 'IN_LAB' AND out_time IS NULL
+    `, [employeeId]);
 
     // Insert into biometric_lab_attendance for IoT granular tracking
     await pool.execute(`
@@ -231,26 +272,49 @@ export async function POST(request) {
     // -------------------------------------------------------------
     // PUNCH OUT
     // -------------------------------------------------------------
-    const punchInMs = new Date(activeRecord.punchInTime).getTime();
+    let effectivePunchInMs = null;
+    if (openAttendanceRecord?.punchInTime) {
+      effectivePunchInMs = new Date(openAttendanceRecord.punchInTime).getTime();
+    } else if (openLabSession?.in_time) {
+      effectivePunchInMs = new Date(openLabSession.in_time).getTime();
+    } else if (todayRecord?.punchInTime) {
+      effectivePunchInMs = new Date(todayRecord.punchInTime).getTime();
+    } else {
+      effectivePunchInMs = Date.now();
+    }
+
     const punchOutMs = new Date(timeIso).getTime();
-    const totalMinutes = Math.max(0, Math.floor((punchOutMs - punchInMs) / 60000));
-    const totalBreak = Number(activeRecord.totalBreakMinutes || 0);
+    const totalMinutes = Math.max(0, Math.floor((punchOutMs - effectivePunchInMs) / 60000));
+    const targetRecord = openAttendanceRecord || todayRecord;
+    const totalBreak = Number(targetRecord?.totalBreakMinutes || 0);
     const netMinutes = Math.max(0, totalMinutes - totalBreak);
 
-    // Update attendance_records
-    await pool.execute(`
-      UPDATE attendance_records
-      SET punchOutTime = ?, totalWorkMinutes = ?, netWorkMinutes = ?,
-          remarks = CONCAT(COALESCE(remarks, ''), ' | ESP32 Punch Out at ', ?)
-      WHERE id = ?
-    `, [timeIso, totalMinutes, netMinutes, timeFormatted, activeRecord.id]);
+    // Update attendance_records if record exists
+    if (targetRecord) {
+      let finalStatus = targetRecord.status;
+      if (netMinutes < 240) {
+        finalStatus = 'Half Day';
+      } else if (netMinutes >= 540) {
+        finalStatus = 'Overtime';
+      } else {
+        finalStatus = 'Completed';
+      }
 
-    // Close biometric_lab_attendance session if open
+      await pool.execute(`
+        UPDATE attendance_records
+        SET punchOutTime = ?, totalWorkMinutes = ?, netWorkMinutes = ?,
+            status = ?, remarks = CONCAT(COALESCE(remarks, ''), ' | ESP32 Punch Out at ', ?)
+        WHERE id = ?
+      `, [timeIso, totalMinutes, netMinutes, finalStatus, timeFormatted, targetRecord.id]);
+    }
+
+    // Close biometric_lab_attendance session
     await pool.execute(`
       UPDATE biometric_lab_attendance
-      SET out_time = NOW(), duration_minutes = TIMESTAMPDIFF(MINUTE, in_time, NOW()), status = 'OUT_LAB'
+      SET out_time = NOW(),
+          duration_minutes = TIMESTAMPDIFF(MINUTE, in_time, NOW()),
+          status = 'OUT_OF_LAB'
       WHERE employee_id = ? AND status = 'IN_LAB' AND out_time IS NULL
-      ORDER BY id DESC LIMIT 1
     `, [employeeId]);
 
     // Audit log
@@ -278,7 +342,7 @@ export async function POST(request) {
       duration_minutes: totalMinutes,
       duration_label: durLabel,
       fingerprint_slot: slot,
-      attendance_id: activeRecord.id,
+      attendance_id: targetRecord?.id || null,
       message: `${employeeName} punched out successfully (${durLabel})!`,
       display_line1: l1,
       display_line2: l2
