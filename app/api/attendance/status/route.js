@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
-
-function formatLocalDate(d) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { formatLocalDate, getMinutesBetween } from '../../utils/istDate.js';
 
 async function autoClosePreviousOpenSessions(pool, employeeId, todayStr) {
   try {
@@ -19,7 +13,7 @@ async function autoClosePreviousOpenSessions(pool, employeeId, todayStr) {
 
     for (const record of openRows) {
       const recordDateStr = record.date;
-      const autoPunchOutIso = `${recordDateStr}T23:59:59.000Z`;
+      const autoPunchOutIso = `${recordDateStr}T21:00:00+05:30`;
 
       // If this is an Absent/Leave record or has no valid punchInTime, close it safely with 0 minutes
       if (!record.punchInTime || record.punchInTime.trim() === '' || record.status === 'Absent' || record.status === 'On Leave') {
@@ -36,11 +30,7 @@ async function autoClosePreviousOpenSessions(pool, employeeId, todayStr) {
         continue;
       }
 
-      const autoPunchOutMs = new Date(autoPunchOutIso).getTime();
-      const punchInDate = new Date(record.punchInTime);
-      const punchInMs = isNaN(punchInDate.getTime()) ? null : punchInDate.getTime();
-
-      // Close any open break for this record at 11:59:59 PM
+      // Close any open break for this record
       await pool.query(
         `UPDATE attendance_breaks SET endTime = ? WHERE attendanceId = ? AND endTime IS NULL`,
         [autoPunchOutIso, record.id]
@@ -52,26 +42,15 @@ async function autoClosePreviousOpenSessions(pool, employeeId, todayStr) {
         [record.id]
       );
 
-      let totalBreakSecs = 0;
+      let totalBreakMins = 0;
       for (const b of breakRows) {
         if (b.startTime && b.endTime) {
-          const s = new Date(b.startTime).getTime();
-          const e = new Date(b.endTime).getTime();
-          if (Number.isFinite(s) && Number.isFinite(e) && e > s) {
-            totalBreakSecs += Math.floor((e - s) / 1000);
-          }
+          totalBreakMins += getMinutesBetween(b.startTime, b.endTime);
         }
       }
 
-      let totalWorkSecs = 0;
-      if (punchInMs !== null && Number.isFinite(punchInMs) && Number.isFinite(autoPunchOutMs) && autoPunchOutMs > punchInMs) {
-        totalWorkSecs = Math.max(0, Math.floor((autoPunchOutMs - punchInMs) / 1000));
-      }
-      const netWorkSecs = Math.max(0, totalWorkSecs - totalBreakSecs);
-
-      const totalWorkMins = Number.isFinite(totalWorkSecs) ? Math.floor(totalWorkSecs / 60) : 0;
-      const totalBreakMins = Number.isFinite(totalBreakSecs) ? Math.floor(totalBreakSecs / 60) : 0;
-      const netWorkMins = Number.isFinite(netWorkSecs) ? Math.floor(netWorkSecs / 60) : 0;
+      const totalWorkMins = getMinutesBetween(record.punchInTime, autoPunchOutIso);
+      const netWorkMins = Math.max(0, totalWorkMins - totalBreakMins);
 
       let finalStatus = record.status;
       if (finalStatus === 'Present' || finalStatus === 'Late') {
@@ -86,7 +65,7 @@ async function autoClosePreviousOpenSessions(pool, employeeId, todayStr) {
           netWorkMinutes = ?, 
           status = ?, 
           breakStatus = 'Completed',
-          remarks = COALESCE(CONCAT(remarks, ' | Auto punched-out at 11:59 PM'), 'Auto punched-out at 11:59 PM')
+          remarks = COALESCE(CONCAT(remarks, ' | Auto punched-out at 09:00 PM'), 'Auto punched-out at 09:00 PM')
          WHERE id = ?`,
         [autoPunchOutIso, totalWorkMins, totalBreakMins, netWorkMins, finalStatus, record.id]
       );

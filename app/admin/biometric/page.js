@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../auth/AuthContext';
 import { isITSupportUser, isSuperAdminUser } from '../../utils/authTokens';
+import { formatIstTime, formatIstDate } from '../../utils/istDate.js';
 import {
   FiCpu, FiRadio, FiActivity, FiCheckCircle, FiAlertCircle, FiClock,
   FiPlus, FiTrash2, FiRefreshCw, FiUser, FiSliders, FiTerminal,
@@ -78,7 +79,7 @@ export default function AdminBiometricTerminalPage() {
       const data = await res.json();
       if (data.success) {
         setStatusData(data);
-        setLastFetched(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }));
+        setLastFetched(formatIstTime(new Date(), true));
       }
     } catch (err) {
       console.error('Fetch biometric status error:', err);
@@ -632,7 +633,7 @@ export default function AdminBiometricTerminalPage() {
                               <span className={s.last_punch_type === 'PUNCH_IN' ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
                                 {s.last_punch_type}
                               </span>{' '}
-                              <span>{new Date(s.last_punch_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                              <span>{formatIstTime(s.last_punch_time)}</span>
                             </div>
                           ) : (
                             '-'
@@ -685,7 +686,7 @@ export default function AdminBiometricTerminalPage() {
                     <div className="text-xs text-slate-400">{s.department || 'Staff'}</div>
                     <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
                       <FiClock size={12} />
-                      <span>Entered at {new Date(s.in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                      <span>Entered at {formatIstTime(s.in_time)}</span>
                     </div>
                   </div>
                   <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
@@ -752,7 +753,7 @@ export default function AdminBiometricTerminalPage() {
                     </div>
 
                     <div className="text-right shrink-0 text-slate-400 font-mono text-[11px]">
-                      {new Date(log.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                      {formatIstTime(log.created_at, true)}
                     </div>
                   </div>
                 );
@@ -838,7 +839,7 @@ export default function AdminBiometricTerminalPage() {
                       </td>
 
                       <td className="py-3 px-4 text-slate-400 text-[11px]">
-                        {m.enrolled_at ? new Date(m.enrolled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
+                        {m.enrolled_at ? formatIstDate(m.enrolled_at) : '-'}
                       </td>
 
                       <td className="py-3 px-4 text-right">
@@ -984,11 +985,11 @@ export default function AdminBiometricTerminalPage() {
                           <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-mono text-[10px]">
                             Stay #{sess.session_number || (selectedEmpSessions.length - idx)}
                           </span>
-                          <span>Entered: {new Date(sess.in_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                          <span>Entered: {formatIstTime(sess.in_time)}</span>
                         </div>
                         <div className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
                           {sess.out_time ? (
-                            <span>Exited: {new Date(sess.out_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                            <span>Exited: {formatIstTime(sess.out_time)}</span>
                           ) : (
                             <span className="text-emerald-600 font-semibold animate-pulse">● Currently Inside Room</span>
                           )}
@@ -1021,7 +1022,7 @@ export default function AdminBiometricTerminalPage() {
                       <span className="text-slate-400">#{p.punch_number}</span>
                     </div>
                     <div className="font-mono text-slate-600 dark:text-slate-400">
-                      {new Date(p.punch_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                      {formatIstTime(p.punch_time, true)}
                     </div>
                   </div>
                 ))}

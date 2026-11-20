@@ -1,23 +1,6 @@
 import { getPool } from '../db/db.js';
 import { sendMailNotification } from './mailHelper.js';
-
-function formatLocalDate(d) {
-  const istDate = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-  const year = istDate.getFullYear();
-  const month = String(istDate.getMonth() + 1).padStart(2, '0');
-  const day = String(istDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function getPreviousDayDateStr(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  date.setUTCDate(date.getUTCDate() - 1);
-  const yyyy = date.getUTCFullYear();
-  const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(date.getUTCDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
+import { getIstTimeInfo, formatIstTime, formatDurationMinutes } from '../../utils/istDate.js';
 
 /**
  * Checks attendance and dispatches a summary report email (Morning/Afternoon/Evening).
@@ -31,17 +14,16 @@ export async function checkAndSendSummaryReport(connectionOverride = null, perio
     const shouldRelease = !connectionOverride;
 
     try {
-      const now = new Date();
-      const istDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      const { zonedDateTime, dateStr } = getIstTimeInfo();
       
-      // Stop automatic emails on Sundays unless forced
-      if (istDate.getDay() === 0 && !force) {
+      // Stop automatic emails on Sundays unless forced (Sunday is 7 in ISO Temporal)
+      if (zonedDateTime.dayOfWeek === 7 && !force) {
         if (shouldRelease) db.release();
         return { success: true, message: 'Skipped: Automatic emails are disabled on Sundays.' };
       }
 
-      const todayStr = dateOverride || formatLocalDate(now);
-      const yesterdayStr = getPreviousDayDateStr(todayStr);
+      const todayStr = dateOverride || dateStr;
+      const yesterdayStr = zonedDateTime.subtract({ days: 1 }).toPlainDate().toString();
 
       // Create tracking table if not exists
       await db.execute(`
@@ -203,20 +185,9 @@ export async function checkAndSendSummaryReport(connectionOverride = null, perio
         console.warn('Could not fetch yesterday auto-closed records:', yErr.message);
       }
 
-      // Helper to format IST times
-      const formatTimeIST = (timeStr) => {
-        if (!timeStr) return '-';
-        const d = new Date(timeStr);
-        if (isNaN(d.getTime())) return '-';
-        return d.toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: '2-digit', minute: '2-digit' });
-      };
-
-      const formatDuration = (mins) => {
-        if (!mins || mins <= 0) return '0h 0m';
-        const h = Math.floor(mins / 60);
-        const m = mins % 60;
-        return `${h}h ${m}m`;
-      };
+      // Helper to format IST times using Temporal
+      const formatTimeIST = (timeStr) => formatIstTime(timeStr);
+      const formatDuration = (mins) => formatDurationMinutes(mins);
 
       // HTML Row Generators
       const generateStandardRows = (emps) => emps.map(emp => {

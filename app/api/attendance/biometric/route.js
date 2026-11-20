@@ -1,13 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
-
-function formatLocalDate(d) {
-  const istDate = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-  const year = istDate.getFullYear();
-  const month = String(istDate.getMonth() + 1).padStart(2, '0');
-  const day = String(istDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { getIstTimeInfo, getMinutesBetween } from '../../utils/istDate.js';
 
 export async function POST(request) {
   let body;
@@ -45,16 +38,22 @@ export async function POST(request) {
     for (const item of rawLogs) {
       // Support various field names from different machine SDKs
       const bioId = String(item.biometricId || item.deviceUserId || item.userId || item.id || '').trim();
-      const rawTime = item.timestamp || item.recordTime || item.time || new Date().toISOString();
-      const punchDateObj = new Date(rawTime);
-
-      if (!bioId || isNaN(punchDateObj.getTime())) {
+      const rawTime = item.timestamp || item.recordTime || item.time || null;
+      let timeInfo;
+      try {
+        timeInfo = getIstTimeInfo(rawTime);
+      } catch (err) {
         skippedCount++;
         continue;
       }
 
-      const punchIso = punchDateObj.toISOString();
-      const todayStr = formatLocalDate(punchDateObj);
+      if (!bioId) {
+        skippedCount++;
+        continue;
+      }
+
+      const punchIso = timeInfo.timeIso;
+      const todayStr = timeInfo.dateStr;
 
       // 1. Find employee by biometric_id OR id
       const [empRows] = await connection.execute(
@@ -79,10 +78,7 @@ export async function POST(request) {
 
       if (existingRows.length === 0) {
         // First punch of day -> PUNCH IN
-        const shiftCutoff = new Date(punchDateObj);
-        shiftCutoff.setHours(9, 40, 0, 0);
-        const isLate = punchDateObj > shiftCutoff;
-        const status = isLate ? 'Late' : 'Present';
+        const status = timeInfo.isLate ? 'Late' : 'Present';
 
         const recordId = `att_bio_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
 
@@ -95,32 +91,27 @@ export async function POST(request) {
       } else {
         // Subsequent punch -> Update PUNCH OUT
         const record = existingRows[0];
-        const punchInMs = new Date(record.punchInTime).getTime();
-        const punchOutMs = punchDateObj.getTime();
+        const totalWorkMins = getMinutesBetween(record.punchInTime, punchIso);
+        const netWorkMins = Math.max(0, totalWorkMins - (record.totalBreakMinutes || 0));
 
-        if (punchOutMs > punchInMs) {
-          const totalWorkMins = Math.max(0, Math.round((punchOutMs - punchInMs) / 60000));
-          const netWorkMins = Math.max(0, totalWorkMins - (record.totalBreakMinutes || 0));
-
-          let finalStatus = record.status;
-          if (netWorkMins < 240) {
-            finalStatus = 'Half Day';
-          } else if (netWorkMins >= 540) {
-            finalStatus = 'Overtime';
-          } else {
-            finalStatus = 'Completed';
-          }
-
-          await connection.execute(
-            `UPDATE attendance_records SET 
-              punchOutTime = ?, 
-              totalWorkMinutes = ?, 
-              netWorkMinutes = ?, 
-              status = ? 
-             WHERE id = ?`,
-            [punchIso, totalWorkMins, netWorkMins, finalStatus, record.id]
-          );
+        let finalStatus = record.status;
+        if (netWorkMins < 240) {
+          finalStatus = 'Half Day';
+        } else if (netWorkMins >= 540) {
+          finalStatus = 'Overtime';
+        } else {
+          finalStatus = 'Completed';
         }
+
+        await connection.execute(
+          `UPDATE attendance_records SET 
+            punchOutTime = ?, 
+            totalWorkMinutes = ?, 
+            netWorkMinutes = ?, 
+            status = ? 
+           WHERE id = ?`,
+          [punchIso, totalWorkMins, netWorkMins, finalStatus, record.id]
+        );
       }
 
       await connection.commit();

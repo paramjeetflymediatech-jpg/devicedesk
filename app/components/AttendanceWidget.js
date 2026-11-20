@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Swal from "sweetalert2";
 import { FiClock, FiCoffee, FiLogIn, FiPlayCircle, FiStopCircle, FiPlay, FiX, FiAlertCircle } from "react-icons/fi";
+import { getIstTimeInfo, parseIstMs } from "../utils/istDate";
 
 // Office Geolocation Settings (Flymedia Technology Ludhiana, Punjab, India)
 const OFFICE_LAT = parseFloat(process.env.NEXT_PUBLIC_OFFICE_LAT || "30.8795221");
@@ -69,12 +70,12 @@ export default function AttendanceWidget({ user, onStatusChange }) {
     }
 
     const nowMs = Date.now();
-    const punchInMs = new Date(statusData.activeRecord.punchInTime).getTime();
+    const punchInMs = parseIstMs(statusData.activeRecord.punchInTime);
     const completedBreakSecs = statusData.completedBreakSeconds || 0;
 
     let activeBreakSecs = 0;
     if (statusData.onBreak && statusData.activeBreak?.startTime) {
-      const breakStartMs = new Date(statusData.activeBreak.startTime).getTime();
+      const breakStartMs = parseIstMs(statusData.activeBreak.startTime);
       activeBreakSecs = Math.max(0, Math.floor((nowMs - breakStartMs) / 1000));
     }
 
@@ -327,8 +328,8 @@ export default function AttendanceWidget({ user, onStatusChange }) {
   const onBreak = statusData?.onBreak;
   const activeRecord = statusData?.activeRecord;
 
-  const nowObj = new Date();
-  const isPastCutoff = !punchedIn && (nowObj.getHours() > 18 || (nowObj.getHours() === 18 && nowObj.getMinutes() >= 30));
+  const { punchHour, punchMin } = getIstTimeInfo();
+  const isPastCutoff = !punchedIn && (punchHour > 18 || (punchHour === 18 && punchMin >= 30));
 
   return (
     <div

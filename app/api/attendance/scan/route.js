@@ -1,14 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
 import { getClientIp, isAllowedOfficeIp, verifyKioskToken } from '../../utils/kioskSecurity.js';
-
-function formatLocalDate(d) {
-  const istDate = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-  const year = istDate.getFullYear();
-  const month = String(istDate.getMonth() + 1).padStart(2, '0');
-  const day = String(istDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { getIstTimeInfo, parseIstMs, getMinutesBetween } from '../../utils/istDate.js';
 
 export async function POST(request) {
   // 1. Office IP Verification (if configured)
@@ -99,10 +92,9 @@ export async function POST(request) {
       }, { status: 403 });
     }
 
-    const now = new Date();
-    const nowIso = now.toISOString();
-    const todayStr = formatLocalDate(now);
-    const timeFormatted = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const { dateStr, timeFormatted, timeIso, isLate: punchInIsLate, epochMs: nowMs } = getIstTimeInfo();
+    const nowIso = timeIso;
+    const todayStr = dateStr;
 
     // 2. Fetch today's or any active open attendance record for this employee
     const [existingRows] = await connection.execute(
@@ -132,10 +124,8 @@ export async function POST(request) {
         }, { status: 400 });
       }
 
-      // Check if Late: Shift start 09:30 AM, grace period ends 09:40 AM
-      const shiftCutoff = new Date(now);
-      shiftCutoff.setHours(9, 40, 0, 0);
-      const isLate = now > shiftCutoff;
+      // Check if Late: Shift start 09:30 AM, grace period ends 09:40 AM (calculated via Temporal in IST)
+      const isLate = punchInIsLate;
       const status = isLate ? 'Late' : 'Present';
 
       const recordId = `att_qr_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
@@ -176,8 +166,8 @@ export async function POST(request) {
     }
 
     // Active session exists -> PUNCH OUT
-    const punchInMs = new Date(activeRecord.punchInTime).getTime();
-    const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - punchInMs) / 1000));
+    const punchInMs = parseIstMs(activeRecord.punchInTime);
+    const elapsedSeconds = Math.max(0, Math.floor((nowMs - punchInMs) / 1000));
 
     // Anti-bounce: If scanned again within 90 seconds of punch in, ignore to prevent accidental double-taps
     if (elapsedSeconds < 90) {
@@ -206,8 +196,7 @@ export async function POST(request) {
 
       if (breakRows.length > 0) {
         const openBreak = breakRows[0];
-        const startMs = new Date(openBreak.startTime).getTime();
-        const durationMins = Math.max(1, Math.round((now.getTime() - startMs) / 60000));
+        const durationMins = getMinutesBetween(openBreak.startTime, nowIso);
 
         await connection.execute(
           `UPDATE attendance_breaks SET endTime = ?, durationMinutes = ? WHERE id = ?`,
@@ -222,7 +211,7 @@ export async function POST(request) {
       }
     }
 
-    const totalWorkMins = Math.max(0, Math.round((now.getTime() - punchInMs) / 60000));
+    const totalWorkMins = getMinutesBetween(activeRecord.punchInTime, nowIso);
     const netWorkMins = Math.max(0, totalWorkMins - finalBreakMins);
 
     let finalStatus = activeRecord.status;

@@ -1,21 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
 import { authenticateBiometricDevice, getOrCreateTelemetry } from '../telemetry.js';
+import { getIstTimeInfo, parseIstMs, getMinutesBetween, formatDurationMinutes } from '../../utils/istDate.js';
 
 function firstNameOf(fullName) {
   return (fullName || 'Employee').trim().split(/\s+/)[0].slice(0, 14);
-}
-
-function getIstDateStrings() {
-  const now = new Date();
-  const istDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-  const yyyy = istDate.getFullYear();
-  const mm = String(istDate.getMonth() + 1).padStart(2, '0');
-  const dd = String(istDate.getDate()).padStart(2, '0');
-  const dateStr = `${yyyy}-${mm}-${dd}`;
-  const timeIso = istDate.toISOString();
-  const timeFormatted = istDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-  return { dateStr, timeIso, timeFormatted, istDate };
 }
 
 export async function POST(request) {
@@ -87,11 +76,21 @@ export async function POST(request) {
     LIMIT 1
   `, [device.device_id, slot]);
 
+  // 4. Determine IST date and time info upfront
+  const {
+    dateStr,
+    timeIso,
+    timeFormatted,
+    mysqlIstDateTime,
+    isLate,
+    nowMs
+  } = getIstTimeInfo();
+
   if (!mappings || mappings.length === 0) {
     await pool.execute(`
-      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message)
-      VALUES (?, ?, ?, NULL, 'REJECTED_UNKNOWN', ?)
-    `, [safeEventId, device.device_id, slot, `Unmapped fingerprint slot #${slot}`]);
+      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message, created_at)
+      VALUES (?, ?, ?, NULL, 'REJECTED_UNKNOWN', ?, ?)
+    `, [safeEventId, device.device_id, slot, `Unmapped fingerprint slot #${slot}`, mysqlIstDateTime]);
 
     tele.display_line1 = 'Unregistered';
     tele.display_line2 = `Slot #${slot}`;
@@ -113,35 +112,36 @@ export async function POST(request) {
   const employeeName = mapping.emp_name;
   const shortName = firstNameOf(employeeName);
 
-  // 4. 30-second cooldown check (prevent accidental double door / sensor taps)
+  // 5. 30-second cooldown check (prevent accidental double door / sensor taps)
   const [recentScans] = await pool.execute(`
     SELECT id, created_at FROM biometric_scan_logs
     WHERE employee_id = ? AND action IN ('PUNCH_IN', 'PUNCH_OUT', 'LAB_IN', 'LAB_OUT')
-      AND created_at >= (NOW() - INTERVAL 30 SECOND)
     ORDER BY id DESC LIMIT 1
   `, [employeeId]);
 
   if (recentScans && recentScans.length > 0) {
-    await pool.execute(`
-      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message)
-      VALUES (?, ?, ?, ?, 'COOLDOWN', 'Ignored duplicate scan within 30s cooldown')
-    `, [safeEventId, device.device_id, slot, employeeId]);
+    const lastScanMs = parseIstMs(recentScans[0].created_at);
+    if (Math.abs(nowMs - lastScanMs) < 30000) {
+      await pool.execute(`
+        INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message, created_at)
+        VALUES (?, ?, ?, ?, 'COOLDOWN', 'Ignored duplicate scan within 30s cooldown', ?)
+      `, [safeEventId, device.device_id, slot, employeeId, mysqlIstDateTime]);
 
-    tele.display_line1 = shortName;
-    tele.display_line2 = 'Wait 30s...';
-    tele.last_event_type = 'COOLDOWN';
+      tele.display_line1 = shortName;
+      tele.display_line2 = 'Wait 30s...';
+      tele.last_event_type = 'COOLDOWN';
 
-    return NextResponse.json({
-      status: 'COOLDOWN',
-      employee: { id: employeeId, name: employeeName, department: mapping.emp_dept },
-      message: 'Scan ignored: please wait 30 seconds between scans.',
-      display_line1: shortName,
-      display_line2: 'Wait 30s...'
-    });
+      return NextResponse.json({
+        status: 'COOLDOWN',
+        employee: { id: employeeId, name: employeeName, department: mapping.emp_dept },
+        message: 'Scan ignored: please wait 30 seconds between scans.',
+        display_line1: shortName,
+        display_line2: 'Wait 30s...'
+      });
+    }
   }
 
-  // 5. Determine whether PUNCH IN or PUNCH OUT
-  const { dateStr, timeIso, timeFormatted, istDate } = getIstDateStrings();
+  // 6. Determine whether PUNCH IN or PUNCH OUT
   const deviceInfo = `ESP32 (${device.device_id}) - Slot #${slot}`;
 
   // Check 1: What was the employee's last biometric action?
@@ -189,11 +189,6 @@ export async function POST(request) {
     // -------------------------------------------------------------
     // PUNCH IN
     // -------------------------------------------------------------
-    // Check if late (office grace time usually 09:40 AM)
-    const punchHour = istDate.getHours();
-    const punchMin = istDate.getMinutes();
-    const totalMinutesSinceMidnight = punchHour * 60 + punchMin;
-    const isLate = totalMinutesSinceMidnight > (9 * 60 + 40); // After 9:40 AM
     const attStatus = isLate ? 'Late' : 'Present';
 
     let attRecordId;
@@ -237,41 +232,41 @@ export async function POST(request) {
     const punchInNumber = (inCountRows[0]?.cnt || 0) + 1;
     const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    // Insert into biometric_door_sessions
+    // Insert into biometric_door_sessions with explicit IST datetime
     await pool.execute(`
       INSERT INTO biometric_door_sessions (
         session_id, employee_id, device_id, fingerprint_slot, attendance_date,
         in_time, status, session_number
-      ) VALUES (?, ?, ?, ?, ?, NOW(), 'INSIDE', ?)
-    `, [sessionId, employeeId, device.device_id, slot, dateStr, punchInNumber]);
+      ) VALUES (?, ?, ?, ?, ?, ?, 'INSIDE', ?)
+    `, [sessionId, employeeId, device.device_id, slot, dateStr, mysqlIstDateTime, punchInNumber]);
 
-    // Insert into biometric_room_attendance
+    // Insert into biometric_room_attendance with explicit IST datetime
     await pool.execute(`
       INSERT INTO biometric_room_attendance (
         employee_id, device_id, fingerprint_slot, attendance_date,
         punch_type, punch_time, punch_number, session_id
-      ) VALUES (?, ?, ?, ?, 'PUNCH_IN', NOW(), ?, ?)
-    `, [employeeId, device.device_id, slot, dateStr, punchInNumber, sessionId]);
+      ) VALUES (?, ?, ?, ?, 'PUNCH_IN', ?, ?, ?)
+    `, [employeeId, device.device_id, slot, dateStr, mysqlIstDateTime, punchInNumber, sessionId]);
 
     // Close any previous unclosed lab session before starting new one
     await pool.execute(`
       UPDATE biometric_lab_attendance
-      SET status = 'OUT_OF_LAB', out_time = NOW()
+      SET status = 'OUT_OF_LAB', out_time = ?
       WHERE employee_id = ? AND status = 'IN_LAB' AND out_time IS NULL
-    `, [employeeId]);
+    `, [mysqlIstDateTime, employeeId]);
 
     // Insert into biometric_lab_attendance for IoT granular tracking
     await pool.execute(`
       INSERT INTO biometric_lab_attendance (
         employee_id, device_id, fingerprint_slot, attendance_date, in_time, status
-      ) VALUES (?, ?, ?, ?, NOW(), 'IN_LAB')
-    `, [employeeId, device.device_id, slot, dateStr]);
+      ) VALUES (?, ?, ?, ?, ?, 'IN_LAB')
+    `, [employeeId, device.device_id, slot, dateStr, mysqlIstDateTime]);
 
     // Audit log
     await pool.execute(`
-      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message)
-      VALUES (?, ?, ?, ?, 'PUNCH_IN', ?)
-    `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} entered room (Punch In #${punchInNumber}) via ${deviceInfo}`]);
+      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message, created_at)
+      VALUES (?, ?, ?, ?, 'PUNCH_IN', ?, ?)
+    `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} entered room (Punch In #${punchInNumber}) via ${deviceInfo}`, mysqlIstDateTime]);
 
     const l1 = `Hi ${shortName}`;
     const l2 = `IN #${punchInNumber} ${timeFormatted}`;
@@ -313,26 +308,26 @@ export async function POST(request) {
     `, [employeeId, dateStr]);
     const punchOutNumber = (outCountRows[0]?.cnt || 0) + 1;
 
-    const punchOutMs = new Date(timeIso).getTime();
+    const punchOutMs = nowMs;
     const sessionInMs = activeDoor?.in_time 
-      ? new Date(activeDoor.in_time).getTime() 
-      : (openAttendanceRecord?.punchInTime ? new Date(openAttendanceRecord.punchInTime).getTime() : punchOutMs);
-    const sessionDurationMins = Math.max(1, Math.floor((punchOutMs - sessionInMs) / 60000));
+      ? parseIstMs(activeDoor.in_time) 
+      : (openAttendanceRecord?.punchInTime ? parseIstMs(openAttendanceRecord.punchInTime) : punchOutMs);
+    const sessionDurationMins = getMinutesBetween(sessionInMs, punchOutMs);
 
-    // Close current biometric_door_sessions record
+    // Close current biometric_door_sessions record with explicit IST datetime
     await pool.execute(`
       UPDATE biometric_door_sessions
-      SET out_time = NOW(), duration_minutes = ?, status = 'COMPLETED'
+      SET out_time = ?, duration_minutes = ?, status = 'COMPLETED'
       WHERE employee_id = ? AND status = 'INSIDE' AND out_time IS NULL
-    `, [sessionDurationMins, employeeId]);
+    `, [mysqlIstDateTime, sessionDurationMins, employeeId]);
 
-    // Insert into biometric_room_attendance log
+    // Insert into biometric_room_attendance log with explicit IST datetime
     await pool.execute(`
       INSERT INTO biometric_room_attendance (
         employee_id, device_id, fingerprint_slot, attendance_date,
         punch_type, punch_time, punch_number, duration_minutes, session_id
-      ) VALUES (?, ?, ?, ?, 'PUNCH_OUT', NOW(), ?, ?, ?)
-    `, [employeeId, device.device_id, slot, dateStr, punchOutNumber, sessionDurationMins, activeDoor?.session_id || null]);
+      ) VALUES (?, ?, ?, ?, 'PUNCH_OUT', ?, ?, ?, ?)
+    `, [employeeId, device.device_id, slot, dateStr, punchOutNumber, mysqlIstDateTime, sessionDurationMins, activeDoor?.session_id || null]);
 
     // Calculate cumulative full day inside-room minutes across all sessions today
     const [cumSessionRows] = await pool.execute(`
@@ -348,9 +343,9 @@ export async function POST(request) {
     // - Net Work Minutes: cumulative productive time spent inside room
     const targetRecord = openAttendanceRecord || todayRecord;
     const initialPunchInMs = targetRecord?.punchInTime 
-      ? new Date(targetRecord.punchInTime).getTime() 
+      ? parseIstMs(targetRecord.punchInTime) 
       : sessionInMs;
-    const grossShiftMinutes = Math.max(cumulativeInsideMinutes, Math.floor((punchOutMs - initialPunchInMs) / 60000));
+    const grossShiftMinutes = Math.max(cumulativeInsideMinutes, getMinutesBetween(initialPunchInMs, punchOutMs));
     const totalOutsideBreakMinutes = Math.max(0, grossShiftMinutes - cumulativeInsideMinutes);
 
     if (targetRecord) {
@@ -375,28 +370,23 @@ export async function POST(request) {
       `, [timeIso, grossShiftMinutes, totalOutsideBreakMinutes, cumulativeInsideMinutes, finalStatus, timeFormatted, targetRecord.id]);
     }
 
-    // Close biometric_lab_attendance session
+    // Close biometric_lab_attendance session with explicit IST datetime
     await pool.execute(`
       UPDATE biometric_lab_attendance
-      SET out_time = NOW(),
-          duration_minutes = TIMESTAMPDIFF(MINUTE, in_time, NOW()),
+      SET out_time = ?,
+          duration_minutes = ?,
           status = 'OUT_OF_LAB'
       WHERE employee_id = ? AND status = 'IN_LAB' AND out_time IS NULL
-    `, [employeeId]);
+    `, [mysqlIstDateTime, sessionDurationMins, employeeId]);
 
     // Audit log
-    const sessionLabel = sessionDurationMins >= 60
-      ? `${Math.floor(sessionDurationMins / 60)}h ${sessionDurationMins % 60}m`
-      : `${sessionDurationMins}m`;
-
-    const totalLabel = cumulativeInsideMinutes >= 60
-      ? `${Math.floor(cumulativeInsideMinutes / 60)}h ${cumulativeInsideMinutes % 60}m`
-      : `${cumulativeInsideMinutes}m`;
+    const sessionLabel = formatDurationMinutes(sessionDurationMins);
+    const totalLabel = formatDurationMinutes(cumulativeInsideMinutes);
 
     await pool.execute(`
-      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message)
-      VALUES (?, ?, ?, ?, 'PUNCH_OUT', ?)
-    `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} exited room (Punch Out #${punchOutNumber}) after ${sessionLabel} (Total today: ${totalLabel}) via ${deviceInfo}`]);
+      INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message, created_at)
+      VALUES (?, ?, ?, ?, 'PUNCH_OUT', ?, ?)
+    `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} exited room (Punch Out #${punchOutNumber}) after ${sessionLabel} (Total today: ${totalLabel}) via ${deviceInfo}`, mysqlIstDateTime]);
 
     const l1 = `Bye ${shortName}`;
     const l2 = `OUT #${punchOutNumber} (${sessionLabel})`;

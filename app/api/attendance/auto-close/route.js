@@ -1,14 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
-
-function formatLocalDate(d) {
-  // Convert to IST to get the exact "todayStr" in India
-  const istDate = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-  const year = istDate.getFullYear();
-  const month = String(istDate.getMonth() + 1).padStart(2, '0');
-  const day = String(istDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { getIstTimeInfo, formatLocalDate, getMinutesBetween } from '../../utils/istDate.js';
 
 export async function POST(req) {
   try {
@@ -25,9 +17,9 @@ export async function POST(req) {
     try {
       await connection.beginTransaction();
 
-      const now = new Date();
-      const nowIso = now.toISOString();
-      const todayStr = formatLocalDate(now);
+      const { dateStr, timeIso } = getIstTimeInfo();
+      const nowIso = timeIso;
+      const todayStr = dateStr;
 
       // Find all open sessions across ALL employees
       const [openRows] = await connection.execute(
@@ -40,10 +32,10 @@ export async function POST(req) {
       let closedCount = 0;
 
       for (const record of openRows) {
-        // If it's a previous day, auto close at 23:59:59 of that day. 
+        // If it's a previous day, auto close at 09:00 PM IST of that day. 
         // If it's today, auto close at the current time (which should be 9:00 PM IST when triggered).
         const isToday = record.date === todayStr;
-        const autoPunchOutIso = isToday ? nowIso : `${record.date}T15:30:00.000Z`;
+        const autoPunchOutIso = isToday ? nowIso : `${record.date}T21:00:00+05:30`;
 
         // If this is an Absent/Leave record or has no valid punchInTime, close it safely with 0 minutes
         if (!record.punchInTime || record.punchInTime.trim() === '' || record.status === 'Absent' || record.status === 'On Leave') {
@@ -61,10 +53,6 @@ export async function POST(req) {
           continue;
         }
 
-        const autoPunchOutMs = new Date(autoPunchOutIso).getTime();
-        const punchInDate = new Date(record.punchInTime);
-        const punchInMs = isNaN(punchInDate.getTime()) ? null : punchInDate.getTime();
-
         // 1. Close any open breaks
         await connection.execute(
           `UPDATE attendance_breaks SET endTime = ? WHERE attendanceId = ? AND endTime IS NULL`,
@@ -77,26 +65,15 @@ export async function POST(req) {
           [record.id]
         );
 
-        let totalBreakSecs = 0;
+        let totalBreakMins = 0;
         for (const b of breakRows) {
           if (b.startTime && b.endTime) {
-            const s = new Date(b.startTime).getTime();
-            const e = new Date(b.endTime).getTime();
-            if (Number.isFinite(s) && Number.isFinite(e) && e > s) {
-              totalBreakSecs += Math.floor((e - s) / 1000);
-            }
+            totalBreakMins += getMinutesBetween(b.startTime, b.endTime);
           }
         }
 
-        let totalWorkSecs = 0;
-        if (punchInMs !== null && Number.isFinite(punchInMs) && Number.isFinite(autoPunchOutMs) && autoPunchOutMs > punchInMs) {
-          totalWorkSecs = Math.max(0, Math.floor((autoPunchOutMs - punchInMs) / 1000));
-        }
-        const netWorkSecs = Math.max(0, totalWorkSecs - totalBreakSecs);
-
-        const totalWorkMins = Number.isFinite(totalWorkSecs) ? Math.floor(totalWorkSecs / 60) : 0;
-        const totalBreakMins = Number.isFinite(totalBreakSecs) ? Math.floor(totalBreakSecs / 60) : 0;
-        const netWorkMins = Number.isFinite(netWorkSecs) ? Math.floor(netWorkSecs / 60) : 0;
+        const totalWorkMins = getMinutesBetween(record.punchInTime, autoPunchOutIso);
+        const netWorkMins = Math.max(0, totalWorkMins - totalBreakMins);
 
         let finalStatus = record.status;
         if (finalStatus === 'Present' || finalStatus === 'Late') {

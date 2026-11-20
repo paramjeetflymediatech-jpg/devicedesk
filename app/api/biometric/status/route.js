@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
 import { getOrCreateTelemetry, rssiToPercent, rssiToQuality } from '../telemetry.js';
+import { getIstTimeInfo } from '../../utils/istDate.js';
 
 export async function GET() {
   try {
@@ -92,13 +93,8 @@ export async function GET() {
       ORDER BY name ASC
     `);
 
-    // 8. Room Movement Summary (Today's in/out counts per employee)
-    const nowDate = new Date();
-    const istDate = new Date(nowDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    const yyyy = istDate.getFullYear();
-    const mm = String(istDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(istDate.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
+    // 8. Room Movement Summary (Today's in/out counts per employee in IST)
+    const { dateStr: todayStr, timeIso: serverTimeIso } = getIstTimeInfo();
 
     let room_summary = [];
     let room_sessions = [];
@@ -161,7 +157,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      server_time: new Date().toISOString(),
+      server_time: serverTimeIso,
       devices,
       mappings,
       recent_logs,

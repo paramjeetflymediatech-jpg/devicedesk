@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '../../db/db.js';
+import { getIstTimeInfo } from '../../utils/istDate.js';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -145,10 +146,7 @@ export async function GET(request) {
 
       if (!isLate && r.punchInTime) {
         try {
-          const pDate = new Date(r.punchInTime);
-          const hrs = pDate.getHours();
-          const mins = pDate.getMinutes();
-          if (hrs * 60 + mins > 580) { // Punched in after 09:40 AM
+          if (getIstTimeInfo(r.punchInTime).isLate) {
             isLate = true;
           }
         } catch (e) {}

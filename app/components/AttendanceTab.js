@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import AttendanceWidget from "./AttendanceWidget";
 import { FiDownload, FiPlus, FiX } from "react-icons/fi";
+import { formatIstTime, getIstTimeInfo } from "../utils/istDate";
 
 export default function AttendanceTab({ user, mode }) {
   const userDbRole = (user?.dbRole || '').toLowerCase();
@@ -21,18 +22,16 @@ export default function AttendanceTab({ user, mode }) {
   // Filters
   const [filterType, setFilterType] = useState("monthly"); // all | monthly | daily | weekly | yearly | custom
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const { dateStr } = getIstTimeInfo();
+    return dateStr.substring(0, 7);
   });
   const [selectedDate, setSelectedDate] = useState(() => {
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const { dateStr } = getIstTimeInfo();
+    return dateStr;
   });
   const [selectedWeekDate, setSelectedWeekDate] = useState(() => {
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const { dateStr } = getIstTimeInfo();
+    return dateStr;
   });
   const [selectedYear, setSelectedYear] = useState(() => {
     return String(new Date().getFullYear());
@@ -205,8 +204,8 @@ export default function AttendanceTab({ user, mode }) {
       r.employeeId,
       `"${r.employeeName || ''}"`,
       r.date,
-      r.punchInTime ? new Date(r.punchInTime).toLocaleTimeString() : '',
-      r.punchOutTime ? new Date(r.punchOutTime).toLocaleTimeString() : '',
+      r.punchInTime ? formatIstTime(r.punchInTime) : '',
+      r.punchOutTime ? formatIstTime(r.punchOutTime) : '',
       r.status,
       r.totalWorkMinutes,
       r.totalBreakMinutes,
@@ -304,10 +303,7 @@ export default function AttendanceTab({ user, mode }) {
 
       if (!isLate && r.punchInTime) {
         try {
-          const pDate = new Date(r.punchInTime);
-          const hrs = pDate.getHours();
-          const mins = pDate.getMinutes();
-          if (hrs * 60 + mins > 580) { // Punched in after 09:40 AM
+          if (getIstTimeInfo(r.punchInTime).isLate) {
             isLate = true;
           }
         } catch (e) {}
@@ -360,8 +356,7 @@ export default function AttendanceTab({ user, mode }) {
       
       if (!isLate && r.punchInTime) {
         try {
-          const pDate = new Date(r.punchInTime);
-          if (pDate.getHours() * 60 + pDate.getMinutes() > 580) {
+          if (getIstTimeInfo(r.punchInTime).isLate) {
             isLate = true;
           }
         } catch(e) {}
@@ -1222,8 +1217,8 @@ export default function AttendanceTab({ user, mode }) {
                   const _netM = _netMins % 60;
                   const netDisplay = `${_netH}h ${_netM}m`;
                   const isAutoClosedRow = r.status === 'Auto Closed' || (r.remarks && (r.remarks.toLowerCase().includes('auto punched-out') || r.remarks.toLowerCase().includes('auto closed')));
-                  const inTimeStr = r.punchInTime ? new Date(r.punchInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
-                  const outTimeStr = r.punchOutTime ? new Date(r.punchOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (r.punchInTime ? 'Active' : '-');
+                  const inTimeStr = r.punchInTime ? formatIstTime(r.punchInTime) : '-';
+                  const outTimeStr = r.punchOutTime ? formatIstTime(r.punchOutTime) : (r.punchInTime ? 'Active' : '-');
 
                   return (
                     <tr 
