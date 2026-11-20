@@ -327,7 +327,7 @@ export async function POST(request) {
         employee_id, device_id, fingerprint_slot, attendance_date,
         punch_type, punch_time, punch_number, duration_minutes, session_id
       ) VALUES (?, ?, ?, ?, 'PUNCH_OUT', ?, ?, ?, ?)
-    `, [employeeId, device.device_id, slot, dateStr, punchOutNumber, mysqlIstDateTime, sessionDurationMins, activeDoor?.session_id || null]);
+    `, [employeeId, device.device_id, slot, dateStr, mysqlIstDateTime, punchOutNumber, sessionDurationMins, activeDoor?.session_id || null]);
 
     // Calculate cumulative full day inside-room minutes across all sessions today
     const [cumSessionRows] = await pool.execute(`
