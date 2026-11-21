@@ -15,12 +15,19 @@ import { isIosDisabled, isIosRequest, getIosMaintenanceMessage } from '../../uti
 
 export async function GET(request) {
   try {
-    // iOS Maintenance Kill Switch Check
+    // iOS Maintenance Kill Switch Check: Return clean empty dataset to prevent raw "HTTP Error 503" in mobile client
     if (await isIosDisabled() && isIosRequest(request)) {
       return NextResponse.json({
-        error: getIosMaintenanceMessage(),
-        ios_maintenance: true
-      }, { status: 503 });
+        employees: [],
+        systems: [],
+        tickets: [],
+        assignment_history: [],
+        departments: [],
+        sent_emails: [],
+        tasks: [],
+        maintenance: true,
+        message: getIosMaintenanceMessage()
+      });
     }
 
     // Ensure DB connection is active and tables are initialized
@@ -71,8 +78,9 @@ export async function POST(request) {
     if (await isIosDisabled() && isIosRequest(request)) {
       return NextResponse.json({
         error: getIosMaintenanceMessage(),
+        message: getIosMaintenanceMessage(),
         ios_maintenance: true
-      }, { status: 503 });
+      }, { status: 403 });
     }
 
     const { action, data } = await request.json();

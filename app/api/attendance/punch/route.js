@@ -3,6 +3,7 @@ import { getPool } from '../../db/db.js';
 import { checkAuth } from '../../utils/storageManager.js';
 import { logSecurityEvent } from '../../utils/securityLogger.js';
 import { getIstTimeInfo, formatLocalDate, getMinutesBetween } from '../../utils/istDate.js';
+import { isIosDisabled, isIosRequest, getIosMaintenanceMessage } from '../../../utils/iosBlocker.js';
 
 // In-memory concurrency locks per employee ID to block double-clicks & duplicate browser tab hits
 const activeLocks = new Set();
@@ -104,6 +105,14 @@ export async function POST(request) {
     body = await request.json();
   } catch (err) {
     return NextResponse.json({ success: false, message: 'Invalid JSON payload' }, { status: 400 });
+  }
+
+  // iOS Maintenance Kill Switch Check
+  if (await isIosDisabled() && isIosRequest(request, body)) {
+    return NextResponse.json({
+      success: false,
+      message: getIosMaintenanceMessage()
+    }, { status: 403 });
   }
 
   const { employeeId, employeeName, action, breakType, remarks, latitude, longitude } = body;

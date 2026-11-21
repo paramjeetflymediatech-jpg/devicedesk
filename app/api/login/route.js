@@ -15,9 +15,10 @@ export async function POST(request) {
       if (isIosRequest(request, { deviceModel })) {
         return NextResponse.json({
           success: false,
+          activeRouteBlocked: false,
           ios_maintenance: true,
           message: getIosMaintenanceMessage()
-        }, { status: 503 });
+        }, { status: 403 });
       }
     }
     console.log(`[API /login] Login attempt for identifier: "${identifier}" from device: "${deviceId || 'web/unknown'}" ChromeProfile: "${browserProfile?.profileId || 'N/A'}" GoogleEmail: "${browserProfile?.googleEmail || 'N/A'}" at ${new Date().toISOString()}`);

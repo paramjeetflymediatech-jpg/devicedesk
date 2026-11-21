@@ -15,7 +15,7 @@ export async function POST(request) {
           success: false,
           ios_maintenance: true,
           message: getIosMaintenanceMessage()
-        }, { status: 503 });
+        }, { status: 403 });
       }
     }
 
