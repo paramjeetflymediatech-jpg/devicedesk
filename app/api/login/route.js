@@ -12,7 +12,7 @@ export async function POST(request) {
 
     // 0. iOS Maintenance Kill Switch Check
     if (await isIosDisabled()) {
-      if (isIosRequest(request, { deviceModel })) {
+      if (isIosRequest(request, { deviceModel, browserProfile })) {
         return NextResponse.json({
           success: false,
           activeRouteBlocked: false,

@@ -43,27 +43,52 @@ export async function isIosDisabled() {
 }
 
 /**
- * Detects whether an incoming HTTP request originated from an iOS device.
+ * Detects whether an incoming HTTP request originated strictly from the native iOS application (App Store build).
+ * CRITICAL: Must NEVER block mobile web browsers (Safari, Chrome, Firefox on iPhone/iPad).
  */
 export function isIosRequest(request, payload = {}) {
-  // 1. Explicit payload deviceModel
+  // 1. If payload contains browserProfile (sent exclusively by the web application), it's 100% a web browser!
+  if (payload?.browserProfile) {
+    return false;
+  }
+
+  // 2. Explicit payload deviceModel sent exclusively by the React Native mobile app (LoginScreen / App.js)
   const deviceModel = payload?.deviceModel || '';
-  if (deviceModel === 'iOS Device' || deviceModel.toLowerCase().includes('ios')) {
+  if (deviceModel === 'iOS Device' || deviceModel.toLowerCase().includes('ios device')) {
     return true;
   }
 
-  // 2. Explicit header 'x-platform'
+  // 3. Explicit header 'x-platform'
   const xPlatform = (request?.headers?.get('x-platform') || '').toLowerCase().trim();
   if (xPlatform === 'ios') {
     return true;
   }
 
-  // 3. User-Agent string inspection (React Native iOS uses CFNetwork / Darwin networking)
+  // 4. User-Agent string inspection:
+  // React Native iOS uses native NSURLSession sending:
+  // "DeviceDesk/32 CFNetwork/1498.700.2 Darwin/23.6.0"
+  // Mobile Safari & Chrome on iPhone send standard browser strings like:
+  // "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) ... Version/17.5 Mobile/15E148 Safari/604.1"
   const ua = request?.headers?.get('user-agent') || '';
-  if (/CFNetwork|Darwin/i.test(ua)) {
+
+  // Standard mobile web browsers on iOS MUST NOT be blocked:
+  if (
+    ua.includes('Safari') ||
+    ua.includes('CriOS') ||
+    ua.includes('FxiOS') ||
+    ua.includes('EdgiOS') ||
+    ua.includes('OPiOS')
+  ) {
+    return false;
+  }
+
+  // If request contains the native app bundle identifier / app name:
+  if (/DeviceDesk/i.test(ua)) {
     return true;
   }
-  if (/iPhone|iPad|iPod/i.test(ua)) {
+
+  // Native Apple CFNetwork & Darwin networking stack (without any browser tokens):
+  if (/CFNetwork/i.test(ua) && /Darwin/i.test(ua)) {
     return true;
   }
 
@@ -71,7 +96,7 @@ export function isIosRequest(request, payload = {}) {
 }
 
 /**
- * Standard user-facing message displayed on iOS devices when maintenance is active.
+ * Standard user-facing message displayed on iOS native app when maintenance is active.
  */
 export function getIosMaintenanceMessage() {
   return (
