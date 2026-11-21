@@ -3,9 +3,20 @@ import { getPool } from '../../db/db.js';
 import { getOrCreateTelemetry, rssiToPercent, rssiToQuality } from '../telemetry.js';
 import { getIstTimeInfo } from '../../utils/istDate.js';
 
-export async function GET() {
+export async function GET(request) {
   try {
     const pool = getPool();
+    const { searchParams } = new URL(request.url);
+
+    const filterType = searchParams.get('filterType') || 'daily';
+    const dateParam = searchParams.get('date');
+    const monthParam = searchParams.get('month');
+    const yearParam = searchParams.get('year');
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
+    const employeeIdParam = searchParams.get('employeeId');
+    const searchParam = searchParams.get('search');
+    const deptParam = searchParams.get('department');
 
     // 1. Devices with live telemetry
     const [dbDevices] = await pool.execute(`
@@ -76,14 +87,28 @@ export async function GET() {
       ORDER BY b.id DESC LIMIT 50
     `);
 
-    // 6. Currently Inside / Active Sessions
-    const [currently_in_lab] = await pool.execute(`
-      SELECT b.*, e.name as employee_name, e.department
-      FROM biometric_lab_attendance b
-      JOIN employees e ON CONVERT(b.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
-      WHERE b.status = 'IN_LAB' AND b.out_time IS NULL
-      ORDER BY b.in_time DESC
-    `);
+    // 6. Currently Inside / Active Room Sessions
+    let currently_inside = [];
+    try {
+      const [insideRows] = await pool.execute(`
+        SELECT s.*, e.name as employee_name, e.department
+        FROM biometric_door_sessions s
+        JOIN employees e ON CONVERT(s.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
+        WHERE s.status = 'INSIDE' AND s.out_time IS NULL
+        ORDER BY s.in_time DESC
+      `);
+      currently_inside = insideRows;
+    } catch (e) {
+      // Fallback to biometric_lab_attendance if door sessions table is empty/missing
+      const [labRows] = await pool.execute(`
+        SELECT b.*, e.name as employee_name, e.department
+        FROM biometric_lab_attendance b
+        JOIN employees e ON CONVERT(b.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
+        WHERE b.status = 'IN_LAB' AND b.out_time IS NULL
+        ORDER BY b.in_time DESC
+      `);
+      currently_inside = labRows;
+    }
 
     // 7. Active Employees list for slot assignment modal
     const [employees] = await pool.execute(`
@@ -93,32 +118,116 @@ export async function GET() {
       ORDER BY name ASC
     `);
 
-    // 8. Room Movement Summary (Today's in/out counts per employee in IST)
+    // 8. Room Movement Summary (Date-wise in/out counts per employee in IST)
     const { dateStr: todayStr, timeIso: serverTimeIso } = getIstTimeInfo();
 
     let room_summary = [];
     let room_sessions = [];
     let room_punches = [];
 
+    // Construct filter clauses
+    let rWhere = '';
+    let sWhere = '';
+    let pWhere = '';
+    const dateParams = [];
+    const sessionParams = [];
+    const punchParams = [];
+
+    if (filterType === 'daily') {
+      const targetDate = dateParam || todayStr;
+      rWhere += ' AND r.attendance_date = ? ';
+      sWhere += ' AND s.attendance_date = ? ';
+      pWhere += ' AND p.attendance_date = ? ';
+      dateParams.push(targetDate);
+      sessionParams.push(targetDate);
+      punchParams.push(targetDate);
+    } else if (filterType === 'monthly') {
+      const targetMonth = monthParam || todayStr.substring(0, 7);
+      rWhere += ' AND r.attendance_date LIKE ? ';
+      sWhere += ' AND s.attendance_date LIKE ? ';
+      pWhere += ' AND p.attendance_date LIKE ? ';
+      const likePattern = `${targetMonth}%`;
+      dateParams.push(likePattern);
+      sessionParams.push(likePattern);
+      punchParams.push(likePattern);
+    } else if (filterType === 'weekly' || filterType === 'custom') {
+      if (startDateParam && endDateParam) {
+        rWhere += ' AND r.attendance_date BETWEEN ? AND ? ';
+        sWhere += ' AND s.attendance_date BETWEEN ? AND ? ';
+        pWhere += ' AND p.attendance_date BETWEEN ? AND ? ';
+        dateParams.push(startDateParam, endDateParam);
+        sessionParams.push(startDateParam, endDateParam);
+        punchParams.push(startDateParam, endDateParam);
+      } else if (dateParam) {
+        rWhere += ' AND r.attendance_date = ? ';
+        sWhere += ' AND s.attendance_date = ? ';
+        pWhere += ' AND p.attendance_date = ? ';
+        dateParams.push(dateParam);
+        sessionParams.push(dateParam);
+        punchParams.push(dateParam);
+      }
+    } else if (filterType === 'yearly') {
+      const targetYear = yearParam || todayStr.substring(0, 4);
+      rWhere += ' AND r.attendance_date LIKE ? ';
+      sWhere += ' AND s.attendance_date LIKE ? ';
+      pWhere += ' AND p.attendance_date LIKE ? ';
+      const likePattern = `${targetYear}%`;
+      dateParams.push(likePattern);
+      sessionParams.push(likePattern);
+      punchParams.push(likePattern);
+    } else if (filterType === 'all') {
+      // All time! No date clause
+    }
+
+    if (employeeIdParam) {
+      rWhere += ' AND r.employee_id = ? ';
+      sWhere += ' AND s.employee_id = ? ';
+      pWhere += ' AND p.employee_id = ? ';
+      dateParams.push(employeeIdParam);
+      sessionParams.push(employeeIdParam);
+      punchParams.push(employeeIdParam);
+    }
+
+    if (deptParam && deptParam !== 'all') {
+      rWhere += ' AND e.department = ? ';
+      sWhere += ' AND e.department = ? ';
+      pWhere += ' AND e.department = ? ';
+      dateParams.push(deptParam);
+      sessionParams.push(deptParam);
+      punchParams.push(deptParam);
+    }
+
+    if (searchParam && searchParam.trim()) {
+      const term = `%${searchParam.trim().toLowerCase()}%`;
+      rWhere += ' AND (LOWER(e.name) LIKE ? OR LOWER(e.id) LIKE ? OR LOWER(e.department) LIKE ?) ';
+      sWhere += ' AND (LOWER(e.name) LIKE ? OR LOWER(e.id) LIKE ? OR LOWER(e.department) LIKE ?) ';
+      pWhere += ' AND (LOWER(e.name) LIKE ? OR LOWER(e.id) LIKE ? OR LOWER(e.department) LIKE ?) ';
+      dateParams.push(term, term, term);
+      sessionParams.push(term, term, term);
+      punchParams.push(term, term, term);
+    }
+
     try {
       const [summaryRows] = await pool.execute(`
         SELECT 
+          r.attendance_date,
           e.id as employee_id,
           e.name as employee_name,
           e.department,
-          fm.fingerprint_slot,
+          COALESCE(fm.fingerprint_slot, r.fingerprint_slot) as fingerprint_slot,
           COUNT(CASE WHEN r.punch_type = 'PUNCH_IN' THEN 1 END) as total_punch_in,
           COUNT(CASE WHEN r.punch_type = 'PUNCH_OUT' THEN 1 END) as total_punch_out,
           SUM(COALESCE(r.duration_minutes, 0)) as total_inside_minutes,
+          MIN(CASE WHEN r.punch_type = 'PUNCH_IN' THEN r.punch_time END) as first_punch_in,
           MAX(r.punch_time) as last_punch_time,
           (
             SELECT punch_type FROM biometric_room_attendance sub 
             WHERE CONVERT(sub.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci 
-              AND sub.attendance_date = ? 
+              AND sub.attendance_date = r.attendance_date 
             ORDER BY sub.id DESC LIMIT 1
           ) as last_punch_type,
           CASE 
-            WHEN EXISTS(
+            WHEN r.attendance_date = ? AND EXISTS(
               SELECT 1 FROM biometric_door_sessions s 
               WHERE CONVERT(s.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci 
                 AND s.status = 'INSIDE' AND s.out_time IS NULL
@@ -128,28 +237,29 @@ export async function GET() {
         FROM biometric_room_attendance r
         JOIN employees e ON CONVERT(r.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
         LEFT JOIN fingerprint_mappings fm ON CONVERT(fm.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
-        WHERE r.attendance_date = ?
-        GROUP BY e.id, e.name, e.department, fm.fingerprint_slot
-        ORDER BY last_punch_time DESC
-      `, [todayStr, todayStr]);
+        WHERE 1=1 ${rWhere}
+        GROUP BY r.attendance_date, e.id, e.name, e.department, COALESCE(fm.fingerprint_slot, r.fingerprint_slot)
+        ORDER BY r.attendance_date DESC, last_punch_time DESC
+        LIMIT 500
+      `, [todayStr, ...dateParams]);
       room_summary = summaryRows;
 
       const [sessionRows] = await pool.execute(`
         SELECT s.*, e.name as employee_name, e.department
         FROM biometric_door_sessions s
         JOIN employees e ON CONVERT(s.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
-        WHERE s.attendance_date = ?
-        ORDER BY s.in_time DESC LIMIT 100
-      `, [todayStr]);
+        WHERE 1=1 ${sWhere}
+        ORDER BY s.in_time DESC LIMIT 500
+      `, sessionParams);
       room_sessions = sessionRows;
 
       const [punchRows] = await pool.execute(`
         SELECT p.*, e.name as employee_name, e.department
         FROM biometric_room_attendance p
         JOIN employees e ON CONVERT(p.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
-        WHERE p.attendance_date = ?
-        ORDER BY p.punch_time DESC LIMIT 100
-      `, [todayStr]);
+        WHERE 1=1 ${pWhere}
+        ORDER BY p.punch_time DESC LIMIT 500
+      `, punchParams);
       room_punches = punchRows;
     } catch (e) {
       console.warn('Room attendance summary error:', e.message);
@@ -163,8 +273,8 @@ export async function GET() {
       recent_logs,
       pending_commands,
       lab_sessions,
-      currently_in_lab,
-      currently_inside: currently_in_lab,
+      currently_in_lab: currently_inside,
+      currently_inside,
       room_summary,
       room_sessions,
       room_punches,
