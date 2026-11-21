@@ -694,6 +694,11 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
   };
 
   const renderContent = () => {
+    // Restrict IT Support / Engineers from accessing administrative sections
+    if (isITSupport && ['employees', 'history', 'departments', 'tasks'].includes(activeTab)) {
+      return renderOverview();
+    }
+
     switch (activeTab) {
       case 'systems':
         return <ManageSystems currentUser={user} />;
@@ -966,8 +971,8 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
                 </TouchableOpacity>
               )}
 
-              {/* Employees Directory / Teams - Admin, IT Support, HR */}
-              {(isAdminUser || isITSupport) && (
+              {/* Employees Directory / Teams - Admin, HR */}
+              {(isAdminUser || isHRUser) && (
                 <TouchableOpacity
                   style={[
                     styles.drawerItem,
@@ -994,8 +999,8 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
                 </TouchableOpacity>
               )}
 
-              {/* Assignment History - Admin, IT Support */}
-              {(isAdminUser || isITSupport) && (
+              {/* Assignment History - Admin */}
+              {isAdminUser && (
                 <TouchableOpacity
                   style={[
                     styles.drawerItem,
@@ -1020,8 +1025,8 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
                 <Text style={[styles.drawerItemLabel, { color: themeColors.drawerItemText }]}>Chat Workspace</Text>
               </TouchableOpacity>
 
-              {/* Manage Departments - Admin, IT Support, HR */}
-              {(isAdminUser || isITSupport || isHRUser) && (
+              {/* Manage Departments - Admin, HR */}
+              {(isAdminUser || isHRUser) && (
                 <TouchableOpacity
                   style={[
                     styles.drawerItem,
@@ -1034,8 +1039,8 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
                 </TouchableOpacity>
               )}
 
-              {/* Manage Tasks - Admin, IT Support */}
-              {(isAdminUser || isITSupport) && (
+              {/* Manage Tasks - Admin */}
+              {isAdminUser && (
                 <TouchableOpacity
                   style={[
                     styles.drawerItem,
@@ -1561,15 +1566,17 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'employees' && styles.tabItemActive]}
-              onPress={() => setActiveTab('employees')}
-            >
-              <Text style={styles.tabIcon}>👥</Text>
-              <Text style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>
-                Teams
-              </Text>
-            </TouchableOpacity>
+            {!isITSupport && (
+              <TouchableOpacity
+                style={[styles.tabItem, activeTab === 'employees' && styles.tabItemActive]}
+                onPress={() => setActiveTab('employees')}
+              >
+                <Text style={styles.tabIcon}>👥</Text>
+                <Text style={[styles.tabLabel, activeTab === 'employees' && styles.tabLabelActive]}>
+                  Teams
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={[styles.tabItem, activeTab === 'tickets' && styles.tabItemActive]}
@@ -1591,15 +1598,17 @@ export default function AdminDashboard({ user, onLogout, onSwitchToEmployee, onS
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.tabItem, activeTab === 'history' && styles.tabItemActive]}
-              onPress={() => setActiveTab('history')}
-            >
-              <Text style={styles.tabIcon}>📜</Text>
-              <Text style={[styles.tabLabel, activeTab === 'history' && styles.tabLabelActive]}>
-                Logs
-              </Text>
-            </TouchableOpacity>
+            {!isITSupport && (
+              <TouchableOpacity
+                style={[styles.tabItem, activeTab === 'history' && styles.tabItemActive]}
+                onPress={() => setActiveTab('history')}
+              >
+                <Text style={styles.tabIcon}>📜</Text>
+                <Text style={[styles.tabLabel, activeTab === 'history' && styles.tabLabelActive]}>
+                  Logs
+                </Text>
+              </TouchableOpacity>
+            )}
           </>
         )}
       </View>
