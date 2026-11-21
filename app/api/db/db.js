@@ -151,6 +151,14 @@ async function initializeDatabase(db) {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS app_system_flags (
+      flag_key VARCHAR(64) PRIMARY KEY,
+      flag_value VARCHAR(255) NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
   // Biometric Attendance Terminal (ESP32 + R307)
   await db.execute(`
     CREATE TABLE IF NOT EXISTS biometric_devices (

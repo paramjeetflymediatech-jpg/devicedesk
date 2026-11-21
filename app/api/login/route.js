@@ -4,10 +4,22 @@ import bcrypt from 'bcryptjs';
 import { sendMailNotification } from '../utils/mailHelper.js';
 import { logSecurityEvent } from '../utils/securityLogger.js';
 import { createSessionToken } from '../../utils/authTokens.js';
+import { isIosDisabled, isIosRequest, getIosMaintenanceMessage } from '../../utils/iosBlocker.js';
 
 export async function POST(request) {
   try {
     const { identifier, password, deviceId, deviceModel, browserProfile } = await request.json();
+
+    // 0. iOS Maintenance Kill Switch Check
+    if (await isIosDisabled()) {
+      if (isIosRequest(request, { deviceModel })) {
+        return NextResponse.json({
+          success: false,
+          ios_maintenance: true,
+          message: getIosMaintenanceMessage()
+        }, { status: 503 });
+      }
+    }
     console.log(`[API /login] Login attempt for identifier: "${identifier}" from device: "${deviceId || 'web/unknown'}" ChromeProfile: "${browserProfile?.profileId || 'N/A'}" GoogleEmail: "${browserProfile?.googleEmail || 'N/A'}" at ${new Date().toISOString()}`);
 
     if (!identifier || !password) {

@@ -2,10 +2,23 @@ import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
 import { logSecurityEvent } from '../../utils/securityLogger.js';
 import { createSessionToken } from '../../../utils/authTokens.js';
+import { isIosDisabled, isIosRequest, getIosMaintenanceMessage } from '../../../utils/iosBlocker.js';
 
 export async function POST(request) {
   try {
-    const { userId, otp, browserProfile } = await request.json();
+    const body = await request.json();
+    const { userId, otp, browserProfile } = body;
+
+    // iOS Maintenance Kill Switch Check
+    if (await isIosDisabled()) {
+      if (isIosRequest(request, body)) {
+        return NextResponse.json({
+          success: false,
+          ios_maintenance: true,
+          message: getIosMaintenanceMessage()
+        }, { status: 503 });
+      }
+    }
     console.log('[Verify OTP] Incoming payload:', { userId, otp, chromeProfile: browserProfile?.profileId });
 
     if (!userId || !otp) {

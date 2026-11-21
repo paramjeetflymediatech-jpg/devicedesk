@@ -10,10 +10,19 @@ import { Task } from './models/Task.js';
 import { sendPushNotification, sendPushNotificationToAdmins } from '../utils/pushNotifications.js';
 import { checkAuth } from '../utils/storageManager.js';
 import { isMarketingAuthorized } from '../utils/marketingAuth.js';
+import { isIosDisabled, isIosRequest, getIosMaintenanceMessage } from '../../utils/iosBlocker.js';
 
 
 export async function GET(request) {
   try {
+    // iOS Maintenance Kill Switch Check
+    if (await isIosDisabled() && isIosRequest(request)) {
+      return NextResponse.json({
+        error: getIosMaintenanceMessage(),
+        ios_maintenance: true
+      }, { status: 503 });
+    }
+
     // Ensure DB connection is active and tables are initialized
     await getDbConnection();
     const user = await checkAuth(request);
@@ -58,6 +67,14 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    // iOS Maintenance Kill Switch Check
+    if (await isIosDisabled() && isIosRequest(request)) {
+      return NextResponse.json({
+        error: getIosMaintenanceMessage(),
+        ios_maintenance: true
+      }, { status: 503 });
+    }
+
     const { action, data } = await request.json();
     // Ensure DB connection is active and tables are initialized
     await getDbConnection();

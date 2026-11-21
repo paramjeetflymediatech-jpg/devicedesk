@@ -1,10 +1,23 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '../../db/db.js';
 import { sendMailNotification } from '../../utils/mailHelper.js';
+import { isIosDisabled, isIosRequest, getIosMaintenanceMessage } from '../../../utils/iosBlocker.js';
 
 export async function POST(request) {
   try {
-    const { userId, email } = await request.json();
+    const body = await request.json();
+    const { userId, email } = body;
+
+    // iOS Maintenance Kill Switch Check
+    if (await isIosDisabled()) {
+      if (isIosRequest(request, body)) {
+        return NextResponse.json({
+          success: false,
+          ios_maintenance: true,
+          message: getIosMaintenanceMessage()
+        }, { status: 503 });
+      }
+    }
 
     if (!userId || !email) {
       return NextResponse.json({ success: false, message: 'User ID and Email are required.' }, { status: 400 });
