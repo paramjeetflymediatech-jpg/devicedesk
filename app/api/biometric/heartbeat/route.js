@@ -76,6 +76,9 @@ export async function POST(request) {
     status: 'ONLINE',
     server_time: new Date().toISOString(),
     device_id: device.device_id,
+    command: pendingCmd?.command || '',
+    command_id: pendingCmd?.command_id || 0,
+    fingerprint_slot: pendingCmd?.fingerprint_slot || 0,
     pending_command: pendingCmd
   });
 }

@@ -39,6 +39,8 @@ export function getPool() {
       user:     getDbEnv('DB_USER', 'root'),
       password: getDbEnv('DB_PASS', getDbEnv('DB_PASSWORD', 'Root@123')),
       database: getDbEnv('DB_NAME', 'system_tracking'),
+      timezone: '+05:30',
+      dateStrings: true,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0

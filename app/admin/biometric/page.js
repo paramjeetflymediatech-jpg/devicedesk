@@ -195,8 +195,11 @@ export default function AdminBiometricTerminalPage() {
   }, [mappings]);
 
   const handleOpenEnrollModal = () => {
-    setSlotInput(String(nextAvailableSlot));
-    setSelectedEmpId(employees[0]?.id ? String(employees[0].id) : '');
+    const firstEmp = employees[0];
+    const existingMapping = firstEmp ? mappings.find(m => String(m.employee_id) === String(firstEmp.id)) : null;
+    const initialSlot = existingMapping?.fingerprint_slot || firstEmp?.biometric_id || nextAvailableSlot;
+    setSlotInput(String(initialSlot));
+    setSelectedEmpId(firstEmp?.id ? String(firstEmp.id) : '');
     setTriggerEnrollRemote(true);
     setShowEnrollModal(true);
   };
@@ -1176,8 +1179,13 @@ export default function AdminBiometricTerminalPage() {
               {currentlyInside.map((s) => (
                 <div key={s.id} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-3 shadow-sm">
                   <div>
-                    <div className="font-bold text-sm text-slate-900 dark:text-white">{s.employee_name}</div>
-                    <div className="text-xs text-slate-400">{s.department || 'Staff'}</div>
+                    <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>{s.employee_name}</span>
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded text-[11px]">
+                        Slot #{s.fingerprint_slot || s.biometric_id || '-'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">{s.department || 'Staff'}</div>
                     <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
                       <FiClock size={12} />
                       <span>Entered at {formatIstTime(s.in_time)}</span>
@@ -1317,7 +1325,11 @@ export default function AdminBiometricTerminalPage() {
 
                       <td className="py-3 px-4">
                         <div className="font-bold text-slate-900 dark:text-white text-sm">{m.employee_name}</div>
-                        <div className="text-[11px] text-slate-400">{m.email}</div>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                          <span>{m.email}</span>
+                          <span>•</span>
+                          <span className="font-mono text-[10px]">ID: {m.employee_id}</span>
+                        </div>
                       </td>
 
                       <td className="py-3 px-4">
@@ -1576,15 +1588,30 @@ export default function AdminBiometricTerminalPage() {
                 <select
                   required
                   value={selectedEmpId}
-                  onChange={(e) => setSelectedEmpId(e.target.value)}
+                  onChange={(e) => {
+                    const empId = e.target.value;
+                    setSelectedEmpId(empId);
+                    const emp = employees.find(x => String(x.id) === String(empId));
+                    const existingMapping = mappings.find(m => String(m.employee_id) === String(empId));
+                    const assignedSlot = existingMapping?.fingerprint_slot || emp?.biometric_id;
+                    if (assignedSlot) {
+                      setSlotInput(String(assignedSlot));
+                    } else {
+                      setSlotInput(String(nextAvailableSlot));
+                    }
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
                 >
                   <option value="">-- Choose employee --</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.department || 'Staff'})
-                    </option>
-                  ))}
+                  {employees.map((emp) => {
+                    const existingMapping = mappings.find(m => String(m.employee_id) === String(emp.id));
+                    const slot = existingMapping?.fingerprint_slot || emp.biometric_id;
+                    return (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name} ({emp.department || 'Staff'}) {slot ? `— [Slot #${slot}]` : '— [Not Enrolled]'}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

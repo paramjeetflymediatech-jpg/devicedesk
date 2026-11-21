@@ -56,7 +56,7 @@ export async function GET(request) {
 
     // 2. Enrolled Fingerprint Mappings
     const [mappings] = await pool.execute(`
-      SELECT fm.*, e.name as employee_name, e.email, e.role, e.department, e.status as employee_status
+      SELECT fm.*, e.name as employee_name, e.email, e.role, e.department, e.status as employee_status, e.biometric_id
       FROM fingerprint_mappings fm
       JOIN employees e ON CONVERT(fm.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
       ORDER BY fm.fingerprint_slot ASC
@@ -91,7 +91,8 @@ export async function GET(request) {
     let currently_inside = [];
     try {
       const [insideRows] = await pool.execute(`
-        SELECT s.*, e.name as employee_name, e.department
+        SELECT s.*, e.name as employee_name, e.department, e.biometric_id,
+               COALESCE(s.fingerprint_slot, e.biometric_id) as fingerprint_slot
         FROM biometric_door_sessions s
         JOIN employees e ON CONVERT(s.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
         WHERE s.status = 'INSIDE' AND s.out_time IS NULL
@@ -101,7 +102,8 @@ export async function GET(request) {
     } catch (e) {
       // Fallback to biometric_lab_attendance if door sessions table is empty/missing
       const [labRows] = await pool.execute(`
-        SELECT b.*, e.name as employee_name, e.department
+        SELECT b.*, e.name as employee_name, e.department, e.biometric_id,
+               COALESCE(b.fingerprint_slot, e.biometric_id) as fingerprint_slot
         FROM biometric_lab_attendance b
         JOIN employees e ON CONVERT(b.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
         WHERE b.status = 'IN_LAB' AND b.out_time IS NULL
@@ -214,7 +216,8 @@ export async function GET(request) {
           e.id as employee_id,
           e.name as employee_name,
           e.department,
-          COALESCE(fm.fingerprint_slot, r.fingerprint_slot) as fingerprint_slot,
+          e.biometric_id,
+          COALESCE(r.fingerprint_slot, e.biometric_id, fm.fingerprint_slot) as fingerprint_slot,
           COUNT(CASE WHEN r.punch_type = 'PUNCH_IN' THEN 1 END) as total_punch_in,
           COUNT(CASE WHEN r.punch_type = 'PUNCH_OUT' THEN 1 END) as total_punch_out,
           SUM(COALESCE(r.duration_minutes, 0)) as total_inside_minutes,
@@ -238,7 +241,7 @@ export async function GET(request) {
         JOIN employees e ON CONVERT(r.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
         LEFT JOIN fingerprint_mappings fm ON CONVERT(fm.employee_id USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(e.id USING utf8mb4) COLLATE utf8mb4_general_ci
         WHERE 1=1 ${rWhere}
-        GROUP BY r.attendance_date, e.id, e.name, e.department, COALESCE(fm.fingerprint_slot, r.fingerprint_slot)
+        GROUP BY r.attendance_date, e.id, e.name, e.department, e.biometric_id, COALESCE(r.fingerprint_slot, e.biometric_id, fm.fingerprint_slot)
         ORDER BY r.attendance_date DESC, last_punch_time DESC
         LIMIT 500
       `, [todayStr, ...dateParams]);

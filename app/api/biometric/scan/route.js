@@ -86,7 +86,33 @@ export async function POST(request) {
     nowMs
   } = getIstTimeInfo();
 
-  if (!mappings || mappings.length === 0) {
+  let mapping = mappings?.[0] || null;
+
+  // Fallback: If not found in fingerprint_mappings, check employees.biometric_id directly!
+  if (!mapping) {
+    const [empBioRows] = await pool.execute(`
+      SELECT e.id as emp_id, e.name as emp_name, e.email as emp_email, 
+             e.role as emp_role, e.department as emp_dept, e.status as emp_status,
+             e.biometric_id
+      FROM employees e
+      WHERE e.biometric_id = ? OR e.id = ?
+      LIMIT 1
+    `, [String(slot), String(slot)]);
+
+    if (empBioRows && empBioRows.length > 0) {
+      mapping = empBioRows[0];
+      // Auto-heal / synchronize fingerprint_mappings so future lookups are immediate
+      try {
+        await pool.execute(`
+          INSERT INTO fingerprint_mappings (employee_id, device_id, fingerprint_slot, is_active)
+          VALUES (?, ?, ?, 1)
+          ON DUPLICATE KEY UPDATE employee_id = VALUES(employee_id), is_active = 1
+        `, [mapping.emp_id, device.device_id, slot]);
+      } catch (e) {}
+    }
+  }
+
+  if (!mapping) {
     await pool.execute(`
       INSERT INTO biometric_scan_logs (event_id, device_id, fingerprint_slot, employee_id, action, message, created_at)
       VALUES (?, ?, ?, NULL, 'REJECTED_UNKNOWN', ?, ?)
@@ -106,8 +132,6 @@ export async function POST(request) {
       { status: 404 }
     );
   }
-
-  const mapping = mappings[0];
   const employeeId = mapping.emp_id;
   const employeeName = mapping.emp_name;
   const shortName = firstNameOf(employeeName);
@@ -268,7 +292,7 @@ export async function POST(request) {
       VALUES (?, ?, ?, ?, 'PUNCH_IN', ?, ?)
     `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} entered room (Punch In #${punchInNumber}) via ${deviceInfo}`, mysqlIstDateTime]);
 
-    const l1 = `Hi ${shortName}`;
+    const l1 = `${shortName} (Slot #${slot})`;
     const l2 = `IN #${punchInNumber} ${timeFormatted}`;
     tele.display_line1 = l1;
     tele.display_line2 = l2;
@@ -277,14 +301,21 @@ export async function POST(request) {
     return NextResponse.json({
       status: 'PUNCH_IN',
       action: 'PUNCH_IN',
-      employee: { id: employeeId, name: employeeName, department: mapping.emp_dept },
+      employee: {
+        id: employeeId,
+        name: employeeName,
+        department: mapping.emp_dept,
+        slot: slot,
+        fingerprint_slot: slot,
+        enrollment_id: slot
+      },
       punch_time: timeIso,
       formatted_time: timeFormatted,
       punch_in_number: punchInNumber,
       fingerprint_slot: slot,
       attendance_id: attRecordId,
       session_id: sessionId,
-      message: `${employeeName} entered room (Punch In #${punchInNumber})!`,
+      message: `${employeeName} (Slot #${slot}) entered room (Punch In #${punchInNumber})!`,
       display_line1: l1,
       display_line2: l2
     });
@@ -388,7 +419,7 @@ export async function POST(request) {
       VALUES (?, ?, ?, ?, 'PUNCH_OUT', ?, ?)
     `, [safeEventId, device.device_id, slot, employeeId, `${employeeName} exited room (Punch Out #${punchOutNumber}) after ${sessionLabel} (Total today: ${totalLabel}) via ${deviceInfo}`, mysqlIstDateTime]);
 
-    const l1 = `Bye ${shortName}`;
+    const l1 = `${shortName} (Slot #${slot})`;
     const l2 = `OUT #${punchOutNumber} (${sessionLabel})`;
     tele.display_line1 = l1;
     tele.display_line2 = l2;
@@ -397,7 +428,14 @@ export async function POST(request) {
     return NextResponse.json({
       status: 'PUNCH_OUT',
       action: 'PUNCH_OUT',
-      employee: { id: employeeId, name: employeeName, department: mapping.emp_dept },
+      employee: {
+        id: employeeId,
+        name: employeeName,
+        department: mapping.emp_dept,
+        slot: slot,
+        fingerprint_slot: slot,
+        enrollment_id: slot
+      },
       punch_time: timeIso,
       formatted_time: timeFormatted,
       punch_out_number: punchOutNumber,
@@ -410,7 +448,7 @@ export async function POST(request) {
       fingerprint_slot: slot,
       attendance_id: targetRecord?.id || null,
       session_id: activeDoor?.session_id || null,
-      message: `${employeeName} exited room (Punch Out #${punchOutNumber}) after ${sessionLabel}! Total inside today: ${totalLabel}.`,
+      message: `${employeeName} (Slot #${slot}) exited room (Punch Out #${punchOutNumber}) after ${sessionLabel}! Total inside today: ${totalLabel}.`,
       display_line1: l1,
       display_line2: l2
     });

@@ -59,7 +59,19 @@ export async function POST(request) {
       [device_id, slot, String(employee_id)]
     );
 
-    // Insert or update mapping
+    // 1. Remove any previous slot mapping for this same employee on this device to avoid duplicate slot assignments
+    await pool.execute(
+      'DELETE FROM fingerprint_mappings WHERE device_id = ? AND employee_id = ? AND fingerprint_slot != ?',
+      [device_id, String(employee_id), slot]
+    );
+
+    // 2. Clear biometric_id from any other employee who previously had this slot
+    await pool.execute(
+      'UPDATE employees SET biometric_id = NULL WHERE biometric_id = ? AND id != ?',
+      [String(slot), String(employee_id)]
+    );
+
+    // 3. Insert or update mapping
     await pool.execute(`
       INSERT INTO fingerprint_mappings (employee_id, device_id, fingerprint_slot, is_active)
       VALUES (?, ?, ?, 1)
@@ -69,7 +81,7 @@ export async function POST(request) {
         enrolled_at = NOW()
     `, [String(employee_id), device_id, slot]);
 
-    // Also update biometric_id in employees
+    // 4. Also update biometric_id in employees
     await pool.execute('UPDATE employees SET biometric_id = ? WHERE id = ?', [String(slot), String(employee_id)]);
 
     let queuedCommandId = null;
